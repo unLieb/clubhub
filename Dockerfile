@@ -1,3 +1,13 @@
+# Separate, kleine Stufe nur um den aktuellen Git-Commit-Hash zu ermitteln -
+# das eigentliche .git-Verzeichnis landet dadurch nie im finalen Image.
+FROM python:3.12-slim AS gitinfo
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY .git ./.git
+RUN git rev-parse --short HEAD > /build_hash.txt 2>/dev/null || echo "unknown" > /build_hash.txt
+
+
 FROM python:3.12-slim
 
 WORKDIR /code
@@ -14,6 +24,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+COPY VERSION ./VERSION
+COPY --from=gitinfo /build_hash.txt ./BUILD_HASH
 
 # CSS aus app/static/input.css bauen, Templates werden automatisch gescannt
 RUN tailwindcss -i ./app/static/input.css -o ./app/static/style.css --minify

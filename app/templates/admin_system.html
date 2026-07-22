@@ -7,6 +7,14 @@
 
 <div class="max-w-2xl">
   <section class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Version</h2>
+    <ul class="text-sm space-y-1.5">
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Version</span><span class="text-slate-300">v{{ app_version }}</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Build</span><span class="text-slate-300 font-mono">{{ app_build_hash }}</span></li>
+    </ul>
+  </section>
+
+  <section class="rounded-xl border border-line bg-panel p-4 mt-4">
     <h2 class="font-display font-medium mb-3">Zeitsynchronisation</h2>
     <ul class="text-sm space-y-1.5">
       <li class="flex justify-between gap-4"><span class="text-slate-500">Zeitzone</span><span class="text-slate-300">{{ app_timezone }}</span></li>

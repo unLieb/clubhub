@@ -68,6 +68,15 @@ zugeordnet. Ein Kanal kann so auch für mehrere Gruppen wiederverwendet werden.
   `SIGNAL_SENDER_NUMBER` ist die dort registrierte Absendernummer. Ohne
   diese beiden Variablen werden Signal-Kanäle beim Versand einfach übersprungen.
 
+## Versionierung
+
+Die Version steht in der Datei `VERSION` (Format [SemVer](https://semver.org/lang/de/),
+z.B. `0.1.0`) und wird beim `docker build` zusammen mit dem aktuellen Git-Kurz-Hash
+(`git rev-parse --short HEAD`) fest ins Image gebacken – sichtbar in der Sidebar
+und unter **Verwaltung → System**. Bei jeder spürbaren Änderung `VERSION` von Hand
+hochzählen und committen (Patch für Bugfixes, Minor für neue Features, Major für
+Breaking Changes wie z.B. eine nicht automatisch migrierbare Datenbankänderung).
+
 ## Aufbau
 
 ```

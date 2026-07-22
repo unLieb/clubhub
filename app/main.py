@@ -16,6 +16,7 @@ from .database import Base, engine, get_db, DB_PATH
 from . import models
 from . import ntptime
 from . import backup
+from . import version
 from .auth import hash_pin, verify_pin, get_current_user, require_login, require_admin, require_admin_or_shift_lead
 from .status import task_status
 from .scheduler import start_scheduler
@@ -38,6 +39,10 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "t
 # Live-Uhr (base.html) braucht auf jeder Seite die NTP-korrigierte Server-Zeit,
 # ohne dass jede Route sie einzeln in den Kontext geben muss.
 templates.env.globals["server_epoch_ms"] = lambda: int(ntptime.now_utc().timestamp() * 1000)
+# App-Version + Git-Kurz-Hash (aus VERSION/BUILD_HASH, beim Docker-Build erzeugt)
+# auf jeder Seite verfügbar (Sidebar-Fußzeile + Verwaltung/System im Detail).
+templates.env.globals["app_version"] = version.VERSION
+templates.env.globals["app_build_hash"] = version.BUILD_HASH
 
 scheduler = None
 
