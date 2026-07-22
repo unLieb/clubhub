@@ -1033,6 +1033,7 @@ def admin_add_inventory_item(
     location: str = Form(""),
     reorder_url: str = Form(""),
     group_id: str = Form(""),
+    next: str = Form("/admin/inventory"),
     db: Session = Depends(get_db),
 ):
     require_admin_or_shift_lead(request, db)
@@ -1047,7 +1048,7 @@ def admin_add_inventory_item(
         group_id=int(group_id) if group_id else None,
     ))
     db.commit()
-    return RedirectResponse("/admin/inventory", status_code=302)
+    return RedirectResponse(next if next.startswith("/") else "/admin/inventory", status_code=302)
 
 
 @app.post("/admin/inventory/{item_id}/edit")
