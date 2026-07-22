@@ -190,6 +190,9 @@ class Report(Base):
     photos = relationship(
         "ReportPhoto", back_populates="report", cascade="all, delete-orphan", order_by="ReportPhoto.id"
     )
+    comments = relationship(
+        "ReportComment", back_populates="report", cascade="all, delete-orphan", order_by="ReportComment.created_at"
+    )
 
 
 class ReportPhoto(Base):
@@ -200,3 +203,16 @@ class ReportPhoto(Base):
     filename = Column(String, nullable=False)           # relativ zu uploads/reports/
 
     report = relationship("Report", back_populates="photos")
+
+
+class ReportComment(Base):
+    __tablename__ = "report_comments"
+
+    id = Column(Integer, primary_key=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    report = relationship("Report", back_populates="comments")
+    user = relationship("User")

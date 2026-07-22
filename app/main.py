@@ -479,16 +479,48 @@ def _sort_reports(reports):
     return sorted(by_recency, key=lambda r: REPORT_PRIORITY_RANK.get(r.priority, 2))
 
 
+def _aware(ts):
+    """SQLite gibt Zeitstempel manchmal ohne tzinfo zurück, obwohl sie in UTC
+    gespeichert wurden - hier konsistent nachrüsten, bevor mit ihnen gerechnet wird."""
+    if ts is not None and ts.tzinfo is None:
+        return ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def compute_report_meta(r, now) -> dict:
+    """Relative Zeitangaben ('vor X') sowie den Zeitpunkt der letzten Änderung
+    (neuestes von Erstellung/Erledigung/letztem Kommentar) für die Meldungs-
+    Übersicht und den Verlauf-Tab."""
+    created_at = _aware(r.created_at)
+    resolved_at = _aware(r.resolved_at)
+
+    last_modified = created_at
+    if resolved_at and resolved_at > last_modified:
+        last_modified = resolved_at
+    if r.comments:
+        latest_comment = _aware(r.comments[-1].created_at)
+        if latest_comment > last_modified:
+            last_modified = latest_comment
+    return {
+        "created_rel": format_duration_de(now - created_at),
+        "resolved_rel": format_duration_de(now - resolved_at) if resolved_at else None,
+        "last_modified": last_modified,
+    }
+
+
 @app.get("/reports")
 def reports_list(request: Request, db: Session = Depends(get_db)):
     reports = db.query(models.Report).all()
+    now = ntptime.now_utc()
     open_reports = _sort_reports([r for r in reports if r.status != "done"])
     done_reports = _sort_reports([r for r in reports if r.status == "done"])
+    report_meta = {r.id: compute_report_meta(r, now) for r in reports}
     return templates.TemplateResponse("reports.html", {
         "request": request,
         "user": get_current_user(request, db),
         "open_reports": open_reports,
         "done_reports": done_reports,
+        "report_meta": report_meta,
         "rooms": db.query(models.Room).all(),
     })
 
@@ -553,6 +585,40 @@ def reports_resolve(report_id: int, request: Request, db: Session = Depends(get_
         report.status = "done"
         report.resolved_at = ntptime.now_utc()
         report.resolved_by_id = user.id
+        db.commit()
+    return RedirectResponse("/reports", status_code=302)
+
+
+@app.post("/reports/{report_id}/comment")
+def reports_add_comment(report_id: int, request: Request, text: str = Form(...), db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    if report and text.strip():
+        db.add(models.ReportComment(report_id=report.id, user_id=user.id, text=text.strip()))
+        db.commit()
+    return RedirectResponse("/reports", status_code=302)
+
+
+@app.post("/reports/{report_id}/photos")
+async def reports_add_photos(
+    report_id: int,
+    request: Request,
+    photos: list[UploadFile] = File([]),
+    db: Session = Depends(get_db),
+):
+    require_login(request, db)
+    report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    if report:
+        for photo in photos:
+            if not photo or not photo.filename:
+                continue
+            data = await photo.read()
+            if data and (photo.content_type or "").startswith("image/"):
+                ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
+                filename = f"{uuid.uuid4().hex}{ext}"
+                with open(os.path.join(REPORT_PHOTOS_DIR, filename), "wb") as f:
+                    f.write(data)
+                db.add(models.ReportPhoto(report_id=report.id, filename=filename))
         db.commit()
     return RedirectResponse("/reports", status_code=302)
 
