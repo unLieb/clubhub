@@ -162,16 +162,21 @@ class InventoryMovement(Base):
 
 class Report(Base):
     """Meldung: Mitarbeiter melden Defekte/Fehlendes zu einem Bereich,
-    optional mit Foto. Kann von jedem eingeloggten Nutzer als erledigt
-    markiert werden (wie das Abhaken einer Aufgabe)."""
+    optional mit mehreren Fotos. Kann von jedem eingeloggten Nutzer als
+    erledigt markiert werden (wie das Abhaken einer Aufgabe)."""
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True)
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     comment = Column(String, nullable=False)
-    photo_filename = Column(String, nullable=True)     # relativ zu uploads/reports/
-    status = Column(String, default="open")            # "open" | "done"
+    # Veraltet (einzelnes Foto) - bleibt für Altdaten stehen, siehe ReportPhoto.
+    # create_all() legt nur fehlende Tabellen an und ändert bestehende nicht,
+    # daher wird diese Spalte nie entfernt, nur nicht mehr neu befüllt.
+    photo_filename = Column(String, nullable=True)
+    priority = Column(String, default="normal")         # "critical" | "high" | "normal" | "low"
+    category = Column(String, default="sonstiges")      # "defekt" | "material" | "reinigung" | "sonstiges"
+    status = Column(String, default="open")             # "open" | "done"
     created_at = Column(DateTime(timezone=True), default=utcnow)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -179,3 +184,16 @@ class Report(Base):
     room = relationship("Room")
     user = relationship("User", foreign_keys=[user_id])
     resolved_by = relationship("User", foreign_keys=[resolved_by_id])
+    photos = relationship(
+        "ReportPhoto", back_populates="report", cascade="all, delete-orphan", order_by="ReportPhoto.id"
+    )
+
+
+class ReportPhoto(Base):
+    __tablename__ = "report_photos"
+
+    id = Column(Integer, primary_key=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
+    filename = Column(String, nullable=False)           # relativ zu uploads/reports/
+
+    report = relationship("Report", back_populates="photos")

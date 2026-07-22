@@ -82,6 +82,24 @@ def _migrate_user_shift_lead(db: Session):
     _ensure_column(db, "users", "is_shift_lead", "INTEGER DEFAULT 0")
 
 
+def _migrate_report_priority_category(db: Session):
+    """Neue Priorität/Kategorie-Spalten für Meldungen (kein Altdaten-Bezug)."""
+    _ensure_column(db, "reports", "priority", "TEXT DEFAULT 'normal'")
+    _ensure_column(db, "reports", "category", "TEXT DEFAULT 'sonstiges'")
+
+
+def _migrate_report_photos(db: Session):
+    """Überführt das alte einzelne photo_filename je Meldung (vor der Umstellung
+    auf mehrere Fotos pro Meldung) in je eine ReportPhoto-Zeile. Greift nur für
+    Meldungen, die noch keine ReportPhoto-Zeilen haben."""
+    reports = db.query(models.Report).filter(models.Report.photo_filename.isnot(None)).all()
+    for report in reports:
+        if db.query(models.ReportPhoto).filter(models.ReportPhoto.report_id == report.id).count() > 0:
+            continue
+        db.add(models.ReportPhoto(report_id=report.id, filename=report.photo_filename))
+    db.commit()
+
+
 def _migrate_legacy_group_channels(db: Session):
     """Überführt ntfy_topic/gotify_token aus alten Gruppen-Zeilen (vor der
     Trennung in eigene Benachrichtigungskanäle) in NotificationChannel-Objekte.
@@ -122,6 +140,8 @@ def _startup():
         _migrate_group_work_hours(db)
         _migrate_legacy_group_channels(db)
         _migrate_user_shift_lead(db)
+        _migrate_report_priority_category(db)
+        _migrate_report_photos(db)
     finally:
         db.close()
 
@@ -338,17 +358,28 @@ def inventory_adjust(
 
 # ---------- Meldungen ----------
 
+REPORT_PRIORITIES = ("critical", "high", "normal", "low")
+REPORT_PRIORITY_RANK = {p: i for i, p in enumerate(REPORT_PRIORITIES)}
+REPORT_CATEGORIES = ("defekt", "material", "reinigung", "sonstiges")
+
+
+def _sort_reports(reports):
+    """Neueste zuerst, aber innerhalb dessen nach Priorität (kritisch zuerst) -
+    zweistufig stabil sortiert, damit beides gleichzeitig gilt."""
+    by_recency = sorted(reports, key=lambda r: r.created_at, reverse=True)
+    return sorted(by_recency, key=lambda r: REPORT_PRIORITY_RANK.get(r.priority, 2))
+
+
 @app.get("/reports")
 def reports_list(request: Request, db: Session = Depends(get_db)):
-    reports = (
-        db.query(models.Report)
-        .order_by(models.Report.status.asc(), models.Report.created_at.desc())
-        .all()
-    )
+    reports = db.query(models.Report).all()
+    open_reports = _sort_reports([r for r in reports if r.status != "done"])
+    done_reports = _sort_reports([r for r in reports if r.status == "done"])
     return templates.TemplateResponse("reports.html", {
         "request": request,
         "user": get_current_user(request, db),
-        "reports": reports,
+        "open_reports": open_reports,
+        "done_reports": done_reports,
         "rooms": db.query(models.Room).all(),
     })
 
@@ -359,21 +390,32 @@ async def reports_create(
     background_tasks: BackgroundTasks,
     room_id: int = Form(...),
     comment: str = Form(...),
-    photo: UploadFile | None = File(None),
+    priority: str = Form("normal"),
+    category: str = Form("sonstiges"),
+    photos: list[UploadFile] = File([]),
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
 
-    photo_filename = None
-    if photo is not None and photo.filename:
+    if priority not in REPORT_PRIORITIES:
+        priority = "normal"
+    if category not in REPORT_CATEGORIES:
+        category = "sonstiges"
+
+    report = models.Report(room_id=room_id, user_id=user.id, comment=comment, priority=priority, category=category)
+    db.add(report)
+    db.commit()
+
+    for photo in photos:
+        if not photo or not photo.filename:
+            continue
         data = await photo.read()
         if data and (photo.content_type or "").startswith("image/"):
             ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
-            photo_filename = f"{uuid.uuid4().hex}{ext}"
-            with open(os.path.join(REPORT_PHOTOS_DIR, photo_filename), "wb") as f:
+            filename = f"{uuid.uuid4().hex}{ext}"
+            with open(os.path.join(REPORT_PHOTOS_DIR, filename), "wb") as f:
                 f.write(data)
-
-    db.add(models.Report(room_id=room_id, user_id=user.id, comment=comment, photo_filename=photo_filename))
+            db.add(models.ReportPhoto(report_id=report.id, filename=filename))
     db.commit()
 
     # Gruppen inkl. Kanäle hier bereits vollständig laden (nicht erst lazy in

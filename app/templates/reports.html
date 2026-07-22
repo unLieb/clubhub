@@ -2,25 +2,84 @@
 {% block title %}Meldungen – Reinigungsplan{% endblock %}
 {% block content %}
 
+{% macro priority_border(p) -%}
+  {%- if p == 'critical' -%}border-l-late
+  {%- elif p == 'high' -%}border-l-orange
+  {%- elif p == 'low' -%}border-l-accent
+  {%- else -%}border-l-warn
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro priority_badge(p) %}
+{% if p == 'critical' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium"><span class="w-1.5 h-1.5 rounded-full bg-late"></span>Kritisch</span>
+{% elif p == 'high' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange/15 text-orange font-medium"><span class="w-1.5 h-1.5 rounded-full bg-orange"></span>Hoch</span>
+{% elif p == 'low' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent font-medium"><span class="w-1.5 h-1.5 rounded-full bg-accent"></span>Niedrig</span>
+{% else %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-warn/15 text-warn font-medium"><span class="w-1.5 h-1.5 rounded-full bg-warn"></span>Normal</span>
+{% endif %}
+{% endmacro %}
+
+{% macro category_badge(c) %}
+{% if c == 'defekt' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Defekt</span>
+{% elif c == 'material' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>Material fehlt</span>
+{% elif c == 'reinigung' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69s-7 7.44-7 11.31a7 7 0 0 0 14 0c0-3.87-7-11.31-7-11.31z"/></svg>Reinigung</span>
+{% else %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>Sonstiges</span>
+{% endif %}
+{% endmacro %}
+
 <div class="mb-6">
   <h1 class="font-display text-2xl font-semibold">Meldungen</h1>
   <p class="text-slate-400 text-sm mt-1">Defekte, fehlende Dinge oder sonstige Hinweise zu einem Bereich.</p>
 </div>
 
 {% if user %}
-<div class="rounded-xl border border-line bg-panel p-4 mb-6">
-  <h2 class="font-display font-medium mb-3">Neue Meldung</h2>
-  <form method="post" action="/reports" enctype="multipart/form-data" class="space-y-2">
-    <div class="flex flex-col sm:flex-row gap-2">
-      <select name="room_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
-      </select>
-      <input type="file" name="photo" accept="image/*" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
-    </div>
-    <textarea name="comment" required rows="2" placeholder="Was ist los? Z.B. „Seifenspender leer&quot; oder „Fliese in der Ecke kaputt&quot;…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
-    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Melden</button>
-  </form>
-</div>
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Neue Meldung
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form method="post" action="/reports" enctype="multipart/form-data" class="space-y-2 mt-3">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Bereich</label>
+          <select name="room_id" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Kategorie</label>
+          <select name="category" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="defekt">Defekt</option>
+            <option value="material">Material fehlt</option>
+            <option value="reinigung">Reinigung</option>
+            <option value="sonstiges" selected>Sonstiges</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Priorität</label>
+          <select name="priority" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="critical">Kritisch</option>
+            <option value="high">Hoch</option>
+            <option value="normal" selected>Normal</option>
+            <option value="low">Niedrig</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Beschreibung</label>
+        <textarea name="comment" required rows="2" placeholder="Was ist los? Z.B. „Seifenspender leer“ oder „Fliese in der Ecke kaputt“…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Bilder (optional, mehrere möglich)</label>
+        <input type="file" name="photos" accept="image/*" multiple class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+      </div>
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Meldung erstellen</button>
+    </form>
+  </div>
+</details>
 {% else %}
 <div class="rounded-lg border border-line bg-panel p-3 mb-6 text-sm text-slate-300 flex items-center justify-between">
   <span>Zum Melden anmelden.</span>
@@ -28,31 +87,31 @@
 </div>
 {% endif %}
 
-<div class="space-y-3">
-  {% for r in reports %}
-  <div class="rounded-xl border border-line bg-panel p-4 {% if r.status == 'open' %}border-l-4 border-l-warn{% endif %}">
+<div class="flex items-center gap-2 mb-3">
+  <h2 class="font-display font-medium">Offene Meldungen</h2>
+  {% if open_reports %}<span class="text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium">{{ open_reports|length }}</span>{% endif %}
+</div>
+<div class="space-y-3 mb-8">
+  {% for r in open_reports %}
+  <div class="rounded-xl border border-line {{ priority_border(r.priority) }} border-l-4 bg-panel p-4">
     <div class="flex items-start justify-between gap-4 flex-wrap">
-      <div class="flex gap-3 min-w-0">
-        {% if r.photo_filename %}
-        <a href="/uploads/reports/{{ r.photo_filename }}" target="_blank" class="shrink-0">
-          <img src="/uploads/reports/{{ r.photo_filename }}" alt="" class="w-16 h-16 rounded-lg object-cover border border-line">
-        </a>
+      <div class="flex gap-3 min-w-0 flex-1">
+        {% if r.photos %}
+        <div class="flex gap-1.5 shrink-0">
+          {% for p in r.photos[:3] %}
+          <a href="/uploads/reports/{{ p.filename }}" target="_blank">
+            <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-16 h-16 rounded-lg object-cover border border-line">
+          </a>
+          {% endfor %}
+        </div>
         {% endif %}
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-medium">{{ r.room.name }}</span>
-            <span class="text-xs px-2 py-0.5 rounded-full {% if r.status == 'open' %}bg-warn/15 text-warn{% else %}bg-go/15 text-go{% endif %}">
-              {{ "offen" if r.status == "open" else "erledigt" }}
-            </span>
-          </div>
-          <p class="text-sm text-slate-300 mt-1">{{ r.comment }}</p>
-          <p class="text-xs text-slate-500 mt-1">
-            {{ r.user.name }} &middot; {{ r.created_at.strftime("%d.%m.%Y, %H:%M") }} Uhr
-            {% if r.status == "done" and r.resolved_by %} &middot; erledigt von {{ r.resolved_by.name }}{% endif %}
-          </p>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap mb-1">{{ priority_badge(r.priority) }}{{ category_badge(r.category) }}</div>
+          <p class="font-medium">{{ r.comment }}</p>
+          <p class="text-xs text-slate-500 mt-1">{{ r.room.name }} &middot; gemeldet von {{ r.user.name }} &middot; {{ r.created_at.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
         </div>
       </div>
-      {% if user and r.status == "open" %}
+      {% if user %}
       <form method="post" action="/reports/{{ r.id }}/resolve" class="shrink-0">
         <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Erledigt</button>
       </form>
@@ -61,7 +120,44 @@
   </div>
   {% else %}
   <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
-    Noch keine Meldungen.
+    Keine offenen Meldungen 🎉
+  </div>
+  {% endfor %}
+</div>
+
+<div class="flex items-center gap-2 mb-3">
+  <h2 class="font-display font-medium">Erledigte Meldungen</h2>
+  {% if done_reports %}<span class="text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium">{{ done_reports|length }}</span>{% endif %}
+</div>
+<div class="space-y-3">
+  {% for r in done_reports %}
+  <div class="rounded-xl border border-line {{ priority_border(r.priority) }} border-l-4 bg-panel p-4 opacity-75">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="flex gap-3 min-w-0 flex-1">
+        {% if r.photos %}
+        <div class="flex gap-1.5 shrink-0">
+          {% for p in r.photos[:3] %}
+          <a href="/uploads/reports/{{ p.filename }}" target="_blank">
+            <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-16 h-16 rounded-lg object-cover border border-line">
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap mb-1">{{ priority_badge(r.priority) }}{{ category_badge(r.category) }}</div>
+          <p class="font-medium">{{ r.comment }}</p>
+          <p class="text-xs text-slate-500 mt-1">
+            {{ r.room.name }} &middot; gemeldet von {{ r.user.name }} &middot; {{ r.created_at.strftime("%d.%m.%Y, %H:%M") }} Uhr
+            {% if r.resolved_by %} &middot; erledigt von {{ r.resolved_by.name }}{% endif %}
+          </p>
+        </div>
+      </div>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium shrink-0">Erledigt</span>
+    </div>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine erledigten Meldungen.
   </div>
   {% endfor %}
 </div>
