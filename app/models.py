@@ -139,6 +139,7 @@ class InventoryItem(Base):
     category = Column(String, nullable=True)          # frei vergeben, z.B. "Reinigungsmittel"
     location = Column(String, nullable=True)          # Lagerort, frei vergeben, z.B. "Lager A"
     reorder_url = Column(String, nullable=True)        # Produktseite zum Nachbestellen (nur Link, kein Checkout)
+    image_url = Column(String, nullable=True)          # entweder /uploads/inventory/... oder externe URL
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     notified = Column(Boolean, default=False)          # schon über aktuelle Unterschreitung informiert?
 

@@ -119,9 +119,39 @@
 
     <!-- Kopfzeile: immer sichtbar -->
     <div class="flex items-center gap-4 flex-wrap">
-      <div class="w-14 h-14 rounded-lg bg-panel2 flex items-center justify-center shrink-0 text-slate-500">
+      {% if user and (user.is_admin or user.is_shift_lead) %}
+      <details class="relative shrink-0">
+        <summary class="list-none cursor-pointer w-14 h-14 rounded-lg bg-panel2 overflow-hidden flex items-center justify-center text-slate-500 hover:text-slate-300">
+          {% if item.image_url %}
+          <img src="{{ item.image_url }}" alt="" class="w-full h-full object-cover">
+          {% else %}
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+          {% endif %}
+        </summary>
+        <div class="absolute z-20 top-full left-0 mt-2 w-64 rounded-lg border border-line bg-panel shadow-lg p-3 space-y-2">
+          <form method="post" action="/inventory/{{ item.id }}/image" enctype="multipart/form-data" class="space-y-2">
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Bild hochladen</label>
+              <input type="file" name="image_file" accept="image/*" class="w-full text-xs text-slate-300">
+            </div>
+            <div class="text-center text-[10px] text-slate-500">oder</div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Bild-URL</label>
+              <input type="url" name="image_url_input" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2 py-1 text-xs">
+            </div>
+            <button class="w-full px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium">Speichern</button>
+          </form>
+        </div>
+      </details>
+      {% else %}
+      <div class="w-14 h-14 rounded-lg bg-panel2 overflow-hidden flex items-center justify-center shrink-0 text-slate-500">
+        {% if item.image_url %}
+        <img src="{{ item.image_url }}" alt="" class="w-full h-full object-cover">
+        {% else %}
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+        {% endif %}
       </div>
+      {% endif %}
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-medium">{{ item.name }}</span>

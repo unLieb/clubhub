@@ -33,6 +33,8 @@ app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__
 UPLOADS_DIR = os.path.join(os.path.dirname(DB_PATH), "uploads")
 REPORT_PHOTOS_DIR = os.path.join(UPLOADS_DIR, "reports")
 os.makedirs(REPORT_PHOTOS_DIR, exist_ok=True)
+INVENTORY_IMAGES_DIR = os.path.join(UPLOADS_DIR, "inventory")
+os.makedirs(INVENTORY_IMAGES_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -94,6 +96,7 @@ def _migrate_inventory_extras(db: Session):
     _ensure_column(db, "inventory_items", "category", "TEXT")
     _ensure_column(db, "inventory_items", "location", "TEXT")
     _ensure_column(db, "inventory_items", "reorder_url", "TEXT")
+    _ensure_column(db, "inventory_items", "image_url", "TEXT")
 
 
 def _migrate_report_photos(db: Session):
@@ -477,6 +480,31 @@ def inventory_adjust(
         db.add(models.InventoryMovement(item_id=item.id, user_id=user.id, delta=delta, note=note or None))
         if item.stock_current >= item.stock_min:
             item.notified = False
+        db.commit()
+    return RedirectResponse("/inventory", status_code=302)
+
+
+@app.post("/inventory/{item_id}/image")
+async def inventory_set_image(
+    item_id: int,
+    request: Request,
+    image_file: UploadFile | None = File(None),
+    image_url_input: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_admin_or_shift_lead(request, db)
+    item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
+    if item:
+        if image_file is not None and image_file.filename:
+            data = await image_file.read()
+            if data and (image_file.content_type or "").startswith("image/"):
+                ext = os.path.splitext(image_file.filename)[1][:10] or ".jpg"
+                filename = f"{uuid.uuid4().hex}{ext}"
+                with open(os.path.join(INVENTORY_IMAGES_DIR, filename), "wb") as f:
+                    f.write(data)
+                item.image_url = f"/uploads/inventory/{filename}"
+        elif image_url_input.strip().startswith(("http://", "https://")):
+            item.image_url = image_url_input.strip()
         db.commit()
     return RedirectResponse("/inventory", status_code=302)
 
