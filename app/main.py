@@ -397,18 +397,49 @@ def compute_inventory_consumption(item, now, months: int = 6) -> list[dict]:
     return [{"label": f"{mo:02d}/{str(y)[2:]}", "value": sums.get((y, mo), 0.0)} for (y, mo) in keys]
 
 
+def build_consumption_chart(series: list[dict], width: int = 300, height: int = 90, pad: float = 6.0) -> dict:
+    """Baut ein einfaches Linien-/Flächendiagramm (nur Geradensegmente, keine
+    Bezier-Glättung) aus der monatlichen Verbrauchsreihe - als fertige SVG-Pfad-
+    Strings, damit das Template nur noch plattes Markup rendern muss."""
+    values = [b["value"] for b in series]
+    max_val = max(values) if max(values) > 0 else 1.0
+    n = len(series)
+    step = (width - 2 * pad) / (n - 1) if n > 1 else 0
+
+    points = []
+    for i, v in enumerate(values):
+        x = pad + i * step
+        y = height - pad - (v / max_val) * (height - 2 * pad)
+        points.append((round(x, 1), round(y, 1)))
+
+    line_path = "M" + " L".join(f"{x},{y}" for x, y in points)
+    baseline = height - pad
+    area_path = f"{line_path} L{points[-1][0]},{baseline} L{points[0][0]},{baseline} Z"
+
+    return {
+        "width": width,
+        "height": height,
+        "line_path": line_path,
+        "area_path": area_path,
+        "points": points,
+        "max_val": round(max_val, 1) if max(values) > 0 else 0,
+    }
+
+
 @app.get("/inventory")
 def inventory_overview(request: Request, db: Session = Depends(get_db)):
     items = db.query(models.InventoryItem).order_by(models.InventoryItem.name).all()
     now = ntptime.now_utc()
     inventory_status = {item.id: compute_inventory_status(item) for item in items}
     inventory_consumption = {item.id: compute_inventory_consumption(item, now) for item in items}
+    inventory_chart = {item.id: build_consumption_chart(inventory_consumption[item.id]) for item in items}
     return templates.TemplateResponse("inventory.html", {
         "request": request,
         "user": get_current_user(request, db),
         "items": items,
         "inventory_status": inventory_status,
         "inventory_consumption": inventory_consumption,
+        "inventory_chart": inventory_chart,
         "groups": db.query(models.Group).all(),
         "categories": distinct_inventory_values(db, "category"),
         "locations": distinct_inventory_values(db, "location"),
