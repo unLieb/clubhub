@@ -7,7 +7,7 @@ from datetime import datetime
 from .database import DB_PATH, engine
 from . import ntptime
 
-# Kern-Tabellen, die in jeder halbwegs aktuellen Reinigungsplan-Datenbank
+# Kern-Tabellen, die in jeder halbwegs aktuellen ClubHUB-Datenbank
 # existieren müssen. Bewusst knapp gehalten (nicht z.B. inventory_items oder
 # notification_channels), damit auch ältere Backups aus Vorgänger-Versionen
 # akzeptiert werden - fehlende neuere Tabellen legt Base.metadata.create_all()
@@ -36,11 +36,11 @@ def create_backup_bytes() -> bytes:
 
 
 def backup_filename() -> str:
-    return f"reinigungsplan-backup-{ntptime.now_utc().strftime('%Y%m%d-%H%M%S')}.db"
+    return f"clubhub-backup-{ntptime.now_utc().strftime('%Y%m%d-%H%M%S')}.db"
 
 
 def _validate_backup_file(path: str) -> str | None:
-    """Prüft, ob die Datei eine plausible Reinigungsplan-Datenbank ist.
+    """Prüft, ob die Datei eine plausible ClubHUB-Datenbank ist.
     None bei Erfolg, sonst eine für Nutzer verständliche Fehlermeldung."""
     try:
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
@@ -52,7 +52,7 @@ def _validate_backup_file(path: str) -> str | None:
         return f"Keine gültige SQLite-Datenbank: {exc}"
     missing = REQUIRED_TABLES - tables
     if missing:
-        return f"Das sieht nicht nach einer Reinigungsplan-Datenbank aus (fehlende Tabellen: {', '.join(sorted(missing))})."
+        return f"Das sieht nicht nach einer ClubHUB-Datenbank aus (fehlende Tabellen: {', '.join(sorted(missing))})."
     return None
 
 

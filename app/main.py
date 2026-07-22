@@ -19,12 +19,12 @@ from . import backup
 from . import version
 from .auth import hash_pin, verify_pin, get_current_user, require_login, require_admin, require_admin_or_shift_lead
 from .status import task_status
-from .scheduler import start_scheduler
+from .scheduler import start_scheduler, APP_TIMEZONE
 from .notifications import notify_group
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Reinigungsplan")
+app = FastAPI(title="ClubHUB")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "change-me-in-production"))
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 
@@ -212,6 +212,19 @@ def format_duration_de(delta) -> str:
     return f"{days} Tag{'e' if days != 1 else ''}"
 
 
+def greeting_for_now(now) -> str:
+    """Tageszeit-abhängige Begrüßung, nach lokaler Stunde (APP_TIMEZONE) -
+    'Gute Nacht' statt 'Guten Nacht', da im Deutschen grammatikalisch anders."""
+    hour = now.astimezone(APP_TIMEZONE).hour
+    if 5 <= hour < 11:
+        return "Guten Morgen"
+    if 11 <= hour < 18:
+        return "Guten Tag"
+    if 18 <= hour < 22:
+        return "Guten Abend"
+    return "Gute Nacht"
+
+
 def compute_room_statuses(rooms, now):
     """Berechnet Ampel-Status pro Bereich sowie global überfällige/bald fällige
     Aufgaben. Von Dashboard und Bereiche-Übersicht gemeinsam genutzt."""
@@ -296,7 +309,10 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "overdue_tasks": overdue_tasks[:6],
         "report_stats": {"open": len(open_reports), "done_today": done_today_reports},
         "recent_reports": open_reports[:5],
+        "greeting": greeting_for_now(now),
+        "pending_tasks_count": due_soon_count + overdue_count,
         "now": now,
+        "now_local": now.astimezone(APP_TIMEZONE),
     })
 
 
@@ -816,7 +832,7 @@ async def admin_restore_backup(
     return HTMLResponse("""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta http-equiv="refresh" content="6;url=/admin/system">
-<title>Wiederherstellung – Reinigungsplan</title></head>
+<title>Wiederherstellung – ClubHUB</title></head>
 <body style="font-family:ui-sans-serif,system-ui,sans-serif;background:#12161f;color:#e2e8f0;
              display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
 <div style="text-align:center;max-width:24rem;padding:1.5rem;">

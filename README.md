@@ -1,4 +1,4 @@
-# Reinigungsplan
+# ClubHUB
 
 Selbstgehostete App zur Verwaltung von Reinigungsplänen mit NFC-Abhaken,
 Gruppen-Benachrichtigungen (ntfy/Gotify) und Ampel-Dashboard.
