@@ -5,6 +5,13 @@
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">Inventar</h1>
 
+<datalist id="inv-categories">
+  {% for c in categories %}<option value="{{ c }}">{% endfor %}
+</datalist>
+<datalist id="inv-locations">
+  {% for l in locations %}<option value="{{ l }}">{% endfor %}
+</datalist>
+
 <div class="max-w-2xl rounded-xl border border-line bg-panel p-4">
   <ul class="space-y-1 text-sm mb-4">
     {% for i in inventory_items %}
@@ -13,7 +20,7 @@
         <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
           <span>{{ i.name }}</span>
           <span class="flex items-center gap-2 shrink-0">
-            <span class="text-slate-500 text-xs">{{ i.stock_current|round(1) }}/{{ i.stock_min|round(1) }}{% if i.unit %} {{ i.unit }}{% endif %}{% if i.group %} &middot; {{ i.group.name }}{% endif %}</span>
+            <span class="text-slate-500 text-xs">{{ i.stock_current|round(1) }}/{{ i.stock_min|round(1) }}{% if i.unit %} {{ i.unit }}{% endif %}{% if i.category %} &middot; {{ i.category }}{% endif %}{% if i.location %} &middot; {{ i.location }}{% endif %}{% if i.group %} &middot; {{ i.group.name }}{% endif %}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </span>
         </summary>
@@ -28,6 +35,10 @@
             </select>
           </div>
           <div class="flex flex-col sm:flex-row gap-2">
+            <input name="category" list="inv-categories" value="{{ i.category or '' }}" placeholder="Kategorie, z.B. Reinigungsmittel" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <input name="location" list="inv-locations" value="{{ i.location or '' }}" placeholder="Lagerort, z.B. Lager A" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
             <input name="unit" value="{{ i.unit or '' }}" placeholder="Einheit, z.B. Liter" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             <div class="flex-1">
               <label class="block text-[11px] text-slate-400 mb-1">Ist-Bestand</label>
@@ -37,6 +48,10 @@
               <label class="block text-[11px] text-slate-400 mb-1">Soll / Mindestbestand</label>
               <input name="stock_min" type="number" step="0.5" value="{{ i.stock_min }}" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             </div>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Bestell-URL (optional, für „Nachbestellen“)</label>
+            <input name="reorder_url" type="url" value="{{ i.reorder_url or '' }}" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           </div>
           <div class="flex gap-2">
             <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
@@ -60,6 +75,10 @@
       </select>
     </div>
     <div class="flex flex-col sm:flex-row gap-2">
+      <input name="category" list="inv-categories" placeholder="Kategorie, z.B. Reinigungsmittel" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <input name="location" list="inv-locations" placeholder="Lagerort, z.B. Lager A" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    </div>
+    <div class="flex flex-col sm:flex-row gap-2">
       <input name="unit" placeholder="Einheit, z.B. Liter" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <div class="flex-1">
         <label class="block text-[11px] text-slate-400 mb-1">Ist-Bestand</label>
@@ -69,6 +88,10 @@
         <label class="block text-[11px] text-slate-400 mb-1">Soll / Mindestbestand</label>
         <input name="stock_min" type="number" step="0.5" value="0" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       </div>
+    </div>
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Bestell-URL (optional, für „Nachbestellen“)</label>
+      <input name="reorder_url" type="url" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
     </div>
     <p class="text-[11px] text-slate-500">Fällt der Ist- unter den Mindestbestand, wird die zugeordnete Gruppe benachrichtigt (respektiert deren Arbeitszeit).</p>
     <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Artikel anlegen</button>

@@ -88,6 +88,14 @@ def _migrate_report_priority_category(db: Session):
     _ensure_column(db, "reports", "category", "TEXT DEFAULT 'sonstiges'")
 
 
+def _migrate_inventory_extras(db: Session):
+    """Neue, frei vergebbare Kategorie/Lagerort- sowie Nachbestell-URL-Spalte
+    pro Inventarartikel (kein Altdaten-Bezug)."""
+    _ensure_column(db, "inventory_items", "category", "TEXT")
+    _ensure_column(db, "inventory_items", "location", "TEXT")
+    _ensure_column(db, "inventory_items", "reorder_url", "TEXT")
+
+
 def _migrate_report_photos(db: Session):
     """Überführt das alte einzelne photo_filename je Meldung (vor der Umstellung
     auf mehrere Fotos pro Meldung) in je eine ReportPhoto-Zeile. Greift nur für
@@ -142,6 +150,7 @@ def _startup():
         _migrate_user_shift_lead(db)
         _migrate_report_priority_category(db)
         _migrate_report_photos(db)
+        _migrate_inventory_extras(db)
     finally:
         db.close()
 
@@ -336,13 +345,73 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
 
 # ---------- Inventar ----------
 
+def distinct_inventory_values(db: Session, column: str) -> list[str]:
+    col = getattr(models.InventoryItem, column)
+    return sorted({v for (v,) in db.query(col).distinct().all() if v})
+
+
+def compute_inventory_status(item) -> dict:
+    """Ampel-Status ('ok' | 'low' | 'empty') + Füllstand in Prozent (relativ
+    zum Mindestbestand, ab dem Mindestbestand gilt die Anzeige als voll) für
+    die farbige Bestandsanzeige."""
+    if item.stock_current <= 0:
+        status = "empty"
+    elif item.stock_min and item.stock_current < item.stock_min:
+        status = "low"
+    else:
+        status = "ok"
+
+    if status == "empty":
+        fill_pct = 0
+    elif status == "ok" or not item.stock_min:
+        fill_pct = 100
+    else:
+        fill_pct = max(0, min(100, round(item.stock_current / item.stock_min * 100)))
+
+    return {"status": status, "fill_pct": fill_pct}
+
+
+def compute_inventory_consumption(item, now, months: int = 6) -> list[dict]:
+    """Verbrauch (Summe negativer Buchungen, als positive Zahl) je Kalendermonat
+    der letzten `months` Monate - Basis für Sparkline/Verlaufs-Chart, damit sich
+    gute/schlechte Monate auf einen Blick erkennen lassen."""
+    sums = {}
+    for m in item.movements:
+        if m.delta >= 0:
+            continue
+        ts = m.timestamp
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        key = (ts.year, ts.month)
+        sums[key] = sums.get(key, 0.0) + (-m.delta)
+
+    keys = []
+    year, month = now.year, now.month
+    for _ in range(months):
+        keys.append((year, month))
+        month -= 1
+        if month == 0:
+            month, year = 12, year - 1
+    keys.reverse()
+
+    return [{"label": f"{mo:02d}/{str(y)[2:]}", "value": sums.get((y, mo), 0.0)} for (y, mo) in keys]
+
+
 @app.get("/inventory")
 def inventory_overview(request: Request, db: Session = Depends(get_db)):
     items = db.query(models.InventoryItem).order_by(models.InventoryItem.name).all()
+    now = ntptime.now_utc()
+    inventory_status = {item.id: compute_inventory_status(item) for item in items}
+    inventory_consumption = {item.id: compute_inventory_consumption(item, now) for item in items}
     return templates.TemplateResponse("inventory.html", {
         "request": request,
         "user": get_current_user(request, db),
         "items": items,
+        "inventory_status": inventory_status,
+        "inventory_consumption": inventory_consumption,
+        "groups": db.query(models.Group).all(),
+        "categories": distinct_inventory_values(db, "category"),
+        "locations": distinct_inventory_values(db, "location"),
     })
 
 
@@ -577,6 +646,8 @@ def admin_inventory_page(request: Request, db: Session = Depends(get_db)):
         "user": admin,
         "inventory_items": db.query(models.InventoryItem).all(),
         "groups": db.query(models.Group).all(),
+        "categories": distinct_inventory_values(db, "category"),
+        "locations": distinct_inventory_values(db, "location"),
     })
 
 
@@ -927,6 +998,9 @@ def admin_add_inventory_item(
     unit: str = Form(""),
     stock_current: float = Form(0.0),
     stock_min: float = Form(0.0),
+    category: str = Form(""),
+    location: str = Form(""),
+    reorder_url: str = Form(""),
     group_id: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -936,6 +1010,9 @@ def admin_add_inventory_item(
         unit=unit or None,
         stock_current=stock_current,
         stock_min=stock_min,
+        category=category or None,
+        location=location or None,
+        reorder_url=reorder_url or None,
         group_id=int(group_id) if group_id else None,
     ))
     db.commit()
@@ -950,7 +1027,11 @@ def admin_edit_inventory_item(
     unit: str = Form(""),
     stock_current: float = Form(0.0),
     stock_min: float = Form(0.0),
+    category: str = Form(""),
+    location: str = Form(""),
+    reorder_url: str = Form(""),
     group_id: str = Form(""),
+    next: str = Form("/admin/inventory"),
     db: Session = Depends(get_db),
 ):
     require_admin_or_shift_lead(request, db)
@@ -960,11 +1041,14 @@ def admin_edit_inventory_item(
         item.unit = unit or None
         item.stock_current = stock_current
         item.stock_min = stock_min
+        item.category = category or None
+        item.location = location or None
+        item.reorder_url = reorder_url or None
         item.group_id = int(group_id) if group_id else None
         if item.stock_current >= item.stock_min:
             item.notified = False
         db.commit()
-    return RedirectResponse("/admin/inventory", status_code=302)
+    return RedirectResponse(next if next.startswith("/") else "/admin/inventory", status_code=302)
 
 
 @app.post("/admin/inventory/{item_id}/delete")

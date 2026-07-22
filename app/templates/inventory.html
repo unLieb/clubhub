@@ -2,6 +2,34 @@
 {% block title %}Inventar – Reinigungsplan{% endblock %}
 {% block content %}
 
+{% macro status_label(s) -%}
+  {%- if s == 'empty' -%}Bestand leer
+  {%- elif s == 'low' -%}Niedriger Bestand
+  {%- else -%}Im Soll
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro status_classes(s) -%}
+  {%- if s == 'empty' -%}bg-late/15 text-late
+  {%- elif s == 'low' -%}bg-orange/15 text-orange
+  {%- else -%}bg-go/15 text-go
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro bar_classes(s) -%}
+  {%- if s == 'empty' -%}bg-late
+  {%- elif s == 'low' -%}bg-orange
+  {%- else -%}bg-go
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro border_classes(s) -%}
+  {%- if s == 'empty' -%}border-l-late
+  {%- elif s == 'low' -%}border-l-orange
+  {%- else -%}border-l-go
+  {%- endif -%}
+{%- endmacro %}
+
 <div class="mb-6">
   <h1 class="font-display text-2xl font-semibold">Inventar</h1>
   <p class="text-slate-400 text-sm mt-1">Bestand an Reinigungsmitteln &middot; Ist/Soll</p>
@@ -16,28 +44,49 @@
 
 <div class="space-y-3">
   {% for item in items %}
-  {% set low = item.stock_current < item.stock_min %}
-  <div class="rounded-xl border border-line border-l-4 bg-panel p-4 {% if low %}border-l-late{% else %}border-l-go{% endif %}">
-    <div class="flex items-center justify-between gap-4 flex-wrap">
-      <div class="min-w-0">
-        <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full status-dot shrink-0 {% if low %}bg-late{% else %}bg-go{% endif %}"></span>
-          <span class="font-medium">{{ item.name }}</span>
+  {% set st = inventory_status[item.id] %}
+  <div class="rounded-xl border border-line border-l-4 {{ border_classes(st.status) }} bg-panel p-4">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" onclick="openInventoryDrawer({{ item.id }})" class="font-medium hover:text-go text-left cursor-pointer">{{ item.name }}</button>
+          <span class="text-xs px-2 py-0.5 rounded-full {{ status_classes(st.status) }} font-medium">{{ status_label(st.status) }}</span>
         </div>
-        <p class="text-xs text-slate-400 mt-1">
-          {{ item.stock_current|round(1) }}{% if item.unit %} {{ item.unit }}{% endif %}
-          von {{ item.stock_min|round(1) }}{% if item.unit %} {{ item.unit }}{% endif %} Soll
-          {% if item.group %} &middot; {{ item.group.name }}{% endif %}
-        </p>
+        {% if item.category or item.location %}
+        <p class="text-xs text-slate-500 mt-0.5">{{ item.category }}{% if item.category and item.location %} &middot; {% endif %}{{ item.location }}</p>
+        {% endif %}
+        <div class="mt-2 max-w-xs">
+          <div class="h-1.5 rounded-full bg-panel2 overflow-hidden">
+            <div class="h-full rounded-full {{ bar_classes(st.status) }}" style="width: {{ st.fill_pct }}%"></div>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            {{ item.stock_current|round(1) }}/{{ item.stock_min|round(1) }}{% if item.unit %} {{ item.unit }}{% endif %}
+          </p>
+        </div>
       </div>
-      {% if user %}
-      <form method="post" action="/inventory/{{ item.id }}/adjust" class="flex items-center gap-2">
-        <input name="delta" type="number" step="0.5" placeholder="±Menge" required class="w-24 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <input name="note" placeholder="Notiz (optional)" class="w-36 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Buchen</button>
-      </form>
-      {% endif %}
+      <div class="shrink-0 flex flex-col items-end gap-2">
+        <div class="flex items-end gap-0.5 h-6" title="Verbrauch, letzte 6 Monate">
+          {% for b in inventory_consumption[item.id] %}
+          <div class="w-1.5 h-6 flex items-end">
+            <div class="w-full bg-accent/60 rounded-sm" style="height: {{ b.pct }}%; min-height: 2px;"></div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="openInventoryDrawer({{ item.id }})" class="px-3 py-1.5 rounded-md border border-line text-sm hover:bg-panel2 whitespace-nowrap">Details</button>
+          {% if item.reorder_url and st.status != 'ok' %}
+          <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium whitespace-nowrap">Nachbestellen</a>
+          {% endif %}
+        </div>
+      </div>
     </div>
+    {% if user %}
+    <form method="post" action="/inventory/{{ item.id }}/adjust" class="flex items-center gap-2 mt-3 pt-3 border-t border-line flex-wrap">
+      <input name="delta" type="number" step="0.5" placeholder="±Menge" required class="w-24 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <input name="note" placeholder="Notiz (optional)" class="w-36 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Buchen</button>
+    </form>
+    {% endif %}
   </div>
   {% else %}
   <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
@@ -46,5 +95,147 @@
   </div>
   {% endfor %}
 </div>
+
+<!-- Artikel-Drawer -->
+<div id="inventory-backdrop" class="hidden fixed inset-0 bg-black/50 z-40" onclick="closeInventoryDrawers()"></div>
+
+{% for item in items %}
+{% set st = inventory_status[item.id] %}
+<div id="inventory-drawer-{{ item.id }}" class="inventory-drawer hidden fixed inset-y-0 right-0 z-50 w-full sm:w-[26rem] bg-panel border-l border-line overflow-y-auto">
+  <div class="p-4 border-b border-line flex items-start justify-between gap-3 sticky top-0 bg-panel">
+    <div class="min-w-0">
+      <div class="font-display font-semibold">{{ item.name }}</div>
+      {% if item.category %}<div class="text-xs text-slate-500 mt-0.5">{{ item.category }}</div>{% endif %}
+    </div>
+    <button type="button" onclick="closeInventoryDrawers()" class="text-slate-500 hover:text-slate-100 shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="p-4 space-y-5">
+    <div>
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs px-2 py-0.5 rounded-full {{ status_classes(st.status) }} font-medium">{{ status_label(st.status) }}</span>
+        <span class="text-sm text-slate-300">{{ item.stock_current|round(1) }}{% if item.unit %} {{ item.unit }}{% endif %} / {{ item.stock_min|round(1) }}{% if item.unit %} {{ item.unit }}{% endif %}</span>
+      </div>
+      <div class="h-2 rounded-full bg-panel2 overflow-hidden">
+        <div class="h-full rounded-full {{ bar_classes(st.status) }}" style="width: {{ st.fill_pct }}%"></div>
+      </div>
+    </div>
+
+    <ul class="text-sm space-y-1.5">
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Mindestbestand</span><span class="text-slate-300">{{ item.stock_min|round(1) }}{% if item.unit %} {{ item.unit }}{% endif %}</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Lagerort</span><span class="text-slate-300">{{ item.location or "–" }}</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Kategorie</span><span class="text-slate-300">{{ item.category or "–" }}</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Einheit</span><span class="text-slate-300">{{ item.unit or "–" }}</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Gruppe</span><span class="text-slate-300">{{ item.group.name if item.group else "–" }}</span></li>
+      {% if item.movements %}
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ item.movements[0].timestamp.strftime("%d.%m.%Y, %H:%M") }}{% if item.movements[0].user %} &middot; {{ item.movements[0].user.name }}{% endif %}</span></li>
+      {% endif %}
+    </ul>
+
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-sm font-medium">Verbrauch (letzte 6 Monate)</h3>
+      </div>
+      <div class="flex items-end gap-2 h-24">
+        {% for b in inventory_consumption[item.id] %}
+        <div class="flex-1 flex flex-col items-center gap-1">
+          <div class="w-full h-24 flex items-end">
+            <div class="w-full bg-accent/70 rounded-t" style="height: {{ b.pct }}%; min-height: {{ '2px' if b.value > 0 else '0' }};"></div>
+          </div>
+          <span class="text-[10px] text-slate-500">{{ b.label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div>
+      <h3 class="text-sm font-medium mb-2">Historie</h3>
+      <ul class="divide-y divide-line">
+        {% for m in item.movements[:10] %}
+        <li class="flex items-center justify-between py-2 text-sm gap-2">
+          <div class="min-w-0">
+            <div class="truncate">{{ m.note or ("Buchung" if m.delta >= 0 else "Entnahme") }}</div>
+            <div class="text-xs text-slate-500">{{ m.timestamp.strftime("%d.%m.%Y, %H:%M") }}{% if m.user %} &middot; {{ m.user.name }}{% endif %}</div>
+          </div>
+          <span class="shrink-0 font-medium {{ 'text-go' if m.delta >= 0 else 'text-late' }}">{{ "%+.1f"|format(m.delta) }}</span>
+        </li>
+        {% else %}
+        <li class="py-3 text-center text-slate-500 text-sm italic">Noch keine Buchungen</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    {% if user and (user.is_admin or user.is_shift_lead) %}
+    <div class="pt-4 border-t border-line">
+      <h3 class="text-sm font-medium mb-2">Bearbeiten</h3>
+      <form method="post" action="/admin/inventory/{{ item.id }}/edit" class="space-y-2">
+        <input type="hidden" name="next" value="/inventory">
+        <input name="name" value="{{ item.name }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input name="category" list="inv-categories" value="{{ item.category or '' }}" placeholder="Kategorie" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <input name="location" list="inv-locations" value="{{ item.location or '' }}" placeholder="Lagerort" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input name="unit" value="{{ item.unit or '' }}" placeholder="Einheit" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <select name="group_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="">– keine Gruppe –</option>
+            {% for g in groups %}
+            <option value="{{ g.id }}" {% if item.group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <label class="block text-[11px] text-slate-400 mb-1">Ist-Bestand</label>
+            <input name="stock_current" type="number" step="0.5" value="{{ item.stock_current }}" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          </div>
+          <div class="flex-1">
+            <label class="block text-[11px] text-slate-400 mb-1">Mindestbestand</label>
+            <input name="stock_min" type="number" step="0.5" value="{{ item.stock_min }}" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Bestell-URL</label>
+          <input name="reorder_url" type="url" value="{{ item.reorder_url or '' }}" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div class="flex gap-2">
+          <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+          {% if item.reorder_url %}
+          <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Nachbestellen</a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+    {% elif item.reorder_url %}
+    <div class="pt-4 border-t border-line">
+      <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="block text-center px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Nachbestellen</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+<datalist id="inv-categories">
+  {% for c in categories %}<option value="{{ c }}">{% endfor %}
+</datalist>
+<datalist id="inv-locations">
+  {% for l in locations %}<option value="{{ l }}">{% endfor %}
+</datalist>
+
+<script>
+  function openInventoryDrawer(id) {
+    var backdrop = document.getElementById('inventory-backdrop');
+    var drawer = document.getElementById('inventory-drawer-' + id);
+    if (!drawer) return;
+    backdrop.classList.remove('hidden');
+    drawer.classList.remove('hidden');
+  }
+  function closeInventoryDrawers() {
+    document.getElementById('inventory-backdrop').classList.add('hidden');
+    document.querySelectorAll('.inventory-drawer').forEach(function (d) { d.classList.add('hidden'); });
+  }
+</script>
 
 {% endblock %}

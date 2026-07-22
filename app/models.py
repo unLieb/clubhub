@@ -136,6 +136,9 @@ class InventoryItem(Base):
     unit = Column(String, nullable=True)              # z.B. "Stück", "Liter", "Packung"
     stock_current = Column(Float, default=0.0)         # Ist
     stock_min = Column(Float, default=0.0)             # Soll / Mindestbestand
+    category = Column(String, nullable=True)          # frei vergeben, z.B. "Reinigungsmittel"
+    location = Column(String, nullable=True)          # Lagerort, frei vergeben, z.B. "Lager A"
+    reorder_url = Column(String, nullable=True)        # Produktseite zum Nachbestellen (nur Link, kein Checkout)
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     notified = Column(Boolean, default=False)          # schon über aktuelle Unterschreitung informiert?
 
