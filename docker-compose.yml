@@ -1,0 +1,38 @@
+services:
+  reinigungsplan:
+    build: .
+    container_name: reinigungsplan
+    restart: unless-stopped
+    ports:
+      - "8055:8000"
+    volumes:
+      - reinigungsplan_data:/data
+    environment:
+      # Zufälligen, langen String einsetzen (z.B. `openssl rand -hex 32`)
+      SECRET_KEY: "bitte-aendern-langer-zufalls-string"
+
+      # Pfad der SQLite-Datenbank innerhalb des Containers (liegt im Volume)
+      DB_PATH: "/data/putzplan.db"
+
+      # Erster Admin-Account, wird beim allerersten Start automatisch angelegt
+      INITIAL_ADMIN_NAME: "Admin"
+      INITIAL_ADMIN_PIN: "0000"
+
+      # Zeitzone für die Arbeitszeit-Prüfung der Gruppen (Standard: Europe/Berlin)
+      # APP_TIMEZONE: "Europe/Berlin"
+
+      # ntfy: Basis-URL deines ntfy-Servers (z.B. https://ntfy.sh oder eigene Instanz)
+      NTFY_BASE_URL: "https://ntfy.sh"
+
+      # Gotify: Basis-URL deiner Gotify-Instanz (App-Token wird pro Kanal in der Verwaltung hinterlegt)
+      GOTIFY_BASE_URL: "https://gotify.example.com"
+
+      # Signal (optional): braucht einen eigenen signal-cli-rest-api-Sidecar
+      # (z.B. Image bbernhard/signal-cli-rest-api) mit eigener, registrierter
+      # Absendernummer. SIGNAL_BASE_URL zeigt auf diesen Dienst, SIGNAL_SENDER_NUMBER
+      # ist die dort registrierte Nummer. Siehe README für Details.
+      # SIGNAL_BASE_URL: "http://signal-cli-rest-api:8080"
+      # SIGNAL_SENDER_NUMBER: "+49123456789"
+
+volumes:
+  reinigungsplan_data:

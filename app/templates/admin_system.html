@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}System – Verwaltung{% endblock %}
+{% block content %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-6">System</h1>
+
+<div class="max-w-2xl">
+  <section class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Zeitsynchronisation</h2>
+    <ul class="text-sm space-y-1.5">
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Zeitzone</span><span class="text-slate-300">{{ app_timezone }}</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">NTP-Server</span><span class="text-slate-300">{{ ntp_status.server }}</span></li>
+      <li class="flex justify-between gap-4">
+        <span class="text-slate-500">Status</span>
+        {% if ntp_status.last_sync %}
+        <span class="text-go">synchronisiert</span>
+        {% else %}
+        <span class="text-late">nicht synchronisiert{% if ntp_status.last_error %} ({{ ntp_status.last_error }}){% endif %}</span>
+        {% endif %}
+      </li>
+      {% if ntp_status.last_sync %}
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Letzter Sync</span><span class="text-slate-300">{{ ntp_status.last_sync.strftime("%d.%m.%Y, %H:%M:%S") }} UTC</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Korrektur zur Systemuhr</span><span class="text-slate-300">{{ "%+.3f"|format(ntp_status.offset_seconds) }} s</span></li>
+      {% endif %}
+    </ul>
+    <form method="post" action="/admin/system/resync-ntp" class="mt-3">
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Jetzt synchronisieren</button>
+    </form>
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
+      Alle Fälligkeits-Berechnungen und Benachrichtigungen nutzen diese NTP-korrigierte Zeit statt der rohen
+      Systemuhr des Containers, damit eine falsch gehende Docker-Host-Uhr keine falschen Status auslöst.
+      Automatischer Sync alle 30 Minuten; ohne Internetzugriff (z.B. abgeschottetes Netzwerk) läuft die App
+      einfach mit der Systemuhr weiter wie zuvor.
+    </p>
+  </section>
+
+  {% if user.is_admin %}
+  <section class="rounded-xl border border-line bg-panel p-4 mt-4">
+    <h2 class="font-display font-medium mb-3">Backup &amp; Wiederherstellung</h2>
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
+      Die Datenbank enthält alle Nutzer, Gruppen, Bereiche, Aufgaben, Historie und das Inventar in einer
+      einzelnen Datei. Regelmäßig herunterladen und sicher aufbewahren.
+    </p>
+    <a href="/admin/system/backup" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Backup herunterladen
+    </a>
+
+    <div class="mt-5 pt-4 border-t border-line">
+      <h3 class="text-sm font-medium mb-2">Backup wiederherstellen</h3>
+      {% if restore_error %}
+      <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">{{ restore_error }}</div>
+      {% endif %}
+      <form method="post" action="/admin/system/restore" enctype="multipart/form-data"
+            onsubmit="return confirm('Die aktuelle Datenbank wird komplett durch diese Datei ersetzt. Vorher wird automatisch eine Sicherheitskopie angelegt, danach startet die Anwendung neu. Wirklich fortfahren?')"
+            class="flex flex-col sm:flex-row gap-2">
+        <input type="file" name="file" accept=".db,application/octet-stream" required
+               class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+        <button class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium whitespace-nowrap">Wiederherstellen</button>
+      </form>
+      <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
+        Ersetzt alle aktuellen Daten durch den Inhalt der hochgeladenen Datei. Vor der Wiederherstellung wird
+        automatisch eine Sicherheitskopie der aktuellen Datenbank unter <code>backups/</code> im Datenverzeichnis
+        abgelegt; danach startet die Anwendung kurz neu.
+      </p>
+    </div>
+  </section>
+  {% else %}
+  <p class="text-[11px] text-slate-500 mt-4">Backup &amp; Wiederherstellung sind nur für Admins sichtbar.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

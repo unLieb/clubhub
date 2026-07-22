@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Tailwind-Build-Artefakt - wird bei jedem `docker build` aus input.css neu erzeugt
+app/static/style.css
+
+# Lokale Claude-Code-Einstellungen (maschinenspezifisch)
+.claude/
+
+# SQLite-Datenbank & Uploads (liegen normalerweise im Docker-Volume, nicht hier -
+# falls doch mal lokal getestet wird, nicht versehentlich committen)
+*.db
+*.db-journal
+uploads/

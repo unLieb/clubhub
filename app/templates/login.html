@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Anmelden – Reinigungsplan{% endblock %}
+{% block content %}
+
+<div class="max-w-sm mx-auto mt-8">
+  <h1 class="font-display text-xl font-semibold mb-5">Anmelden</h1>
+
+  {% if error %}
+  <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-4">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" class="space-y-4">
+    <input type="hidden" name="next" value="{{ next or '/' }}">
+    <div>
+      <label class="block text-sm text-slate-300 mb-1.5">Name</label>
+      <select name="user_id" required class="w-full rounded-md bg-ink border border-line px-3 py-2 text-slate-100">
+        {% for u in users %}
+        <option value="{{ u.id }}">{{ u.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm text-slate-300 mb-1.5">PIN</label>
+      <input type="password" inputmode="numeric" name="pin" required autofocus
+             class="w-full rounded-md bg-ink border border-line px-3 py-2 text-slate-100 tracking-widest text-lg">
+    </div>
+    <button type="submit" class="w-full py-2.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium">
+      Anmelden
+    </button>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Gruppen – Verwaltung{% endblock %}
+{% block content %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-6">Gruppen</h1>
+
+<div class="max-w-2xl rounded-xl border border-line bg-panel p-4">
+  <ul class="space-y-1 text-sm mb-4">
+    {% for g in groups %}
+    <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
+      <details class="group">
+        <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
+          <span>{{ g.name }} <span class="text-slate-500 text-xs font-normal">&middot; {{ g.users|length }} Nutzer, {{ g.rooms|length }} {{ "Bereich" if g.rooms|length == 1 else "Bereiche" }}{% if g.work_start_hour is not none and g.work_end_hour is not none %} &middot; {{ "%02d"|format(g.work_start_hour) }}–{{ "%02d"|format(g.work_end_hour) }} Uhr{% endif %}</span></span>
+          <span class="flex items-center gap-2 shrink-0">
+            <span class="text-slate-500 text-xs">{{ g.channels | map(attribute="name") | join(", ") or "keine Kanäle" }}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </span>
+        </summary>
+        <form method="post" action="/admin/groups/{{ g.id }}/edit" class="mt-2 space-y-2">
+          <input name="name" value="{{ g.name }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Arbeitszeit (Stunde, leer = immer aktiv)</label>
+            <div class="flex items-center gap-2">
+              <input name="work_start_hour" type="number" min="0" max="23" placeholder="von" value="{{ g.work_start_hour if g.work_start_hour is not none else '' }}" class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <span class="text-slate-500 text-xs">bis</span>
+              <input name="work_end_hour" type="number" min="0" max="23" placeholder="bis" value="{{ g.work_end_hour if g.work_end_hour is not none else '' }}" class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <span class="text-slate-500 text-xs">Uhr</span>
+            </div>
+          </div>
+          {% if channels %}
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Benachrichtigungskanäle</label>
+            <div class="flex flex-wrap gap-2">
+              {% for c in channels %}
+              <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line text-xs cursor-pointer has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+                <input type="checkbox" name="channel_ids" value="{{ c.id }}" class="sr-only" {% if c in g.channels %}checked{% endif %}>
+                {{ c.name }}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% else %}
+          <p class="text-slate-500 text-xs italic">Noch keine Benachrichtigungskanäle angelegt.</p>
+          {% endif %}
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+            {% if user.is_admin %}
+            <button type="submit" formaction="/admin/groups/{{ g.id }}/delete" onclick="return confirm('„{{ g.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+            {% endif %}
+          </div>
+        </form>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/admin/groups" class="space-y-2">
+    <input name="name" placeholder="Name" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Arbeitszeit (Stunde, leer = immer aktiv)</label>
+      <div class="flex items-center gap-2">
+        <input name="work_start_hour" type="number" min="0" max="23" placeholder="von" class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <span class="text-slate-500 text-xs">bis</span>
+        <input name="work_end_hour" type="number" min="0" max="23" placeholder="bis" class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <span class="text-slate-500 text-xs">Uhr</span>
+      </div>
+    </div>
+    {% if channels %}
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Benachrichtigungskanäle</label>
+      <div class="flex flex-wrap gap-2">
+        {% for c in channels %}
+        <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line text-xs cursor-pointer has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+          <input type="checkbox" name="channel_ids" value="{{ c.id }}" class="sr-only">
+          {{ c.name }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Gruppe anlegen</button>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Meldungen – Reinigungsplan{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="font-display text-2xl font-semibold">Meldungen</h1>
+  <p class="text-slate-400 text-sm mt-1">Defekte, fehlende Dinge oder sonstige Hinweise zu einem Bereich.</p>
+</div>
+
+{% if user %}
+<div class="rounded-xl border border-line bg-panel p-4 mb-6">
+  <h2 class="font-display font-medium mb-3">Neue Meldung</h2>
+  <form method="post" action="/reports" enctype="multipart/form-data" class="space-y-2">
+    <div class="flex flex-col sm:flex-row gap-2">
+      <select name="room_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+      </select>
+      <input type="file" name="photo" accept="image/*" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+    </div>
+    <textarea name="comment" required rows="2" placeholder="Was ist los? Z.B. „Seifenspender leer&quot; oder „Fliese in der Ecke kaputt&quot;…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Melden</button>
+  </form>
+</div>
+{% else %}
+<div class="rounded-lg border border-line bg-panel p-3 mb-6 text-sm text-slate-300 flex items-center justify-between">
+  <span>Zum Melden anmelden.</span>
+  <a href="/login?next=/reports" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium">Anmelden</a>
+</div>
+{% endif %}
+
+<div class="space-y-3">
+  {% for r in reports %}
+  <div class="rounded-xl border border-line bg-panel p-4 {% if r.status == 'open' %}border-l-4 border-l-warn{% endif %}">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="flex gap-3 min-w-0">
+        {% if r.photo_filename %}
+        <a href="/uploads/reports/{{ r.photo_filename }}" target="_blank" class="shrink-0">
+          <img src="/uploads/reports/{{ r.photo_filename }}" alt="" class="w-16 h-16 rounded-lg object-cover border border-line">
+        </a>
+        {% endif %}
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-medium">{{ r.room.name }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full {% if r.status == 'open' %}bg-warn/15 text-warn{% else %}bg-go/15 text-go{% endif %}">
+              {{ "offen" if r.status == "open" else "erledigt" }}
+            </span>
+          </div>
+          <p class="text-sm text-slate-300 mt-1">{{ r.comment }}</p>
+          <p class="text-xs text-slate-500 mt-1">
+            {{ r.user.name }} &middot; {{ r.created_at.strftime("%d.%m.%Y, %H:%M") }} Uhr
+            {% if r.status == "done" and r.resolved_by %} &middot; erledigt von {{ r.resolved_by.name }}{% endif %}
+          </p>
+        </div>
+      </div>
+      {% if user and r.status == "open" %}
+      <form method="post" action="/reports/{{ r.id }}/resolve" class="shrink-0">
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Erledigt</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine Meldungen.
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

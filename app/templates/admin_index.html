@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Verwaltung – Reinigungsplan{% endblock %}
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+  <div>
+    <h1 class="font-display text-2xl font-semibold">Verwaltung</h1>
+    <p class="text-slate-400 text-sm mt-1">Hier verwaltest du alle Einstellungen und Stammdaten.</p>
+  </div>
+  <div class="relative sm:w-72 shrink-0">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="admin-search" type="text" placeholder="Einstellungen durchsuchen…" autocomplete="off"
+           class="w-full rounded-md bg-ink border border-line pl-9 pr-3 py-2 text-sm">
+  </div>
+</div>
+
+<div class="max-w-2xl space-y-3" id="admin-category-list">
+
+  <a href="/admin/users" data-search="nutzer benutzer nutzerkonten zugriffsrechte" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Nutzer</div>
+      <div class="text-accent text-sm mt-0.5">{{ users_count }} Nutzer registriert</div>
+      <div class="text-xs text-slate-500 mt-0.5">Verwalte Benutzerkonten und Zugriffsrechte.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-accent text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  <a href="/admin/groups" data-search="gruppen arbeitszeiten organisiere" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-go/15 text-go flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3.3 3.1-5 7-5s7 1.7 7 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8"/><path d="M23 20c0-2.7-2-4.3-4.5-4.9"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Gruppen</div>
+      <div class="text-go text-sm mt-0.5">{{ groups_count }} Gruppen &middot; {{ groups_with_hours_count }} Arbeitszeiten</div>
+      <div class="text-xs text-slate-500 mt-0.5">Organisiere Nutzer in Gruppen und weise Bereiche zu.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-go text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  <a href="/admin/rooms" data-search="bereiche räume betrieb" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-orange/15 text-orange flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Bereiche</div>
+      <div class="text-orange text-sm mt-0.5">{{ rooms_count }} Bereiche eingerichtet</div>
+      <div class="text-xs text-slate-500 mt-0.5">Verwalte alle Bereiche und Räume deines Betriebs.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-orange text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  <a href="/admin/tasks" data-search="aufgaben reinigungsintervalle turnus" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-warn/15 text-warn flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 7-7"/><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Aufgaben</div>
+      <div class="text-warn text-sm mt-0.5">{{ tasks_count }} Aufgaben</div>
+      <div class="text-xs text-slate-500 mt-0.5">Lege wiederkehrende Aufgaben und Reinigungsintervalle fest.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-warn text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  <a href="/admin/inventory" data-search="inventar artikel bestand mindestbestand" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-violet/15 text-violet flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Inventar</div>
+      <div class="text-violet text-sm mt-0.5">{{ inventory_count }} Inventarartikel{% if low_stock_count %} &middot; {{ low_stock_count }} unter Mindestbestand{% endif %}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Verwalte Inventarartikel und Mindestbestände.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-violet text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  <a href="/admin/notifications" data-search="benachrichtigungen kanäle ntfy gotify signal" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-late/15 text-late flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Benachrichtigungen</div>
+      <div class="text-late text-sm mt-0.5">{{ channels_count }} Kanäle konfiguriert</div>
+      <div class="text-xs text-slate-500 mt-0.5">Richte Benachrichtigungsdienste und Kanäle ein.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-late text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  <a href="/admin/system" data-search="system zeitsynchronisation ntp zeitzone backup wiederherstellung export import" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-panel2 text-slate-400 flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">System</div>
+      <div class="text-slate-300 text-sm mt-0.5">Zeitsynchronisation: {{ "Aktiv" if ntp_status.last_sync else "Inaktiv" }}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Zeitsteuerung sowie Backup &amp; Wiederherstellung der Datenbank.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-slate-300 text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  <p id="admin-search-empty" class="hidden text-slate-500 text-sm italic px-1">Keine passenden Einstellungen gefunden.</p>
+
+</div>
+
+<script>
+  (function () {
+    var input = document.getElementById('admin-search');
+    var tiles = document.querySelectorAll('.admin-tile');
+    var empty = document.getElementById('admin-search-empty');
+    input.addEventListener('input', function () {
+      var q = input.value.trim().toLowerCase();
+      var visible = 0;
+      tiles.forEach(function (tile) {
+        var haystack = tile.dataset.search + ' ' + tile.textContent.toLowerCase();
+        var match = haystack.toLowerCase().indexOf(q) !== -1;
+        tile.classList.toggle('hidden', !match);
+        if (match) visible++;
+      });
+      empty.classList.toggle('hidden', visible !== 0);
+    });
+  })();
+</script>
+
+{% endblock %}

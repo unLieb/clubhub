@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – Reinigungsplan{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="font-display text-2xl font-semibold">Dashboard</h1>
+  <p class="text-slate-400 text-sm mt-1">Übersicht aller Bereiche und Reinigungen &middot; Stand {{ now.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
+</div>
+
+<!-- Stat-Karten -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="rounded-xl border border-line bg-panel p-4 flex items-center gap-3.5">
+    <div class="w-11 h-11 rounded-full bg-go/15 text-go flex items-center justify-center shrink-0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <div>
+      <div class="font-display text-2xl font-semibold leading-none">{{ stats.done_today }}</div>
+      <div class="text-xs text-slate-400 mt-1">Erledigt heute</div>
+    </div>
+  </div>
+  <div class="rounded-xl border border-line bg-panel p-4 flex items-center gap-3.5">
+    <div class="w-11 h-11 rounded-full bg-warn/15 text-warn flex items-center justify-center shrink-0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    </div>
+    <div>
+      <div class="font-display text-2xl font-semibold leading-none">{{ stats.due_soon }}</div>
+      <div class="text-xs text-slate-400 mt-1">Bald fällig</div>
+    </div>
+  </div>
+  <div class="rounded-xl border border-line bg-panel p-4 flex items-center gap-3.5">
+    <div class="w-11 h-11 rounded-full bg-late/15 text-late flex items-center justify-center shrink-0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
+    </div>
+    <div>
+      <div class="font-display text-2xl font-semibold leading-none">{{ stats.overdue }}</div>
+      <div class="text-xs text-slate-400 mt-1">Überfällig</div>
+    </div>
+  </div>
+  <div class="rounded-xl border border-line bg-panel p-4 flex items-center gap-3.5">
+    <div class="w-11 h-11 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    </div>
+    <div>
+      <div class="font-display text-2xl font-semibold leading-none">{{ rooms|length }}</div>
+      <div class="text-xs text-slate-400 mt-1">Bereiche gesamt</div>
+    </div>
+  </div>
+</div>
+
+<!-- Überfällig: auf dem Handy weit oben, weil direkt handlungsrelevant -->
+{% if overdue_tasks %}
+<div class="lg:hidden rounded-xl border border-late/40 bg-late/10 p-3 mb-6 space-y-2">
+  <div class="flex items-center gap-1.5 text-late text-sm font-medium">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
+    Überfällig
+  </div>
+  {% for t in overdue_tasks %}
+  <a href="/room/{{ t.room.id }}" class="flex items-center justify-between bg-panel rounded-lg px-3 py-2.5 active:bg-panel2">
+    <div class="min-w-0">
+      <div class="text-sm truncate">{{ t.room.name }}</div>
+      <div class="text-xs text-slate-500 truncate">{{ t.name }}</div>
+    </div>
+    <span class="shrink-0 text-xs px-3 py-1.5 rounded-md bg-late/90 text-white font-medium">Reinigen</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Bereiche mit Handlungsbedarf -->
+<div class="rounded-xl border border-line bg-panel p-4 mb-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+    <h2 class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Bereiche
+    </h2>
+    <div class="flex items-center gap-3 shrink-0">
+      <a href="/rooms" class="text-xs text-slate-400 hover:text-slate-100 whitespace-nowrap">Alle Bereiche ansehen &rarr;</a>
+      {% if user and user.is_admin %}
+      <a href="/admin" class="text-xs px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium whitespace-nowrap">+ Bereich hinzufügen</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not rooms %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine Bereiche angelegt.
+    {% if user and user.is_admin %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
+  </div>
+  {% elif not attention_rooms %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Alle Bereiche sind aktuell in Ordnung 🎉
+  </div>
+  {% else %}
+  {% set rooms = attention_rooms %}
+  {% include "_room_grid.html" %}
+  {% endif %}
+</div>
+
+<!-- Letzte Reinigungen + Überfällige Aufgaben -->
+<div class="grid lg:grid-cols-2 gap-4">
+  <div class="rounded-xl border border-line bg-panel p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-display font-medium flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Letzte Reinigungen
+      </h2>
+      <a href="/history" class="text-xs text-slate-400 hover:text-slate-100">Alle anzeigen</a>
+    </div>
+    <ul class="divide-y divide-line">
+      {% for c in recent_completions %}
+      <li class="flex items-center justify-between py-2.5 text-sm">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-go shrink-0"></span>
+          <span class="truncate">{{ c.task.room.name }}</span>
+          <span class="text-slate-500 truncate">&middot; {{ c.user.name }}</span>
+        </div>
+        <span class="text-slate-500 text-xs whitespace-nowrap">{{ c.timestamp.strftime("%H:%M") }}</span>
+      </li>
+      {% else %}
+      <li class="py-4 text-center text-slate-500 text-sm italic">Noch keine Einträge</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="hidden lg:block rounded-xl border border-line bg-panel p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-display font-medium flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-late"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
+        Überfällige Aufgaben
+      </h2>
+    </div>
+    <ul class="divide-y divide-line">
+      {% for t in overdue_tasks %}
+      <li class="flex items-center justify-between py-2.5 gap-3">
+        <div class="min-w-0">
+          <div class="text-sm truncate">{{ t.room.name }}</div>
+          <div class="text-xs text-slate-500 truncate">{{ t.name }}</div>
+        </div>
+        <a href="/room/{{ t.room.id }}" class="shrink-0 text-xs px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white font-medium">
+          Reinigen
+        </a>
+      </li>
+      {% else %}
+      <li class="py-4 text-center text-slate-500 text-sm italic">Aktuell nichts überfällig 🎉</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+{% endblock %}

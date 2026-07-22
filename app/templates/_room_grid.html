@@ -1,0 +1,73 @@
+<!-- Mobile: vertikale Liste, ein Fingertipp pro Bereich -->
+<div class="lg:hidden rounded-xl border border-line divide-y divide-line overflow-hidden">
+  {% for room in rooms %}
+  {% set rs = room_status[room.id] %}
+  <a href="/room/{{ room.id }}" class="flex items-center justify-between px-4 py-3.5 active:bg-panel2">
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="w-2.5 h-2.5 rounded-full status-dot shrink-0
+        {% if rs.status == 'green' %}bg-go
+        {% elif rs.status == 'yellow' %}bg-warn
+        {% else %}bg-late{% endif %}"></span>
+      <div class="min-w-0">
+        <div class="text-sm font-medium truncate">{{ room.name }}</div>
+        <div class="text-xs text-slate-500 truncate">
+          {% if rs.duration_text %}{{ rs.duration_text }}
+          {% elif rs.last_completed %}{{ rs.last_completed.strftime("%H:%M") }} &middot; {{ rs.last_user }}
+          {% else %}Noch keine Reinigung{% endif %}
+        </div>
+      </div>
+    </div>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Desktop: Karten-Grid -->
+<div class="hidden lg:grid gap-3 lg:grid-cols-3 xl:grid-cols-4">
+  {% for room in rooms %}
+  {% set rs = room_status[room.id] %}
+  <a href="/room/{{ room.id }}" class="block rounded-lg border border-line border-l-4 bg-panel2 p-3.5 hover:border-slate-500 transition-colors
+    {% if rs.status == 'green' %}border-l-go
+    {% elif rs.status == 'yellow' %}border-l-warn
+    {% else %}border-l-late{% endif %}">
+    <div class="flex items-center gap-2 mb-2.5">
+      <span class="font-medium text-sm truncate">{{ room.name }}</span>
+    </div>
+
+    <div class="flex items-center gap-1.5 text-sm mb-1
+      {% if rs.status == 'green' %}text-go
+      {% elif rs.status == 'yellow' %}text-warn
+      {% else %}text-late{% endif %}">
+      <span class="w-2 h-2 rounded-full status-dot
+        {% if rs.status == 'green' %}bg-go
+        {% elif rs.status == 'yellow' %}bg-warn
+        {% else %}bg-late{% endif %}"></span>
+      <span class="font-medium">
+        {% if rs.status == 'green' %}Erledigt
+        {% elif rs.status == 'yellow' %}Bald fällig
+        {% else %}Überfällig{% endif %}
+      </span>
+    </div>
+    {% if rs.duration_text %}
+    <div class="text-xs text-slate-400 mb-2.5">{{ rs.duration_text }}</div>
+    {% else %}
+    <div class="mb-2.5"></div>
+    {% endif %}
+
+    <div class="pt-2 border-t border-line/60">
+      {% if rs.last_completed %}
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide mb-0.5">Letzte Reinigung</div>
+      <div class="text-xs text-slate-300">{{ rs.last_completed.strftime("%H:%M") }} &middot; {{ rs.last_user }}</div>
+      {% else %}
+      <div class="text-xs text-slate-500 italic">Noch keine Reinigung erfolgt</div>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="hidden lg:flex items-center gap-5 mt-4 pt-3 border-t border-line text-xs text-slate-400">
+  <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-go"></span>Erledigt</span>
+  <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-warn"></span>Bald fällig</span>
+  <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-late"></span>Überfällig</span>
+</div>

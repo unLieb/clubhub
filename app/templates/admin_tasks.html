@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Aufgaben – Verwaltung{% endblock %}
+{% block content %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-6">Aufgaben</h1>
+
+<div class="max-w-2xl rounded-xl border border-line bg-panel p-4">
+  <ul class="space-y-1 text-sm mb-4">
+    {% for t in tasks %}
+    <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
+      <details class="group">
+        <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
+          <span>{{ t.room.name }} – {{ t.name }}</span>
+          <span class="flex items-center gap-2 shrink-0">
+            <span class="text-slate-500 text-xs">
+              {% if t.interval_hours == 24 %}Täglich
+              {% elif t.interval_hours == 168 %}Wöchentlich
+              {% elif t.interval_hours == 720 %}Monatlich
+              {% elif t.interval_hours == 2160 %}Quartalsweise
+              {% else %}alle {{ t.interval_hours|int }}h{% endif %}, gelb ab {{ t.warn_hours|round(1) }}h vorher</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </span>
+        </summary>
+        <form method="post" action="/admin/tasks/{{ t.id }}/edit" class="mt-2 space-y-2">
+          <div class="flex flex-col sm:flex-row gap-2">
+            <select name="room_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              {% for r in rooms %}<option value="{{ r.id }}" {% if r.id == t.room_id %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+            </select>
+            <input name="name" value="{{ t.name }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
+            <select name="interval_hours" required class="interval-select flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <option value="24" data-warn="5" {% if t.interval_hours == 24 %}selected{% endif %}>Täglich</option>
+              <option value="168" data-warn="24" {% if t.interval_hours == 168 %}selected{% endif %}>Wöchentlich</option>
+              <option value="720" data-warn="72" {% if t.interval_hours == 720 %}selected{% endif %}>Monatlich</option>
+              <option value="2160" data-warn="216" {% if t.interval_hours == 2160 %}selected{% endif %}>Quartalsweise</option>
+            </select>
+            <div class="flex-1">
+              <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
+              <input name="warn_hours" type="number" step="0.5" min="0.5" value="{{ t.warn_hours }}"
+                     class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+            {% if user.is_admin %}
+            <button type="submit" formaction="/admin/tasks/{{ t.id }}/delete" onclick="return confirm('„{{ t.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+            {% endif %}
+          </div>
+        </form>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/admin/tasks" class="space-y-2">
+    <div class="flex flex-col sm:flex-row gap-2">
+      <select name="room_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+      </select>
+      <input name="name" placeholder="Aufgabe" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    </div>
+    <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
+      <select name="interval_hours" required class="interval-select flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <option value="24" data-warn="5">Täglich</option>
+        <option value="168" data-warn="24">Wöchentlich</option>
+        <option value="720" data-warn="72">Monatlich</option>
+        <option value="2160" data-warn="216">Quartalsweise</option>
+      </select>
+      <div class="flex-1">
+        <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
+        <input name="warn_hours" type="number" step="0.5" min="0.5" value="5"
+               class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
+      </div>
+    </div>
+    <p class="text-[11px] text-slate-500 leading-relaxed">
+      Legt fest, wie viele Stunden vor Fälligkeit eine Aufgabe auf <span class="text-warn">Gelb (bald fällig)</span>
+      springt, bevor sie <span class="text-late">rot (überfällig)</span> wird. Beim Wechsel des Turnus wird
+      automatisch ein Richtwert vorgeschlagen (<b>Täglich</b> 5h, <b>Wöchentlich</b> 24h/1 Tag,
+      <b>Monatlich</b> 72h/3 Tage, <b>Quartalsweise</b> 216h/9 Tage) – lässt sich danach frei anpassen.
+    </p>
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Aufgabe anlegen</button>
+  </form>
+</div>
+
+<script>
+  document.querySelectorAll('.interval-select').forEach(function (select) {
+    var form = select.closest('form');
+    var hoursInput = form.querySelector('.warn-hours-input');
+    var daysHint = form.querySelector('.warn-days-hint');
+    function updateHint() {
+      var h = parseFloat(hoursInput.value);
+      daysHint.textContent = (h > 0) ? ('≈ ' + (Math.round(h / 24 * 10) / 10) + ' Tage') : '';
+    }
+    select.addEventListener('change', function () {
+      var opt = select.options[select.selectedIndex];
+      if (opt.dataset.warn) {
+        hoursInput.value = opt.dataset.warn;
+        updateHint();
+      }
+    });
+    hoursInput.addEventListener('input', updateHint);
+    updateHint();
+  });
+</script>
+
+{% endblock %}

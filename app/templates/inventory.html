@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Inventar – Reinigungsplan{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="font-display text-2xl font-semibold">Inventar</h1>
+  <p class="text-slate-400 text-sm mt-1">Bestand an Reinigungsmitteln &middot; Ist/Soll</p>
+</div>
+
+{% if not user %}
+<div class="rounded-lg border border-line bg-panel p-3 mb-5 text-sm text-slate-300 flex items-center justify-between">
+  <span>Zum Buchen von Bestand anmelden.</span>
+  <a href="/login?next=/inventory" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium">Anmelden</a>
+</div>
+{% endif %}
+
+<div class="space-y-3">
+  {% for item in items %}
+  {% set low = item.stock_current < item.stock_min %}
+  <div class="rounded-xl border border-line border-l-4 bg-panel p-4 {% if low %}border-l-late{% else %}border-l-go{% endif %}">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full status-dot shrink-0 {% if low %}bg-late{% else %}bg-go{% endif %}"></span>
+          <span class="font-medium">{{ item.name }}</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">
+          {{ item.stock_current|round(1) }}{% if item.unit %} {{ item.unit }}{% endif %}
+          von {{ item.stock_min|round(1) }}{% if item.unit %} {{ item.unit }}{% endif %} Soll
+          {% if item.group %} &middot; {{ item.group.name }}{% endif %}
+        </p>
+      </div>
+      {% if user %}
+      <form method="post" action="/inventory/{{ item.id }}/adjust" class="flex items-center gap-2">
+        <input name="delta" type="number" step="0.5" placeholder="±Menge" required class="w-24 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <input name="note" placeholder="Notiz (optional)" class="w-36 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Buchen</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine Artikel angelegt.
+    {% if user and user.is_admin %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #12161f;
+  --color-ink: #1a2029;
+  --color-panel: #1c2431;
+  --color-panel2: #212a39;
+  --color-line: #2b3548;
+  --color-go: #33c481;
+  --color-warn: #e8ab2e;
+  --color-late: #ef5757;
+  --color-accent: #5b8def;
+  /* Zwei zusätzliche, rein dekorative Akzentfarben (Verwaltungs-Kacheln) */
+  --color-orange: #ef8a4c;
+  --color-violet: #a78bfa;
+  /* Text auf hellen Akzent-Buttons (bg-go) - bleibt in beiden Themes dunkel,
+     unabhängig von --color-ink (das selbst je nach Theme wechselt). */
+  --color-oncolor: #12161f;
+
+  --font-display: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* Helles Theme: überschreibt die dunklen Standardwerte oben. Wird per JS
+   (siehe base.html) als data-theme="light" auf <html> gesetzt - aus
+   gespeicherter Nutzerwahl oder (im Modus "automatisch") aus der
+   Systemeinstellung des Geräts. */
+:root[data-theme="light"] {
+  --color-bg: #eef1f6;
+  --color-ink: #ffffff;
+  --color-panel: #ffffff;
+  --color-panel2: #eef2f8;
+  --color-line: #dbe1eb;
+  --color-slate-100: #16202e;
+  --color-slate-300: #3d4a5e;
+  --color-slate-400: #5b6b82;
+  --color-slate-500: #74839a;
+}
+
+body { background: var(--color-bg); }
+.status-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-slate-100) 8%, transparent); }
+.nav-link.active { background: var(--color-panel2); color: var(--color-slate-100); }
+.nav-link.active .nav-bar { opacity: 1; }

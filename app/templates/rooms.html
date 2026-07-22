@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Bereiche – Reinigungsplan{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="font-display text-2xl font-semibold">Bereiche</h1>
+  <p class="text-slate-400 text-sm mt-1">Alle Bereiche im Überblick</p>
+</div>
+
+<div class="rounded-xl border border-line bg-panel p-4">
+  {% if not rooms %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine Bereiche angelegt.
+    {% if user and user.is_admin %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
+  </div>
+  {% else %}
+  {% include "_room_grid.html" %}
+  {% endif %}
+</div>
+
+{% endblock %}

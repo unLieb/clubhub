@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Benachrichtigungen – Verwaltung{% endblock %}
+{% block content %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-6">Benachrichtigungen</h1>
+
+<div class="max-w-2xl rounded-xl border border-line bg-panel p-4">
+  <ul class="space-y-1 text-sm mb-4">
+    {% for c in channels %}
+    <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
+      <details class="group">
+        <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
+          <span>{{ c.name }}</span>
+          <span class="flex items-center gap-2 shrink-0">
+            <span class="text-slate-500 text-xs">{{ c.type }}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </span>
+        </summary>
+        <form method="post" action="/admin/channels/{{ c.id }}/edit" class="mt-2 space-y-2">
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input name="name" value="{{ c.name }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <select name="type" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <option value="ntfy" {% if c.type == "ntfy" %}selected{% endif %}>ntfy</option>
+              <option value="gotify" {% if c.type == "gotify" %}selected{% endif %}>Gotify</option>
+              <option value="signal" {% if c.type == "signal" %}selected{% endif %}>Signal</option>
+            </select>
+          </div>
+          <input name="target" value="{{ c.target or '' }}" placeholder="ntfy-Topic / Gotify-Token / Signal-Nummer (+49…)" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+            {% if user.is_admin %}
+            <button type="submit" formaction="/admin/channels/{{ c.id }}/delete" onclick="return confirm('„{{ c.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+            {% endif %}
+          </div>
+        </form>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/admin/channels" class="space-y-2">
+    <div class="flex flex-col sm:flex-row gap-2">
+      <input name="name" placeholder="Anzeigename, z.B. „Hausmeister ntfy“" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <select name="type" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <option value="ntfy">ntfy</option>
+        <option value="gotify">Gotify</option>
+        <option value="signal">Signal</option>
+      </select>
+    </div>
+    <input name="target" placeholder="ntfy-Topic / Gotify-Token / Signal-Nummer (+49…)" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <p class="text-[11px] text-slate-500 leading-relaxed">
+      Ein Kanal kann mehreren Gruppen zugeordnet werden. <b>Signal</b> braucht zusätzlich einen selbst betriebenen
+      <code>signal-cli-rest-api</code>-Dienst mit eigener, registrierter Absendernummer (siehe README) – ohne
+      <code>SIGNAL_BASE_URL</code>/<code>SIGNAL_SENDER_NUMBER</code> in der Umgebung passiert beim Versand nichts.
+    </p>
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Kanal anlegen</button>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Historie – Reinigungsplan{% endblock %}
+{% block content %}
+
+<h1 class="font-display text-2xl font-semibold mb-5">Historie</h1>
+
+<div class="rounded-xl border border-line bg-panel overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-ink/60 text-slate-400 text-xs uppercase tracking-wide">
+      <tr>
+        <th class="text-left px-4 py-2.5">Zeitpunkt</th>
+        <th class="text-left px-4 py-2.5">Bereich</th>
+        <th class="text-left px-4 py-2.5">Aufgabe</th>
+        <th class="text-left px-4 py-2.5">Erledigt von</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line">
+      {% for c in completions %}
+      <tr>
+        <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ c.timestamp.strftime("%d.%m.%Y, %H:%M") }}</td>
+        <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
+        <td class="px-4 py-2.5">{{ c.task.name }}</td>
+        <td class="px-4 py-2.5 text-slate-300">{{ c.user.name }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="px-4 py-6 text-center text-slate-500 italic">Noch keine Einträge</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

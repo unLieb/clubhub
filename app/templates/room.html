@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ room.name }} – Reinigungsplan{% endblock %}
+{% block content %}
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-1">{{ room.name }}</h1>
+<p class="text-slate-400 text-sm mb-6">{{ room.groups | map(attribute="name") | join(", ") }}</p>
+
+{% if not user %}
+<div class="rounded-lg border border-line bg-panel p-3 mb-5 text-sm text-slate-300 flex items-center justify-between">
+  <span>Zum Abhaken einer Aufgabe anmelden.</span>
+  <a href="/login?next=/room/{{ room.id }}" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium">Anmelden</a>
+</div>
+{% endif %}
+
+<div class="space-y-3">
+  {% for task in room.tasks %}
+  {% set s = statuses[task.id] %}
+  <div class="rounded-xl border border-line bg-panel p-4 flex items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full status-dot
+          {% if s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
+        <span class="font-medium">{{ task.name }}</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-1">
+        {% if s.last_completed %}
+          zuletzt erledigt: {{ s.last_completed.strftime("%d.%m.%Y, %H:%M") }} Uhr
+        {% else %}
+          noch nie erledigt
+        {% endif %}
+      </p>
+    </div>
+    {% if user %}
+    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete">
+      <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap">
+        Erledigt
+      </button>
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="text-slate-500 italic">Keine Aufgaben in diesem Bereich.</p>
+  {% endfor %}
+</div>
+
+{% endblock %}
