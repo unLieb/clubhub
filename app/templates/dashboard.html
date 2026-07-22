@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% import "_report_macros.html" as rb %}
 {% block title %}Dashboard – Reinigungsplan{% endblock %}
 {% block content %}
 
 <div class="mb-6">
   <h1 class="font-display text-2xl font-semibold">Dashboard</h1>
-  <p class="text-slate-400 text-sm mt-1">Übersicht aller Bereiche und Reinigungen &middot; Stand {{ now.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
+  <p class="text-slate-400 text-sm mt-1">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
 </div>
 
 <!-- Stat-Karten -->
@@ -47,7 +48,7 @@
   </div>
 </div>
 
-<!-- Überfällig: auf dem Handy weit oben, weil direkt handlungsrelevant -->
+<!-- Überfällig + offene Meldungen: auf dem Handy weit oben, weil direkt handlungsrelevant -->
 {% if overdue_tasks %}
 <div class="lg:hidden rounded-xl border border-late/40 bg-late/10 p-3 mb-6 space-y-2">
   <div class="flex items-center gap-1.5 text-late text-sm font-medium">
@@ -66,34 +67,76 @@
 </div>
 {% endif %}
 
-<!-- Bereiche mit Handlungsbedarf -->
-<div class="rounded-xl border border-line bg-panel p-4 mb-6">
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-    <h2 class="font-display font-medium flex items-center gap-2">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-      Bereiche
-    </h2>
-    <div class="flex items-center gap-3 shrink-0">
-      <a href="/rooms" class="text-xs text-slate-400 hover:text-slate-100 whitespace-nowrap">Alle Bereiche ansehen &rarr;</a>
-      {% if user and user.is_admin %}
-      <a href="/admin" class="text-xs px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium whitespace-nowrap">+ Bereich hinzufügen</a>
-      {% endif %}
+{% if report_stats.open %}
+<a href="/reports" class="lg:hidden flex items-center justify-between gap-2 rounded-xl border border-late/40 bg-late/10 p-3 mb-6">
+  <span class="flex items-center gap-1.5 text-late text-sm font-medium">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    {{ report_stats.open }} {{ "Meldung benötigt" if report_stats.open == 1 else "Meldungen benötigen" }} Aufmerksamkeit
+  </span>
+  <span class="text-late text-xs font-medium whitespace-nowrap">Ansehen &rarr;</span>
+</a>
+{% endif %}
+
+<!-- Bereiche mit Handlungsbedarf + Meldungen -->
+<div class="grid lg:grid-cols-3 gap-4 mb-6">
+  <div class="lg:col-span-2 rounded-xl border border-line bg-panel p-4">
+    <div class="mb-4">
+      <a href="/rooms" class="font-display font-medium flex items-center gap-2 hover:text-go w-fit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        Bereiche
+      </a>
     </div>
+
+    {% if not rooms %}
+    <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+      Noch keine Bereiche angelegt.
+    </div>
+    {% elif not attention_rooms %}
+    <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+      Alle Bereiche sind aktuell in Ordnung 🎉
+    </div>
+    {% else %}
+    {% set rooms = attention_rooms %}
+    {% include "_room_grid.html" %}
+    {% endif %}
   </div>
 
-  {% if not rooms %}
-  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
-    Noch keine Bereiche angelegt.
-    {% if user and user.is_admin %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
+  <div class="rounded-xl border border-line bg-panel p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-display font-medium flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Meldungen
+      </h2>
+      <a href="/reports" class="text-xs text-slate-400 hover:text-slate-100 whitespace-nowrap">Alle anzeigen &rarr;</a>
+    </div>
+    <ul class="divide-y divide-line text-sm">
+      <li>
+        <a href="/reports" class="flex items-center justify-between py-2.5 hover:text-slate-100">
+          <span class="flex items-center gap-2 text-slate-300">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warn"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Offene Meldungen
+          </span>
+          <span class="font-medium">{{ report_stats.open }}</span>
+        </a>
+      </li>
+      <li>
+        <a href="/reports" class="flex items-center justify-between py-2.5 hover:text-slate-100">
+          <span class="flex items-center gap-2 text-slate-300">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><path d="M20 6 9 17l-5-5"/></svg>
+            Erledigt (heute)
+          </span>
+          <span class="font-medium">{{ report_stats.done_today }}</span>
+        </a>
+      </li>
+    </ul>
+    {% if report_stats.open %}
+    <!-- Auf dem Handy gibt es die gleiche Meldung schon als Banner weiter oben -->
+    <div class="hidden lg:flex mt-3 rounded-lg border border-late/40 bg-late/10 p-3 items-center justify-between gap-2 flex-wrap">
+      <span class="text-late text-xs font-medium">{{ report_stats.open }} {{ "Meldung benötigt" if report_stats.open == 1 else "Meldungen benötigen" }} Aufmerksamkeit</span>
+      <a href="/reports" class="text-late text-xs font-medium whitespace-nowrap hover:underline">Zu den Meldungen &rarr;</a>
+    </div>
+    {% endif %}
   </div>
-  {% elif not attention_rooms %}
-  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
-    Alle Bereiche sind aktuell in Ordnung 🎉
-  </div>
-  {% else %}
-  {% set rooms = attention_rooms %}
-  {% include "_room_grid.html" %}
-  {% endif %}
 </div>
 
 <!-- Letzte Reinigungen + Überfällige Aufgaben -->
@@ -145,6 +188,30 @@
       {% endfor %}
     </ul>
   </div>
+</div>
+
+<!-- Aktuelle Meldungen -->
+<div class="rounded-xl border border-line bg-panel p-4 mt-4">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Aktuelle Meldungen
+    </h2>
+    <a href="/reports" class="text-xs text-slate-400 hover:text-slate-100">Alle anzeigen &rarr;</a>
+  </div>
+  <ul class="divide-y divide-line">
+    {% for r in recent_reports %}
+    <li class="flex items-center justify-between gap-3 py-2.5">
+      <div class="min-w-0">
+        <div class="text-sm truncate">{{ r.comment }}</div>
+        <div class="text-xs text-slate-500 truncate">{{ r.room.name }} &middot; {{ rb.category_label(r.category) }} &middot; gemeldet von {{ r.user.name }} &middot; {{ r.created_at.strftime("%d.%m.%Y, %H:%M") }}</div>
+      </div>
+      <div class="shrink-0">{{ rb.priority_badge(r.priority) }}</div>
+    </li>
+    {% else %}
+    <li class="py-4 text-center text-slate-500 text-sm italic">Keine offenen Meldungen 🎉</li>
+    {% endfor %}
+  </ul>
 </div>
 
 {% endblock %}

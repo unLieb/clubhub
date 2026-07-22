@@ -1,0 +1,31 @@
+{% macro priority_border(p) -%}
+  {%- if p == 'critical' -%}border-l-late
+  {%- elif p == 'high' -%}border-l-orange
+  {%- elif p == 'low' -%}border-l-accent
+  {%- else -%}border-l-warn
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro priority_badge(p) %}
+{% if p == 'critical' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium"><span class="w-1.5 h-1.5 rounded-full bg-late"></span>Kritisch</span>
+{% elif p == 'high' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange/15 text-orange font-medium"><span class="w-1.5 h-1.5 rounded-full bg-orange"></span>Hoch</span>
+{% elif p == 'low' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent font-medium"><span class="w-1.5 h-1.5 rounded-full bg-accent"></span>Niedrig</span>
+{% else %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-warn/15 text-warn font-medium"><span class="w-1.5 h-1.5 rounded-full bg-warn"></span>Normal</span>
+{% endif %}
+{% endmacro %}
+
+{% macro category_badge(c) %}
+{% if c == 'defekt' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Defekt</span>
+{% elif c == 'material' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>Material fehlt</span>
+{% elif c == 'reinigung' %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69s-7 7.44-7 11.31a7 7 0 0 0 14 0c0-3.87-7-11.31-7-11.31z"/></svg>Reinigung</span>
+{% else %}<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>Sonstiges</span>
+{% endif %}
+{% endmacro %}
+
+{% macro category_label(c) -%}
+  {%- if c == 'defekt' -%}Defekt
+  {%- elif c == 'material' -%}Material fehlt
+  {%- elif c == 'reinigung' -%}Reinigung
+  {%- else -%}Sonstiges
+  {%- endif -%}
+{%- endmacro %}

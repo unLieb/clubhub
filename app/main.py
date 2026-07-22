@@ -269,6 +269,13 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         db.query(models.Completion).order_by(models.Completion.timestamp.desc()).limit(8).all()
     )
 
+    all_reports = db.query(models.Report).all()
+    open_reports = _sort_reports([r for r in all_reports if r.status != "done"])
+    done_today_reports = sum(
+        1 for r in all_reports
+        if r.status == "done" and r.resolved_at and r.resolved_at.astimezone(timezone.utc).date() == today
+    )
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": get_current_user(request, db),
@@ -278,6 +285,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "stats": {"done_today": done_today, "due_soon": due_soon_count, "overdue": overdue_count},
         "recent_completions": recent_completions,
         "overdue_tasks": overdue_tasks[:6],
+        "report_stats": {"open": len(open_reports), "done_today": done_today_reports},
+        "recent_reports": open_reports[:5],
         "now": now,
     })
 
