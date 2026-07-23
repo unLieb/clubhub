@@ -1,8 +1,11 @@
 import os
+import re
 import signal
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urljoin, urlparse
 
+import httpx
 from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks
 from fastapi.responses import RedirectResponse, Response, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -488,6 +491,58 @@ def timeclock_view(request: Request, scan: str = "", db: Session = Depends(get_d
 def distinct_inventory_values(db: Session, column: str) -> list[str]:
     col = getattr(models.InventoryItem, column)
     return sorted({v for (v,) in db.query(col).distinct().all() if v})
+
+
+_OG_IMAGE_PATTERNS = [
+    re.compile(r'<meta[^>]+property=["\']og:image(?::secure_url)?["\'][^>]+content=["\']([^"\']+)["\']', re.I),
+    re.compile(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image(?::secure_url)?["\']', re.I),
+    re.compile(r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']', re.I),
+    re.compile(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image["\']', re.I),
+]
+
+
+def fetch_product_image(reorder_url: str) -> str | None:
+    """Best-Effort-Versuch, das Vorschaubild (Open-Graph/Twitter-Meta) einer
+    Produktseite zu laden und lokal zu speichern. Gibt bei jedem Fehler (kein
+    Treffer, Timeout, kein Bild, zu groß, ...) einfach None zurück, damit ein
+    fehlgeschlagener Abruf das Speichern des Kauflinks nie blockiert."""
+    if urlparse(reorder_url).scheme not in ("http", "https"):
+        return None
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; ClubHUB/1.0)"}
+        with httpx.Client(timeout=8.0, follow_redirects=True, headers=headers) as client:
+            page = client.get(reorder_url)
+            if page.status_code != 200 or "text/html" not in page.headers.get("content-type", ""):
+                return None
+            html = page.text[:300_000]  # Meta-Tags stehen im <head>, mehr braucht es nicht
+
+            image_src = None
+            for pattern in _OG_IMAGE_PATTERNS:
+                match = pattern.search(html)
+                if match:
+                    image_src = match.group(1)
+                    break
+            if not image_src:
+                return None
+
+            image_url = urljoin(str(page.url), image_src)
+            if urlparse(image_url).scheme not in ("http", "https"):
+                return None
+
+            img = client.get(image_url)
+            if img.status_code != 200 or not img.headers.get("content-type", "").startswith("image/"):
+                return None
+            data = img.content
+            if not data or len(data) > 8 * 1024 * 1024:
+                return None
+
+            ext = os.path.splitext(urlparse(image_url).path)[1][:10] or ".jpg"
+            filename = f"{uuid.uuid4().hex}{ext}"
+            with open(os.path.join(INVENTORY_IMAGES_DIR, filename), "wb") as f:
+                f.write(data)
+            return f"/uploads/inventory/{filename}"
+    except Exception:
+        return None
 
 
 def compute_inventory_status(item) -> dict:
@@ -1370,6 +1425,10 @@ def admin_add_inventory_item(
     db: Session = Depends(get_db),
 ):
     require_admin_or_shift_lead(request, db)
+    reorder_url = reorder_url or None
+    # Kauflink direkt beim Anlegen gesetzt -> automatisch das Produktbild
+    # der verlinkten Seite als Artikelbild übernehmen, falls auffindbar.
+    image_url = fetch_product_image(reorder_url) if reorder_url else None
     db.add(models.InventoryItem(
         name=name,
         unit=unit or None,
@@ -1377,7 +1436,8 @@ def admin_add_inventory_item(
         stock_min=stock_min,
         category=category or None,
         location=location or None,
-        reorder_url=reorder_url or None,
+        reorder_url=reorder_url,
+        image_url=image_url,
         group_id=int(group_id) if group_id else None,
     ))
     db.commit()
@@ -1408,7 +1468,14 @@ def admin_edit_inventory_item(
         item.stock_min = stock_min
         item.category = category or None
         item.location = location or None
-        item.reorder_url = reorder_url or None
+        new_reorder_url = reorder_url or None
+        # Nur beim tatsächlichen Ändern/Neuzuweisen des Kauflinks neu abrufen -
+        # so wird ein manuell gesetztes Bild nicht bei jedem Speichern überschrieben.
+        if new_reorder_url and new_reorder_url != item.reorder_url:
+            fetched_image = fetch_product_image(new_reorder_url)
+            if fetched_image:
+                item.image_url = fetched_image
+        item.reorder_url = new_reorder_url
         item.group_id = int(group_id) if group_id else None
         if item.stock_current >= item.stock_min:
             item.notified = False
