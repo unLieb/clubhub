@@ -139,9 +139,11 @@ class InventoryItem(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    unit = Column(String, nullable=True)              # z.B. "Stück", "Liter", "Packung"
-    stock_current = Column(Float, default=0.0)         # Ist
-    stock_min = Column(Float, default=0.0)             # Soll / Mindestbestand
+    unit = Column(String, nullable=True)              # gezähltes Gebinde, z.B. "Kanister", "Packung", "Flasche"
+    pack_size = Column(Float, nullable=True)           # Inhalt je Gebinde, z.B. 10 (Liter) oder 8 (Rollen)
+    pack_unit = Column(String, nullable=True)          # Einheit des Inhalts, z.B. "Liter", "Rollen", "Stück"
+    stock_current = Column(Float, default=0.0)         # Ist (in Gebinden, z.B. Kanister)
+    stock_min = Column(Float, default=0.0)             # Soll / Mindestbestand (in Gebinden)
     category = Column(String, nullable=True)          # frei vergeben, z.B. "Reinigungsmittel"
     location = Column(String, nullable=True)          # Lagerort, frei vergeben, z.B. "Lager A"
     reorder_url = Column(String, nullable=True)        # Produktseite zum Nachbestellen (nur Link, kein Checkout)

@@ -104,6 +104,13 @@ def _migrate_inventory_extras(db: Session):
     _ensure_column(db, "inventory_items", "image_url", "TEXT")
 
 
+def _migrate_inventory_pack_size(db: Session):
+    """Optionale Gebindegröße (z.B. '10 Liter' je Kanister, '8 Rollen' je
+    Packung), rein informativ zur Anzeige - kein Altdaten-Bezug."""
+    _ensure_column(db, "inventory_items", "pack_size", "FLOAT")
+    _ensure_column(db, "inventory_items", "pack_unit", "TEXT")
+
+
 def _migrate_user_time_tracking(db: Session):
     """Zeiterfassung: Stundensatz + Soll-Arbeitszeit/Monat pro Nutzer, beide
     optional (kein Altdaten-Bezug, nur von einem Admin gepflegt)."""
@@ -175,6 +182,7 @@ def _startup():
         _migrate_report_priority_category(db)
         _migrate_report_photos(db)
         _migrate_inventory_extras(db)
+        _migrate_inventory_pack_size(db)
         _migrate_user_time_tracking(db)
         _migrate_remove_timeclock_nfc_tags(db)
     finally:
@@ -1700,6 +1708,8 @@ def admin_add_inventory_item(
     request: Request,
     name: str = Form(...),
     unit: str = Form(""),
+    pack_size: str = Form(""),
+    pack_unit: str = Form(""),
     stock_current: float = Form(0.0),
     stock_min: float = Form(0.0),
     category: str = Form(""),
@@ -1718,6 +1728,8 @@ def admin_add_inventory_item(
     db.add(models.InventoryItem(
         name=name,
         unit=unit or None,
+        pack_size=float(pack_size) if pack_size else None,
+        pack_unit=pack_unit or None,
         stock_current=stock_current,
         stock_min=stock_min,
         category=category or None,
@@ -1736,6 +1748,8 @@ def admin_edit_inventory_item(
     request: Request,
     name: str = Form(...),
     unit: str = Form(""),
+    pack_size: str = Form(""),
+    pack_unit: str = Form(""),
     stock_current: float = Form(0.0),
     stock_min: float = Form(0.0),
     category: str = Form(""),
@@ -1752,6 +1766,8 @@ def admin_edit_inventory_item(
     if item:
         item.name = name
         item.unit = unit or None
+        item.pack_size = float(pack_size) if pack_size else None
+        item.pack_unit = pack_unit or None
         item.stock_current = stock_current
         item.stock_min = stock_min
         item.category = category or None
