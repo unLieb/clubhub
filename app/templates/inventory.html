@@ -30,6 +30,14 @@
   {%- endif -%}
 {%- endmacro %}
 
+{% if img_fetch_failed %}
+<div class="rounded-lg border border-warn/40 bg-warn/10 text-warn text-sm px-4 py-3 mb-5">
+  Das Produktbild konnte nicht automatisch vom Kauflink geladen werden – manche Shops blockieren
+  automatisierte Abrufe (z.B. Hygi.de). Bild stattdessen manuell hochladen oder per URL einfügen:
+  Klick auf das kleine Artikel-Icon unten.
+</div>
+{% endif %}
+
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
   <div>
     <h1 class="font-display text-2xl font-semibold">Inventar</h1>

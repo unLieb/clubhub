@@ -5,6 +5,14 @@
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">Inventar</h1>
 
+{% if img_fetch_failed %}
+<div class="max-w-2xl rounded-lg border border-warn/40 bg-warn/10 text-warn text-sm px-4 py-3 mb-5">
+  Das Produktbild konnte nicht automatisch vom Kauflink geladen werden – manche Shops blockieren
+  automatisierte Abrufe (z.B. Hygi.de). Bild stattdessen manuell hochladen oder per URL einfügen:
+  Klick auf das kleine Artikel-Icon unter <a href="/inventory" class="underline">Inventar</a>.
+</div>
+{% endif %}
+
 <datalist id="inv-categories">
   {% for c in categories %}<option value="{{ c }}">{% endfor %}
 </datalist>

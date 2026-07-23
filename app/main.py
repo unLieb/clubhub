@@ -745,6 +745,17 @@ def fetch_product_image(reorder_url: str) -> str | None:
         return None
 
 
+def _with_img_fetch_hint(target: str, failed: bool) -> str:
+    """Hängt einen Hinweis-Query-Parameter an, wenn der automatische
+    Produktbild-Abruf fehlgeschlagen ist (z.B. Bot-Schutz des Shops) -
+    damit das nicht als stilles Nichts-passiert wirkt."""
+    target = target if target.startswith("/") else "/admin/inventory"
+    if not failed:
+        return target
+    sep = "&" if "?" in target else "?"
+    return f"{target}{sep}img_fetch_failed=1"
+
+
 def compute_inventory_status(item) -> dict:
     """Ampel-Status ('ok' | 'low' | 'empty') + Füllstand in Prozent (relativ
     zum Mindestbestand, ab dem Mindestbestand gilt die Anzeige als voll) für
@@ -822,7 +833,7 @@ def build_consumption_chart(series: list[dict], width: int = 300, height: int = 
 
 
 @app.get("/inventory")
-def inventory_overview(request: Request, db: Session = Depends(get_db)):
+def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session = Depends(get_db)):
     items = db.query(models.InventoryItem).order_by(models.InventoryItem.name).all()
     now = ntptime.now_utc()
     inventory_status = {item.id: compute_inventory_status(item) for item in items}
@@ -838,6 +849,7 @@ def inventory_overview(request: Request, db: Session = Depends(get_db)):
         "groups": db.query(models.Group).all(),
         "categories": distinct_inventory_values(db, "category"),
         "locations": distinct_inventory_values(db, "location"),
+        "img_fetch_failed": bool(img_fetch_failed),
     })
 
 
@@ -1171,7 +1183,7 @@ def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/admin/inventory")
-def admin_inventory_page(request: Request, db: Session = Depends(get_db)):
+def admin_inventory_page(request: Request, img_fetch_failed: str = "", db: Session = Depends(get_db)):
     admin = require_admin_or_shift_lead(request, db)
     return templates.TemplateResponse("admin_inventory.html", {
         "request": request,
@@ -1180,6 +1192,7 @@ def admin_inventory_page(request: Request, db: Session = Depends(get_db)):
         "groups": db.query(models.Group).all(),
         "categories": distinct_inventory_values(db, "category"),
         "locations": distinct_inventory_values(db, "location"),
+        "img_fetch_failed": bool(img_fetch_failed),
     })
 
 
@@ -1681,6 +1694,7 @@ def admin_add_inventory_item(
     # Kauflink direkt beim Anlegen gesetzt -> automatisch das Produktbild
     # der verlinkten Seite als Artikelbild übernehmen, falls auffindbar.
     image_url = fetch_product_image(reorder_url) if reorder_url else None
+    image_fetch_failed = bool(reorder_url) and not image_url
     db.add(models.InventoryItem(
         name=name,
         unit=unit or None,
@@ -1693,7 +1707,7 @@ def admin_add_inventory_item(
         group_id=int(group_id) if group_id else None,
     ))
     db.commit()
-    return RedirectResponse(next if next.startswith("/") else "/admin/inventory", status_code=302)
+    return RedirectResponse(_with_img_fetch_hint(next, image_fetch_failed), status_code=302)
 
 
 @app.post("/admin/inventory/{item_id}/edit")
@@ -1723,15 +1737,19 @@ def admin_edit_inventory_item(
         new_reorder_url = reorder_url or None
         # Nur beim tatsächlichen Ändern/Neuzuweisen des Kauflinks neu abrufen -
         # so wird ein manuell gesetztes Bild nicht bei jedem Speichern überschrieben.
+        image_fetch_failed = False
         if new_reorder_url and new_reorder_url != item.reorder_url:
             fetched_image = fetch_product_image(new_reorder_url)
             if fetched_image:
                 item.image_url = fetched_image
+            else:
+                image_fetch_failed = True
         item.reorder_url = new_reorder_url
         item.group_id = int(group_id) if group_id else None
         if item.stock_current >= item.stock_min:
             item.notified = False
         db.commit()
+        return RedirectResponse(_with_img_fetch_hint(next, image_fetch_failed), status_code=302)
     return RedirectResponse(next if next.startswith("/") else "/admin/inventory", status_code=302)
 
 
