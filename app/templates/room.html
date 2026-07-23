@@ -23,6 +23,11 @@
           {% if s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
         <span class="font-medium">{{ task.name }}</span>
       </div>
+      {% if s.duration_text %}
+      <p class="text-xs mt-1 font-medium {% if s.status == 'red' %}text-late{% else %}text-warn{% endif %}">
+        {{ s.duration_text }}
+      </p>
+      {% endif %}
       <p class="text-xs text-slate-400 mt-1">
         {% if s.last_completed %}
           zuletzt erledigt: {{ s.last_completed.strftime("%d.%m.%Y, %H:%M") }} Uhr

@@ -283,7 +283,10 @@ def compute_room_statuses(rooms, now):
                 due_soon_count += 1
             elif s["status"] == "red":
                 overdue_count += 1
-                overdue_tasks.append(task)
+                overdue_tasks.append({
+                    "task": task,
+                    "duration_text": f"Überfällig seit {format_duration_de(now - s['due_at'])}",
+                })
             if task.completions and (last_completed is None or task.completions[0].timestamp > last_completed):
                 last_completed = task.completions[0].timestamp
                 last_user = task.completions[0].user.name
@@ -387,7 +390,17 @@ def room_view(room_id: int, request: Request, db: Session = Depends(get_db)):
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if not room:
         return RedirectResponse("/", status_code=302)
-    statuses = {t.id: task_status(t) for t in room.tasks}
+    now = ntptime.now_utc()
+    statuses = {}
+    for t in room.tasks:
+        s = task_status(t, now)
+        if s["status"] == "red":
+            s["duration_text"] = f"Überfällig seit {format_duration_de(now - s['due_at'])}"
+        elif s["status"] == "yellow":
+            s["duration_text"] = f"Fällig in {format_duration_de(s['due_at'] - now)}"
+        else:
+            s["duration_text"] = None
+        statuses[t.id] = s
     return templates.TemplateResponse("room.html", {
         "request": request,
         "user": get_current_user(request, db),
