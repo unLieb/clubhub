@@ -13,6 +13,30 @@
   <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
 </div>
 
+{% if user and device_authorized %}
+<!-- Ein-/Ausstempeln: nur auf dem autorisierten Zeiterfassungs-Gerät sichtbar -->
+<div class="rounded-xl border {% if timeclock_open_entry %}border-go/40 bg-go/10{% else %}border-line bg-panel{% endif %} p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
+  <div class="flex items-center gap-3.5">
+    <div class="w-11 h-11 rounded-full {% if timeclock_open_entry %}bg-go/20 text-go{% else %}bg-panel2 text-slate-400{% endif %} flex items-center justify-center shrink-0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+    </div>
+    <div>
+      {% if timeclock_open_entry %}
+      <div class="font-display font-medium leading-none">Eingestempelt seit {{ timeclock_open_entry.strftime("%H:%M") }} Uhr</div>
+      {% else %}
+      <div class="font-display font-medium leading-none">Nicht eingestempelt</div>
+      {% endif %}
+      <div class="text-xs text-slate-400 mt-1.5">Zeiterfassung auf diesem autorisierten Gerät</div>
+    </div>
+  </div>
+  <form method="post" action="/timeclock/punch">
+    <button class="px-5 py-2.5 rounded-md {% if timeclock_open_entry %}bg-accent/90 hover:bg-accent{% else %}bg-go/90 hover:bg-go{% endif %} text-oncolor font-medium text-sm whitespace-nowrap">
+      {% if timeclock_open_entry %}Ausstempeln{% else %}Einstempeln{% endif %}
+    </button>
+  </form>
+</div>
+{% endif %}
+
 <!-- Stat-Karten -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
   <div class="rounded-xl border border-line bg-panel p-4 flex items-center gap-3.5">

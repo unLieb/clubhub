@@ -314,6 +314,17 @@ def compute_room_statuses(rooms, now):
 def dashboard(request: Request, db: Session = Depends(get_db)):
     rooms = db.query(models.Room).all()
     now = ntptime.now_utc()
+    user = get_current_user(request, db)
+
+    timeclock_open_entry = None
+    if user:
+        open_entry = (
+            db.query(models.TimeEntry)
+            .filter(models.TimeEntry.user_id == user.id, models.TimeEntry.clock_out.is_(None))
+            .first()
+        )
+        if open_entry:
+            timeclock_open_entry = _aware(open_entry.clock_in).astimezone(APP_TIMEZONE)
 
     room_status, overdue_tasks, due_soon_count, overdue_count = compute_room_statuses(rooms, now)
     attention_rooms = [r for r in rooms if room_status[r.id]["status"] != "green"]
@@ -338,7 +349,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        "user": get_current_user(request, db),
+        "user": user,
         "rooms": rooms,
         "attention_rooms": attention_rooms,
         "room_status": room_status,
@@ -351,6 +362,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "pending_tasks_count": due_soon_count + overdue_count,
         "now": now,
         "now_local": now.astimezone(APP_TIMEZONE),
+        "device_authorized": device_is_authorized(request, db),
+        "timeclock_open_entry": timeclock_open_entry,
     })
 
 
@@ -547,6 +560,30 @@ def timeclock_kiosk_punch(
             "time_local": _aware(punch_time).astimezone(APP_TIMEZONE),
         },
     })
+
+
+@app.post("/timeclock/punch")
+def timeclock_punch(request: Request, db: Session = Depends(get_db)):
+    """Ein-/Ausstempel-Button direkt im Dashboard - für den eingeloggten
+    Nutzer, aber nur wenn das aktuelle Gerät autorisiert ist. So bleibt die
+    Buchung weiterhin an ein konkretes Gerät gebunden, ganz ohne den Umweg
+    über das separate Kiosk-Terminal (/timeclock/kiosk), wenn man ohnehin
+    schon auf dem autorisierten Gerät eingeloggt ist."""
+    user = require_login(request, db)
+    if not device_is_authorized(request, db):
+        return RedirectResponse("/", status_code=302)
+
+    open_entry = (
+        db.query(models.TimeEntry)
+        .filter(models.TimeEntry.user_id == user.id, models.TimeEntry.clock_out.is_(None))
+        .first()
+    )
+    if open_entry:
+        open_entry.clock_out = ntptime.now_utc()
+    else:
+        db.add(models.TimeEntry(user_id=user.id, clock_in=ntptime.now_utc()))
+    db.commit()
+    return RedirectResponse("/", status_code=302)
 
 
 # ---------- NFC-Tags (Verwaltung) ----------

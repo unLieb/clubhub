@@ -93,6 +93,13 @@ dabei ein Login stattfindet (kein bleibender Session-Zustand auf dem
 gemeinsam genutzten Gerät). Auf jedem anderen, nicht autorisierten Gerät zeigt
 diese URL nur einen Hinweis und lässt sich nicht zum Stempeln nutzen.
 
+Ist man auf dem autorisierten Gerät zusätzlich mit dem eigenen Account
+eingeloggt, erscheint im **Dashboard** direkt ein Ein-/Ausstempeln-Button -
+praktisch, wenn das autorisierte Gerät z.B. ein gemeinsam genutzter PC ist,
+an dem sich jeder mit seinem eigenen Account anmeldet. Der Button erscheint
+ausschließlich auf dem autorisierten Gerät, auf jedem anderen bleibt er
+unsichtbar.
+
 ## Benachrichtigungskanäle einrichten
 
 Kanäle werden in der Verwaltung unter **Benachrichtigungskanäle** unabhängig
