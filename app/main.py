@@ -876,6 +876,8 @@ def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session
         "groups": db.query(models.Group).all(),
         "categories": sorted({i.category for i in items if i.category}),
         "locations": sorted({i.location for i in items if i.location}),
+        "units": sorted({i.unit for i in items if i.unit}),
+        "pack_units": sorted({i.pack_unit for i in items if i.pack_unit}),
         "img_fetch_failed": bool(img_fetch_failed),
     })
 
@@ -1220,6 +1222,8 @@ def admin_inventory_page(request: Request, img_fetch_failed: str = "", db: Sessi
         "groups": db.query(models.Group).all(),
         "categories": sorted({i.category for i in items if i.category}),
         "locations": sorted({i.location for i in items if i.location}),
+        "units": sorted({i.unit for i in items if i.unit}),
+        "pack_units": sorted({i.pack_unit for i in items if i.pack_unit}),
         "img_fetch_failed": bool(img_fetch_failed),
     })
 

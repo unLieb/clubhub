@@ -19,6 +19,12 @@
 <datalist id="inv-locations">
   {% for l in locations %}<option value="{{ l }}">{% endfor %}
 </datalist>
+<datalist id="inv-units">
+  {% for u in units %}<option value="{{ u }}">{% endfor %}
+</datalist>
+<datalist id="inv-pack-units">
+  {% for u in pack_units %}<option value="{{ u }}">{% endfor %}
+</datalist>
 
 <div class="max-w-2xl rounded-xl border border-line bg-panel p-4">
   <ul class="space-y-1 text-sm mb-4">
@@ -46,20 +52,26 @@
             <input name="category" list="inv-categories" value="{{ i.category or '' }}" placeholder="Kategorie, z.B. Reinigungsmittel" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             <input name="location" list="inv-locations" value="{{ i.location or '' }}" placeholder="Lagerort, z.B. Lager A" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           </div>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <div class="flex-1">
-              <label class="block text-[11px] text-slate-400 mb-1">Gebinde (gezählte Einheit)</label>
-              <input name="unit" value="{{ i.unit or '' }}" placeholder="z.B. Kanister, Packung, Flasche" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <details class="rounded-lg border border-line p-3" {% if i.unit or i.pack_size or i.pack_unit %}open{% endif %}>
+            <summary class="cursor-pointer list-none flex items-center justify-between text-sm font-medium">
+              Verpackungseinheit (Gebinde)
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="flex flex-col sm:flex-row gap-2 mt-2">
+              <div class="flex-1">
+                <label class="block text-[11px] text-slate-400 mb-1">Gebinde (Verpackung)</label>
+                <input name="unit" list="inv-units" value="{{ i.unit or '' }}" placeholder="z.B. Kanister, Packung, Flasche" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              </div>
+              <div class="w-24">
+                <label class="block text-[11px] text-slate-400 mb-1">Menge je Gebinde</label>
+                <input name="pack_size" type="number" step="0.5" min="0" value="{{ i.pack_size if i.pack_size is not none else '' }}" placeholder="z.B. 10" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              </div>
+              <div class="flex-1">
+                <label class="block text-[11px] text-slate-400 mb-1">Einheit</label>
+                <input name="pack_unit" list="inv-pack-units" value="{{ i.pack_unit or '' }}" placeholder="z.B. Liter, Rollen, Stück" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              </div>
             </div>
-            <div class="w-24">
-              <label class="block text-[11px] text-slate-400 mb-1">Inhalt</label>
-              <input name="pack_size" type="number" step="0.5" min="0" value="{{ i.pack_size if i.pack_size is not none else '' }}" placeholder="z.B. 10" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            </div>
-            <div class="flex-1">
-              <label class="block text-[11px] text-slate-400 mb-1">je Gebinde</label>
-              <input name="pack_unit" value="{{ i.pack_unit or '' }}" placeholder="z.B. Liter, Rollen, Stück" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            </div>
-          </div>
+          </details>
           <div class="flex flex-col sm:flex-row gap-2">
             <div class="flex-1">
               <label class="block text-[11px] text-slate-400 mb-1">Ist-Bestand (in Gebinden)</label>
@@ -71,7 +83,7 @@
             </div>
           </div>
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Bestell-URL (optional, für „Nachbestellen“ – Produktbild wird bei neuem Link automatisch übernommen)</label>
+            <label class="block text-[11px] text-slate-400 mb-1">Bezugsquelle (optional, für „Nachbestellen“ – Produktbild wird bei neuem Link automatisch übernommen)</label>
             <input name="reorder_url" type="url" value="{{ i.reorder_url or '' }}" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           </div>
           <div class="flex gap-2">
@@ -99,20 +111,26 @@
       <input name="category" list="inv-categories" placeholder="Kategorie, z.B. Reinigungsmittel" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <input name="location" list="inv-locations" placeholder="Lagerort, z.B. Lager A" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
     </div>
-    <div class="flex flex-col sm:flex-row gap-2">
-      <div class="flex-1">
-        <label class="block text-[11px] text-slate-400 mb-1">Gebinde (gezählte Einheit)</label>
-        <input name="unit" placeholder="z.B. Kanister, Packung, Flasche" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <details class="rounded-lg border border-line p-3" open>
+      <summary class="cursor-pointer list-none flex items-center justify-between text-sm font-medium">
+        Verpackungseinheit (Gebinde)
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="flex flex-col sm:flex-row gap-2 mt-2">
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Gebinde (Verpackung)</label>
+          <input name="unit" list="inv-units" placeholder="z.B. Kanister, Packung, Flasche" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div class="w-24">
+          <label class="block text-[11px] text-slate-400 mb-1">Menge je Gebinde</label>
+          <input name="pack_size" type="number" step="0.5" min="0" placeholder="z.B. 10" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Einheit</label>
+          <input name="pack_unit" list="inv-pack-units" placeholder="z.B. Liter, Rollen, Stück" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
       </div>
-      <div class="w-24">
-        <label class="block text-[11px] text-slate-400 mb-1">Inhalt</label>
-        <input name="pack_size" type="number" step="0.5" min="0" placeholder="z.B. 10" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      </div>
-      <div class="flex-1">
-        <label class="block text-[11px] text-slate-400 mb-1">je Gebinde</label>
-        <input name="pack_unit" placeholder="z.B. Liter, Rollen, Stück" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      </div>
-    </div>
+    </details>
     <div class="flex flex-col sm:flex-row gap-2">
       <div class="flex-1">
         <label class="block text-[11px] text-slate-400 mb-1">Ist-Bestand (in Gebinden)</label>
@@ -124,7 +142,7 @@
       </div>
     </div>
     <div>
-      <label class="block text-[11px] text-slate-400 mb-1">Bestell-URL (optional, für „Nachbestellen“)</label>
+      <label class="block text-[11px] text-slate-400 mb-1">Bezugsquelle (optional, für „Nachbestellen“)</label>
       <input name="reorder_url" type="url" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
     </div>
     <p class="text-[11px] text-slate-500">Fällt der Ist- unter den Mindestbestand, wird die zugeordnete Gruppe benachrichtigt (respektiert deren Arbeitszeit).</p>
