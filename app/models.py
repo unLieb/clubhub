@@ -89,7 +89,6 @@ class Room(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    nfc_tag_id = Column(String, unique=True, nullable=True)  # frei wählbarer Code im NFC-Tag
 
     groups = relationship("Group", secondary=room_group, back_populates="rooms")
     tasks = relationship("Task", back_populates="room", cascade="all, delete-orphan")
@@ -224,6 +223,24 @@ class ReportComment(Base):
 
     report = relationship("Report", back_populates="comments")
     user = relationship("User")
+
+
+class NfcTag(Base):
+    """Registrierter physischer NFC-Tag - reine Verwaltungs-/Bestandsliste
+    für Admins (welcher Tag liegt wo, ist er noch der erwartete). Steuert
+    selbst keinerlei Zugriff: die Scan-Routen (/room/<id>, /timeclock/scan)
+    funktionieren unabhängig davon, ob ein Tag hier eingetragen ist."""
+    __tablename__ = "nfc_tags"
+
+    id = Column(Integer, primary_key=True)
+    uid = Column(String, unique=True, nullable=True)   # physische Seriennummer, erst nach erstem Scan bekannt
+    label = Column(String, nullable=True)              # freier Anzeigename, z.B. "Eingangstür"
+    target_type = Column(String, nullable=False)        # "room" | "timeclock"
+    target_room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    last_verified_at = Column(DateTime(timezone=True), nullable=True)
+
+    target_room = relationship("Room")
 
 
 class TimeEntry(Base):

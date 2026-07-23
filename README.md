@@ -50,6 +50,25 @@ NFC-Tag (z.B. NTAG213-Sticker) schreiben – z.B. mit der kostenlosen App
 Scan → Handy öffnet automatisch die Bereichsseite → Aufgaben mit Ampel-Status
 werden angezeigt → nach Login (PIN) lässt sich eine Aufgabe abhaken.
 
+### Tag-Verwaltung (Verwaltung → NFC-Tags)
+
+Alternativ zur Dritt-App lassen sich Tags direkt im Browser beschreiben und
+gleichzeitig in einer Übersicht registrieren (welcher Tag gehört zu welchem
+Bereich bzw. zur Zeiterfassung, inkl. Seriennummer und letztem Prüfzeitpunkt).
+Das nutzt die [Web-NFC-API](https://developer.mozilla.org/en-US/docs/Web/API/Web_NFC_API)
+und funktioniert daher nur:
+
+- in **Chrome auf Android** (andere Browser/Betriebssysteme unterstützen Web NFC nicht),
+- über einen **sicheren Kontext (HTTPS)** – reines HTTP wie im Standard-Setup reicht nicht.
+  Dafür braucht es einen Reverse Proxy mit TLS-Zertifikat vor der App (z.B. Caddy,
+  Nginx Proxy Manager oder Tailscale-HTTPS). Der Container selbst läuft bereits mit
+  `--proxy-headers`, erkennt also ein vorgeschaltetes HTTPS korrekt.
+
+Ohne HTTPS/Chrome-Android zeigt die Seite einen Hinweis und lässt Tags weiterhin ohne
+Scan anlegen (URL manuell mit einer Dritt-App aufschreiben, UID optional von Hand eintragen).
+Die Registrierung ist reine Verwaltungs-Übersicht – die Scan-URLs selbst funktionieren
+immer unabhängig davon, ob ein Tag hier eingetragen ist.
+
 ## Zeiterfassung
 
 Jeder Nutzer kann unter **Zeiterfassung** seinen Stundensatz-Verdienst (heute

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}NFC-Tags – Verwaltung{% endblock %}
+{% block content %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-1">NFC-Tags</h1>
+<p class="text-slate-400 text-sm mb-6">Verwalte, welcher physische NFC-Tag welchem Bereich bzw. der Zeiterfassung zugeordnet ist. Steuert nur die Übersicht – die Tags selbst funktionieren unabhängig davon.</p>
+
+{% if not is_secure %}
+<div class="rounded-lg border border-warn/40 bg-warn/10 text-warn text-sm px-4 py-3 mb-5">
+  Diese Seite läuft aktuell über HTTP. Tags direkt im Browser lesen/beschreiben (Web NFC) funktioniert nur über HTTPS
+  in Chrome auf Android – bis dahin lässt sich hier nur eine bereits bekannte UID von Hand eintragen bzw. ein Tag
+  ohne Scan anlegen.
+</div>
+{% endif %}
+
+<div class="max-w-2xl space-y-4">
+  <div class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Registrierte Tags</h2>
+    {% if tags %}
+    <ul class="space-y-1 text-sm">
+      {% for entry in tags %}
+      {% set t = entry.tag %}
+      <li class="border-b border-line/50 last:border-0 py-2.5">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
+          <div class="min-w-0">
+            <div class="text-slate-200">
+              {{ t.label or (t.target_room.name if t.target_type == "room" and t.target_room else "Zeiterfassung") }}
+            </div>
+            <div class="text-xs text-slate-500 mt-0.5">
+              Ziel:
+              {% if t.target_type == "timeclock" %}Zeiterfassung (gemeinsamer Tag)
+              {% elif t.target_room %}Bereich „{{ t.target_room.name }}“
+              {% else %}<span class="text-late">Bereich wurde gelöscht</span>
+              {% endif %}
+            </div>
+            <div class="text-xs text-slate-500 mt-0.5 font-mono">
+              {% if t.uid %}UID: {{ t.uid }}{% else %}<span class="text-warn">noch nicht gescannt</span>{% endif %}
+              {% if entry.last_verified_local %} &middot; zuletzt geprüft {{ entry.last_verified_local.strftime("%d.%m.%Y, %H:%M") }} Uhr{% endif %}
+            </div>
+          </div>
+          <div class="flex flex-col sm:items-end gap-1 shrink-0">
+            <div class="flex gap-2">
+              <button type="button" class="tag-rescan-btn px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-xs font-medium whitespace-nowrap"
+                      data-form-id="rescan-form-{{ t.id }}" data-status-id="rescan-status-{{ t.id }}">Erneut scannen</button>
+              <form method="post" action="/admin/nfc-tags/{{ t.id }}/delete" onsubmit="return confirm('Registrierungs-Eintrag wirklich löschen? Der physische Tag selbst bleibt unverändert und funktioniert weiter.')">
+                <button class="px-2.5 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-xs font-medium">Löschen</button>
+              </form>
+            </div>
+            <span id="rescan-status-{{ t.id }}" class="text-[11px] text-slate-500 sm:text-right"></span>
+          </div>
+        </div>
+        <form id="rescan-form-{{ t.id }}" method="post" action="/admin/nfc-tags/{{ t.id }}/rescan" class="hidden">
+          <input type="hidden" name="uid">
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-slate-500 text-sm italic">Noch keine Tags registriert.</p>
+    {% endif %}
+  </div>
+
+  <div class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Neuen Tag anlegen</h2>
+    <form id="add-tag-form" method="post" action="/admin/nfc-tags/add" class="space-y-2">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <select name="target" id="add-tag-target" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <option value="timeclock">Zeiterfassung (gemeinsamer Tag)</option>
+          {% for r in rooms %}
+          <option value="room:{{ r.id }}">Bereich: {{ r.name }}</option>
+          {% endfor %}
+        </select>
+        <input name="label" placeholder="Bezeichnung (optional), z.B. „an der Eingangstür“" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      </div>
+      <input type="hidden" name="uid" id="add-tag-uid">
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="add-tag-write-btn" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Tag beschreiben &amp; registrieren</button>
+        <button type="button" id="add-tag-read-btn" class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Nur UID einlesen</button>
+        <button type="submit" class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Ohne Scan anlegen</button>
+      </div>
+      <span id="add-tag-status" class="block text-xs text-slate-500"></span>
+    </form>
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
+      „Tag beschreiben &amp; registrieren“ schreibt die Ziel-URL direkt auf den Tag und speichert dessen Seriennummer in einem Schritt.
+      „Nur UID einlesen“ registriert einen bereits extern beschriebenen Tag, ohne ihn zu verändern. Beides braucht
+      Chrome auf Android über HTTPS (Web NFC). Ohne das lässt sich ein Tag auch ohne Scan anlegen und die Ziel-URL
+      (z.B. <code class="bg-ink border border-line rounded px-1">{{ timeclock_url }}</code> für die Zeiterfassung)
+      mit einer Dritt-App wie „NFC Tools“ von Hand aufschreiben.
+    </p>
+  </div>
+</div>
+
+<script>window.NFC_TARGET_URLS = {{ target_urls_json | safe }};</script>
+<script>
+(function () {
+  function nfcSupported() { return 'NDEFReader' in window; }
+
+  function nfcRead(statusEl) {
+    return new Promise(function (resolve, reject) {
+      if (!nfcSupported()) { reject(new Error('nosupport')); return; }
+      var ndef = new NDEFReader();
+      var controller = new AbortController();
+      statusEl.textContent = 'Bitte Tag jetzt ans Handy halten…';
+      statusEl.className = 'text-xs text-slate-400 mt-1';
+      ndef.scan({ signal: controller.signal }).then(function () {
+        ndef.onreading = function (event) {
+          controller.abort();
+          resolve(event.serialNumber || '');
+        };
+      }).catch(reject);
+    });
+  }
+
+  function nfcWrite(url, statusEl) {
+    return new Promise(function (resolve, reject) {
+      if (!nfcSupported()) { reject(new Error('nosupport')); return; }
+      var ndef = new NDEFReader();
+      var controller = new AbortController();
+      statusEl.textContent = 'Bitte Tag jetzt ans Handy halten…';
+      statusEl.className = 'text-xs text-slate-400 mt-1';
+      ndef.scan({ signal: controller.signal }).then(function () {
+        ndef.onreading = function (event) {
+          ndef.write({ records: [{ recordType: 'url', data: url }] }).then(function () {
+            controller.abort();
+            resolve(event.serialNumber || '');
+          }).catch(function (err) {
+            controller.abort();
+            reject(err);
+          });
+        };
+      }).catch(reject);
+    });
+  }
+
+  function showError(statusEl, err) {
+    if (err && err.message === 'nosupport') {
+      statusEl.textContent = 'Web NFC wird von diesem Browser nicht unterstützt (nur Chrome/Android, HTTPS erforderlich).';
+    } else {
+      statusEl.textContent = 'Fehler: ' + (err && err.message ? err.message : err);
+    }
+    statusEl.className = 'text-xs text-late mt-1';
+  }
+
+  var addForm = document.getElementById('add-tag-form');
+  if (addForm) {
+    var targetSelect = document.getElementById('add-tag-target');
+    var uidInput = document.getElementById('add-tag-uid');
+    var statusEl = document.getElementById('add-tag-status');
+
+    document.getElementById('add-tag-write-btn').addEventListener('click', function () {
+      var url = window.NFC_TARGET_URLS[targetSelect.value];
+      nfcWrite(url, statusEl).then(function (uid) {
+        uidInput.value = uid;
+        statusEl.textContent = 'Tag beschrieben – wird gespeichert…';
+        statusEl.className = 'text-xs text-go mt-1';
+        addForm.requestSubmit();
+      }).catch(function (err) { showError(statusEl, err); });
+    });
+
+    document.getElementById('add-tag-read-btn').addEventListener('click', function () {
+      nfcRead(statusEl).then(function (uid) {
+        uidInput.value = uid;
+        statusEl.textContent = 'UID gelesen – wird gespeichert…';
+        statusEl.className = 'text-xs text-go mt-1';
+        addForm.requestSubmit();
+      }).catch(function (err) { showError(statusEl, err); });
+    });
+  }
+
+  document.querySelectorAll('.tag-rescan-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var form = document.getElementById(btn.dataset.formId);
+      var statusEl = document.getElementById(btn.dataset.statusId);
+      var uidInput = form.querySelector('input[name="uid"]');
+      nfcRead(statusEl).then(function (uid) {
+        uidInput.value = uid;
+        statusEl.textContent = 'UID gelesen – wird gespeichert…';
+        statusEl.className = 'text-[11px] text-go mt-1 text-right';
+        form.requestSubmit();
+      }).catch(function (err) { showError(statusEl, err); });
+    });
+  });
+})();
+</script>
+
+{% endblock %}

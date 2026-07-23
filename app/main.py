@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import signal
@@ -486,6 +487,101 @@ def timeclock_view(request: Request, scan: str = "", db: Session = Depends(get_d
     })
 
 
+# ---------- NFC-Tags (Verwaltung) ----------
+
+def tag_target_url(request: Request, tag) -> str:
+    base = str(request.base_url).rstrip("/")
+    if tag.target_type == "timeclock":
+        return f"{base}/timeclock/scan"
+    return f"{base}/room/{tag.target_room_id}"
+
+
+@app.get("/admin/nfc-tags")
+def admin_nfc_tags_page(request: Request, db: Session = Depends(get_db)):
+    admin = require_admin_or_shift_lead(request, db)
+    tags = db.query(models.NfcTag).order_by(models.NfcTag.created_at.desc()).all()
+    rooms = db.query(models.Room).order_by(models.Room.name).all()
+    base = str(request.base_url).rstrip("/")
+
+    target_urls = {"timeclock": f"{base}/timeclock/scan"}
+    for r in rooms:
+        target_urls[f"room:{r.id}"] = f"{base}/room/{r.id}"
+
+    return templates.TemplateResponse("admin_nfc_tags.html", {
+        "request": request,
+        "user": admin,
+        "tags": [
+            {
+                "tag": t,
+                "url": tag_target_url(request, t),
+                "last_verified_local": _aware(t.last_verified_at).astimezone(APP_TIMEZONE) if t.last_verified_at else None,
+            }
+            for t in tags
+        ],
+        "rooms": rooms,
+        "timeclock_url": target_urls["timeclock"],
+        "target_urls_json": json.dumps(target_urls),
+        "is_secure": request.url.scheme == "https",
+    })
+
+
+@app.post("/admin/nfc-tags/add")
+def admin_nfc_tags_add(
+    request: Request,
+    target: str = Form(...),
+    label: str = Form(""),
+    uid: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_admin_or_shift_lead(request, db)
+    if target == "timeclock":
+        target_type, target_room_id = "timeclock", None
+    elif target.startswith("room:"):
+        target_type, target_room_id = "room", int(target.split(":", 1)[1])
+    else:
+        return RedirectResponse("/admin/nfc-tags", status_code=302)
+    db.add(models.NfcTag(
+        uid=uid.strip() or None,
+        label=label.strip() or None,
+        target_type=target_type,
+        target_room_id=target_room_id,
+        last_verified_at=ntptime.now_utc() if uid.strip() else None,
+    ))
+    db.commit()
+    return RedirectResponse("/admin/nfc-tags", status_code=302)
+
+
+@app.post("/admin/nfc-tags/{tag_id}/rescan")
+def admin_nfc_tags_rescan(tag_id: int, request: Request, uid: str = Form(...), db: Session = Depends(get_db)):
+    require_admin_or_shift_lead(request, db)
+    tag = db.query(models.NfcTag).filter(models.NfcTag.id == tag_id).first()
+    if tag:
+        tag.uid = uid.strip() or None
+        tag.last_verified_at = ntptime.now_utc()
+        db.commit()
+    return RedirectResponse("/admin/nfc-tags", status_code=302)
+
+
+@app.post("/admin/nfc-tags/{tag_id}/edit")
+def admin_nfc_tags_edit(tag_id: int, request: Request, label: str = Form(""), db: Session = Depends(get_db)):
+    require_admin_or_shift_lead(request, db)
+    tag = db.query(models.NfcTag).filter(models.NfcTag.id == tag_id).first()
+    if tag:
+        tag.label = label.strip() or None
+        db.commit()
+    return RedirectResponse("/admin/nfc-tags", status_code=302)
+
+
+@app.post("/admin/nfc-tags/{tag_id}/delete")
+def admin_nfc_tags_delete(tag_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    tag = db.query(models.NfcTag).filter(models.NfcTag.id == tag_id).first()
+    if tag:
+        db.delete(tag)
+        db.commit()
+    return RedirectResponse("/admin/nfc-tags", status_code=302)
+
+
 # ---------- Inventar ----------
 
 def distinct_inventory_values(db: Session, column: str) -> list[str]:
@@ -908,6 +1004,8 @@ def admin_home(request: Request, db: Session = Depends(get_db)):
             .filter(models.InventoryItem.stock_current < models.InventoryItem.stock_min).count(),
         "channels_count": db.query(models.NotificationChannel).count(),
         "open_time_entries_count": db.query(models.TimeEntry).filter(models.TimeEntry.clock_out.is_(None)).count(),
+        "nfc_tags_count": db.query(models.NfcTag).count(),
+        "nfc_tags_unscanned_count": db.query(models.NfcTag).filter(models.NfcTag.uid.is_(None)).count(),
         "ntp_status": ntptime.status(),
     })
 
