@@ -693,6 +693,23 @@ def distinct_inventory_values(db: Session, column: str) -> list[str]:
     return sorted({v for (v,) in db.query(col).distinct().all() if v})
 
 
+def user_can_see_inventory_item(user, item) -> bool:
+    """Nur Admin sieht das komplette Inventar; alle anderen (auch Schichtleiter)
+    nur Artikel ohne Gruppe (gemeinsames Inventar) sowie Artikel der eigenen
+    Gruppe(n) - so sieht z.B. die Küche nicht das Inventar der Gastronomie."""
+    if user and user.is_admin:
+        return True
+    if item.group_id is None:
+        return True
+    if not user:
+        return False
+    return any(g.id == item.group_id for g in user.groups)
+
+
+def filter_inventory_for_user(items, user):
+    return [i for i in items if user_can_see_inventory_item(user, i)]
+
+
 _OG_IMAGE_PATTERNS = [
     re.compile(r'<meta[^>]+property=["\']og:image(?::secure_url)?["\'][^>]+content=["\']([^"\']+)["\']', re.I),
     re.compile(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image(?::secure_url)?["\']', re.I),
@@ -834,21 +851,23 @@ def build_consumption_chart(series: list[dict], width: int = 300, height: int = 
 
 @app.get("/inventory")
 def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
     items = db.query(models.InventoryItem).order_by(models.InventoryItem.name).all()
+    items = filter_inventory_for_user(items, user)
     now = ntptime.now_utc()
     inventory_status = {item.id: compute_inventory_status(item) for item in items}
     inventory_consumption = {item.id: compute_inventory_consumption(item, now) for item in items}
     inventory_chart = {item.id: build_consumption_chart(inventory_consumption[item.id]) for item in items}
     return templates.TemplateResponse("inventory.html", {
         "request": request,
-        "user": get_current_user(request, db),
+        "user": user,
         "items": items,
         "inventory_status": inventory_status,
         "inventory_consumption": inventory_consumption,
         "inventory_chart": inventory_chart,
         "groups": db.query(models.Group).all(),
-        "categories": distinct_inventory_values(db, "category"),
-        "locations": distinct_inventory_values(db, "location"),
+        "categories": sorted({i.category for i in items if i.category}),
+        "locations": sorted({i.location for i in items if i.location}),
         "img_fetch_failed": bool(img_fetch_failed),
     })
 
@@ -863,7 +882,7 @@ def inventory_adjust(
 ):
     user = require_login(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
-    if item:
+    if item and user_can_see_inventory_item(user, item):
         item.stock_current += delta
         db.add(models.InventoryMovement(item_id=item.id, user_id=user.id, delta=delta, note=note or None))
         if item.stock_current >= item.stock_min:
@@ -880,9 +899,9 @@ async def inventory_set_image(
     image_url_input: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    actor = require_admin_or_shift_lead(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
-    if item:
+    if item and user_can_see_inventory_item(actor, item):
         if image_file is not None and image_file.filename:
             data = await image_file.read()
             if data and (image_file.content_type or "").startswith("image/"):
@@ -1185,13 +1204,14 @@ def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/admin/inventory")
 def admin_inventory_page(request: Request, img_fetch_failed: str = "", db: Session = Depends(get_db)):
     admin = require_admin_or_shift_lead(request, db)
+    items = filter_inventory_for_user(db.query(models.InventoryItem).all(), admin)
     return templates.TemplateResponse("admin_inventory.html", {
         "request": request,
         "user": admin,
-        "inventory_items": db.query(models.InventoryItem).all(),
+        "inventory_items": items,
         "groups": db.query(models.Group).all(),
-        "categories": distinct_inventory_values(db, "category"),
-        "locations": distinct_inventory_values(db, "location"),
+        "categories": sorted({i.category for i in items if i.category}),
+        "locations": sorted({i.location for i in items if i.location}),
         "img_fetch_failed": bool(img_fetch_failed),
     })
 
@@ -1725,8 +1745,10 @@ def admin_edit_inventory_item(
     next: str = Form("/admin/inventory"),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    actor = require_admin_or_shift_lead(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
+    if item and not user_can_see_inventory_item(actor, item):
+        item = None
     if item:
         item.name = name
         item.unit = unit or None
