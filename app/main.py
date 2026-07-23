@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import secrets
 import signal
 import uuid
 from datetime import datetime, timezone
@@ -110,6 +111,15 @@ def _migrate_user_time_tracking(db: Session):
     _ensure_column(db, "users", "target_hours_per_month", "FLOAT")
 
 
+def _migrate_remove_timeclock_nfc_tags(db: Session):
+    """Das Ein-/Ausstempeln lief anfangs über einen gemeinsamen NFC-Tag
+    (/timeclock/scan), wurde aber durch ein autorisiertes Terminal ersetzt
+    (Manipulationsschutz, da ein NFC-Tag beliebig kopierbar ist). Räumt evtl.
+    zuvor angelegte Registry-Einträge für dieses inzwischen entfernte Ziel auf."""
+    db.query(models.NfcTag).filter(models.NfcTag.target_type == "timeclock").delete()
+    db.commit()
+
+
 def _migrate_report_photos(db: Session):
     """Überführt das alte einzelne photo_filename je Meldung (vor der Umstellung
     auf mehrere Fotos pro Meldung) in je eine ReportPhoto-Zeile. Greift nur für
@@ -166,6 +176,7 @@ def _startup():
         _migrate_report_photos(db)
         _migrate_inventory_extras(db)
         _migrate_user_time_tracking(db)
+        _migrate_remove_timeclock_nfc_tags(db)
     finally:
         db.close()
 
@@ -451,39 +462,90 @@ def compute_time_stats(user, db: Session, now) -> dict:
     }
 
 
-@app.get("/timeclock/scan")
-def timeclock_scan(request: Request, db: Session = Depends(get_db)):
-    """Ziel-URL des gemeinsamen NFC-Zeiterfassungs-Tags. Stempelt den gerade
-    eingeloggten Nutzer ein oder aus (Toggle) - erfordert Login, damit die
-    Buchung an eine konkrete Person gebunden ist."""
-    user = get_current_user(request, db)
-    if not user:
-        return RedirectResponse("/login?next=/timeclock/scan", status_code=302)
-
-    open_entry = (
-        db.query(models.TimeEntry)
-        .filter(models.TimeEntry.user_id == user.id, models.TimeEntry.clock_out.is_(None))
-        .first()
-    )
-    if open_entry:
-        open_entry.clock_out = ntptime.now_utc()
-        action = "out"
-    else:
-        db.add(models.TimeEntry(user_id=user.id, clock_in=ntptime.now_utc()))
-        action = "in"
-    db.commit()
-    return RedirectResponse(f"/timeclock?scan={action}", status_code=302)
-
-
 @app.get("/timeclock")
-def timeclock_view(request: Request, scan: str = "", db: Session = Depends(get_db)):
+def timeclock_view(request: Request, db: Session = Depends(get_db)):
     user = require_login(request, db)
     stats = compute_time_stats(user, db, ntptime.now_utc())
     return templates.TemplateResponse("timeclock.html", {
         "request": request,
         "user": user,
         "stats": stats,
-        "scan_result": scan if scan in ("in", "out") else None,
+    })
+
+
+# ---------- Zeiterfassungs-Terminal (autorisiertes Gerät) ----------
+
+DEVICE_COOKIE_NAME = "tc_device_token"
+DEVICE_COOKIE_MAX_AGE = 10 * 365 * 24 * 3600  # ~10 Jahre, praktisch dauerhaft
+
+
+def get_authorized_device(db: Session):
+    return db.query(models.AuthorizedDevice).first()
+
+
+def device_is_authorized(request: Request, db: Session) -> bool:
+    device = get_authorized_device(db)
+    if not device:
+        return False
+    cookie = request.cookies.get(DEVICE_COOKIE_NAME)
+    return bool(cookie) and cookie == device.token
+
+
+@app.get("/timeclock/kiosk")
+def timeclock_kiosk(request: Request, db: Session = Depends(get_db)):
+    if not device_is_authorized(request, db):
+        return templates.TemplateResponse("timeclock_kiosk.html", {
+            "request": request, "user": None, "authorized": False,
+        })
+    users = db.query(models.User).order_by(models.User.name).all()
+    return templates.TemplateResponse("timeclock_kiosk.html", {
+        "request": request, "user": None, "authorized": True,
+        "users": users, "error": None, "result": None,
+    })
+
+
+@app.post("/timeclock/kiosk")
+def timeclock_kiosk_punch(
+    request: Request,
+    user_id: int = Form(...),
+    pin: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    if not device_is_authorized(request, db):
+        return templates.TemplateResponse("timeclock_kiosk.html", {
+            "request": request, "user": None, "authorized": False,
+        })
+
+    users = db.query(models.User).order_by(models.User.name).all()
+    target_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target_user or not verify_pin(pin, target_user.pin_hash):
+        return templates.TemplateResponse("timeclock_kiosk.html", {
+            "request": request, "user": None, "authorized": True,
+            "users": users, "error": "PIN ist falsch.", "result": None,
+        })
+
+    open_entry = (
+        db.query(models.TimeEntry)
+        .filter(models.TimeEntry.user_id == target_user.id, models.TimeEntry.clock_out.is_(None))
+        .first()
+    )
+    if open_entry:
+        open_entry.clock_out = ntptime.now_utc()
+        action, punch_time = "out", open_entry.clock_out
+    else:
+        entry = models.TimeEntry(user_id=target_user.id, clock_in=ntptime.now_utc())
+        db.add(entry)
+        action, punch_time = "in", entry.clock_in
+    db.commit()
+
+    return templates.TemplateResponse("timeclock_kiosk.html", {
+        "request": request, "user": None, "authorized": True,
+        "users": users, "error": None,
+        "result": {
+            "name": target_user.name,
+            "action": action,
+            "time_local": _aware(punch_time).astimezone(APP_TIMEZONE),
+        },
     })
 
 
@@ -491,8 +553,6 @@ def timeclock_view(request: Request, scan: str = "", db: Session = Depends(get_d
 
 def tag_target_url(request: Request, tag) -> str:
     base = str(request.base_url).rstrip("/")
-    if tag.target_type == "timeclock":
-        return f"{base}/timeclock/scan"
     return f"{base}/room/{tag.target_room_id}"
 
 
@@ -503,9 +563,7 @@ def admin_nfc_tags_page(request: Request, db: Session = Depends(get_db)):
     rooms = db.query(models.Room).order_by(models.Room.name).all()
     base = str(request.base_url).rstrip("/")
 
-    target_urls = {"timeclock": f"{base}/timeclock/scan"}
-    for r in rooms:
-        target_urls[f"room:{r.id}"] = f"{base}/room/{r.id}"
+    target_urls = {f"room:{r.id}": f"{base}/room/{r.id}" for r in rooms}
 
     return templates.TemplateResponse("admin_nfc_tags.html", {
         "request": request,
@@ -519,7 +577,6 @@ def admin_nfc_tags_page(request: Request, db: Session = Depends(get_db)):
             for t in tags
         ],
         "rooms": rooms,
-        "timeclock_url": target_urls["timeclock"],
         "target_urls_json": json.dumps(target_urls),
         "is_secure": request.url.scheme == "https",
     })
@@ -534,12 +591,9 @@ def admin_nfc_tags_add(
     db: Session = Depends(get_db),
 ):
     require_admin_or_shift_lead(request, db)
-    if target == "timeclock":
-        target_type, target_room_id = "timeclock", None
-    elif target.startswith("room:"):
-        target_type, target_room_id = "room", int(target.split(":", 1)[1])
-    else:
+    if not target.startswith("room:"):
         return RedirectResponse("/admin/nfc-tags", status_code=302)
+    target_type, target_room_id = "room", int(target.split(":", 1)[1])
     db.add(models.NfcTag(
         uid=uid.strip() or None,
         label=label.strip() or None,
@@ -1102,12 +1156,50 @@ def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
             }
             for e in entries
         ]
+    device = get_authorized_device(db)
     return templates.TemplateResponse("admin_timeclock.html", {
         "request": request,
         "user": admin,
         "users": users,
         "entries_by_user": entries_by_user,
+        "device": device,
+        "device_authorized_local": _aware(device.authorized_at).astimezone(APP_TIMEZONE) if device else None,
+        "kiosk_url": f"{str(request.base_url).rstrip('/')}/timeclock/kiosk",
     })
+
+
+@app.post("/admin/timeclock/authorize-device")
+def admin_authorize_device(request: Request, label: str = Form(""), db: Session = Depends(get_db)):
+    """Autorisiert GENAU das Gerät, von dem aus dieser Request kommt, für das
+    Zeiterfassungs-Terminal - ein bereits autorisiertes Gerät verliert dabei
+    automatisch seine Berechtigung (nur ein Token wird je gespeichert)."""
+    admin = require_admin(request, db)
+    token = secrets.token_hex(32)
+    device = get_authorized_device(db)
+    if device:
+        device.token = token
+        device.label = label.strip() or None
+        device.authorized_at = ntptime.now_utc()
+        device.authorized_by_id = admin.id
+    else:
+        db.add(models.AuthorizedDevice(
+            token=token, label=label.strip() or None, authorized_by_id=admin.id,
+        ))
+    db.commit()
+    response = RedirectResponse("/admin/timeclock", status_code=302)
+    response.set_cookie(
+        DEVICE_COOKIE_NAME, token,
+        max_age=DEVICE_COOKIE_MAX_AGE, httponly=True, samesite="lax",
+    )
+    return response
+
+
+@app.post("/admin/timeclock/revoke-device")
+def admin_revoke_device(request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    db.query(models.AuthorizedDevice).delete()
+    db.commit()
+    return RedirectResponse("/admin/timeclock", status_code=302)
 
 
 @app.post("/admin/timeclock/{user_id}/add")

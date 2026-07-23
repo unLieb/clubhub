@@ -54,7 +54,7 @@ werden angezeigt → nach Login (PIN) lässt sich eine Aufgabe abhaken.
 
 Alternativ zur Dritt-App lassen sich Tags direkt im Browser beschreiben und
 gleichzeitig in einer Übersicht registrieren (welcher Tag gehört zu welchem
-Bereich bzw. zur Zeiterfassung, inkl. Seriennummer und letztem Prüfzeitpunkt).
+Bereich, inkl. Seriennummer und letztem Prüfzeitpunkt).
 Das nutzt die [Web-NFC-API](https://developer.mozilla.org/en-US/docs/Web/API/Web_NFC_API)
 und funktioniert daher nur:
 
@@ -78,12 +78,20 @@ einem Admin hinterlegt (beides optional; ohne Stundensatz werden nur die
 Stunden angezeigt, ohne Sollzeit keine Überstunden). Pausen werden nicht
 automatisch abgezogen.
 
-Ein- und Ausstempeln funktioniert bewusst nur über einen einzigen, gemeinsamen
-NFC-Tag (wie eine physische Stempeluhr, z.B. am Empfang/Eingang) – es gibt
-keinen Stempel-Button in der App, damit die Buchung an die tatsächliche
-Anwesenheit gebunden bleibt. Dafür die URL `http://<server>:8000/timeclock/scan`
-auf einen NFC-Tag schreiben. Scan → falls nicht eingeloggt, kurzer PIN-Login →
-stempelt den eingeloggten Nutzer ein bzw. (bei erneutem Scan) wieder aus.
+Ein- und Ausstempeln funktioniert bewusst nur über ein einziges, von der
+Verwaltung **autorisiertes Gerät** (z.B. ein Tablet am Empfang) – kein NFC-Tag,
+da ein solcher Tag beliebig kopierbar wäre und sich damit von überall aus
+(mit dem eigenen Handy) stempeln ließe. Stattdessen unter
+**Verwaltung → Zeiterfassung** genau das Gerät autorisieren, auf dem gestempelt
+werden soll (Button "Dieses Gerät autorisieren", ausgeführt direkt auf diesem
+Gerät). Ein neu autorisiertes Gerät ersetzt automatisch ein zuvor autorisiertes
+– es kann immer nur eines gleichzeitig aktiv sein.
+
+Auf dem autorisierten Gerät läuft unter `http://<server>:8000/timeclock/kiosk`
+ein einfaches Terminal: Name auswählen, PIN eingeben, stempeln – ohne dass
+dabei ein Login stattfindet (kein bleibender Session-Zustand auf dem
+gemeinsam genutzten Gerät). Auf jedem anderen, nicht autorisierten Gerät zeigt
+diese URL nur einen Hinweis und lässt sich nicht zum Stempeln nutzen.
 
 ## Benachrichtigungskanäle einrichten
 

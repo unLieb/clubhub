@@ -228,14 +228,14 @@ class ReportComment(Base):
 class NfcTag(Base):
     """Registrierter physischer NFC-Tag - reine Verwaltungs-/Bestandsliste
     für Admins (welcher Tag liegt wo, ist er noch der erwartete). Steuert
-    selbst keinerlei Zugriff: die Scan-Routen (/room/<id>, /timeclock/scan)
-    funktionieren unabhängig davon, ob ein Tag hier eingetragen ist."""
+    selbst keinerlei Zugriff: die Scan-Route (/room/<id>) funktioniert
+    unabhängig davon, ob ein Tag hier eingetragen ist."""
     __tablename__ = "nfc_tags"
 
     id = Column(Integer, primary_key=True)
     uid = Column(String, unique=True, nullable=True)   # physische Seriennummer, erst nach erstem Scan bekannt
     label = Column(String, nullable=True)              # freier Anzeigename, z.B. "Eingangstür"
-    target_type = Column(String, nullable=False)        # "room" | "timeclock"
+    target_type = Column(String, nullable=False)        # "room" (bisher auch "timeclock", siehe Migration)
     target_room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     last_verified_at = Column(DateTime(timezone=True), nullable=True)
@@ -244,11 +244,11 @@ class NfcTag(Base):
 
 
 class TimeEntry(Base):
-    """Ein Kommen/Gehen-Paar der Zeiterfassung. Wird ausschließlich über den
-    gemeinsamen NFC-Zeiterfassungs-Tag erzeugt/geschlossen (Toggle je nachdem,
-    ob der eingeloggte Nutzer schon eine offene Buchung hat), damit das Ein-/
-    Ausstempeln an die physische Anwesenheit am Tag gebunden bleibt. clock_out
-    ist None, solange der Nutzer noch eingestempelt ist."""
+    """Ein Kommen/Gehen-Paar der Zeiterfassung. Wird ausschließlich über das
+    autorisierte Zeiterfassungs-Terminal (/timeclock/kiosk) erzeugt/geschlossen
+    (Toggle je nachdem, ob der Nutzer schon eine offene Buchung hat), damit
+    das Ein-/Ausstempeln an ein konkretes, stationäres Gerät gebunden bleibt.
+    clock_out ist None, solange der Nutzer noch eingestempelt ist."""
     __tablename__ = "time_entries"
 
     id = Column(Integer, primary_key=True)
@@ -257,3 +257,21 @@ class TimeEntry(Base):
     clock_out = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="time_entries")
+
+
+class AuthorizedDevice(Base):
+    """Genau ein Gerät kann gleichzeitig für das Zeiterfassungs-Terminal
+    (/timeclock/kiosk) autorisiert sein - das Autorisieren eines neuen Geräts
+    ersetzt Token und Angaben dieser einzigen Zeile, wodurch das vorherige
+    Gerät automatisch die Berechtigung verliert. Verhindert, dass Ein-/
+    Ausstempeln von einem beliebigen Gerät (z.B. dem eigenen Handy von
+    zuhause) aus möglich ist."""
+    __tablename__ = "authorized_device"
+
+    id = Column(Integer, primary_key=True)
+    token = Column(String, nullable=False)
+    label = Column(String, nullable=True)               # freier Anzeigename, z.B. "Tablet Empfang"
+    authorized_at = Column(DateTime(timezone=True), default=utcnow)
+    authorized_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    authorized_by = relationship("User")

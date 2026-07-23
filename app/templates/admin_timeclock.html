@@ -6,6 +6,36 @@
 <h1 class="font-display text-2xl font-semibold mt-2 mb-1">Zeiterfassung</h1>
 <p class="text-slate-400 text-sm mb-6">Buchungen nachträglich korrigieren – z.B. bei vergessenem Ein- oder Ausstempeln.</p>
 
+<div class="max-w-2xl rounded-xl border border-line bg-panel p-4 mb-4">
+  <h2 class="font-display font-medium mb-3">Autorisiertes Gerät</h2>
+  <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
+    Ein-/Ausstempeln funktioniert ausschließlich auf genau einem freigeschalteten, stationären Gerät
+    (z.B. ein Tablet am Empfang) unter <code class="bg-ink border border-line rounded px-1">{{ kiosk_url }}</code> –
+    dort wählt jeder Mitarbeiter seinen Namen und gibt seine PIN ein. So bleibt eine Buchung an ein konkretes
+    Gerät gebunden, statt beliebig von unterwegs möglich zu sein.
+  </p>
+  {% if device %}
+  <div class="rounded-lg border border-go/40 bg-go/10 p-3 mb-3">
+    <div class="text-go text-sm font-medium">{{ device.label or "Unbenanntes Gerät" }} ist autorisiert</div>
+    <div class="text-xs text-slate-400 mt-1">
+      seit {{ device_authorized_local.strftime("%d.%m.%Y, %H:%M") }} Uhr
+      {% if device.authorized_by %}von {{ device.authorized_by.name }}{% endif %}
+    </div>
+  </div>
+  <form method="post" action="/admin/timeclock/revoke-device" onsubmit="return confirm('Autorisierung wirklich aufheben? Das Gerät kann danach nicht mehr ein-/ausstempeln, bis ein neues autorisiert wird.')">
+    <button class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Autorisierung aufheben</button>
+  </form>
+  {% else %}
+  <p class="text-warn text-sm mb-3">Aktuell ist kein Gerät autorisiert – das Terminal ist für niemanden nutzbar.</p>
+  {% endif %}
+  <form method="post" action="/admin/timeclock/authorize-device" class="mt-3 pt-3 border-t border-line flex flex-col sm:flex-row gap-2"
+        onsubmit="return confirm('Dieses Gerät hier jetzt für die Zeiterfassung autorisieren? Ein zuvor autorisiertes Gerät verliert dabei automatisch die Berechtigung.')">
+    <input name="label" placeholder="Bezeichnung (optional), z.B. „Tablet Empfang“" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Dieses Gerät autorisieren</button>
+  </form>
+  <p class="text-[11px] text-slate-500 mt-2">Nur ausführen, wenn du diese Seite gerade auf dem Gerät geöffnet hast, das du autorisieren willst.</p>
+</div>
+
 <div class="max-w-2xl space-y-3">
   {% for u in users %}
   {% set entries = entries_by_user[u.id] %}

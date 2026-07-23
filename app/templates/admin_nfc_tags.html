@@ -4,7 +4,7 @@
 
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-1">NFC-Tags</h1>
-<p class="text-slate-400 text-sm mb-6">Verwalte, welcher physische NFC-Tag welchem Bereich bzw. der Zeiterfassung zugeordnet ist. Steuert nur die Übersicht – die Tags selbst funktionieren unabhängig davon.</p>
+<p class="text-slate-400 text-sm mb-6">Verwalte, welcher physische NFC-Tag welchem Bereich zugeordnet ist. Steuert nur die Übersicht – die Tags selbst funktionieren unabhängig davon.</p>
 
 {% if not is_secure %}
 <div class="rounded-lg border border-warn/40 bg-warn/10 text-warn text-sm px-4 py-3 mb-5">
@@ -25,12 +25,11 @@
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
           <div class="min-w-0">
             <div class="text-slate-200">
-              {{ t.label or (t.target_room.name if t.target_type == "room" and t.target_room else "Zeiterfassung") }}
+              {{ t.label or (t.target_room.name if t.target_room else "Bereich gelöscht") }}
             </div>
             <div class="text-xs text-slate-500 mt-0.5">
               Ziel:
-              {% if t.target_type == "timeclock" %}Zeiterfassung (gemeinsamer Tag)
-              {% elif t.target_room %}Bereich „{{ t.target_room.name }}“
+              {% if t.target_room %}Bereich „{{ t.target_room.name }}“
               {% else %}<span class="text-late">Bereich wurde gelöscht</span>
               {% endif %}
             </div>
@@ -66,7 +65,6 @@
     <form id="add-tag-form" method="post" action="/admin/nfc-tags/add" class="space-y-2">
       <div class="flex flex-col sm:flex-row gap-2">
         <select name="target" id="add-tag-target" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <option value="timeclock">Zeiterfassung (gemeinsamer Tag)</option>
           {% for r in rooms %}
           <option value="room:{{ r.id }}">Bereich: {{ r.name }}</option>
           {% endfor %}
@@ -85,7 +83,6 @@
       „Tag beschreiben &amp; registrieren“ schreibt die Ziel-URL direkt auf den Tag und speichert dessen Seriennummer in einem Schritt.
       „Nur UID einlesen“ registriert einen bereits extern beschriebenen Tag, ohne ihn zu verändern. Beides braucht
       Chrome auf Android über HTTPS (Web NFC). Ohne das lässt sich ein Tag auch ohne Scan anlegen und die Ziel-URL
-      (z.B. <code class="bg-ink border border-line rounded px-1">{{ timeclock_url }}</code> für die Zeiterfassung)
       mit einer Dritt-App wie „NFC Tools“ von Hand aufschreiben.
     </p>
   </div>
