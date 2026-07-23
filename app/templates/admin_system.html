@@ -43,6 +43,16 @@
     </p>
   </section>
 
+  <section class="rounded-xl border border-line bg-panel p-4 mt-4">
+    <h2 class="font-display font-medium mb-3">Zeiterfassung</h2>
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-2">
+      Stundensatz und Sollzeit/Monat werden pro Nutzer unter
+      <a href="/admin/users" class="text-go hover:underline">Verwaltung → Nutzer</a> gepflegt. Ein-/Ausstempeln
+      läuft ausschließlich über einen gemeinsamen NFC-Tag – diese URL darauf schreiben:
+    </p>
+    <code class="block text-xs bg-ink border border-line rounded-md px-2.5 py-1.5 text-slate-300 break-all">{{ request.url.scheme }}://{{ request.url.netloc }}/timeclock/scan</code>
+  </section>
+
   {% if user.is_admin %}
   <section class="rounded-xl border border-line bg-panel p-4 mt-4">
     <h2 class="font-display font-medium mb-3">Backup &amp; Wiederherstellung</h2>

@@ -99,6 +99,13 @@ def _migrate_inventory_extras(db: Session):
     _ensure_column(db, "inventory_items", "image_url", "TEXT")
 
 
+def _migrate_user_time_tracking(db: Session):
+    """Zeiterfassung: Stundensatz + Soll-Arbeitszeit/Monat pro Nutzer, beide
+    optional (kein Altdaten-Bezug, nur von einem Admin gepflegt)."""
+    _ensure_column(db, "users", "hourly_wage", "FLOAT")
+    _ensure_column(db, "users", "target_hours_per_month", "FLOAT")
+
+
 def _migrate_report_photos(db: Session):
     """Überführt das alte einzelne photo_filename je Meldung (vor der Umstellung
     auf mehrere Fotos pro Meldung) in je eine ReportPhoto-Zeile. Greift nur für
@@ -154,6 +161,7 @@ def _startup():
         _migrate_report_priority_category(db)
         _migrate_report_photos(db)
         _migrate_inventory_extras(db)
+        _migrate_user_time_tracking(db)
     finally:
         db.close()
 
@@ -213,6 +221,19 @@ def format_duration_de(delta) -> str:
         return text
     days = total_hours // 24
     return f"{days} Tag{'e' if days != 1 else ''}"
+
+
+def format_hours_de(hours: float) -> str:
+    total_minutes = round((hours or 0.0) * 60)
+    h, m = divmod(total_minutes, 60)
+    if h and m:
+        return f"{h} Std. {m} Min."
+    if h:
+        return f"{h} Std."
+    return f"{m} Min."
+
+
+templates.env.globals["format_hours_de"] = format_hours_de
 
 
 def greeting_for_now(now) -> str:
@@ -360,6 +381,107 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
         )
         db.commit()
     return RedirectResponse(f"/room/{room_id}", status_code=302)
+
+
+# ---------- Zeiterfassung ----------
+
+def _entry_hours(entry, now) -> float:
+    end = entry.clock_out or now
+    return max(0.0, (_aware(end) - _aware(entry.clock_in)).total_seconds() / 3600.0)
+
+
+def compute_time_stats(user, db: Session, now) -> dict:
+    """Aggregiert die Zeiterfassung eines Nutzers für heute und den laufenden
+    Kalendermonat, jeweils inklusive einer eventuell noch offenen (laufenden)
+    Buchung bis 'now'. Die Zuordnung zu Tag/Monat erfolgt über das lokale Datum
+    von clock_in - Schichten über Mitternacht werden bewusst nicht aufgeteilt,
+    das wäre für den gewünschten schlanken Umfang nicht nötig. Zeiten werden
+    hier schon nach lokaler Zeit umgerechnet, damit das Template sie direkt
+    anzeigen kann, ohne selbst mit tz-naiven SQLite-Werten hantieren zu müssen."""
+    local_now = now.astimezone(APP_TIMEZONE)
+    today = local_now.date()
+    month_start = today.replace(day=1)
+
+    entries = (
+        db.query(models.TimeEntry)
+        .filter(models.TimeEntry.user_id == user.id)
+        .order_by(models.TimeEntry.clock_in.desc())
+        .limit(200)
+        .all()
+    )
+
+    open_entry = None
+    today_hours = 0.0
+    month_hours = 0.0
+    history = []
+    for e in entries:
+        clock_in_local = _aware(e.clock_in).astimezone(APP_TIMEZONE)
+        clock_out_local = _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None
+        hours = _entry_hours(e, now)
+        entry_date = clock_in_local.date()
+        if entry_date >= month_start:
+            month_hours += hours
+            if entry_date == today:
+                today_hours += hours
+        if e.clock_out is None:
+            open_entry = {"clock_in": clock_in_local}
+        if len(history) < 20:
+            history.append({
+                "clock_in": clock_in_local,
+                "clock_out": clock_out_local,
+                "hours": hours,
+                "open": e.clock_out is None,
+            })
+
+    wage = user.hourly_wage or 0.0
+    target = user.target_hours_per_month
+    return {
+        "open_entry": open_entry,
+        "today_hours": today_hours,
+        "today_earned": today_hours * wage,
+        "month_hours": month_hours,
+        "month_earned": month_hours * wage,
+        "overtime_hours": (month_hours - target) if target is not None else None,
+        "history": history,
+        "has_wage": user.hourly_wage is not None,
+        "has_target": target is not None,
+    }
+
+
+@app.get("/timeclock/scan")
+def timeclock_scan(request: Request, db: Session = Depends(get_db)):
+    """Ziel-URL des gemeinsamen NFC-Zeiterfassungs-Tags. Stempelt den gerade
+    eingeloggten Nutzer ein oder aus (Toggle) - erfordert Login, damit die
+    Buchung an eine konkrete Person gebunden ist."""
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/login?next=/timeclock/scan", status_code=302)
+
+    open_entry = (
+        db.query(models.TimeEntry)
+        .filter(models.TimeEntry.user_id == user.id, models.TimeEntry.clock_out.is_(None))
+        .first()
+    )
+    if open_entry:
+        open_entry.clock_out = ntptime.now_utc()
+        action = "out"
+    else:
+        db.add(models.TimeEntry(user_id=user.id, clock_in=ntptime.now_utc()))
+        action = "in"
+    db.commit()
+    return RedirectResponse(f"/timeclock?scan={action}", status_code=302)
+
+
+@app.get("/timeclock")
+def timeclock_view(request: Request, scan: str = "", db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    stats = compute_time_stats(user, db, ntptime.now_utc())
+    return templates.TemplateResponse("timeclock.html", {
+        "request": request,
+        "user": user,
+        "stats": stats,
+        "scan_result": scan if scan in ("in", "out") else None,
+    })
 
 
 # ---------- Inventar ----------
@@ -972,6 +1094,8 @@ def admin_add_user(
     pin: str = Form(...),
     group_id: str = Form(""),
     role: str = Form("mitarbeiter"),
+    hourly_wage: str = Form(""),
+    target_hours_per_month: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -990,6 +1114,10 @@ def admin_add_user(
         is_shift_lead=actor.is_admin and role == "schichtleiter",
         groups=groups,
     )
+    # Stundensatz/Sollzeit sind sensible Gehaltsdaten - nur ein Admin darf sie setzen.
+    if actor.is_admin:
+        user.hourly_wage = float(hourly_wage) if hourly_wage else None
+        user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
     db.add(user)
     db.commit()
     return RedirectResponse("/admin/users", status_code=302)
@@ -1003,6 +1131,8 @@ def admin_edit_user(
     pin: str = Form(""),
     group_id: str = Form(""),
     role: str = Form(""),
+    hourly_wage: str = Form(""),
+    target_hours_per_month: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -1029,6 +1159,9 @@ def admin_edit_user(
                 desired_role = "admin"  # letzten Admin nicht versehentlich entmachten
             target.is_admin = desired_role == "admin"
             target.is_shift_lead = desired_role == "schichtleiter"
+            # Stundensatz/Sollzeit sind sensible Gehaltsdaten - nur ein Admin darf sie ändern.
+            target.hourly_wage = float(hourly_wage) if hourly_wage else None
+            target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
         db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 

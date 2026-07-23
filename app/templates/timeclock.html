@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Zeiterfassung – ClubHUB{% endblock %}
+{% block content %}
+
+<h1 class="font-display text-2xl font-semibold mb-1">Zeiterfassung</h1>
+<p class="text-slate-400 text-sm mb-6">Deine Arbeitszeit, dein Verdienst und deine Überstunden auf einen Blick.</p>
+
+{% if scan_result == "in" %}
+<div class="rounded-lg border border-go/40 bg-go/10 text-go text-sm px-4 py-3 mb-5 flex items-center gap-2">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+  Eingestempelt um {{ stats.history[0].clock_in.strftime("%H:%M") }} Uhr.
+</div>
+{% elif scan_result == "out" %}
+<div class="rounded-lg border border-accent/40 bg-accent/10 text-accent text-sm px-4 py-3 mb-5 flex items-center gap-2">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+  Ausgestempelt um {{ stats.history[0].clock_out.strftime("%H:%M") }} Uhr &middot; {{ format_hours_de(stats.history[0].hours) }} gearbeitet.
+</div>
+{% endif %}
+
+<!-- Aktueller Status -->
+<div class="rounded-xl border {% if stats.open_entry %}border-go/40 bg-go/10{% else %}border-line bg-panel{% endif %} p-4 mb-6 flex items-center gap-3.5">
+  <div class="w-11 h-11 rounded-full {% if stats.open_entry %}bg-go/20 text-go{% else %}bg-panel2 text-slate-400{% endif %} flex items-center justify-center shrink-0">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+  </div>
+  <div>
+    {% if stats.open_entry %}
+    <div class="font-display font-medium leading-none">Eingestempelt seit {{ stats.open_entry.clock_in.strftime("%H:%M") }} Uhr</div>
+    <div class="text-xs text-slate-400 mt-1.5">Am Zeiterfassungs-Tag scannen, um dich wieder auszustempeln.</div>
+    {% else %}
+    <div class="font-display font-medium leading-none">Nicht eingestempelt</div>
+    <div class="text-xs text-slate-400 mt-1.5">Am Zeiterfassungs-Tag scannen, um deine Schicht zu starten.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stat-Karten -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div class="rounded-xl border border-line bg-panel p-4">
+    <div class="text-xs text-slate-400 mb-1.5">Heute verdient</div>
+    {% if stats.has_wage %}
+    <div class="font-display text-2xl font-semibold leading-none">{{ "%.2f"|format(stats.today_earned) }} €</div>
+    <div class="text-xs text-slate-500 mt-1.5">{{ format_hours_de(stats.today_hours) }}</div>
+    {% else %}
+    <div class="font-display text-2xl font-semibold leading-none">{{ format_hours_de(stats.today_hours) }}</div>
+    <div class="text-xs text-slate-500 mt-1.5">Kein Stundensatz hinterlegt</div>
+    {% endif %}
+  </div>
+  <div class="rounded-xl border border-line bg-panel p-4">
+    <div class="text-xs text-slate-400 mb-1.5">Diesen Monat bisher</div>
+    {% if stats.has_wage %}
+    <div class="font-display text-2xl font-semibold leading-none">{{ "%.2f"|format(stats.month_earned) }} €</div>
+    <div class="text-xs text-slate-500 mt-1.5">{{ format_hours_de(stats.month_hours) }}</div>
+    {% else %}
+    <div class="font-display text-2xl font-semibold leading-none">{{ format_hours_de(stats.month_hours) }}</div>
+    <div class="text-xs text-slate-500 mt-1.5">Kein Stundensatz hinterlegt</div>
+    {% endif %}
+  </div>
+  <div class="rounded-xl border border-line bg-panel p-4">
+    <div class="text-xs text-slate-400 mb-1.5">Überstunden</div>
+    {% if stats.has_target %}
+    <div class="font-display text-2xl font-semibold leading-none {% if stats.overtime_hours < 0 %}text-late{% else %}text-go{% endif %}">
+      {{ "+" if stats.overtime_hours >= 0 else "−" }}{{ format_hours_de(stats.overtime_hours|abs) }}
+    </div>
+    <div class="text-xs text-slate-500 mt-1.5">{% if stats.overtime_hours < 0 %}Minusstunden{% else %}über Sollzeit{% endif %} diesen Monat</div>
+    {% else %}
+    <div class="font-display text-2xl font-semibold leading-none text-slate-500">–</div>
+    <div class="text-xs text-slate-500 mt-1.5">Keine Sollzeit hinterlegt</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Verlauf -->
+<div class="rounded-xl border border-line bg-panel p-4">
+  <h2 class="font-display font-medium mb-3">Verlauf</h2>
+  {% if stats.history %}
+  <ul class="space-y-1 text-sm">
+    {% for e in stats.history %}
+    <li class="flex items-center justify-between gap-3 border-b border-line/50 last:border-0 py-2">
+      <div class="flex items-center gap-2.5">
+        <span class="w-2 h-2 rounded-full shrink-0 {% if e.open %}bg-go{% else %}bg-slate-600{% endif %}"></span>
+        <span class="text-slate-300">{{ e.clock_in.strftime("%d.%m.%Y") }}</span>
+        <span class="text-slate-500">{{ e.clock_in.strftime("%H:%M") }}–{{ e.clock_out.strftime("%H:%M") if e.clock_out else "…" }} Uhr</span>
+      </div>
+      <span class="text-slate-400 text-xs whitespace-nowrap">{{ format_hours_de(e.hours) }}{% if e.open %} <span class="text-go">(läuft)</span>{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-slate-500 text-sm italic">Noch keine Zeiterfassung vorhanden.</p>
+  {% endif %}
+</div>
+
+<p class="text-[11px] text-slate-500 mt-4">
+  Ein-/Ausstempeln funktioniert ausschließlich durch Scannen des Zeiterfassungs-Tags vor Ort –
+  so bleibt sichergestellt, dass Buchungen an die tatsächliche Anwesenheit gebunden sind.
+</p>
+
+{% endblock %}

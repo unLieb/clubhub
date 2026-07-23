@@ -50,6 +50,22 @@ NFC-Tag (z.B. NTAG213-Sticker) schreiben – z.B. mit der kostenlosen App
 Scan → Handy öffnet automatisch die Bereichsseite → Aufgaben mit Ampel-Status
 werden angezeigt → nach Login (PIN) lässt sich eine Aufgabe abhaken.
 
+## Zeiterfassung
+
+Jeder Nutzer kann unter **Zeiterfassung** seinen Stundensatz-Verdienst (heute
+und diesen Monat bisher) sowie seine Überstunden einsehen. Stundensatz und
+Soll-Arbeitszeit/Monat werden pro Nutzer unter **Verwaltung → Nutzer** von
+einem Admin hinterlegt (beides optional; ohne Stundensatz werden nur die
+Stunden angezeigt, ohne Sollzeit keine Überstunden). Pausen werden nicht
+automatisch abgezogen.
+
+Ein- und Ausstempeln funktioniert bewusst nur über einen einzigen, gemeinsamen
+NFC-Tag (wie eine physische Stempeluhr, z.B. am Empfang/Eingang) – es gibt
+keinen Stempel-Button in der App, damit die Buchung an die tatsächliche
+Anwesenheit gebunden bleibt. Dafür die URL `http://<server>:8000/timeclock/scan`
+auf einen NFC-Tag schreiben. Scan → falls nicht eingeloggt, kurzer PIN-Login →
+stempelt den eingeloggten Nutzer ein bzw. (bei erneutem Scan) wieder aus.
+
 ## Benachrichtigungskanäle einrichten
 
 Kanäle werden in der Verwaltung unter **Benachrichtigungskanäle** unabhängig

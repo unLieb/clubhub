@@ -72,9 +72,16 @@ class User(Base):
     # Schichtleiter: darf in der Verwaltung fast alles außer löschen und darf
     # niemandem Admin-/Schichtleiter-Rechte zuweisen (nur ein Admin darf das).
     is_shift_lead = Column(Boolean, default=False)
+    # Zeiterfassung: nur von einem Admin vergeben (sensible Gehaltsdaten).
+    hourly_wage = Column(Float, nullable=True)             # Stundensatz in €
+    target_hours_per_month = Column(Float, nullable=True)  # Soll-Arbeitszeit/Monat, für Überstunden
 
     groups = relationship("Group", secondary=user_group, back_populates="users")
     completions = relationship("Completion", back_populates="user", cascade="all, delete-orphan")
+    time_entries = relationship(
+        "TimeEntry", back_populates="user", cascade="all, delete-orphan",
+        order_by="desc(TimeEntry.clock_in)"
+    )
 
 
 class Room(Base):
@@ -217,3 +224,19 @@ class ReportComment(Base):
 
     report = relationship("Report", back_populates="comments")
     user = relationship("User")
+
+
+class TimeEntry(Base):
+    """Ein Kommen/Gehen-Paar der Zeiterfassung. Wird ausschließlich über den
+    gemeinsamen NFC-Zeiterfassungs-Tag erzeugt/geschlossen (Toggle je nachdem,
+    ob der eingeloggte Nutzer schon eine offene Buchung hat), damit das Ein-/
+    Ausstempeln an die physische Anwesenheit am Tag gebunden bleibt. clock_out
+    ist None, solange der Nutzer noch eingestempelt ist."""
+    __tablename__ = "time_entries"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    clock_in = Column(DateTime(timezone=True), default=utcnow)
+    clock_out = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="time_entries")
