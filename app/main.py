@@ -238,15 +238,14 @@ templates.env.globals["format_hours_de"] = format_hours_de
 
 def greeting_for_now(now) -> str:
     """Tageszeit-abhängige Begrüßung, nach lokaler Stunde (APP_TIMEZONE) -
-    'Gute Nacht' statt 'Guten Nacht', da im Deutschen grammatikalisch anders."""
+    'Guten Abend' gilt bis in die Nacht hinein, da 'Gute Nacht' im
+    normalen Sprachgebrauch keine Begrüßung, sondern ein Abschiedsgruß ist."""
     hour = now.astimezone(APP_TIMEZONE).hour
     if 5 <= hour < 11:
         return "Guten Morgen"
     if 11 <= hour < 18:
         return "Guten Tag"
-    if 18 <= hour < 22:
-        return "Guten Abend"
-    return "Gute Nacht"
+    return "Guten Abend"
 
 
 def compute_room_statuses(rooms, now):
