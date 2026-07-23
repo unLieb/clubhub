@@ -32,9 +32,10 @@
   --color-panel2: #eef2f8;
   --color-line: #dbe1eb;
   --color-slate-100: #16202e;
+  --color-slate-200: #283349;
   --color-slate-300: #3d4a5e;
   --color-slate-400: #5b6b82;
-  --color-slate-500: #74839a;
+  --color-slate-500: #687690;
 }
 
 body { background: var(--color-bg); }
