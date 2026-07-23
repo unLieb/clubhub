@@ -1055,6 +1055,18 @@ def history(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@app.post("/history/{completion_id}/delete")
+def delete_completion(completion_id: int, request: Request, db: Session = Depends(get_db)):
+    """Zieht eine versehentlich als erledigt markierte Aufgabe zurück - nur
+    Admin, da das den Fälligkeits-Status der Aufgabe direkt beeinflusst."""
+    require_admin(request, db)
+    completion = db.query(models.Completion).filter(models.Completion.id == completion_id).first()
+    if completion:
+        db.delete(completion)
+        db.commit()
+    return RedirectResponse("/history", status_code=302)
+
+
 # ---------- Login / Logout ----------
 
 @app.get("/login")
