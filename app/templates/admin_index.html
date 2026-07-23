@@ -91,6 +91,23 @@
     </span>
   </a>
 
+  {% if user.is_admin %}
+  <a href="/admin/timeclock" data-search="zeiterfassung stempeluhr arbeitszeit korrektur ein ausstempeln" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Zeiterfassung</div>
+      <div class="text-accent text-sm mt-0.5">{% if open_time_entries_count %}{{ open_time_entries_count }} offene Buchung{{ "en" if open_time_entries_count != 1 else "" }}{% else %}Alle Buchungen abgeschlossen{% endif %}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Zeiten nachträglich korrigieren, z.B. bei vergessenem Aus-/Einstempeln.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-accent text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+  {% endif %}
+
   <a href="/admin/notifications" data-search="benachrichtigungen kanäle ntfy gotify signal" class="admin-tile flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
     <div class="w-12 h-12 rounded-full bg-late/15 text-late flex items-center justify-center shrink-0">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>

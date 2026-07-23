@@ -853,6 +853,7 @@ def admin_home(request: Request, db: Session = Depends(get_db)):
         "low_stock_count": db.query(models.InventoryItem)
             .filter(models.InventoryItem.stock_current < models.InventoryItem.stock_min).count(),
         "channels_count": db.query(models.NotificationChannel).count(),
+        "open_time_entries_count": db.query(models.TimeEntry).filter(models.TimeEntry.clock_out.is_(None)).count(),
         "ntp_status": ntptime.status(),
     })
 
@@ -912,6 +913,96 @@ def admin_inventory_page(request: Request, db: Session = Depends(get_db)):
         "categories": distinct_inventory_values(db, "category"),
         "locations": distinct_inventory_values(db, "location"),
     })
+
+
+def _parse_local_dt(value: str):
+    """Wandelt den Wert eines <input type=datetime-local> (als APP_TIMEZONE
+    interpretiert, da Admins hier lokale Uhrzeiten nachtragen) in ein
+    UTC-Datetime für die Speicherung um."""
+    if not value:
+        return None
+    naive = datetime.strptime(value, "%Y-%m-%dT%H:%M")
+    return naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+
+
+@app.get("/admin/timeclock")
+def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
+    # Nur Admin, nicht Schichtleiter: Korrekturen wirken sich direkt auf den
+    # berechneten Verdienst eines Nutzers aus (dieselbe Einschränkung wie
+    # beim Stundensatz/Sollzeit selbst).
+    admin = require_admin(request, db)
+    users = db.query(models.User).order_by(models.User.name).all()
+    entries_by_user = {}
+    for u in users:
+        entries = (
+            db.query(models.TimeEntry)
+            .filter(models.TimeEntry.user_id == u.id)
+            .order_by(models.TimeEntry.clock_in.desc())
+            .limit(30)
+            .all()
+        )
+        entries_by_user[u.id] = [
+            {
+                "id": e.id,
+                "clock_in_local": _aware(e.clock_in).astimezone(APP_TIMEZONE),
+                "clock_out_local": _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None,
+                "open": e.clock_out is None,
+            }
+            for e in entries
+        ]
+    return templates.TemplateResponse("admin_timeclock.html", {
+        "request": request,
+        "user": admin,
+        "users": users,
+        "entries_by_user": entries_by_user,
+    })
+
+
+@app.post("/admin/timeclock/{user_id}/add")
+def admin_timeclock_add(
+    user_id: int,
+    request: Request,
+    clock_in: str = Form(...),
+    clock_out: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_admin(request, db)
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        db.add(models.TimeEntry(
+            user_id=user.id,
+            clock_in=_parse_local_dt(clock_in),
+            clock_out=_parse_local_dt(clock_out),
+        ))
+        db.commit()
+    return RedirectResponse("/admin/timeclock", status_code=302)
+
+
+@app.post("/admin/timeclock/{entry_id}/edit")
+def admin_timeclock_edit(
+    entry_id: int,
+    request: Request,
+    clock_in: str = Form(...),
+    clock_out: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_admin(request, db)
+    entry = db.query(models.TimeEntry).filter(models.TimeEntry.id == entry_id).first()
+    if entry:
+        entry.clock_in = _parse_local_dt(clock_in)
+        entry.clock_out = _parse_local_dt(clock_out)
+        db.commit()
+    return RedirectResponse("/admin/timeclock", status_code=302)
+
+
+@app.post("/admin/timeclock/{entry_id}/delete")
+def admin_timeclock_delete(entry_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    entry = db.query(models.TimeEntry).filter(models.TimeEntry.id == entry_id).first()
+    if entry:
+        db.delete(entry)
+        db.commit()
+    return RedirectResponse("/admin/timeclock", status_code=302)
 
 
 @app.get("/admin/notifications")
