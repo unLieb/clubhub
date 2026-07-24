@@ -20,12 +20,17 @@
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 </style>
 </head>
-<body class="bg-bg text-slate-100 font-body min-h-screen" data-server-epoch="{{ server_epoch_ms() }}">
+<body class="bg-bg text-slate-100 font-body min-h-screen" data-server-epoch="{{ server_epoch_ms() }}" data-vapid-key="{{ vapid_public_key() if user else '' }}">
 {% set badges = nav_badges(request) %}
 
 <!-- Theme-Umschalter + Live-Uhr, oben rechts (ab lg) -->
 <div class="hidden lg:flex fixed top-4 right-4 z-50 items-center gap-2">
   <span class="live-clock text-xs text-slate-400 tabular-nums bg-panel/90 backdrop-blur border border-line rounded-full px-3 py-1.5"></span>
+  {% if user %}
+  <button type="button" class="push-toggle-btn hidden w-9 h-9 rounded-full bg-panel/90 backdrop-blur border border-line flex items-center justify-center text-slate-300 hover:text-slate-100 hover:border-go/50" aria-label="Benachrichtigungen">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+  </button>
+  {% endif %}
   <button type="button" class="theme-toggle-btn w-9 h-9 rounded-full bg-panel/90 backdrop-blur border border-line flex items-center justify-center text-slate-300 hover:text-slate-100 hover:border-go/50" aria-label="Design umschalten"></button>
 </div>
 
@@ -37,6 +42,11 @@
   </div>
   <div class="flex items-center gap-2 shrink-0">
     <span class="live-clock text-[11px] text-slate-400 tabular-nums"></span>
+    {% if user %}
+    <button type="button" class="push-toggle-btn hidden w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300" aria-label="Benachrichtigungen">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+    </button>
+    {% endif %}
     <button type="button" class="theme-toggle-btn w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300" aria-label="Design umschalten"></button>
     {% if user %}
     <div class="relative">
@@ -254,6 +264,75 @@
     if (!menu.classList.contains('hidden') && !menu.contains(e.target)) {
       menu.classList.add('hidden');
     }
+  });
+})();
+
+// Browser-Push (Web Push): Service Worker registrieren, Glocken-Button zeigt
+// nur an, wenn der Browser das unterstützt (Fallback: bleibt versteckt).
+(function () {
+  var buttons = document.querySelectorAll('.push-toggle-btn');
+  if (!buttons.length) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  var vapidKey = document.body.dataset.vapidKey;
+  if (!vapidKey) return;
+
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = window.atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  function setState(subscribed) {
+    buttons.forEach(function (btn) {
+      btn.classList.toggle('text-go', subscribed);
+      btn.classList.toggle('border-go/50', subscribed);
+      btn.title = subscribed ? 'Benachrichtigungen aktiv – klicken zum Deaktivieren' : 'Benachrichtigungen aktivieren';
+    });
+  }
+
+  function postJSON(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  var registrationPromise = navigator.serviceWorker.register('/sw.js');
+
+  registrationPromise.then(function (reg) {
+    buttons.forEach(function (btn) { btn.classList.remove('hidden'); });
+    return reg.pushManager.getSubscription();
+  }).then(function (sub) {
+    setState(!!sub && Notification.permission === 'granted');
+  }).catch(function () {});
+
+  buttons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      registrationPromise.then(function (reg) {
+        return reg.pushManager.getSubscription().then(function (sub) {
+          if (sub) {
+            return sub.unsubscribe()
+              .then(function () { return postJSON('/push/unsubscribe', { endpoint: sub.endpoint }); })
+              .then(function () { setState(false); });
+          }
+          return Notification.requestPermission().then(function (permission) {
+            if (permission !== 'granted') return;
+            return reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(vapidKey),
+            }).then(function (newSub) {
+              return postJSON('/push/subscribe', newSub.toJSON()).then(function () { setState(true); });
+            });
+          });
+        });
+      }).catch(function (e) {
+        console.error('Push-Fehler', e);
+      });
+    });
   });
 })();
 </script>

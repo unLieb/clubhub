@@ -13,6 +13,7 @@ from fastapi.responses import RedirectResponse, Response, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, joinedload
@@ -22,6 +23,7 @@ from . import models
 from . import ntptime
 from . import backup
 from . import version
+from . import push
 from .auth import hash_pin, verify_pin, get_current_user, require_login, require_admin, require_admin_or_shift_lead
 from .status import task_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
@@ -46,6 +48,19 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "t
 # Live-Uhr (base.html) braucht auf jeder Seite die NTP-korrigierte Server-Zeit,
 # ohne dass jede Route sie einzeln in den Kontext geben muss.
 templates.env.globals["server_epoch_ms"] = lambda: int(ntptime.now_utc().timestamp() * 1000)
+# Öffentlicher VAPID-Schlüssel fürs Web-Push-Abo (base.html), siehe push.py.
+templates.env.globals["vapid_public_key"] = push.get_vapid_public_key
+
+
+@app.get("/sw.js")
+def service_worker():
+    # Bewusst unter der Root-URL statt /static/sw.js ausgeliefert: der
+    # Geltungsbereich (scope) eines Service Workers ist standardmäßig auf sein
+    # eigenes Verzeichnis begrenzt - für Push/Klicks auf beliebigen Seiten
+    # muss er auf Root-Ebene liegen.
+    sw_path = os.path.join(os.path.dirname(__file__), "static", "sw.js")
+    with open(sw_path, "r", encoding="utf-8") as f:
+        return Response(content=f.read(), media_type="application/javascript")
 # App-Version + Git-Kurz-Hash (aus VERSION/BUILD_HASH, beim Docker-Build erzeugt)
 # auf jeder Seite verfügbar (Sidebar-Fußzeile + Verwaltung/System im Detail).
 templates.env.globals["app_version"] = version.VERSION
@@ -1110,12 +1125,17 @@ async def reports_create(
             db.add(models.ReportPhoto(report_id=report.id, filename=filename))
     db.commit()
 
-    # Gruppen inkl. Kanäle hier bereits vollständig laden (nicht erst lazy in
-    # notify_group) - die Session ist geschlossen, sobald der Background-Task
-    # nach dem Response tatsächlich läuft, sonst DetachedInstanceError.
+    # Gruppen inkl. Kanäle + Mitglieder/Push-Abos hier bereits vollständig laden
+    # (nicht erst lazy in notify_group) - die Session ist geschlossen, sobald
+    # der Background-Task nach dem Response tatsächlich läuft, sonst
+    # DetachedInstanceError.
+    group_loaders = (
+        joinedload(models.Group.channels),
+        joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
+    )
     room = (
         db.query(models.Room)
-        .options(joinedload(models.Room.groups).joinedload(models.Group.channels))
+        .options(joinedload(models.Room.groups).options(*group_loaders))
         .filter(models.Room.id == room_id)
         .first()
     )
@@ -1128,15 +1148,15 @@ async def reports_create(
             # Bereich zugeordnet sind.
             assigned_group = (
                 db.query(models.Group)
-                .options(joinedload(models.Group.channels))
+                .options(*group_loaders)
                 .filter(models.Group.id == assigned_group_id)
                 .first()
             )
             if assigned_group:
-                background_tasks.add_task(notify_group, assigned_group, title, msg)
+                background_tasks.add_task(notify_group, assigned_group, title, msg, "default", "/reports")
         else:
             for group in room.groups:
-                background_tasks.add_task(notify_group, group, title, msg)
+                background_tasks.add_task(notify_group, group, title, msg, "default", "/reports")
 
     return RedirectResponse("/reports", status_code=302)
 
@@ -1197,6 +1217,50 @@ async def reports_add_photos(
                 db.add(models.ReportPhoto(report_id=report.id, filename=filename))
         db.commit()
     return RedirectResponse("/reports", status_code=302)
+
+
+# ---------- Push (Web Push) ----------
+
+class PushSubscribeIn(BaseModel):
+    endpoint: str
+    keys: dict
+
+
+class PushUnsubscribeIn(BaseModel):
+    endpoint: str
+
+
+@app.post("/push/subscribe")
+def push_subscribe(payload: PushSubscribeIn, request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    p256dh = payload.keys.get("p256dh", "")
+    auth = payload.keys.get("auth", "")
+    if not p256dh or not auth:
+        return {"ok": False}
+
+    existing = db.query(models.PushSubscription).filter(
+        models.PushSubscription.endpoint == payload.endpoint
+    ).first()
+    user_agent = request.headers.get("user-agent", "")[:255]
+    if existing:
+        existing.user_id = user.id
+        existing.p256dh = p256dh
+        existing.auth = auth
+        existing.user_agent = user_agent
+    else:
+        db.add(models.PushSubscription(
+            user_id=user.id, endpoint=payload.endpoint, p256dh=p256dh, auth=auth, user_agent=user_agent,
+        ))
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/push/unsubscribe")
+def push_unsubscribe(payload: PushUnsubscribeIn, request: Request, db: Session = Depends(get_db)):
+    require_login(request, db)
+    db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == payload.endpoint).delete()
+    db.commit()
+    return {"ok": True}
 
 
 # ---------- Historie ----------

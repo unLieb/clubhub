@@ -82,6 +82,9 @@ class User(Base):
         "TimeEntry", back_populates="user", cascade="all, delete-orphan",
         order_by="desc(TimeEntry.clock_in)"
     )
+    push_subscriptions = relationship(
+        "PushSubscription", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Room(Base):
@@ -283,3 +286,21 @@ class AuthorizedDevice(Base):
     authorized_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     authorized_by = relationship("User")
+
+
+class PushSubscription(Base):
+    """Eine Web-Push-Anmeldung eines Browsers/Geräts für einen Nutzer (siehe
+    push.py). Ein Nutzer kann mehrere haben (z.B. Handy + Desktop). endpoint
+    ist eindeutig pro Browser-Installation, daher als Unique-Key genutzt, um
+    beim erneuten Abonnieren einfach zu aktualisieren statt zu duplizieren."""
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    endpoint = Column(String, unique=True, nullable=False)
+    p256dh = Column(String, nullable=False)
+    auth = Column(String, nullable=False)
+    user_agent = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship("User", back_populates="push_subscriptions")

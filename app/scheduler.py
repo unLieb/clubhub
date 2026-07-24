@@ -72,7 +72,7 @@ def check_tasks_job():
                 else:
                     title = f"Überfällig: {task.room.name}"
                     msg = f"„{task.name}“ ist überfällig und sollte erledigt werden."
-                notify_group(group, title, msg)
+                notify_group(group, title, msg, url=f"/room/{task.room_id}")
                 notice.last_status = new_status
 
         db.commit()
@@ -98,6 +98,7 @@ def check_inventory_job():
                 f"Bestand niedrig: {item.name}",
                 f"„{item.name}“ liegt bei {item.stock_current:g}"
                 f"{' ' + item.unit if item.unit else ''} – Mindestbestand ist {item.stock_min:g}.",
+                url="/inventory",
             )
             item.notified = True
         db.commit()

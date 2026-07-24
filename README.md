@@ -134,6 +134,22 @@ zugeordnet. Ein Kanal kann so auch für mehrere Gruppen wiederverwendet werden.
   `SIGNAL_SENDER_NUMBER` ist die dort registrierte Absendernummer. Ohne
   diese beiden Variablen werden Signal-Kanäle beim Versand einfach übersprungen.
 
+### Browser-Push (Web Push)
+
+Zusätzlich zu den obigen Kanälen bekommt jedes Gruppenmitglied automatisch
+eine echte Browser-Benachrichtigung (System-Popup), sobald es einmalig im
+Glocken-Symbol oben rechts (bzw. in der mobilen Kopfzeile) zustimmt – ganz
+ohne zusätzliche App oder Konfiguration in der Verwaltung. Technisch per
+[Web Push](https://developer.mozilla.org/de/docs/Web/API/Push_API): der
+benötigte VAPID-Schlüssel wird beim ersten Start automatisch erzeugt und liegt
+danach dauerhaft im Datenverzeichnis (`vapid_private_key.pem`) – nicht löschen,
+sonst müssen alle Nutzer erneut zustimmen.
+
+**Wichtig:** Web Push funktioniert nur über HTTPS (oder `localhost`). Läuft
+ClubHUB nur über die lokale IP per HTTP, bleibt das Glocken-Symbol unsichtbar.
+Ein Reverse Proxy mit TLS (z.B. Nginx Proxy Manager, Traefik, Caddy – notfalls
+auch mit selbstsigniertem Zertifikat) davor genügt.
+
 ## Versionierung
 
 Die Version steht in der Datei `VERSION` (Format [SemVer](https://semver.org/lang/de/),
@@ -151,7 +167,9 @@ app/
   models.py        Datenmodell (Gruppen, Nutzer, Bereiche, Aufgaben, Erledigungen)
   status.py        Ampel-Logik (rollierendes Intervall)
   scheduler.py      Hintergrund-Job für Benachrichtigungen
-  notifications.py  ntfy-/Gotify-Versand
+  notifications.py  ntfy-/Gotify-/Signal-Versand + Browser-Push an Gruppenmitglieder
+  push.py           Web-Push: VAPID-Schlüssel, Versand einzelner Subscriptions
   auth.py           PIN-Login, Session-Handling
+  static/sw.js      Service Worker (nimmt Push-Nachrichten entgegen)
   templates/        Jinja2-Templates (responsives Tailwind-UI)
 ```

@@ -2,6 +2,10 @@ import os
 import logging
 import httpx
 
+from .database import SessionLocal
+from .models import PushSubscription
+from . import push as webpush_module
+
 NTFY_BASE_URL = os.environ.get("NTFY_BASE_URL", "").rstrip("/")
 GOTIFY_BASE_URL = os.environ.get("GOTIFY_BASE_URL", "").rstrip("/")
 SIGNAL_BASE_URL = os.environ.get("SIGNAL_BASE_URL", "").rstrip("/")
@@ -10,8 +14,10 @@ SIGNAL_SENDER_NUMBER = os.environ.get("SIGNAL_SENDER_NUMBER", "")
 logger = logging.getLogger("reinigungsplan.notifications")
 
 
-def notify_group(group, title: str, message: str, priority: str = "default"):
-    """Schickt eine Push-Nachricht über alle Benachrichtigungskanäle einer Gruppe."""
+def notify_group(group, title: str, message: str, priority: str = "default", url: str = "/"):
+    """Schickt eine Push-Nachricht über alle Benachrichtigungskanäle einer
+    Gruppe sowie zusätzlich per Browser-Push (Web Push) an alle Mitglieder,
+    die das in ihrem Browser aktiviert haben - kein extra Kanal nötig."""
     for channel in group.channels:
         if channel.type == "ntfy" and channel.target and NTFY_BASE_URL:
             try:
@@ -48,3 +54,23 @@ def notify_group(group, title: str, message: str, priority: str = "default"):
                 )
             except Exception as e:
                 logger.warning(f"Signal-Benachrichtigung fehlgeschlagen ({channel.name}): {e}")
+
+    stale_subscription_ids = []
+    for member in group.users:
+        for subscription in member.push_subscriptions:
+            if not webpush_module.send_web_push(subscription, title, message, url):
+                stale_subscription_ids.append(subscription.id)
+
+    if stale_subscription_ids:
+        # Browser hat die Subscription widerrufen (z.B. Benachrichtigungen
+        # deaktiviert, Cache geleert) - eigene, kurzlebige Session, da diese
+        # Funktion auch mit einer bereits geschlossenen db-Session (Background-
+        # Task nach dem Response) aufgerufen werden kann.
+        cleanup_db = SessionLocal()
+        try:
+            cleanup_db.query(PushSubscription).filter(
+                PushSubscription.id.in_(stale_subscription_ids)
+            ).delete(synchronize_session=False)
+            cleanup_db.commit()
+        finally:
+            cleanup_db.close()

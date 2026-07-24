@@ -42,5 +42,10 @@ services:
       # SIGNAL_BASE_URL: "http://signal-cli-rest-api:8080"
       # SIGNAL_SENDER_NUMBER: "+49123456789"
 
+      # Browser-Push (optional): Kontakt-Mailadresse für den VAPID-Claim, wird
+      # nur von Push-Diensten im Fehlerfall genutzt, um dich zu kontaktieren.
+      # Der Schlüssel selbst braucht keine Konfiguration, siehe README.
+      # VAPID_CONTACT_EMAIL: "admin@example.com"
+
 volumes:
   reinigungsplan_data:
