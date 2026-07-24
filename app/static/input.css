@@ -26,16 +26,21 @@
    gespeicherter Nutzerwahl oder (im Modus "automatisch") aus der
    Systemeinstellung des Geräts. */
 :root[data-theme="light"] {
-  --color-bg: #eef1f6;
+  --color-bg: #eef4f1;
   --color-ink: #ffffff;
   --color-panel: #ffffff;
-  --color-panel2: #eef2f8;
-  --color-line: #dbe1eb;
+  --color-panel2: #e7f2ee;
+  --color-line: #d7e6e0;
   --color-slate-100: #16202e;
   --color-slate-200: #283349;
   --color-slate-300: #3d4a5e;
   --color-slate-400: #5b6b82;
   --color-slate-500: #687690;
+  /* Im Light-Mode an die Farbwelt des Frannz-Clubs angelehnt (Teal/Terrakotta
+     statt Blau/Orange, siehe frannz.eu) - Ampelfarben (go/warn/late) bleiben
+     als feststehende Statusfarben in beiden Themes unverändert. */
+  --color-accent: #2f8f8f;
+  --color-orange: #c9754d;
 }
 
 body { background: var(--color-bg); }
