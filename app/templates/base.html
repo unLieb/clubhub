@@ -21,6 +21,7 @@
 </style>
 </head>
 <body class="bg-bg text-slate-100 font-body min-h-screen" data-server-epoch="{{ server_epoch_ms() }}">
+{% set badges = nav_badges(request) %}
 
 <!-- Theme-Umschalter + Live-Uhr, oben rechts (ab lg) -->
 <div class="hidden lg:flex fixed top-4 right-4 z-50 items-center gap-2">
@@ -38,7 +39,22 @@
     <span class="live-clock text-[11px] text-slate-400 tabular-nums"></span>
     <button type="button" class="theme-toggle-btn w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300" aria-label="Design umschalten"></button>
     {% if user %}
-    <a href="/logout" title="Abmelden" class="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center font-display font-semibold text-xs shrink-0">{{ user.name[0]|upper }}</a>
+    <div class="relative">
+      <button type="button" class="mobile-profile-btn w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center font-display font-semibold text-xs shrink-0" aria-label="Profilmenü öffnen">{{ user.name[0]|upper }}</button>
+      <div class="mobile-profile-menu hidden absolute right-0 top-full mt-2 w-48 rounded-lg border border-line bg-panel shadow-lg py-1.5 z-50 text-sm">
+        <div class="px-3 py-1.5 text-slate-500 text-[11px] truncate border-b border-line mb-1">{{ user.name }}</div>
+        {% if user.is_admin or user.is_shift_lead %}
+        <a href="/admin" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 2.5"/></svg>
+          Verwaltung
+        </a>
+        {% endif %}
+        <a href="/logout" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          Abmelden
+        </a>
+      </div>
+    </div>
     {% else %}
     <a href="/login" class="text-xs px-3 py-1.5 rounded-md bg-go/90 text-oncolor font-medium shrink-0">Anmelden</a>
     {% endif %}
@@ -79,11 +95,13 @@
         <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
         Inventar
+        {% if badges.inventory %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none">{{ badges.inventory }}</span>{% endif %}
       </a>
       <a href="/reports" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-300 hover:bg-panel2 hover:text-slate-100 {% if request.url.path == '/reports' %}active{% endif %}">
         <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         Meldungen
+        {% if badges.reports %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none">{{ badges.reports }}</span>{% endif %}
       </a>
       {% if user %}
       <a href="/timeclock" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-300 hover:bg-panel2 hover:text-slate-100 {% if request.url.path == '/timeclock' %}active{% endif %}">
@@ -146,23 +164,23 @@
     Historie
   </a>
   <a href="/inventory" class="tab-link {% if request.url.path == '/inventory' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+    <span class="relative">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+      {% if badges.inventory %}<span class="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-late text-white text-[8px] font-semibold flex items-center justify-center leading-none">{{ badges.inventory }}</span>{% endif %}
+    </span>
     Inventar
   </a>
   <a href="/reports" class="tab-link {% if request.url.path == '/reports' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span class="relative">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      {% if badges.reports %}<span class="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-late text-white text-[8px] font-semibold flex items-center justify-center leading-none">{{ badges.reports }}</span>{% endif %}
+    </span>
     Meldungen
   </a>
   {% if user %}
   <a href="/timeclock" class="tab-link {% if request.url.path == '/timeclock' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
     Zeit
-  </a>
-  {% endif %}
-  {% if user and (user.is_admin or user.is_shift_lead) %}
-  <a href="/admin" class="tab-link {% if request.url.path == '/admin' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 2.5"/></svg>
-    Verwaltung
   </a>
   {% endif %}
 </nav>
@@ -221,6 +239,22 @@
   }
   tickClock();
   setInterval(tickClock, 1000);
+})();
+
+// Profilmenü (mobile Kopfzeile): auf/zu per Klick, schließt bei Klick außerhalb
+(function () {
+  var btn = document.querySelector('.mobile-profile-btn');
+  var menu = document.querySelector('.mobile-profile-menu');
+  if (!btn || !menu) return;
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    menu.classList.toggle('hidden');
+  });
+  document.addEventListener('click', function (e) {
+    if (!menu.classList.contains('hidden') && !menu.contains(e.target)) {
+      menu.classList.add('hidden');
+    }
+  });
 })();
 </script>
 

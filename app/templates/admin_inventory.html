@@ -27,6 +27,16 @@
 </datalist>
 
 <div class="max-w-2xl rounded-xl border border-line bg-panel p-4">
+  {% if inventory_items %}
+  <div class="flex items-center justify-end gap-2 mb-3">
+    <label for="inv-sort" class="text-xs text-slate-500">Sortierung</label>
+    <select id="inv-sort" onchange="location.href = '/admin/inventory?sort=' + this.value" class="rounded-md bg-ink border border-line px-2 py-1 text-xs">
+      <option value="status" {% if sort == "status" %}selected{% endif %}>Kritischer Bestand zuerst</option>
+      <option value="name" {% if sort == "name" %}selected{% endif %}>Name (A–Z)</option>
+      <option value="category" {% if sort == "category" %}selected{% endif %}>Kategorie</option>
+    </select>
+  </div>
+  {% endif %}
   <ul class="space-y-1 text-sm mb-4">
     {% for i in inventory_items %}
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">

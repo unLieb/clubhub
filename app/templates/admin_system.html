@@ -51,9 +51,15 @@
       <li class="flex justify-between gap-4"><span class="text-slate-500">Aufbewahrung</span><span class="text-slate-300">{{ backup_retention_days }} Tage</span></li>
       <li class="flex justify-between gap-4"><span class="text-slate-500">Vorhanden</span><span class="text-slate-300">{{ scheduled_backups|length }}</span></li>
       {% if scheduled_backups %}
-      <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Sicherung</span><span class="text-go">{{ scheduled_backups[0].timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Sicherung</span><span class="{{ 'text-warn' if backup_stale else 'text-go' }}">{{ scheduled_backups[0].timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</span></li>
       {% endif %}
     </ul>
+    {% if backup_stale %}
+    <div class="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 text-warn text-xs px-3 py-2.5 mt-3">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
+      <span>{% if scheduled_backups %}Die letzte automatische Sicherung ist ungewöhnlich lange her - der Scheduler könnte ausgesetzt haben.{% else %}Noch keine automatische Sicherung vorhanden.{% endif %} Manuelles Backup unten als Zwischenlösung möglich.</span>
+    </div>
+    {% endif %}
     <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
       Läuft automatisch im Hintergrund und landet unter <code class="bg-ink border border-line rounded px-1">backups/</code>
       im Datenverzeichnis - schützt vor Bedienfehlern oder einer fehlgeschlagenen Änderung, aber nicht vor

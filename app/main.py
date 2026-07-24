@@ -4,7 +4,7 @@ import re
 import secrets
 import signal
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -17,7 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, joinedload
 
-from .database import Base, engine, get_db, DB_PATH
+from .database import Base, engine, get_db, DB_PATH, SessionLocal
 from . import models
 from . import ntptime
 from . import backup
@@ -379,6 +379,18 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         if open_entry:
             timeclock_open_entry = _aware(open_entry.clock_in).astimezone(APP_TIMEZONE)
 
+    currently_clocked_in = []
+    if user and (user.is_admin or user.is_shift_lead):
+        open_entries = (
+            db.query(models.TimeEntry)
+            .filter(models.TimeEntry.clock_out.is_(None))
+            .order_by(models.TimeEntry.clock_in.asc())
+            .all()
+        )
+        currently_clocked_in = [
+            {"user": e.user, "since": _aware(e.clock_in).astimezone(APP_TIMEZONE)} for e in open_entries
+        ]
+
     room_status, overdue_tasks, due_soon_count, overdue_count = compute_room_statuses(rooms, now)
     attention_rooms = [r for r in rooms if room_status[r.id]["status"] != "green"]
 
@@ -417,6 +429,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "now_local": now.astimezone(APP_TIMEZONE),
         "device_authorized": device_is_authorized(request, db),
         "timeclock_open_entry": timeclock_open_entry,
+        "currently_clocked_in": currently_clocked_in,
     })
 
 
@@ -844,6 +857,29 @@ def compute_inventory_status(item) -> dict:
     return {"status": status, "fill_pct": fill_pct}
 
 
+def nav_badges(request: Request) -> dict:
+    """Kleine Zähler für die Navigation (offene Meldungen, Artikel unter
+    Mindestbestand) - läuft als Jinja-Global mit eigener kurzlebiger DB-Session,
+    damit jede Seite (nicht nur das Dashboard) den aktuellen Stand zeigen kann,
+    ohne dass jede Route ihn einzeln in den Kontext geben muss."""
+    db = SessionLocal()
+    try:
+        user = get_current_user(request, db)
+        if not user:
+            return {"reports": 0, "inventory": 0}
+        reports_open = db.query(models.Report).filter(models.Report.status != "done").count()
+        items = filter_inventory_for_user(db.query(models.InventoryItem).all(), user)
+        inventory_critical = sum(
+            1 for i in items if compute_inventory_status(i)["status"] in ("low", "empty")
+        )
+        return {"reports": reports_open, "inventory": inventory_critical}
+    finally:
+        db.close()
+
+
+templates.env.globals["nav_badges"] = nav_badges
+
+
 def compute_inventory_consumption(item, now, months: int = 6) -> list[dict]:
     """Verbrauch (Summe negativer Buchungen, als positive Zahl) je Kalendermonat
     der letzten `months` Monate - Basis für Sparkline/Verlaufs-Chart, damit sich
@@ -1253,14 +1289,27 @@ def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+_INVENTORY_STATUS_ORDER = {"empty": 0, "low": 1, "ok": 2}
+
+
 @app.get("/admin/inventory")
-def admin_inventory_page(request: Request, img_fetch_failed: str = "", db: Session = Depends(get_db)):
+def admin_inventory_page(
+    request: Request, img_fetch_failed: str = "", sort: str = "status", db: Session = Depends(get_db)
+):
     admin = require_admin_or_shift_lead(request, db)
     items = filter_inventory_for_user(db.query(models.InventoryItem).all(), admin)
+    if sort == "name":
+        items.sort(key=lambda i: i.name.lower())
+    elif sort == "category":
+        items.sort(key=lambda i: (i.category is None, (i.category or "").lower(), i.name.lower()))
+    else:
+        sort = "status"
+        items.sort(key=lambda i: (_INVENTORY_STATUS_ORDER[compute_inventory_status(i)["status"]], i.name.lower()))
     return templates.TemplateResponse("admin_inventory.html", {
         "request": request,
         "user": admin,
         "inventory_items": items,
+        "sort": sort,
         "groups": db.query(models.Group).all(),
         "categories": sorted({i.category for i in items if i.category}),
         "locations": sorted({i.location for i in items if i.location}),
@@ -1408,6 +1457,22 @@ def admin_notifications_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+def _backup_health(scheduled_backups: list[dict]) -> bool:
+    """True, wenn die letzte automatische Sicherung ungewöhnlich lange her ist
+    (z.B. weil der Scheduler mal nicht gelaufen ist) - Basis für die
+    Warnanzeige in der Systemverwaltung. Schwelle: größter Abstand zwischen
+    zwei geplanten Uhrzeiten am Tag + 2 Stunden Toleranz für Jitter/Neustarts."""
+    hours = sorted({int(h) for h in BACKUP_SCHEDULE_HOURS.split(",") if h.strip() != ""})
+    if not hours:
+        return False
+    gaps = [hours[i + 1] - hours[i] for i in range(len(hours) - 1)]
+    gaps.append(24 - hours[-1] + hours[0])
+    threshold = timedelta(hours=max(gaps) + 2)
+    if not scheduled_backups:
+        return True
+    return (ntptime.now_utc() - scheduled_backups[0]["timestamp"]) > threshold
+
+
 @app.get("/admin/system")
 def admin_system_page(request: Request, db: Session = Depends(get_db)):
     admin = require_admin_or_shift_lead(request, db)
@@ -1423,6 +1488,7 @@ def admin_system_page(request: Request, db: Session = Depends(get_db)):
         "scheduled_backups": scheduled_backups,
         "backup_schedule_hours": BACKUP_SCHEDULE_HOURS,
         "backup_retention_days": BACKUP_RETENTION_DAYS,
+        "backup_stale": _backup_health(scheduled_backups),
     })
 
 

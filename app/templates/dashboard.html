@@ -77,6 +77,25 @@
   </div>
 </div>
 
+{% if currently_clocked_in %}
+<!-- Wer ist gerade da: nur für Admin/Schichtleiter (siehe main.py) -->
+<div class="rounded-xl border border-line bg-panel p-4 mb-6">
+  <h3 class="font-display font-medium flex items-center gap-2 mb-3">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+    Wer ist gerade da?
+  </h3>
+  <div class="flex flex-wrap gap-2">
+    {% for entry in currently_clocked_in %}
+    <span class="inline-flex items-center gap-2 text-sm bg-go/10 text-go border border-go/30 rounded-full pl-1.5 pr-3 py-1">
+      <span class="w-6 h-6 rounded-full bg-go/20 flex items-center justify-center font-display font-semibold text-[11px] shrink-0">{{ entry.user.name[0]|upper }}</span>
+      {{ entry.user.name }}
+      <span class="text-go/70 text-xs">seit {{ entry.since.strftime("%H:%M") }}</span>
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <!-- Überfällig + offene Meldungen: auf dem Handy weit oben, weil direkt handlungsrelevant -->
 {% if overdue_tasks %}
 <div class="lg:hidden rounded-xl border border-late/40 bg-late/10 p-3 mb-6 space-y-2">
