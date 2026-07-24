@@ -7,8 +7,8 @@
   <h1 class="font-display text-2xl font-semibold">Dashboard</h1>
   <p class="text-slate-300 text-base mt-2">
     {{ greeting }}{% if user %}, {{ user.name }}{% endif %}!
-    Heute stehen <span class="font-medium text-slate-100">{{ pending_tasks_count }}</span> Reinigungen und
-    <span class="font-medium text-slate-100">{{ report_stats.open }}</span> offene Meldungen an.
+    Heute stehen <span class="font-medium text-slate-100">{{ pending_tasks_count }}</span> {{ "Reinigung" if pending_tasks_count == 1 else "Reinigungen" }} und
+    <span class="font-medium text-slate-100">{{ report_stats.open }}</span> offene {{ "Meldung" if report_stats.open == 1 else "Meldungen" }} an.
   </p>
   <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
 </div>

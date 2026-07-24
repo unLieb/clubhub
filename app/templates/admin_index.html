@@ -38,7 +38,7 @@
     </div>
     <div class="flex-1 min-w-0">
       <div class="font-medium">Gruppen</div>
-      <div class="text-go text-sm mt-0.5">{{ groups_count }} Gruppen &middot; {{ groups_with_hours_count }} Arbeitszeiten</div>
+      <div class="text-go text-sm mt-0.5">{{ groups_count }} {{ "Gruppe" if groups_count == 1 else "Gruppen" }} &middot; {{ groups_with_hours_count }} {{ "Arbeitszeit" if groups_with_hours_count == 1 else "Arbeitszeiten" }}</div>
       <div class="text-xs text-slate-500 mt-0.5">Organisiere Nutzer in Gruppen und weise Bereiche zu.</div>
     </div>
     <span class="hidden sm:flex items-center gap-1 text-go text-sm font-medium shrink-0">
@@ -53,7 +53,7 @@
     </div>
     <div class="flex-1 min-w-0">
       <div class="font-medium">Bereiche</div>
-      <div class="text-orange text-sm mt-0.5">{{ rooms_count }} Bereiche eingerichtet</div>
+      <div class="text-orange text-sm mt-0.5">{{ rooms_count }} {{ "Bereich" if rooms_count == 1 else "Bereiche" }} eingerichtet</div>
       <div class="text-xs text-slate-500 mt-0.5">Verwalte alle Bereiche und Räume deines Betriebs.</div>
     </div>
     <span class="hidden sm:flex items-center gap-1 text-orange text-sm font-medium shrink-0">
@@ -68,7 +68,7 @@
     </div>
     <div class="flex-1 min-w-0">
       <div class="font-medium">Aufgaben</div>
-      <div class="text-warn text-sm mt-0.5">{{ tasks_count }} Aufgaben</div>
+      <div class="text-warn text-sm mt-0.5">{{ tasks_count }} {{ "Aufgabe" if tasks_count == 1 else "Aufgaben" }}</div>
       <div class="text-xs text-slate-500 mt-0.5">Lege wiederkehrende Aufgaben und Reinigungsintervalle fest.</div>
     </div>
     <span class="hidden sm:flex items-center gap-1 text-warn text-sm font-medium shrink-0">
@@ -130,7 +130,7 @@
     </div>
     <div class="flex-1 min-w-0">
       <div class="font-medium">Benachrichtigungen</div>
-      <div class="text-late text-sm mt-0.5">{{ channels_count }} Kanäle konfiguriert</div>
+      <div class="text-late text-sm mt-0.5">{{ channels_count }} {{ "Kanal" if channels_count == 1 else "Kanäle" }} konfiguriert</div>
       <div class="text-xs text-slate-500 mt-0.5">Richte Benachrichtigungsdienste und Kanäle ein.</div>
     </div>
     <span class="hidden sm:flex items-center gap-1 text-late text-sm font-medium shrink-0">
