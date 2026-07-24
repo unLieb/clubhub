@@ -259,6 +259,21 @@ def format_hours_de(hours: float) -> str:
 templates.env.globals["format_hours_de"] = format_hours_de
 
 
+def format_qty(value) -> str:
+    """Zeigt Mengen (Bestand, Gebindegröße) ohne Nachkommastelle, wenn der
+    Wert ganzzahlig ist (z.B. "1" statt "1.0"), sonst mit - so bleibt eine
+    bewusst eingegebene Nachkommastelle (z.B. "1.5") weiterhin sichtbar."""
+    if value is None:
+        return "–"
+    value = round(float(value), 2)
+    if value == int(value):
+        return str(int(value))
+    return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
+templates.env.filters["qty"] = format_qty
+
+
 def greeting_for_now(now) -> str:
     """Tageszeit-abhängige Begrüßung, nach lokaler Stunde (APP_TIMEZONE) -
     'Guten Abend' gilt bis in die Nacht hinein, da 'Gute Nacht' im
