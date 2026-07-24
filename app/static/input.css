@@ -17,6 +17,17 @@
      unabhängig von --color-ink (das selbst je nach Theme wechselt). */
   --color-oncolor: #12161f;
 
+  /* Seitenleiste/mobile Kopfzeile: eigene, feststehende Farben statt der
+     theme-abhängigen slate- und ink-Werte, da dieser Bereich in beiden
+     Themes dunkel bleibt (siehe Light-Theme-Override unten) - Text darin
+     darf sich also nicht wie normaler Seiteninhalt umfärben. Im Dark Mode
+     entsprechen die Werte exakt den bisherigen, unveränderten Farben. */
+  --color-sidebar: #1a2029;
+  --color-sidebar-text: #cbd5e1;
+  --color-sidebar-text-strong: #f1f5f9;
+  --color-sidebar-muted: #64748b;
+  --color-sidebar-line: #2b3548;
+
   --font-display: ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-body: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
@@ -41,9 +52,13 @@
      als feststehende Statusfarben in beiden Themes unverändert. */
   --color-accent: #2f8f8f;
   --color-orange: #c9754d;
+  /* Seitenleiste/mobile Kopfzeile bleibt dunkel (Frannz-Petrol) statt weiß -
+     Text darin nutzt die feststehenden --color-sidebar-text-* Werte oben. */
+  --color-sidebar: #244849;
+  --color-sidebar-line: #3a615f;
 }
 
 body { background: var(--color-bg); }
 .status-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-slate-100) 8%, transparent); }
-.nav-link.active { background: var(--color-panel2); color: var(--color-slate-100); }
+.nav-link.active { background: rgba(255, 255, 255, 0.08); color: var(--color-sidebar-text-strong); }
 .nav-link.active .nav-bar { opacity: 1; }
