@@ -67,7 +67,7 @@
                    placeholder="läuft noch" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             <div class="flex gap-2 shrink-0">
               <button class="px-2.5 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium">Speichern</button>
-              <button type="submit" formaction="/admin/timeclock/{{ e.id }}/delete" onclick="return confirm('Buchung wirklich löschen?')"
+              <button type="submit" formaction="/admin/timeclock/{{ e.id }}/delete" formnovalidate onclick="return confirm('Buchung wirklich löschen?')"
                       class="px-2.5 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-xs font-medium">Löschen</button>
             </div>
           </form>

@@ -34,7 +34,7 @@
           <div class="flex gap-2">
             <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
             {% if user.is_admin %}
-            <button type="submit" formaction="/admin/rooms/{{ r.id }}/delete" onclick="return confirm('„{{ r.name }}“ inkl. aller Aufgaben und ihrer Historie wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+            <button type="submit" formaction="/admin/rooms/{{ r.id }}/delete" formnovalidate onclick="return confirm('„{{ r.name }}“ inkl. aller Aufgaben und ihrer Historie wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
             {% endif %}
           </div>
         </form>

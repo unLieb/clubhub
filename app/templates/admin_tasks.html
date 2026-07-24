@@ -46,7 +46,7 @@
           <div class="flex gap-2">
             <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
             {% if user.is_admin %}
-            <button type="submit" formaction="/admin/tasks/{{ t.id }}/delete" onclick="return confirm('„{{ t.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+            <button type="submit" formaction="/admin/tasks/{{ t.id }}/delete" formnovalidate onclick="return confirm('„{{ t.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
             {% endif %}
           </div>
         </form>
