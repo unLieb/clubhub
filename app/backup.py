@@ -84,11 +84,27 @@ def list_scheduled_backups() -> list[dict]:
         except ValueError:
             continue
         entries.append({
+            "filename": name,
             "timestamp": ts,
             "size_bytes": os.path.getsize(os.path.join(backup_dir, name)),
         })
     entries.sort(key=lambda e: e["timestamp"], reverse=True)
     return entries
+
+
+def scheduled_backup_path(filename: str) -> str | None:
+    """Löst einen Dateinamen sicher auf einen Pfad innerhalb von backups/ auf -
+    None, falls der Name nicht zu einer vorhandenen automatischen Sicherung
+    passt (verhindert Pfad-Traversal über die Route)."""
+    if not filename.startswith(AUTO_BACKUP_PREFIX) or not filename.endswith(".db"):
+        return None
+    if "/" in filename or "\\" in filename:
+        return None
+    backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
+    path = os.path.join(backup_dir, filename)
+    if not os.path.isfile(path):
+        return None
+    return path
 
 
 def _validate_backup_file(path: str) -> str | None:
@@ -108,6 +124,29 @@ def _validate_backup_file(path: str) -> str | None:
     return None
 
 
+def _swap_in_database(src_path: str) -> str | None:
+    """Prüft die Datei unter src_path und setzt sie, falls gültig, als neue
+    laufende Datenbank ein (vorher Sicherheitskopie der aktuellen Datenbank).
+    Gemeinsamer Kern für restore_from_bytes (Upload) und restore_from_path
+    (bereits vorhandene automatische Sicherung)."""
+    error = _validate_backup_file(src_path)
+    if error:
+        return error
+
+    backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    safety_copy = os.path.join(
+        backup_dir, f"vor-wiederherstellung-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db"
+    )
+    # Alle gepoolten Verbindungen schließen, bevor die Datei unter der Engine
+    # weggetauscht wird - jede künftige Anfrage öffnet ohnehin eine frische
+    # Verbindung über SessionLocal(), zusätzlich startet der Prozess danach neu.
+    engine.dispose()
+    shutil.copy2(DB_PATH, safety_copy)
+    shutil.copy2(src_path, DB_PATH)
+    return None
+
+
 def restore_from_bytes(data: bytes) -> str | None:
     """Ersetzt die laufende Datenbank durch die hochgeladene Datei. Legt vorher
     automatisch eine Sicherheitskopie der aktuellen Datenbank an. Gibt bei
@@ -117,23 +156,13 @@ def restore_from_bytes(data: bytes) -> str | None:
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
-
-        error = _validate_backup_file(tmp_path)
-        if error:
-            return error
-
-        backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
-        os.makedirs(backup_dir, exist_ok=True)
-        safety_copy = os.path.join(
-            backup_dir, f"vor-wiederherstellung-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db"
-        )
-        # Alle gepoolten Verbindungen schließen, bevor die Datei unter der Engine
-        # weggetauscht wird - jede künftige Anfrage öffnet ohnehin eine frische
-        # Verbindung über SessionLocal(), zusätzlich startet der Prozess danach neu.
-        engine.dispose()
-        shutil.copy2(DB_PATH, safety_copy)
-        shutil.move(tmp_path, DB_PATH)
-        return None
+        return _swap_in_database(tmp_path)
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def restore_from_path(path: str) -> str | None:
+    """Wie restore_from_bytes, aber für eine bereits im Datenverzeichnis
+    vorhandene Datei (z.B. eine automatische Sicherung) - kein Upload nötig."""
+    return _swap_in_database(path)

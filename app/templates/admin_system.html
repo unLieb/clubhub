@@ -69,6 +69,31 @@
       <code class="bg-ink border border-line rounded px-1">BACKUP_RETENTION_DAYS</code> in der
       <code class="bg-ink border border-line rounded px-1">docker-compose.yml</code> anpassen.
     </p>
+    {% if scheduled_backups %}
+    <details class="mt-3 max-w-2xl">
+      <summary class="cursor-pointer list-none flex items-center gap-1 text-sm text-slate-400 hover:text-slate-100">
+        Einzelne Sicherungen ({{ scheduled_backups|length }})
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <ul class="mt-2 space-y-1 text-sm">
+        {% for b in scheduled_backups %}
+        <li class="flex items-center justify-between gap-3 border-b border-line/50 last:border-0 py-2">
+          <div class="min-w-0">
+            <div class="text-slate-300">{{ b.timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</div>
+            <div class="text-[11px] text-slate-500">{{ (b.size_bytes / 1024)|round(0, "floor")|int }} KB</div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <a href="/admin/system/scheduled-backup/{{ b.filename }}/download" class="px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-xs font-medium whitespace-nowrap">Herunterladen</a>
+            <form method="post" action="/admin/system/scheduled-backup/{{ b.filename }}/restore"
+                  onsubmit="return confirm('Die aktuelle Datenbank wird komplett durch den Stand von {{ b.timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr ersetzt. Vorher wird automatisch eine Sicherheitskopie angelegt, danach startet die Anwendung neu. Wirklich fortfahren?')">
+              <button class="px-2.5 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-xs font-medium whitespace-nowrap">Wiederherstellen</button>
+            </form>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
   </section>
 
   <section class="rounded-xl border border-line bg-panel p-4 mt-4">

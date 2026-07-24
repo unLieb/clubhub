@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks
+from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks, HTTPException
 from fastapi.responses import RedirectResponse, Response, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -1569,14 +1569,12 @@ def _backup_health(scheduled_backups: list[dict]) -> bool:
     return (ntptime.now_utc() - scheduled_backups[0]["timestamp"]) > threshold
 
 
-@app.get("/admin/system")
-def admin_system_page(request: Request, db: Session = Depends(get_db)):
-    admin = require_admin_or_shift_lead(request, db)
+def _admin_system_context(request: Request, admin, restore_error: str | None = None) -> dict:
     scheduled_backups = [
         {**b, "timestamp_local": b["timestamp"].astimezone(APP_TIMEZONE)}
         for b in backup.list_scheduled_backups()
     ]
-    return templates.TemplateResponse("admin_system.html", {
+    return {
         "request": request,
         "user": admin,
         "app_timezone": os.environ.get("APP_TIMEZONE", "Europe/Berlin"),
@@ -1585,7 +1583,14 @@ def admin_system_page(request: Request, db: Session = Depends(get_db)):
         "backup_schedule_hours": BACKUP_SCHEDULE_HOURS,
         "backup_retention_days": BACKUP_RETENTION_DAYS,
         "backup_stale": _backup_health(scheduled_backups),
-    })
+        "restore_error": restore_error,
+    }
+
+
+@app.get("/admin/system")
+def admin_system_page(request: Request, db: Session = Depends(get_db)):
+    admin = require_admin_or_shift_lead(request, db)
+    return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin))
 
 
 @app.post("/admin/system/resync-ntp")
@@ -1606,11 +1611,40 @@ def admin_download_backup(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@app.get("/admin/system/scheduled-backup/{filename}/download")
+def admin_download_scheduled_backup(filename: str, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    path = backup.scheduled_backup_path(filename)
+    if not path:
+        raise HTTPException(status_code=404)
+    with open(path, "rb") as f:
+        data = f.read()
+    return Response(
+        content=data,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 def _trigger_restart():
     # SIGTERM statt hartem os._exit(), damit uvicorn sauber herunterfährt;
     # Docker startet den Container per restart-Policy automatisch neu und
     # durchläuft dabei die normalen Startup-Migrationen gegen die neue Datei.
     os.kill(os.getpid(), signal.SIGTERM)
+
+
+def _restore_success_response() -> HTMLResponse:
+    return HTMLResponse("""<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta http-equiv="refresh" content="6;url=/admin/system">
+<title>Wiederherstellung – ClubHUB</title></head>
+<body style="font-family:ui-sans-serif,system-ui,sans-serif;background:#12161f;color:#e2e8f0;
+             display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+<div style="text-align:center;max-width:24rem;padding:1.5rem;">
+  <p>Datenbank wiederhergestellt. Die Anwendung startet neu…</p>
+  <p style="opacity:.6;font-size:.85em;margin-top:.5rem;">Diese Seite lädt in wenigen Sekunden automatisch neu.</p>
+</div>
+</body></html>""")
 
 
 @app.post("/admin/system/restore")
@@ -1624,25 +1658,24 @@ async def admin_restore_backup(
     data = await file.read()
     error = backup.restore_from_bytes(data)
     if error:
-        return templates.TemplateResponse("admin_system.html", {
-            "request": request,
-            "user": admin,
-            "app_timezone": os.environ.get("APP_TIMEZONE", "Europe/Berlin"),
-            "ntp_status": ntptime.status(),
-            "restore_error": error,
-        })
+        return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, error))
     background_tasks.add_task(_trigger_restart)
-    return HTMLResponse("""<!doctype html>
-<html lang="de"><head><meta charset="utf-8">
-<meta http-equiv="refresh" content="6;url=/admin/system">
-<title>Wiederherstellung – ClubHUB</title></head>
-<body style="font-family:ui-sans-serif,system-ui,sans-serif;background:#12161f;color:#e2e8f0;
-             display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-<div style="text-align:center;max-width:24rem;padding:1.5rem;">
-  <p>Datenbank wiederhergestellt. Die Anwendung startet neu…</p>
-  <p style="opacity:.6;font-size:.85em;margin-top:.5rem;">Diese Seite lädt in wenigen Sekunden automatisch neu.</p>
-</div>
-</body></html>""")
+    return _restore_success_response()
+
+
+@app.post("/admin/system/scheduled-backup/{filename}/restore")
+def admin_restore_scheduled_backup(
+    filename: str, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+):
+    admin = require_admin(request, db)
+    path = backup.scheduled_backup_path(filename)
+    if not path:
+        raise HTTPException(status_code=404)
+    error = backup.restore_from_path(path)
+    if error:
+        return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, error))
+    background_tasks.add_task(_trigger_restart)
+    return _restore_success_response()
 
 
 @app.post("/admin/groups")

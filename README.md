@@ -110,6 +110,14 @@ selben Docker-Volume wie die Datenbank), Status einsehbar unter
 Stunden) und `BACKUP_RETENTION_DAYS` in der `docker-compose.yml` anpassbar,
 z.B. auf ein Backup pro Tag reduzieren, wenn sich wenig ändert.
 
+**Wiederherstellen:** Unter Verwaltung → System → Automatische Sicherungen →
+„Einzelne Sicherungen" den gewünschten Zeitpunkt aufklappen und
+„Wiederherstellen" wählen (nur Admins) – ersetzt die laufende Datenbank direkt
+mit diesem Stand, ohne Umweg über Herunterladen/Hochladen. Vorher wird
+automatisch eine Sicherheitskopie der aktuellen Datenbank angelegt, danach
+startet die Anwendung neu. Alternativ lässt sich jede automatische Sicherung
+dort auch einzeln herunterladen.
+
 **Wichtig:** Das schützt vor Bedienfehlern, Bugs oder einer fehlgeschlagenen
 Migration, aber nicht vor Verlust des kompletten Docker-Volumes bzw. der
 Festplatte selbst. Dafür weiterhin regelmäßig manuell unter Verwaltung →
