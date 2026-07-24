@@ -455,15 +455,23 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/rooms")
-def rooms_overview(request: Request, db: Session = Depends(get_db)):
+def rooms_overview(request: Request, sort: str = "status", db: Session = Depends(get_db)):
     rooms = db.query(models.Room).all()
     now = ntptime.now_utc()
     room_status, _, _, _ = compute_room_statuses(rooms, now)
+    if sort == "name":
+        rooms.sort(key=lambda r: r.name.lower())
+    else:
+        sort = "status"
+        # Überfällig (rot) zuerst, dann bald fällig (gelb), erledigt (grün)
+        # zuletzt; innerhalb desselben Status alphabetisch nach Name.
+        rooms.sort(key=lambda r: (-STATUS_RANK[room_status[r.id]["status"]], r.name.lower()))
     return templates.TemplateResponse("rooms.html", {
         "request": request,
         "user": get_current_user(request, db),
         "rooms": rooms,
         "room_status": room_status,
+        "sort": sort,
     })
 
 
@@ -1352,8 +1360,8 @@ def admin_users_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("admin_users.html", {
         "request": request,
         "user": admin,
-        "users": db.query(models.User).all(),
-        "groups": db.query(models.Group).all(),
+        "users": db.query(models.User).order_by(models.User.name).all(),
+        "groups": db.query(models.Group).order_by(models.Group.name).all(),
     })
 
 
@@ -1363,7 +1371,7 @@ def admin_groups_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("admin_groups.html", {
         "request": request,
         "user": admin,
-        "groups": db.query(models.Group).all(),
+        "groups": db.query(models.Group).order_by(models.Group.name).all(),
         "channels": db.query(models.NotificationChannel).all(),
     })
 
@@ -1374,19 +1382,20 @@ def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("admin_rooms.html", {
         "request": request,
         "user": admin,
-        "rooms": db.query(models.Room).all(),
-        "groups": db.query(models.Group).all(),
+        "rooms": db.query(models.Room).order_by(models.Room.name).all(),
+        "groups": db.query(models.Group).order_by(models.Group.name).all(),
     })
 
 
 @app.get("/admin/tasks")
 def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
     admin = require_admin_or_shift_lead(request, db)
+    tasks = db.query(models.Task).join(models.Room).order_by(models.Room.name, models.Task.name).all()
     return templates.TemplateResponse("admin_tasks.html", {
         "request": request,
         "user": admin,
-        "tasks": db.query(models.Task).all(),
-        "rooms": db.query(models.Room).all(),
+        "tasks": tasks,
+        "rooms": db.query(models.Room).order_by(models.Room.name).all(),
     })
 
 

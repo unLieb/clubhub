@@ -15,6 +15,13 @@
     {% if user and user.is_admin %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
   </div>
   {% else %}
+  <div class="flex items-center justify-end gap-2 mb-3">
+    <label for="room-sort" class="text-xs text-slate-500">Sortierung</label>
+    <select id="room-sort" onchange="location.href = '/rooms?sort=' + this.value" class="rounded-md bg-ink border border-line px-2 py-1 text-xs">
+      <option value="status" {% if sort == "status" %}selected{% endif %}>Status (überfällig zuerst)</option>
+      <option value="name" {% if sort == "name" %}selected{% endif %}>Name (A–Z)</option>
+    </select>
+  </div>
   {% include "_room_grid.html" %}
   {% endif %}
 </div>
