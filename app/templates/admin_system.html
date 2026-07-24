@@ -45,6 +45,27 @@
 
   {% if user.is_admin %}
   <section class="rounded-xl border border-line bg-panel p-4 mt-4">
+    <h2 class="font-display font-medium mb-3">Automatische Sicherungen</h2>
+    <ul class="text-sm space-y-1.5">
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Zeitpunkte (lokal)</span><span class="text-slate-300">{{ backup_schedule_hours }} Uhr</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Aufbewahrung</span><span class="text-slate-300">{{ backup_retention_days }} Tage</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Vorhanden</span><span class="text-slate-300">{{ scheduled_backups|length }}</span></li>
+      {% if scheduled_backups %}
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Sicherung</span><span class="text-go">{{ scheduled_backups[0].timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</span></li>
+      {% endif %}
+    </ul>
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
+      Läuft automatisch im Hintergrund und landet unter <code class="bg-ink border border-line rounded px-1">backups/</code>
+      im Datenverzeichnis - schützt vor Bedienfehlern oder einer fehlgeschlagenen Änderung, aber nicht vor
+      Verlust des kompletten Datenverzeichnisses. Für eine zusätzliche Kopie außerhalb des Servers weiterhin
+      hin und wieder den Download unten nutzen. Zeitpunkte/Aufbewahrung lassen sich über
+      <code class="bg-ink border border-line rounded px-1">BACKUP_SCHEDULE_HOURS</code> /
+      <code class="bg-ink border border-line rounded px-1">BACKUP_RETENTION_DAYS</code> in der
+      <code class="bg-ink border border-line rounded px-1">docker-compose.yml</code> anpassen.
+    </p>
+  </section>
+
+  <section class="rounded-xl border border-line bg-panel p-4 mt-4">
     <h2 class="font-display font-medium mb-3">Backup &amp; Wiederherstellung</h2>
     <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
       Die Datenbank enthält alle Nutzer, Gruppen, Bereiche, Aufgaben, Historie und das Inventar in einer

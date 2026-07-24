@@ -100,6 +100,22 @@ an dem sich jeder mit seinem eigenen Account anmeldet. Der Button erscheint
 ausschließlich auf dem autorisierten Gerät, auf jedem anderen bleibt er
 unsichtbar.
 
+## Backups
+
+Automatische Sicherungen laufen im Hintergrund, standardmäßig um 0, 6, 12 und
+18 Uhr (lokale Zeit), aufbewahrt werden die letzten 3 Tage – ältere werden
+automatisch gelöscht. Landen unter `backups/` im Datenverzeichnis (also im
+selben Docker-Volume wie die Datenbank), Status einsehbar unter
+**Verwaltung → System**. Über `BACKUP_SCHEDULE_HOURS` (kommagetrennte
+Stunden) und `BACKUP_RETENTION_DAYS` in der `docker-compose.yml` anpassbar,
+z.B. auf ein Backup pro Tag reduzieren, wenn sich wenig ändert.
+
+**Wichtig:** Das schützt vor Bedienfehlern, Bugs oder einer fehlgeschlagenen
+Migration, aber nicht vor Verlust des kompletten Docker-Volumes bzw. der
+Festplatte selbst. Dafür weiterhin regelmäßig manuell unter Verwaltung →
+System → Backup herunterladen und die Datei an einem anderen Ort (eigener
+Rechner, NAS, Cloud-Speicher) ablegen.
+
 ## Benachrichtigungskanäle einrichten
 
 Kanäle werden in der Verwaltung unter **Benachrichtigungskanäle** unabhängig

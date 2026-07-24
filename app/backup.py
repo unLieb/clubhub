@@ -2,10 +2,15 @@ import os
 import shutil
 import sqlite3
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from .database import DB_PATH, engine
 from . import ntptime
+
+# Präfix automatischer, geplanter Sicherungen (siehe scheduler.py) - eigenes
+# Präfix, damit die Rotation nur diese und nicht die Vor-Wiederherstellung-
+# Sicherheitskopien anfasst.
+AUTO_BACKUP_PREFIX = "auto-"
 
 # Kern-Tabellen, die in jeder halbwegs aktuellen ClubHUB-Datenbank
 # existieren müssen. Bewusst knapp gehalten (nicht z.B. inventory_items oder
@@ -37,6 +42,53 @@ def create_backup_bytes() -> bytes:
 
 def backup_filename() -> str:
     return f"clubhub-backup-{ntptime.now_utc().strftime('%Y%m%d-%H%M%S')}.db"
+
+
+def create_scheduled_backup(retention_days: int) -> None:
+    """Schreibt eine automatische Sicherung ins Datenverzeichnis (per
+    Scheduler mehrmals täglich aufgerufen, siehe scheduler.py) und löscht
+    anschließend automatische Sicherungen, die älter als `retention_days`
+    Tage sind. Rührt Vor-Wiederherstellung-Sicherheitskopien nicht an."""
+    backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+
+    now = ntptime.now_utc()
+    filename = f"{AUTO_BACKUP_PREFIX}{now.strftime('%Y%m%d-%H%M%S')}.db"
+    with open(os.path.join(backup_dir, filename), "wb") as f:
+        f.write(create_backup_bytes())
+
+    cutoff = now - timedelta(days=retention_days)
+    for name in os.listdir(backup_dir):
+        if not name.startswith(AUTO_BACKUP_PREFIX) or not name.endswith(".db"):
+            continue
+        try:
+            ts = datetime.strptime(name[len(AUTO_BACKUP_PREFIX):-3], "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if ts < cutoff:
+            os.remove(os.path.join(backup_dir, name))
+
+
+def list_scheduled_backups() -> list[dict]:
+    """Für die Anzeige in der Verwaltung: alle automatischen Sicherungen,
+    neueste zuerst, mit Zeitpunkt (UTC) und Dateigröße."""
+    backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
+    if not os.path.isdir(backup_dir):
+        return []
+    entries = []
+    for name in os.listdir(backup_dir):
+        if not name.startswith(AUTO_BACKUP_PREFIX) or not name.endswith(".db"):
+            continue
+        try:
+            ts = datetime.strptime(name[len(AUTO_BACKUP_PREFIX):-3], "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        entries.append({
+            "timestamp": ts,
+            "size_bytes": os.path.getsize(os.path.join(backup_dir, name)),
+        })
+    entries.sort(key=lambda e: e["timestamp"], reverse=True)
+    return entries
 
 
 def _validate_backup_file(path: str) -> str | None:

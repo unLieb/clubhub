@@ -21,6 +21,14 @@ services:
       # Zeitzone für die Arbeitszeit-Prüfung der Gruppen (Standard: Europe/Berlin)
       # APP_TIMEZONE: "Europe/Berlin"
 
+      # Automatische Sicherungen: Uhrzeiten (lokal, kommagetrennt, Standard 0,6,12,18)
+      # sowie wie viele Tage sie aufbewahrt werden, bevor sie automatisch gelöscht
+      # werden (Standard 3). Landen im Datenverzeichnis unter backups/, ersetzen
+      # nicht den manuellen Download unter Verwaltung → System (z.B. für eine
+      # zusätzliche Kopie außerhalb des Servers).
+      # BACKUP_SCHEDULE_HOURS: "0,6,12,18"
+      # BACKUP_RETENTION_DAYS: "3"
+
       # ntfy: Basis-URL deines ntfy-Servers (z.B. https://ntfy.sh oder eigene Instanz)
       NTFY_BASE_URL: "https://ntfy.sh"
 

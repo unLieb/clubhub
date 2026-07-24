@@ -3,16 +3,23 @@ import logging
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
 from .models import Task, TaskGroupNotice, InventoryItem
 from .status import task_status
 from .notifications import notify_group
 from . import ntptime
+from . import backup
 
 logger = logging.getLogger("reinigungsplan.scheduler")
 
 APP_TIMEZONE = ZoneInfo(os.environ.get("APP_TIMEZONE", "Europe/Berlin"))
+
+# Uhrzeiten (lokal, kommagetrennt) für automatische Sicherungen sowie wie
+# viele Tage diese aufbewahrt werden, bevor sie automatisch gelöscht werden.
+BACKUP_SCHEDULE_HOURS = os.environ.get("BACKUP_SCHEDULE_HOURS", "0,6,12,18")
+BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "3"))
 
 # Statuswechsel, bei denen wir aktiv informieren (green -> gelb/rot ist neu, rot bleibt still nach erster Meldung)
 NOTIFY_ON = {"yellow", "red"}
@@ -101,6 +108,13 @@ def check_inventory_job():
         db.close()
 
 
+def scheduled_backup_job():
+    try:
+        backup.create_scheduled_backup(BACKUP_RETENTION_DAYS)
+    except Exception:
+        logger.exception("Fehler beim automatischen Backup")
+
+
 def start_scheduler():
     scheduler = BackgroundScheduler()
     # alle 15 Minuten prüfen; ausreichend granular für Intervalle ab 1h aufwärts
@@ -108,5 +122,11 @@ def start_scheduler():
     scheduler.add_job(check_inventory_job, "interval", minutes=15, id="check_inventory")
     # NTP-Offset regelmäßig auffrischen (Erstsync passiert synchron beim App-Start)
     scheduler.add_job(ntptime.sync, "interval", minutes=30, id="ntp_sync")
+    # Automatische Sicherungen zu festen lokalen Uhrzeiten, mit Rotation
+    scheduler.add_job(
+        scheduled_backup_job,
+        CronTrigger(hour=BACKUP_SCHEDULE_HOURS, minute=0, timezone=APP_TIMEZONE),
+        id="scheduled_backup",
+    )
     scheduler.start()
     return scheduler

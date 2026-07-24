@@ -24,7 +24,7 @@ from . import backup
 from . import version
 from .auth import hash_pin, verify_pin, get_current_user, require_login, require_admin, require_admin_or_shift_lead
 from .status import task_status
-from .scheduler import start_scheduler, APP_TIMEZONE
+from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
 from .notifications import notify_group
 
 Base.metadata.create_all(bind=engine)
@@ -1369,11 +1369,18 @@ def admin_notifications_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/admin/system")
 def admin_system_page(request: Request, db: Session = Depends(get_db)):
     admin = require_admin_or_shift_lead(request, db)
+    scheduled_backups = [
+        {**b, "timestamp_local": b["timestamp"].astimezone(APP_TIMEZONE)}
+        for b in backup.list_scheduled_backups()
+    ]
     return templates.TemplateResponse("admin_system.html", {
         "request": request,
         "user": admin,
         "app_timezone": os.environ.get("APP_TIMEZONE", "Europe/Berlin"),
         "ntp_status": ntptime.status(),
+        "scheduled_backups": scheduled_backups,
+        "backup_schedule_hours": BACKUP_SCHEDULE_HOURS,
+        "backup_retention_days": BACKUP_RETENTION_DAYS,
     })
 
 
