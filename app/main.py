@@ -111,6 +111,13 @@ def _migrate_inventory_pack_size(db: Session):
     _ensure_column(db, "inventory_items", "pack_unit", "TEXT")
 
 
+def _migrate_inventory_unit_plural(db: Session):
+    """Optionale Mehrzahlform des Gebindes (z.B. 'Rollen' zu 'Rolle'), damit
+    die Anzeige ab einer Menge von 2 grammatikalisch korrekt pluralisiert -
+    kein Altdaten-Bezug."""
+    _ensure_column(db, "inventory_items", "unit_plural", "TEXT")
+
+
 def _migrate_user_time_tracking(db: Session):
     """Zeiterfassung: Stundensatz + Soll-Arbeitszeit/Monat pro Nutzer, beide
     optional (kein Altdaten-Bezug, nur von einem Admin gepflegt)."""
@@ -183,6 +190,7 @@ def _startup():
         _migrate_report_photos(db)
         _migrate_inventory_extras(db)
         _migrate_inventory_pack_size(db)
+        _migrate_inventory_unit_plural(db)
         _migrate_user_time_tracking(db)
         _migrate_remove_timeclock_nfc_tags(db)
     finally:
@@ -272,6 +280,25 @@ def format_qty(value) -> str:
 
 
 templates.env.filters["qty"] = format_qty
+
+
+def unit_label(item, *quantities) -> str:
+    """Gibt die Einzahl oder Mehrzahl des Gebindes zurück, je nachdem ob alle
+    übergebenen Mengen genau 1 sind (Einzahl) oder nicht (Mehrzahl) - z.B.
+    "1 Rolle" aber "10 Rollen". Ohne hinterlegte Mehrzahlform wird immer die
+    Einzahl verwendet (z.B. bei invarianten Wörtern wie "Kanister"). Ohne
+    übergebene Menge (z.B. reine Namensnennung ohne Bestandszahl daneben)
+    wird die Einzahl als Grundform gezeigt."""
+    if not item.unit:
+        return ""
+    plural = item.unit_plural or item.unit
+    if not quantities:
+        return item.unit
+    is_singular = all(q is not None and round(float(q), 6) == 1 for q in quantities)
+    return item.unit if is_singular else plural
+
+
+templates.env.filters["unit_label"] = unit_label
 
 
 def greeting_for_now(now) -> str:
@@ -1734,6 +1761,7 @@ def admin_add_inventory_item(
     request: Request,
     name: str = Form(...),
     unit: str = Form(""),
+    unit_plural: str = Form(""),
     pack_size: str = Form(""),
     pack_unit: str = Form(""),
     stock_current: float = Form(0.0),
@@ -1754,6 +1782,7 @@ def admin_add_inventory_item(
     db.add(models.InventoryItem(
         name=name,
         unit=unit or None,
+        unit_plural=unit_plural or None,
         pack_size=float(pack_size) if pack_size else None,
         pack_unit=pack_unit or None,
         stock_current=stock_current,
@@ -1774,6 +1803,7 @@ def admin_edit_inventory_item(
     request: Request,
     name: str = Form(...),
     unit: str = Form(""),
+    unit_plural: str = Form(""),
     pack_size: str = Form(""),
     pack_unit: str = Form(""),
     stock_current: float = Form(0.0),
@@ -1792,6 +1822,7 @@ def admin_edit_inventory_item(
     if item:
         item.name = name
         item.unit = unit or None
+        item.unit_plural = unit_plural or None
         item.pack_size = float(pack_size) if pack_size else None
         item.pack_unit = pack_unit or None
         item.stock_current = stock_current

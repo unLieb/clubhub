@@ -112,7 +112,11 @@
         <div class="flex flex-col sm:flex-row gap-2 mt-2">
           <div class="flex-1">
             <label class="block text-[11px] text-slate-400 mb-1">Gebinde (Verpackung)</label>
-            <input name="unit" list="inv-units" placeholder="z.B. Kanister, Packung, Flasche" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <input name="unit" list="inv-units" placeholder="z.B. Kanister, Rolle" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          </div>
+          <div class="flex-1">
+            <label class="block text-[11px] text-slate-400 mb-1">Mehrzahl (optional)</label>
+            <input name="unit_plural" placeholder="z.B. Kanister, Rollen" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           </div>
           <div class="w-24">
             <label class="block text-[11px] text-slate-400 mb-1">Menge je Gebinde</label>
@@ -207,7 +211,7 @@
           {% if item.unit %}
           <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
-            {{ item.unit }}{% if item.pack_size and item.pack_unit %} à {{ item.pack_size|qty }} {{ item.pack_unit }}{% endif %}
+            {{ item|unit_label(item.stock_current, item.stock_min) }}{% if item.pack_size and item.pack_unit %} à {{ item.pack_size|qty }} {{ item.pack_unit }}{% endif %}
           </span>
           {% endif %}
           {% if item.group %}
@@ -219,7 +223,7 @@
         </div>
         {% endif %}
         <div class="mt-2 max-w-sm">
-          <p class="text-xs text-slate-400 mb-1">{{ item.stock_current|qty }} / {{ item.stock_min|qty }}{% if item.unit %} {{ item.unit }}{% endif %}</p>
+          <p class="text-xs text-slate-400 mb-1">{{ item.stock_current|qty }} / {{ item.stock_min|qty }}{% if item.unit %} {{ item|unit_label(item.stock_current, item.stock_min) }}{% endif %}</p>
           <div class="h-1.5 rounded-full bg-panel2 overflow-hidden">
             <div class="h-full rounded-full {{ bar_classes(st.status) }}" style="width: {{ st.fill_pct }}%"></div>
           </div>
@@ -260,11 +264,11 @@
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-3">
               <div>
                 <div class="text-[11px] text-slate-500">Ist-Bestand</div>
-                <div class="font-medium">{{ item.stock_current|qty }}{% if item.unit %} {{ item.unit }}{% endif %}</div>
+                <div class="font-medium">{{ item.stock_current|qty }}{% if item.unit %} {{ item|unit_label(item.stock_current) }}{% endif %}</div>
               </div>
               <div>
                 <div class="text-[11px] text-slate-500">Mindestbestand</div>
-                <div class="font-medium">{{ item.stock_min|qty }}{% if item.unit %} {{ item.unit }}{% endif %}</div>
+                <div class="font-medium">{{ item.stock_min|qty }}{% if item.unit %} {{ item|unit_label(item.stock_min) }}{% endif %}</div>
               </div>
               <div>
                 <div class="text-[11px] text-slate-500">Lagerort</div>
@@ -279,7 +283,7 @@
               <div class="h-full rounded-full {{ bar_classes(st.status) }}" style="width: {{ st.fill_pct }}%"></div>
             </div>
             <div class="flex justify-between text-xs text-slate-500 mt-1">
-              <span>{{ item.stock_current|qty }} / {{ item.stock_min|qty }}{% if item.unit %} {{ item.unit }}{% endif %}</span>
+              <span>{{ item.stock_current|qty }} / {{ item.stock_min|qty }}{% if item.unit %} {{ item|unit_label(item.stock_current, item.stock_min) }}{% endif %}</span>
               <span>{{ st.fill_pct }}%</span>
             </div>
           </div>
@@ -320,7 +324,7 @@
             <h4 class="text-sm font-medium mb-3">Artikelinformationen</h4>
             <ul class="text-sm space-y-1.5">
               <li class="flex justify-between gap-4"><span class="text-slate-500">Kategorie</span><span class="text-slate-300">{{ item.category or "–" }}</span></li>
-              <li class="flex justify-between gap-4"><span class="text-slate-500">Gebinde</span><span class="text-slate-300">{{ item.unit or "–" }}{% if item.pack_size and item.pack_unit %} (à {{ item.pack_size|qty }} {{ item.pack_unit }}){% endif %}</span></li>
+              <li class="flex justify-between gap-4"><span class="text-slate-500">Gebinde</span><span class="text-slate-300">{{ item|unit_label(item.stock_current, item.stock_min) if item.unit else "–" }}{% if item.pack_size and item.pack_unit %} (à {{ item.pack_size|qty }} {{ item.pack_unit }}){% endif %}</span></li>
               <li class="flex justify-between gap-4"><span class="text-slate-500">Lagerort</span><span class="text-slate-300">{{ item.location or "–" }}</span></li>
               {% if item.movements %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ item.movements[0].timestamp.strftime("%d.%m.%Y, %H:%M") }}{% if item.movements[0].user %} &middot; {{ item.movements[0].user.name }}{% endif %}</span></li>

@@ -139,7 +139,8 @@ class InventoryItem(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    unit = Column(String, nullable=True)              # gezähltes Gebinde, z.B. "Kanister", "Packung", "Flasche"
+    unit = Column(String, nullable=True)              # gezähltes Gebinde (Einzahl), z.B. "Kanister", "Rolle"
+    unit_plural = Column(String, nullable=True)        # Mehrzahl von unit, z.B. "Rollen"; leer = unit für alle Mengen
     pack_size = Column(Float, nullable=True)           # Inhalt je Gebinde, z.B. 10 (Liter) oder 8 (Rollen)
     pack_unit = Column(String, nullable=True)          # Einheit des Inhalts, z.B. "Liter", "Rollen", "Stück"
     stock_current = Column(Float, default=0.0)         # Ist (in Gebinden, z.B. Kanister)
