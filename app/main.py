@@ -238,6 +238,17 @@ def _startup():
         db.close()
 
 
+def require_login_page(request: Request, db: Session):
+    """Für normale Seitenaufrufe (GET): ohne Login direkt auf /login umleiten
+    (mit next-Rücksprung), statt wie require_login() einen rohen 401 zu
+    werfen - bessere UX für ganze Seiten statt einzelner Aktionen. Gibt
+    (user, None) bei Login zurück, sonst (None, RedirectResponse)."""
+    user = get_current_user(request, db)
+    if user:
+        return user, None
+    return None, RedirectResponse(f"/login?next={request.url.path}", status_code=302)
+
+
 # ---------- Dashboard ----------
 
 STATUS_RANK = {"green": 0, "yellow": 1, "red": 2}
@@ -463,6 +474,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/rooms")
 def rooms_overview(request: Request, sort: str = "status", db: Session = Depends(get_db)):
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
     rooms = db.query(models.Room).all()
     now = ntptime.now_utc()
     room_status, _, _, _ = compute_room_statuses(rooms, now)
@@ -475,7 +489,7 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
         rooms.sort(key=lambda r: (-STATUS_RANK[room_status[r.id]["status"]], r.name.lower()))
     return templates.TemplateResponse("rooms.html", {
         "request": request,
-        "user": get_current_user(request, db),
+        "user": user,
         "rooms": rooms,
         "room_status": room_status,
         "sort": sort,
@@ -486,6 +500,9 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
 
 @app.get("/room/{room_id}")
 def room_view(room_id: int, request: Request, db: Session = Depends(get_db)):
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if not room:
         return RedirectResponse("/", status_code=302)
@@ -502,7 +519,7 @@ def room_view(room_id: int, request: Request, db: Session = Depends(get_db)):
         statuses[t.id] = s
     return templates.TemplateResponse("room.html", {
         "request": request,
-        "user": get_current_user(request, db),
+        "user": user,
         "room": room,
         "statuses": statuses,
     })
@@ -952,7 +969,9 @@ def build_consumption_chart(series: list[dict], width: int = 300, height: int = 
 
 @app.get("/inventory")
 def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
     items = db.query(models.InventoryItem).order_by(models.InventoryItem.name).all()
     items = filter_inventory_for_user(items, user)
     now = ntptime.now_utc()
@@ -1064,6 +1083,9 @@ def compute_report_meta(r, now) -> dict:
 
 @app.get("/reports")
 def reports_list(request: Request, db: Session = Depends(get_db)):
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
     reports = db.query(models.Report).all()
     now = ntptime.now_utc()
     open_reports = _sort_reports([r for r in reports if r.status != "done"])
@@ -1071,7 +1093,7 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
     report_meta = {r.id: compute_report_meta(r, now) for r in reports}
     return templates.TemplateResponse("reports.html", {
         "request": request,
-        "user": get_current_user(request, db),
+        "user": user,
         "open_reports": open_reports,
         "done_reports": done_reports,
         "report_meta": report_meta,
@@ -1261,10 +1283,13 @@ def push_unsubscribe(payload: PushUnsubscribeIn, request: Request, db: Session =
 
 @app.get("/history")
 def history(request: Request, db: Session = Depends(get_db)):
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
     completions = db.query(models.Completion).order_by(models.Completion.timestamp.desc()).limit(200).all()
     return templates.TemplateResponse("history.html", {
         "request": request,
-        "user": get_current_user(request, db),
+        "user": user,
         "completions": completions,
     })
 

@@ -77,6 +77,14 @@
   </div>
 </div>
 
+{% if not user %}
+<div class="rounded-lg border border-line bg-panel p-4 text-sm text-slate-300 flex items-center justify-between flex-wrap gap-3">
+  <span>Für Bereiche, Inventar, Meldungen und mehr bitte anmelden.</span>
+  <a href="/login?next=/" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium whitespace-nowrap">Anmelden</a>
+</div>
+{% endif %}
+
+{% if user %}
 {% if currently_clocked_in %}
 <!-- Wer ist gerade da: nur für Admin/Schichtleiter (siehe main.py) -->
 <div class="rounded-xl border border-line bg-panel p-4 mb-6">
@@ -265,5 +273,6 @@
     {% endfor %}
   </ul>
 </div>
+{% endif %}
 
 {% endblock %}
