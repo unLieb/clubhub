@@ -190,6 +190,10 @@ class Report(Base):
     priority = Column(String, default="normal")         # "critical" | "high" | "normal" | "low"
     category = Column(String, default="sonstiges")      # "defekt" | "material" | "reinigung" | "sonstiges"
     status = Column(String, default="open")             # "open" | "done"
+    # Zuständige Gruppe für diese konkrete Meldung (z.B. "Technik" bei einem
+    # Defekt), unabhängig von den Gruppen des Bereichs - None = wie bisher an
+    # die Bereichsgruppen melden.
+    assigned_group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -197,6 +201,7 @@ class Report(Base):
     room = relationship("Room")
     user = relationship("User", foreign_keys=[user_id])
     resolved_by = relationship("User", foreign_keys=[resolved_by_id])
+    assigned_group = relationship("Group")
     photos = relationship(
         "ReportPhoto", back_populates="report", cascade="all, delete-orphan", order_by="ReportPhoto.id"
     )

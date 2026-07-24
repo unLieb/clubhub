@@ -95,6 +95,11 @@ def _migrate_report_priority_category(db: Session):
     _ensure_column(db, "reports", "category", "TEXT DEFAULT 'sonstiges'")
 
 
+def _migrate_report_assigned_group(db: Session):
+    """Optionale Zuständigkeits-Gruppe je Meldung (kein Altdaten-Bezug)."""
+    _ensure_column(db, "reports", "assigned_group_id", "INTEGER")
+
+
 def _migrate_inventory_extras(db: Session):
     """Neue, frei vergebbare Kategorie/Lagerort- sowie Nachbestell-URL-Spalte
     pro Inventarartikel (kein Altdaten-Bezug)."""
@@ -187,6 +192,7 @@ def _startup():
         _migrate_legacy_group_channels(db)
         _migrate_user_shift_lead(db)
         _migrate_report_priority_category(db)
+        _migrate_report_assigned_group(db)
         _migrate_report_photos(db)
         _migrate_inventory_extras(db)
         _migrate_inventory_pack_size(db)
@@ -1061,6 +1067,7 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
         "done_reports": done_reports,
         "report_meta": report_meta,
         "rooms": db.query(models.Room).all(),
+        "groups": db.query(models.Group).all(),
     })
 
 
@@ -1072,6 +1079,7 @@ async def reports_create(
     comment: str = Form(...),
     priority: str = Form("normal"),
     category: str = Form("sonstiges"),
+    assigned_group_id: str = Form(""),
     photos: list[UploadFile] = File([]),
     db: Session = Depends(get_db),
 ):
@@ -1081,8 +1089,12 @@ async def reports_create(
         priority = "normal"
     if category not in REPORT_CATEGORIES:
         category = "sonstiges"
+    assigned_group_id = int(assigned_group_id) if assigned_group_id.strip() else None
 
-    report = models.Report(room_id=room_id, user_id=user.id, comment=comment, priority=priority, category=category)
+    report = models.Report(
+        room_id=room_id, user_id=user.id, comment=comment, priority=priority, category=category,
+        assigned_group_id=assigned_group_id,
+    )
     db.add(report)
     db.commit()
 
@@ -1110,8 +1122,21 @@ async def reports_create(
     if room:
         title = f"Neue Meldung: {room.name}"
         msg = comment if len(comment) <= 200 else comment[:197] + "…"
-        for group in room.groups:
-            background_tasks.add_task(notify_group, group, title, msg)
+        if assigned_group_id:
+            # Explizite Zuständigkeit gewählt (z.B. "Technik") - nur diese
+            # Gruppe benachrichtigen, unabhängig davon, welche Gruppen dem
+            # Bereich zugeordnet sind.
+            assigned_group = (
+                db.query(models.Group)
+                .options(joinedload(models.Group.channels))
+                .filter(models.Group.id == assigned_group_id)
+                .first()
+            )
+            if assigned_group:
+                background_tasks.add_task(notify_group, assigned_group, title, msg)
+        else:
+            for group in room.groups:
+                background_tasks.add_task(notify_group, group, title, msg)
 
     return RedirectResponse("/reports", status_code=302)
 
@@ -1134,6 +1159,18 @@ def reports_add_comment(report_id: int, request: Request, text: str = Form(...),
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report and text.strip():
         db.add(models.ReportComment(report_id=report.id, user_id=user.id, text=text.strip()))
+        db.commit()
+    return RedirectResponse("/reports", status_code=302)
+
+
+@app.post("/reports/{report_id}/assign")
+def reports_assign(
+    report_id: int, request: Request, assigned_group_id: str = Form(""), db: Session = Depends(get_db)
+):
+    require_login(request, db)
+    report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    if report:
+        report.assigned_group_id = int(assigned_group_id) if assigned_group_id.strip() else None
         db.commit()
     return RedirectResponse("/reports", status_code=302)
 
