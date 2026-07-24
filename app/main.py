@@ -25,7 +25,7 @@ from . import backup
 from . import version
 from . import push
 from .auth import hash_pin, verify_pin, get_current_user, require_login, require_admin, require_admin_or_shift_lead
-from .status import task_status
+from .status import task_status, compute_inventory_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
 from .notifications import notify_group
 
@@ -138,6 +138,12 @@ def _migrate_inventory_unit_plural(db: Session):
     _ensure_column(db, "inventory_items", "unit_plural", "TEXT")
 
 
+def _migrate_inventory_critical_stock(db: Session):
+    """Optionaler Mindestbestand (kritische Schwelle) je Artikel, getrennt
+    vom Soll-Bestand - kein Altdaten-Bezug."""
+    _ensure_column(db, "inventory_items", "stock_critical", "FLOAT")
+
+
 def _migrate_user_time_tracking(db: Session):
     """Zeiterfassung: Stundensatz + Soll-Arbeitszeit/Monat pro Nutzer, beide
     optional (kein Altdaten-Bezug, nur von einem Admin gepflegt)."""
@@ -212,6 +218,7 @@ def _startup():
         _migrate_inventory_extras(db)
         _migrate_inventory_pack_size(db)
         _migrate_inventory_unit_plural(db)
+        _migrate_inventory_critical_stock(db)
         _migrate_user_time_tracking(db)
         _migrate_remove_timeclock_nfc_tags(db)
     finally:
@@ -865,27 +872,6 @@ def _with_img_fetch_hint(target: str, failed: bool) -> str:
     return f"{target}{sep}img_fetch_failed=1"
 
 
-def compute_inventory_status(item) -> dict:
-    """Ampel-Status ('ok' | 'low' | 'empty') + Füllstand in Prozent (relativ
-    zum Mindestbestand, ab dem Mindestbestand gilt die Anzeige als voll) für
-    die farbige Bestandsanzeige."""
-    if item.stock_current <= 0:
-        status = "empty"
-    elif item.stock_min and item.stock_current < item.stock_min:
-        status = "low"
-    else:
-        status = "ok"
-
-    if status == "empty":
-        fill_pct = 0
-    elif status == "ok" or not item.stock_min:
-        fill_pct = 100
-    else:
-        fill_pct = max(0, min(100, round(item.stock_current / item.stock_min * 100)))
-
-    return {"status": status, "fill_pct": fill_pct}
-
-
 def nav_badges(request: Request) -> dict:
     """Kleine Zähler für die Navigation (offene Meldungen, Artikel unter
     Mindestbestand) - läuft als Jinja-Global mit eigener kurzlebiger DB-Session,
@@ -899,7 +885,7 @@ def nav_badges(request: Request) -> dict:
         reports_open = db.query(models.Report).filter(models.Report.status != "done").count()
         items = filter_inventory_for_user(db.query(models.InventoryItem).all(), user)
         inventory_critical = sum(
-            1 for i in items if compute_inventory_status(i)["status"] in ("low", "empty")
+            1 for i in items if compute_inventory_status(i)["status"] in ("low", "critical", "empty")
         )
         return {"reports": reports_open, "inventory": inventory_critical}
     finally:
@@ -1399,7 +1385,7 @@ def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
-_INVENTORY_STATUS_ORDER = {"empty": 0, "low": 1, "ok": 2}
+_INVENTORY_STATUS_ORDER = {"empty": 0, "critical": 1, "low": 2, "ok": 3}
 
 
 @app.get("/admin/inventory")
@@ -1942,6 +1928,7 @@ def admin_add_inventory_item(
     pack_unit: str = Form(""),
     stock_current: float = Form(0.0),
     stock_min: float = Form(0.0),
+    stock_critical: str = Form(""),
     category: str = Form(""),
     location: str = Form(""),
     reorder_url: str = Form(""),
@@ -1963,6 +1950,7 @@ def admin_add_inventory_item(
         pack_unit=pack_unit or None,
         stock_current=stock_current,
         stock_min=stock_min,
+        stock_critical=float(stock_critical) if stock_critical else None,
         category=category or None,
         location=location or None,
         reorder_url=reorder_url,
@@ -1984,6 +1972,7 @@ def admin_edit_inventory_item(
     pack_unit: str = Form(""),
     stock_current: float = Form(0.0),
     stock_min: float = Form(0.0),
+    stock_critical: str = Form(""),
     category: str = Form(""),
     location: str = Form(""),
     reorder_url: str = Form(""),
@@ -2003,6 +1992,7 @@ def admin_edit_inventory_item(
         item.pack_unit = pack_unit or None
         item.stock_current = stock_current
         item.stock_min = stock_min
+        item.stock_critical = float(stock_critical) if stock_critical else None
         item.category = category or None
         item.location = location or None
         new_reorder_url = reorder_url or None

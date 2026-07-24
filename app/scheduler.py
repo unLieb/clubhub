@@ -7,7 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
 from .models import Task, TaskGroupNotice, InventoryItem
-from .status import task_status
+from .status import task_status, compute_inventory_status
 from .notifications import notify_group
 from . import ntptime
 from . import backup
@@ -89,15 +89,20 @@ def check_inventory_job():
         now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
         items = db.query(InventoryItem).filter(InventoryItem.group_id.isnot(None)).all()
         for item in items:
-            if item.stock_current >= item.stock_min or item.notified:
+            if item.notified:
+                continue
+            # Nur ab "critical"/"empty" benachrichtigen, nicht schon bei "low"
+            # (unter Soll-Bestand, aber noch über dem Mindestbestand) - sonst
+            # nervt es bei jedem kleinen Abgang unterhalb des Zielwerts.
+            if compute_inventory_status(item)["status"] not in ("critical", "empty"):
                 continue
             if not _within_working_hours(item.group, now_local):
                 continue  # wird beim nächsten Tick nachgeholt, sobald Arbeitszeit beginnt
             notify_group(
                 item.group,
-                f"Bestand niedrig: {item.name}",
+                f"Bestand kritisch: {item.name}",
                 f"„{item.name}“ liegt bei {item.stock_current:g}"
-                f"{' ' + item.unit if item.unit else ''} – Mindestbestand ist {item.stock_min:g}.",
+                f"{' ' + item.unit if item.unit else ''} – Soll-Bestand ist {item.stock_min:g}.",
                 url="/inventory",
             )
             item.notified = True

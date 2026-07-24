@@ -147,7 +147,11 @@ class InventoryItem(Base):
     pack_size = Column(Float, nullable=True)           # Inhalt je Gebinde, z.B. 10 (Liter) oder 8 (Rollen)
     pack_unit = Column(String, nullable=True)          # Einheit des Inhalts, z.B. "Liter", "Rollen", "Stück"
     stock_current = Column(Float, default=0.0)         # Ist (in Gebinden, z.B. Kanister)
-    stock_min = Column(Float, default=0.0)             # Soll / Mindestbestand (in Gebinden)
+    stock_min = Column(Float, default=0.0)             # Soll-Bestand (in Gebinden) - Zielwert, ab hier "Im Soll"
+    # Mindestbestand/kritische Schwelle (in Gebinden) - darunter "critical" statt nur
+    # "low". Optional; ohne eigenen Wert wird die Hälfte von stock_min angenommen
+    # (siehe status.inventory_critical_threshold).
+    stock_critical = Column(Float, nullable=True)
     category = Column(String, nullable=True)          # frei vergeben, z.B. "Reinigungsmittel"
     location = Column(String, nullable=True)          # Lagerort, frei vergeben, z.B. "Lager A"
     reorder_url = Column(String, nullable=True)        # Produktseite zum Nachbestellen (nur Link, kein Checkout)

@@ -4,6 +4,7 @@
 
 {% macro status_label(s) -%}
   {%- if s == 'empty' -%}Bestand leer
+  {%- elif s == 'critical' -%}Kritisch
   {%- elif s == 'low' -%}Niedriger Bestand
   {%- else -%}Im Soll
   {%- endif -%}
@@ -11,21 +12,24 @@
 
 {% macro status_classes(s) -%}
   {%- if s == 'empty' -%}bg-late/15 text-late
-  {%- elif s == 'low' -%}bg-orange/15 text-orange
+  {%- elif s == 'critical' -%}bg-orange/15 text-orange
+  {%- elif s == 'low' -%}bg-warn/15 text-warn
   {%- else -%}bg-go/15 text-go
   {%- endif -%}
 {%- endmacro %}
 
 {% macro bar_classes(s) -%}
   {%- if s == 'empty' -%}bg-late
-  {%- elif s == 'low' -%}bg-orange
+  {%- elif s == 'critical' -%}bg-orange
+  {%- elif s == 'low' -%}bg-warn
   {%- else -%}bg-go
   {%- endif -%}
 {%- endmacro %}
 
 {% macro border_classes(s) -%}
   {%- if s == 'empty' -%}border-l-late
-  {%- elif s == 'low' -%}border-l-orange
+  {%- elif s == 'critical' -%}border-l-orange
+  {%- elif s == 'low' -%}border-l-warn
   {%- else -%}border-l-go
   {%- endif -%}
 {%- endmacro %}
@@ -53,6 +57,7 @@
     <select id="inv-status-filter" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
       <option value="">Alle Status</option>
       <option value="empty">Bestand leer</option>
+      <option value="critical">Kritisch</option>
       <option value="low">Niedriger Bestand</option>
       <option value="ok">Im Soll</option>
     </select>
@@ -230,8 +235,10 @@
         </div>
       </div>
       <div class="shrink-0 flex items-center gap-2">
-        {% if item.reorder_url and st.status != 'ok' %}
-        <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium whitespace-nowrap">Nachbestellen</a>
+        {% if item.reorder_url and st.status in ('critical', 'empty') %}
+        <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium whitespace-nowrap">Sofort bestellen</a>
+        {% elif item.reorder_url and st.status == 'low' %}
+        <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-md bg-warn/90 hover:bg-warn text-oncolor text-sm font-medium whitespace-nowrap">Nachbestellen</a>
         {% endif %}
       </div>
     </div>
@@ -267,8 +274,12 @@
                 <div class="font-medium">{{ item.stock_current|qty }}{% if item.unit %} {{ item|unit_label(item.stock_current) }}{% endif %}</div>
               </div>
               <div>
-                <div class="text-[11px] text-slate-500">Mindestbestand</div>
+                <div class="text-[11px] text-slate-500">Soll-Bestand</div>
                 <div class="font-medium">{{ item.stock_min|qty }}{% if item.unit %} {{ item|unit_label(item.stock_min) }}{% endif %}</div>
+              </div>
+              <div>
+                <div class="text-[11px] text-slate-500">Mindestbestand</div>
+                <div class="font-medium">{% if st.critical_threshold is not none %}{{ st.critical_threshold|qty }}{% if item.unit %} {{ item|unit_label(st.critical_threshold) }}{% endif %}{% else %}–{% endif %}</div>
               </div>
               <div>
                 <div class="text-[11px] text-slate-500">Lagerort</div>
@@ -330,8 +341,10 @@
               <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ item.movements[0].timestamp.strftime("%d.%m.%Y, %H:%M") }}{% if item.movements[0].user %} &middot; {{ item.movements[0].user.name }}{% endif %}</span></li>
               {% endif %}
             </ul>
-            {% if item.reorder_url %}
-            <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="block text-center mt-3 px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Nachbestellen</a>
+            {% if item.reorder_url and st.status in ('critical', 'empty') %}
+            <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="block text-center mt-3 px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Sofort bestellen</a>
+            {% elif item.reorder_url %}
+            <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="block text-center mt-3 px-3 py-1.5 rounded-md {{ 'bg-warn/90 hover:bg-warn text-oncolor' if st.status == 'low' else 'bg-panel2 hover:bg-line text-slate-300' }} text-sm font-medium">Nachbestellen</a>
             {% endif %}
             {% if user and (user.is_admin or user.is_shift_lead) %}
             <a href="/admin/inventory" class="block text-[11px] text-slate-500 hover:text-slate-300 mt-3">Stammdaten bearbeiten &rarr;</a>
