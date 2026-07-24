@@ -14,7 +14,7 @@
 </div>
 {% endif %}
 
-<div class="max-w-2xl space-y-4">
+<div class="space-y-4">
   <div class="rounded-xl border border-line bg-panel p-4">
     <h2 class="font-display font-medium mb-3">Registrierte Tags</h2>
     {% if tags %}
@@ -62,7 +62,7 @@
 
   <div class="rounded-xl border border-line bg-panel p-4">
     <h2 class="font-display font-medium mb-3">Neuen Tag anlegen</h2>
-    <form id="add-tag-form" method="post" action="/admin/nfc-tags/add" class="space-y-2">
+    <form id="add-tag-form" method="post" action="/admin/nfc-tags/add" class="space-y-2 max-w-2xl">
       <div class="flex flex-col sm:flex-row gap-2">
         <select name="target" id="add-tag-target" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           {% for r in rooms %}

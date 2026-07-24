@@ -5,7 +5,7 @@
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">Nutzer</h1>
 
-<div class="max-w-2xl rounded-xl border border-line bg-panel p-4">
+<div class="rounded-xl border border-line bg-panel p-4">
   <ul class="space-y-1 text-sm mb-4">
     {% for u in users %}
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
@@ -20,7 +20,7 @@
         {% if u.is_admin and not user.is_admin %}
         <p class="text-slate-500 text-xs italic mt-2">Nur Admins können Admin-Konten bearbeiten.</p>
         {% else %}
-        <form method="post" action="/admin/users/{{ u.id }}/edit" class="mt-2 space-y-2">
+        <form method="post" action="/admin/users/{{ u.id }}/edit" class="mt-2 space-y-2 max-w-2xl">
           <div class="flex flex-col sm:flex-row gap-2">
             <input name="name" value="{{ u.name }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             {% if groups %}
@@ -68,7 +68,7 @@
     </li>
     {% endfor %}
   </ul>
-  <form method="post" action="/admin/users" class="space-y-2">
+  <form method="post" action="/admin/users" class="space-y-2 max-w-2xl">
     <div class="flex flex-col sm:flex-row gap-2">
       <input name="name" placeholder="Name" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       {% if groups %}
