@@ -40,6 +40,34 @@ und unter **Verwaltung** eigene Gruppen, Nutzer, Bereiche und Aufgaben anlegen.
 Einsatz auf einen zufälligen Wert setzen (z.B. `openssl rand -hex 32`),
 sonst sind Login-Sessions nicht sicher.
 
+## Deployment aufs NAS
+
+`deploy-nas.sh` synct den aktuellen Code-Stand per SSH (tar-Stream statt
+rsync, da hier keins verfügbar ist) auf ein Synology-NAS und baut/startet
+den Container dort neu. Voraussetzung ist ein SSH-Alias in `~/.ssh/config`:
+
+```
+Host nas-clubhub
+    HostName <NAS-IP>
+    Port <SSH-Port>
+    User <NAS-Benutzer>
+    IdentityFile ~/.ssh/<privater-key>
+    IdentitiesOnly yes
+```
+
+Der zugehörige öffentliche Schlüssel muss vorher in
+`~/.ssh/authorized_keys` des NAS-Benutzers eingetragen sein (z.B. über
+File Station, versteckte Dateien einblenden).
+
+```bash
+./deploy-nas.sh
+```
+
+`docker-compose.yml` wird bewusst **nicht** mitsynct, da die NAS-Kopie den
+echten `SECRET_KEY` enthält (im Repo steht nur ein Platzhalter). Änderungen
+an der `docker-compose.yml` (neue Env-Variablen o.ä.) müssen daher bei
+Bedarf einmalig manuell auf dem NAS nachgezogen werden.
+
 ## NFC-Tags beschreiben
 
 Jeder Bereich bekommt eine eigene URL: `http://<server>:8000/room/<bereich-id>`

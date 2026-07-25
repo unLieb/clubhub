@@ -1,12 +1,14 @@
+name: clubhub
+
 services:
-  reinigungsplan:
+  clubhub:
     build: .
-    container_name: reinigungsplan
+    container_name: ClubHUB
     restart: unless-stopped
     ports:
       - "8055:8000"
     volumes:
-      - reinigungsplan_data:/data
+      - clubhub_data:/data
     environment:
       # Zufälligen, langen String einsetzen (z.B. `openssl rand -hex 32`)
       SECRET_KEY: "bitte-aendern-langer-zufalls-string"
@@ -48,4 +50,4 @@ services:
       # VAPID_CONTACT_EMAIL: "admin@example.com"
 
 volumes:
-  reinigungsplan_data:
+  clubhub_data:
