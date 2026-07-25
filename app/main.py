@@ -45,9 +45,6 @@ os.makedirs(INVENTORY_IMAGES_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
-# Live-Uhr (base.html) braucht auf jeder Seite die NTP-korrigierte Server-Zeit,
-# ohne dass jede Route sie einzeln in den Kontext geben muss.
-templates.env.globals["server_epoch_ms"] = lambda: int(ntptime.now_utc().timestamp() * 1000)
 # Öffentlicher VAPID-Schlüssel fürs Web-Push-Abo (base.html), siehe push.py.
 templates.env.globals["vapid_public_key"] = push.get_vapid_public_key
 
