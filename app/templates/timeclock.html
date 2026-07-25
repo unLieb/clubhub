@@ -31,7 +31,7 @@
     <div class="text-xs text-slate-500 mt-1.5">{{ format_hours_de(stats.today_hours) }}</div>
     {% else %}
     <div class="font-display text-2xl font-semibold leading-none">{{ format_hours_de(stats.today_hours) }}</div>
-    <div class="text-xs text-slate-500 mt-1.5">Kein Stundensatz hinterlegt</div>
+    <div class="text-xs text-slate-500 mt-1.5"><a href="/profile" class="underline hover:text-slate-300">Stundensatz im Profil hinterlegen</a></div>
     {% endif %}
   </div>
   <div class="rounded-xl border border-line bg-panel p-4">
@@ -41,7 +41,7 @@
     <div class="text-xs text-slate-500 mt-1.5">{{ format_hours_de(stats.month_hours) }}</div>
     {% else %}
     <div class="font-display text-2xl font-semibold leading-none">{{ format_hours_de(stats.month_hours) }}</div>
-    <div class="text-xs text-slate-500 mt-1.5">Kein Stundensatz hinterlegt</div>
+    <div class="text-xs text-slate-500 mt-1.5"><a href="/profile" class="underline hover:text-slate-300">Stundensatz im Profil hinterlegen</a></div>
     {% endif %}
   </div>
   <div class="rounded-xl border border-line bg-panel p-4">

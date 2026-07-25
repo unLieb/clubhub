@@ -42,6 +42,8 @@ REPORT_PHOTOS_DIR = os.path.join(UPLOADS_DIR, "reports")
 os.makedirs(REPORT_PHOTOS_DIR, exist_ok=True)
 INVENTORY_IMAGES_DIR = os.path.join(UPLOADS_DIR, "inventory")
 os.makedirs(INVENTORY_IMAGES_DIR, exist_ok=True)
+AVATAR_IMAGES_DIR = os.path.join(UPLOADS_DIR, "avatars")
+os.makedirs(AVATAR_IMAGES_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -157,9 +159,14 @@ def _migrate_inventory_critical_stock(db: Session):
 
 def _migrate_user_time_tracking(db: Session):
     """Zeiterfassung: Stundensatz + Soll-Arbeitszeit/Monat pro Nutzer, beide
-    optional (kein Altdaten-Bezug, nur von einem Admin gepflegt)."""
+    optional (kein Altdaten-Bezug)."""
     _ensure_column(db, "users", "hourly_wage", "FLOAT")
     _ensure_column(db, "users", "target_hours_per_month", "FLOAT")
+
+
+def _migrate_user_avatar(db: Session):
+    """Optionales Profilbild pro Nutzer (kein Altdaten-Bezug)."""
+    _ensure_column(db, "users", "avatar_url", "TEXT")
 
 
 def _migrate_remove_timeclock_nfc_tags(db: Session):
@@ -232,6 +239,7 @@ def _startup():
         _migrate_inventory_critical_stock(db)
         _migrate_user_time_tracking(db)
         _migrate_remove_timeclock_nfc_tags(db)
+        _migrate_user_avatar(db)
     finally:
         db.close()
 
@@ -1362,6 +1370,69 @@ def logout(request: Request):
     return RedirectResponse("/", status_code=302)
 
 
+# ---------- Profil (Selbstverwaltung) ----------
+
+@app.get("/profile")
+def profile_view(request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    return templates.TemplateResponse("profile.html", {
+        "request": request,
+        "user": user,
+        "pin_error": None,
+        "pin_success": False,
+    })
+
+
+@app.post("/profile/avatar")
+async def profile_set_avatar(
+    request: Request,
+    avatar_file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    data = await avatar_file.read()
+    if data and (avatar_file.content_type or "").startswith("image/"):
+        ext = os.path.splitext(avatar_file.filename)[1][:10] or ".jpg"
+        filename = f"{uuid.uuid4().hex}{ext}"
+        with open(os.path.join(AVATAR_IMAGES_DIR, filename), "wb") as f:
+            f.write(data)
+        user.avatar_url = f"/uploads/avatars/{filename}"
+        db.commit()
+    return RedirectResponse("/profile", status_code=302)
+
+
+@app.post("/profile/pin")
+def profile_change_pin(
+    request: Request,
+    pin: str = Form(...),
+    pin_confirm: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    error = None
+    if not pin.strip():
+        error = "PIN darf nicht leer sein."
+    elif pin != pin_confirm:
+        error = "Die PINs stimmen nicht überein."
+    else:
+        user.pin_hash = hash_pin(pin)
+        db.commit()
+    return templates.TemplateResponse("profile.html", {
+        "request": request,
+        "user": user,
+        "pin_error": error,
+        "pin_success": error is None,
+    })
+
+
+@app.post("/profile/wage")
+def profile_set_wage(request: Request, hourly_wage: str = Form(""), db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    user.hourly_wage = float(hourly_wage) if hourly_wage.strip() else None
+    db.commit()
+    return RedirectResponse("/profile", status_code=302)
+
+
 # ---------- Admin ----------
 
 @app.get("/admin")
@@ -1826,7 +1897,6 @@ def admin_add_user(
     pin: str = Form(...),
     group_id: str = Form(""),
     role: str = Form("mitarbeiter"),
-    hourly_wage: str = Form(""),
     target_hours_per_month: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -1846,9 +1916,9 @@ def admin_add_user(
         is_shift_lead=actor.is_admin and role == "schichtleiter",
         groups=groups,
     )
-    # Stundensatz/Sollzeit sind sensible Gehaltsdaten - nur ein Admin darf sie setzen.
+    # Sollzeit ist eine sensible Gehaltsdatengrundlage - nur ein Admin darf sie
+    # setzen. Den Stundensatz pflegt jeder Nutzer selbst im eigenen Profil.
     if actor.is_admin:
-        user.hourly_wage = float(hourly_wage) if hourly_wage else None
         user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
     db.add(user)
     db.commit()
@@ -1863,7 +1933,6 @@ def admin_edit_user(
     pin: str = Form(""),
     group_id: str = Form(""),
     role: str = Form(""),
-    hourly_wage: str = Form(""),
     target_hours_per_month: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -1891,8 +1960,8 @@ def admin_edit_user(
                 desired_role = "admin"  # letzten Admin nicht versehentlich entmachten
             target.is_admin = desired_role == "admin"
             target.is_shift_lead = desired_role == "schichtleiter"
-            # Stundensatz/Sollzeit sind sensible Gehaltsdaten - nur ein Admin darf sie ändern.
-            target.hourly_wage = float(hourly_wage) if hourly_wage else None
+            # Sollzeit ist eine sensible Gehaltsdatengrundlage - nur ein Admin darf
+            # sie ändern. Den Stundensatz pflegt jeder Nutzer selbst im eigenen Profil.
             target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
         db.commit()
     return RedirectResponse("/admin/users", status_code=302)

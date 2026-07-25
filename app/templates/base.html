@@ -48,9 +48,15 @@
     <button type="button" class="theme-toggle-btn w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300" aria-label="Design umschalten"></button>
     {% if user %}
     <div class="relative">
-      <button type="button" class="mobile-profile-btn w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center font-display font-semibold text-xs shrink-0" aria-label="Profilmenü öffnen">{{ user.name[0]|upper }}</button>
+      <button type="button" class="mobile-profile-btn w-8 h-8 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-xs shrink-0" aria-label="Profilmenü öffnen">
+        {% if user.avatar_url %}<img src="{{ user.avatar_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ user.name[0]|upper }}{% endif %}
+      </button>
       <div class="mobile-profile-menu hidden absolute right-0 top-full mt-2 w-48 rounded-lg border border-line bg-panel shadow-lg py-1.5 z-50 text-sm">
         <div class="px-3 py-1.5 text-slate-500 text-[11px] truncate border-b border-line mb-1">{{ user.name }}</div>
+        <a href="/profile" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Profil
+        </a>
         {% if user.is_admin or user.is_shift_lead %}
         <a href="/admin" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 2.5"/></svg>
@@ -130,13 +136,13 @@
     {% if user %}
     <div class="px-3 py-4 border-t border-sidebar-line">
       <div class="flex items-center gap-2.5 px-2 py-1.5">
-        <div class="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center font-display font-semibold text-sm">
-          {{ user.name[0]|upper }}
-        </div>
-        <div class="flex-1 min-w-0">
+        <a href="/profile" title="Profil" class="w-8 h-8 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-sm shrink-0">
+          {% if user.avatar_url %}<img src="{{ user.avatar_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ user.name[0]|upper }}{% endif %}
+        </a>
+        <a href="/profile" class="flex-1 min-w-0">
           <div class="text-sm text-sidebar-text-strong truncate">{{ user.name }}</div>
           <div class="text-[11px] text-sidebar-muted">{{ "Administrator" if user.is_admin else ("Schichtleiter" if user.is_shift_lead else "Mitglied") }}</div>
-        </div>
+        </a>
         <a href="/logout" title="Abmelden" class="text-sidebar-muted hover:text-sidebar-text-strong">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
         </a>

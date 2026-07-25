@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Profil – ClubHUB{% endblock %}
+{% block content %}
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-6">Profil</h1>
+
+<div class="max-w-xl space-y-4">
+
+  <section class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Profilbild</h2>
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-xl shrink-0">
+        {% if user.avatar_url %}
+        <img src="{{ user.avatar_url }}" alt="" class="w-full h-full object-cover">
+        {% else %}
+        {{ user.name[0]|upper }}
+        {% endif %}
+      </div>
+      <form method="post" action="/profile/avatar" enctype="multipart/form-data" class="flex-1 flex flex-col sm:flex-row gap-2">
+        <input type="file" name="avatar_file" accept="image/*" required class="flex-1 min-w-0 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Hochladen</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">PIN ändern</h2>
+    {% if pin_error %}
+    <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">{{ pin_error }}</div>
+    {% elif pin_success %}
+    <div class="rounded-md border border-go/40 bg-go/10 text-go text-sm px-3 py-2 mb-3">PIN geändert.</div>
+    {% endif %}
+    <form method="post" action="/profile/pin" class="flex flex-col sm:flex-row gap-2">
+      <input type="password" inputmode="numeric" name="pin" required autocomplete="new-password" placeholder="Neue PIN" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm tracking-widest">
+      <input type="password" inputmode="numeric" name="pin_confirm" required autocomplete="new-password" placeholder="PIN wiederholen" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm tracking-widest">
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Ändern</button>
+    </form>
+  </section>
+
+  <section class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Stundensatz</h2>
+    <form method="post" action="/profile/wage" class="flex items-center gap-2">
+      <input type="number" step="0.01" min="0" name="hourly_wage" value="{{ user.hourly_wage if user.hourly_wage is not none else '' }}" placeholder="z.B. 14.50" class="w-32 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <span class="text-sm text-slate-500">€ / Stunde</span>
+      <button class="ml-auto px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Speichern</button>
+    </form>
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
+      Grundlage für den geschätzten Verdienst in der Zeiterfassung. Nur du siehst diesen Wert - er wird nirgends
+      öffentlich angezeigt. Leer lassen, um ihn zu entfernen.
+    </p>
+  </section>
+
+</div>
+
+{% endblock %}

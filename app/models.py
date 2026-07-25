@@ -72,9 +72,12 @@ class User(Base):
     # Schichtleiter: darf in der Verwaltung fast alles außer löschen und darf
     # niemandem Admin-/Schichtleiter-Rechte zuweisen (nur ein Admin darf das).
     is_shift_lead = Column(Boolean, default=False)
-    # Zeiterfassung: nur von einem Admin vergeben (sensible Gehaltsdaten).
-    hourly_wage = Column(Float, nullable=True)             # Stundensatz in €
-    target_hours_per_month = Column(Float, nullable=True)  # Soll-Arbeitszeit/Monat, für Überstunden
+    # Stundensatz pflegt jeder Nutzer selbst im eigenen Profil (siehe /profile) -
+    # nur er sieht den daraus berechneten Verdienst in der Zeiterfassung.
+    hourly_wage = Column(Float, nullable=True)              # Stundensatz in €
+    # Soll-Arbeitszeit/Monat bleibt admin-gepflegt, siehe admin_users.html.
+    target_hours_per_month = Column(Float, nullable=True)   # für Überstunden-Berechnung
+    avatar_url = Column(String, nullable=True)
 
     groups = relationship("Group", secondary=user_group, back_populates="users")
     completions = relationship("Completion", back_populates="user", cascade="all, delete-orphan")
