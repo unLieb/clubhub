@@ -196,7 +196,7 @@ class Report(Base):
     photo_filename = Column(String, nullable=True)
     priority = Column(String, default="normal")         # "critical" | "high" | "normal" | "low"
     category = Column(String, default="sonstiges")      # "defekt" | "material" | "reinigung" | "sonstiges"
-    status = Column(String, default="open")             # "open" | "done"
+    status = Column(String, default="open")             # "open" | "in_progress" | "done"
     # Zuständige Gruppe für diese konkrete Meldung (z.B. "Technik" bei einem
     # Defekt), unabhängig von den Gruppen des Bereichs - None = wie bisher an
     # die Bereichsgruppen melden.

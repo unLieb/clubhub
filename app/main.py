@@ -1054,6 +1054,7 @@ async def inventory_set_image(
 REPORT_PRIORITIES = ("critical", "high", "normal", "low")
 REPORT_PRIORITY_RANK = {p: i for i, p in enumerate(REPORT_PRIORITIES)}
 REPORT_CATEGORIES = ("defekt", "material", "reinigung", "sonstiges")
+REPORT_STATUSES = ("open", "in_progress", "done")
 
 
 def _sort_reports(reports):
@@ -1188,14 +1189,23 @@ async def reports_create(
     return RedirectResponse("/reports", status_code=302)
 
 
-@app.post("/reports/{report_id}/resolve")
-def reports_resolve(report_id: int, request: Request, db: Session = Depends(get_db)):
+@app.post("/reports/{report_id}/status")
+def reports_set_status(report_id: int, request: Request, status: str = Form(...), db: Session = Depends(get_db)):
     user = require_login(request, db)
+    if status not in REPORT_STATUSES:
+        return RedirectResponse("/reports", status_code=302)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
-    if report and report.status != "done":
-        report.status = "done"
-        report.resolved_at = ntptime.now_utc()
-        report.resolved_by_id = user.id
+    if report and report.status != status:
+        if status == "done":
+            report.resolved_at = ntptime.now_utc()
+            report.resolved_by_id = user.id
+        elif report.status == "done":
+            # Wieder geöffnet (offen/in Bearbeitung) - Erledigt-Angaben sind
+            # dann nicht mehr gültig, sonst zeigt die Meldung fälschlich noch
+            # ein "erledigt am"-Datum.
+            report.resolved_at = None
+            report.resolved_by_id = None
+        report.status = status
         db.commit()
     return RedirectResponse("/reports", status_code=302)
 

@@ -29,3 +29,21 @@
   {%- else -%}Sonstiges
   {%- endif -%}
 {%- endmacro %}
+
+{% macro status_label(s) -%}
+  {%- if s == 'in_progress' -%}In Bearbeitung
+  {%- elif s == 'done' -%}Erledigt
+  {%- else -%}Offen
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro status_pill_class(s) -%}
+  {%- if s == 'in_progress' -%}bg-warn/15 text-warn
+  {%- elif s == 'done' -%}bg-go/15 text-go
+  {%- else -%}bg-panel2 text-slate-300
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro status_badge(s) %}
+<span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap {{ status_pill_class(s) }}">{{ status_label(s) }}</span>
+{% endmacro %}
