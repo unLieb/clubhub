@@ -17,8 +17,12 @@
         {{ user.name[0]|upper }}
         {% endif %}
       </div>
-      <form method="post" action="/profile/avatar" enctype="multipart/form-data" class="flex-1 flex flex-col sm:flex-row gap-2">
-        <input type="file" name="avatar_file" accept="image/*" required class="flex-1 min-w-0 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+      <form method="post" action="/profile/avatar" enctype="multipart/form-data" class="flex-1 min-w-0 flex flex-col sm:flex-row gap-2">
+        <label class="flex-1 min-w-0 flex items-center rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300 cursor-pointer hover:border-go/50">
+          <span class="avatar-file-label truncate min-w-0">Bild auswählen</span>
+          <input type="file" name="avatar_file" accept="image/*" required class="hidden"
+                 onchange="this.previousElementSibling.textContent = this.files[0] ? this.files[0].name : 'Bild auswählen'">
+        </label>
         <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Hochladen</button>
       </form>
     </div>
