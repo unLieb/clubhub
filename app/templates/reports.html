@@ -7,7 +7,7 @@
 <div class="rounded-xl border border-line border-l-4 {{ rb.priority_border(r.priority) }} bg-panel p-4 {% if r.status == 'done' %}opacity-75{% endif %}">
 
   <!-- Kopfzeile: immer sichtbar -->
-  <div class="flex items-center gap-4 flex-wrap">
+  <div class="flex items-start gap-4 flex-wrap">
     <div class="w-14 h-14 rounded-lg bg-panel2 overflow-hidden shrink-0 flex items-center justify-center text-slate-500">
       {% if r.photos %}
       <img src="/uploads/reports/{{ r.photos[0].filename }}" alt="" class="w-full h-full object-cover">
@@ -15,9 +15,9 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       {% endif %}
     </div>
-    <div class="min-w-0 flex-1">
+    <div class="min-w-0 flex-1 basis-52">
       <div class="flex items-center gap-2 flex-wrap mb-1">{{ rb.priority_badge(r.priority) }}{{ rb.category_badge(r.category) }}</div>
-      <p class="font-medium truncate">{{ r.comment }}</p>
+      <p class="font-medium line-clamp-2">{{ r.comment }}</p>
       <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
@@ -40,7 +40,7 @@
         {% if r.status == "done" and meta.resolved_rel %} &middot; erledigt vor {{ meta.resolved_rel }}{% if r.resolved_by %} von {{ r.resolved_by.name }}{% endif %}{% endif %}
       </p>
     </div>
-    <div class="shrink-0 flex items-center gap-2">
+    <div class="shrink-0 flex items-center gap-2 w-full sm:w-auto justify-end">
       {% if user and r.status == "open" %}
       <form method="post" action="/reports/{{ r.id }}/resolve">
         <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Als erledigt markieren</button>
