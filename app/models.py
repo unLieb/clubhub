@@ -75,7 +75,9 @@ class User(Base):
     # Stundensatz pflegt jeder Nutzer selbst im eigenen Profil (siehe /profile) -
     # nur er sieht den daraus berechneten Verdienst in der Zeiterfassung.
     hourly_wage = Column(Float, nullable=True)              # Stundensatz in €
-    # Soll-Arbeitszeit/Monat bleibt admin-gepflegt, siehe admin_users.html.
+    # Soll-Arbeitszeit/Monat: sowohl im eigenen Profil als auch von einem Admin
+    # in der Benutzerverwaltung pflegbar (derselbe Wert, beide Seiten sehen die
+    # jeweils aktuelle Änderung sofort).
     target_hours_per_month = Column(Float, nullable=True)   # für Überstunden-Berechnung
     avatar_url = Column(String, nullable=True)
 

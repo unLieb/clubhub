@@ -44,7 +44,7 @@
       {% if user %}
       <form method="post" action="/reports/{{ r.id }}/status" class="contents">
         <select name="status" onchange="this.form.submit()"
-                class="text-xs font-medium rounded-full pl-2.5 pr-1.5 py-1.5 border-0 cursor-pointer {{ rb.status_pill_class(r.status) }}">
+                class="text-xs font-medium rounded-full pl-3 pr-6 py-1.5 border-0 cursor-pointer {{ rb.status_pill_class(r.status) }}">
           <option value="open" {% if r.status == "open" %}selected{% endif %}>Offen</option>
           <option value="in_progress" {% if r.status == "in_progress" %}selected{% endif %}>In Bearbeitung</option>
           <option value="done" {% if r.status == "done" %}selected{% endif %}>Erledigt</option>

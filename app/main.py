@@ -1432,10 +1432,16 @@ def profile_change_pin(
     })
 
 
-@app.post("/profile/wage")
-def profile_set_wage(request: Request, hourly_wage: str = Form(""), db: Session = Depends(get_db)):
+@app.post("/profile/pay")
+def profile_set_pay(
+    request: Request,
+    hourly_wage: str = Form(""),
+    target_hours_per_month: str = Form(""),
+    db: Session = Depends(get_db),
+):
     user = require_login(request, db)
     user.hourly_wage = float(hourly_wage) if hourly_wage.strip() else None
+    user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month.strip() else None
     db.commit()
     return RedirectResponse("/profile", status_code=302)
 
@@ -1923,8 +1929,9 @@ def admin_add_user(
         is_shift_lead=actor.is_admin and role == "schichtleiter",
         groups=groups,
     )
-    # Sollzeit ist eine sensible Gehaltsdatengrundlage - nur ein Admin darf sie
-    # setzen. Den Stundensatz pflegt jeder Nutzer selbst im eigenen Profil.
+    # Hier nur beim Anlegen durch einen vollen Admin setzbar (Schichtleiter
+    # legen nur einfache Konten an) - der Nutzer selbst kann sie danach jederzeit
+    # im eigenen Profil anpassen, Stundensatz sowieso nur dort.
     if actor.is_admin:
         user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
     db.add(user)
@@ -1967,8 +1974,8 @@ def admin_edit_user(
                 desired_role = "admin"  # letzten Admin nicht versehentlich entmachten
             target.is_admin = desired_role == "admin"
             target.is_shift_lead = desired_role == "schichtleiter"
-            # Sollzeit ist eine sensible Gehaltsdatengrundlage - nur ein Admin darf
-            # sie ändern. Den Stundensatz pflegt jeder Nutzer selbst im eigenen Profil.
+            # Hier nur von einem vollen Admin änderbar; der Nutzer selbst kann sie
+            # zusätzlich im eigenen Profil anpassen - beide pflegen denselben Wert.
             target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
         db.commit()
     return RedirectResponse("/admin/users", status_code=302)
