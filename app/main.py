@@ -28,7 +28,7 @@ from . import push
 from .auth import hash_pin, verify_pin, get_current_user, require_login, require_admin, require_admin_or_shift_lead
 from .status import task_status, compute_inventory_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
-from .notifications import notify_group
+from .notifications import notify_group, notify_user
 
 Base.metadata.create_all(bind=engine)
 
@@ -1225,12 +1225,42 @@ async def reports_create(
     return RedirectResponse("/reports", status_code=302)
 
 
+STATUS_CHANGE_TITLES = {
+    "open": "Wieder geöffnet",
+    "in_progress": "In Bearbeitung",
+    "done": "Erledigt",
+}
+
+
 @app.post("/reports/{report_id}/status")
-def reports_set_status(report_id: int, request: Request, status: str = Form(...), db: Session = Depends(get_db)):
+def reports_set_status(
+    report_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    status: str = Form(...),
+    db: Session = Depends(get_db),
+):
     user = require_login(request, db)
     if status not in REPORT_STATUSES:
         return RedirectResponse("/reports", status_code=302)
-    report = db.query(models.Report).filter(models.Report.id == report_id).first()
+
+    # Gruppen inkl. Kanäle + Mitglieder/Push-Abos hier bereits vollständig laden
+    # (nicht erst lazy in notify_group/notify_user), da die Session geschlossen
+    # ist, sobald der Background-Task nach dem Response tatsächlich läuft.
+    group_loaders = (
+        joinedload(models.Group.channels),
+        joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
+    )
+    report = (
+        db.query(models.Report)
+        .options(
+            joinedload(models.Report.room).joinedload(models.Room.groups).options(*group_loaders),
+            joinedload(models.Report.assigned_group).options(*group_loaders),
+            joinedload(models.Report.user).joinedload(models.User.push_subscriptions),
+        )
+        .filter(models.Report.id == report_id)
+        .first()
+    )
     if report and report.status != status:
         if status == "done":
             report.resolved_at = ntptime.now_utc()
@@ -1243,6 +1273,22 @@ def reports_set_status(report_id: int, request: Request, status: str = Form(...)
             report.resolved_by_id = None
         report.status = status
         db.commit()
+
+        # Nur der Melder und die zuständige(n) Gruppe(n) informieren (nicht
+        # alle Nutzer) - z.B. damit man mitbekommt, dass sich schon jemand
+        # kümmert, ohne dass es doppelt gemacht wird. Anders als bei einer
+        # neuen Meldung bewusst ohne Arbeitszeit-Fenster: bleibt konsistent
+        # mit dem Verhalten der ursprünglichen Meldungs-Benachrichtigung.
+        title = f"{STATUS_CHANGE_TITLES[status]}: {report.room.name}"
+        comment_preview = report.comment if len(report.comment) <= 120 else report.comment[:117] + "…"
+        msg = f"{user.name}: „{comment_preview}“"
+        target_groups = [report.assigned_group] if report.assigned_group else list(report.room.groups)
+        for group in target_groups:
+            background_tasks.add_task(notify_group, group, title, msg, "default", "/reports")
+        already_reached = any(report.user.id == member.id for group in target_groups for member in group.users)
+        if report.user.id != user.id and not already_reached:
+            background_tasks.add_task(notify_user, report.user, title, msg, "/reports")
+
     return RedirectResponse("/reports", status_code=302)
 
 

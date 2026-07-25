@@ -74,3 +74,24 @@ def notify_group(group, title: str, message: str, priority: str = "default", url
             cleanup_db.commit()
         finally:
             cleanup_db.close()
+
+
+def notify_user(user, title: str, message: str, url: str = "/"):
+    """Schickt eine Browser-Push-Nachricht an genau eine Person (z.B. den
+    Melder einer Meldung, wenn sich deren Status ändert) - unabhängig von
+    Gruppen-Kanälen (ntfy/Gotify/Signal), da das eine persönliche
+    Rückmeldung ist statt einer Gruppen-Benachrichtigung."""
+    stale_subscription_ids = []
+    for subscription in user.push_subscriptions:
+        if not webpush_module.send_web_push(subscription, title, message, url):
+            stale_subscription_ids.append(subscription.id)
+
+    if stale_subscription_ids:
+        cleanup_db = SessionLocal()
+        try:
+            cleanup_db.query(PushSubscription).filter(
+                PushSubscription.id.in_(stale_subscription_ids)
+            ).delete(synchronize_session=False)
+            cleanup_db.commit()
+        finally:
+            cleanup_db.close()
