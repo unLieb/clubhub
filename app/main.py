@@ -49,6 +49,20 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "t
 templates.env.globals["vapid_public_key"] = push.get_vapid_public_key
 
 
+def _to_local(ts):
+    """Für Templates, die einen DB-Zeitstempel (intern immer UTC, teils ohne
+    tzinfo) direkt formatieren wollen - rechnet nach APP_TIMEZONE um, inkl.
+    automatischem Sommer-/Winterzeit-Wechsel statt eines festen Offsets."""
+    if ts is None:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts.astimezone(APP_TIMEZONE)
+
+
+templates.env.filters["localtime"] = _to_local
+
+
 @app.get("/sw.js")
 def service_worker():
     # Bewusst unter der Root-URL statt /static/sw.js ausgeliefert: der

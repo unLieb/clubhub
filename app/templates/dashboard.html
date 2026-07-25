@@ -215,7 +215,7 @@
           <span class="truncate">{{ c.task.room.name }}</span>
           <span class="text-slate-500 truncate">&middot; {{ c.user.name }}</span>
         </div>
-        <span class="text-slate-500 text-xs whitespace-nowrap">{{ c.timestamp.strftime("%H:%M") }}</span>
+        <span class="text-slate-500 text-xs whitespace-nowrap">{{ (c.timestamp|localtime).strftime("%H:%M") }}</span>
       </li>
       {% else %}
       <li class="py-4 text-center text-slate-500 text-sm italic">Noch keine Einträge</li>
@@ -264,7 +264,7 @@
     <li class="flex items-center justify-between gap-3 py-2.5">
       <div class="min-w-0">
         <div class="text-sm truncate">{{ r.comment }}</div>
-        <div class="text-xs text-slate-500 truncate">{{ r.room.name }} &middot; {{ rb.category_label(r.category) }} &middot; gemeldet von {{ r.user.name }} &middot; {{ r.created_at.strftime("%d.%m.%Y, %H:%M") }}</div>
+        <div class="text-xs text-slate-500 truncate">{{ r.room.name }} &middot; {{ rb.category_label(r.category) }} &middot; gemeldet von {{ r.user.name }} &middot; {{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</div>
       </div>
       <div class="shrink-0">{{ rb.priority_badge(r.priority) }}</div>
     </li>

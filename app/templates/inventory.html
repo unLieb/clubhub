@@ -306,7 +306,7 @@
               <li class="flex items-center justify-between py-2 text-sm gap-2">
                 <div class="min-w-0">
                   <div class="truncate">{{ m.note or ("Buchung" if m.delta >= 0 else "Entnahme") }}</div>
-                  <div class="text-xs text-slate-500">{{ m.timestamp.strftime("%d.%m.%Y, %H:%M") }}{% if m.user %} &middot; {{ m.user.name }}{% endif %}</div>
+                  <div class="text-xs text-slate-500">{{ (m.timestamp|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if m.user %} &middot; {{ m.user.name }}{% endif %}</div>
                 </div>
                 <span class="shrink-0 font-medium {{ 'text-go' if m.delta >= 0 else 'text-late' }}">{{ "%+.1f"|format(m.delta) }}</span>
               </li>
@@ -338,7 +338,7 @@
               <li class="flex justify-between gap-4"><span class="text-slate-500">Gebinde</span><span class="text-slate-300">{{ item|unit_label(item.stock_current, item.stock_min) if item.unit else "–" }}{% if item.pack_size and item.pack_unit %} (à {{ item.pack_size|qty }} {{ item.pack_unit }}){% endif %}</span></li>
               <li class="flex justify-between gap-4"><span class="text-slate-500">Lagerort</span><span class="text-slate-300">{{ item.location or "–" }}</span></li>
               {% if item.movements %}
-              <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ item.movements[0].timestamp.strftime("%d.%m.%Y, %H:%M") }}{% if item.movements[0].user %} &middot; {{ item.movements[0].user.name }}{% endif %}</span></li>
+              <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ (item.movements[0].timestamp|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if item.movements[0].user %} &middot; {{ item.movements[0].user.name }}{% endif %}</span></li>
               {% endif %}
             </ul>
             {% if item.reorder_url and st.status in ('critical', 'empty') %}

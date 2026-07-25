@@ -114,8 +114,8 @@
               {% if r.room.groups %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Bereichsgruppe</span><span class="text-slate-300">{{ r.room.groups | map(attribute="name") | join(", ") }}</span></li>
               {% endif %}
-              <li class="flex justify-between gap-4"><span class="text-slate-500">Erstellt am</span><span class="text-slate-300">{{ r.created_at.strftime("%d.%m.%Y, %H:%M") }}</span></li>
-              <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ meta.last_modified.strftime("%d.%m.%Y, %H:%M") }}</span></li>
+              <li class="flex justify-between gap-4"><span class="text-slate-500">Erstellt am</span><span class="text-slate-300">{{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>
+              <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ (meta.last_modified|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>
             </ul>
           </div>
         </div>
@@ -127,7 +127,7 @@
             <li class="text-sm">
               <div class="flex items-center gap-2">
                 <span class="font-medium">{{ c.user.name }}</span>
-                <span class="text-xs text-slate-500">{{ c.created_at.strftime("%d.%m.%Y, %H:%M") }}</span>
+                <span class="text-xs text-slate-500">{{ (c.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</span>
               </div>
               <p class="text-slate-300 mt-0.5">{{ c.text }}</p>
             </li>
@@ -150,7 +150,7 @@
               <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
               <div>
                 <div class="text-sm">Meldung erstellt</div>
-                <div class="text-xs text-slate-500">{{ r.created_at.strftime("%d.%m.%Y, %H:%M") }} &middot; {{ r.user.name }}</div>
+                <div class="text-xs text-slate-500">{{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }} &middot; {{ r.user.name }}</div>
               </div>
             </li>
             {% if r.status == "done" %}
@@ -158,7 +158,7 @@
               <div class="w-2 h-2 rounded-full bg-go mt-1.5 shrink-0"></div>
               <div>
                 <div class="text-sm">Als erledigt markiert</div>
-                <div class="text-xs text-slate-500">{{ r.resolved_at.strftime("%d.%m.%Y, %H:%M") }}{% if r.resolved_by %} &middot; {{ r.resolved_by.name }}{% endif %}</div>
+                <div class="text-xs text-slate-500">{{ (r.resolved_at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if r.resolved_by %} &middot; {{ r.resolved_by.name }}{% endif %}</div>
               </div>
             </li>
             {% else %}
