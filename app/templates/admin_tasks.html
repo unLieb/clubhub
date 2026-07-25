@@ -5,8 +5,52 @@
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">Aufgaben</h1>
 
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Neue Aufgabe
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form method="post" action="/admin/tasks" class="space-y-2 mt-3 max-w-2xl">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <select name="room_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+        </select>
+        <input name="name" placeholder="Aufgabe" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
+          <select name="interval_hours" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="24" data-warn="5">Täglich</option>
+            <option value="168" data-warn="24">Wöchentlich</option>
+            <option value="720" data-warn="72">Monatlich</option>
+            <option value="2160" data-warn="216">Quartalsweise</option>
+          </select>
+        </div>
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
+          <input name="warn_hours" type="number" step="0.5" min="0.5" value="5"
+                 class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-500 leading-relaxed">
+        Legt fest, wie viele Stunden vor Fälligkeit eine Aufgabe auf <span class="text-warn">Gelb (bald fällig)</span>
+        springt, bevor sie <span class="text-late">rot (überfällig)</span> wird. Beim Wechsel des Turnus wird
+        automatisch ein Richtwert vorgeschlagen (<b>Täglich</b> 5h, <b>Wöchentlich</b> 24h/1 Tag,
+        <b>Monatlich</b> 72h/3 Tage, <b>Quartalsweise</b> 216h/9 Tage) – lässt sich danach frei anpassen.
+      </p>
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Aufgabe anlegen</button>
+    </form>
+  </div>
+</details>
+
 <div class="rounded-xl border border-line bg-panel p-4">
-  <ul class="space-y-1 text-sm mb-4">
+  <ul class="space-y-1 text-sm">
     {% for t in tasks %}
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
       <details class="group">
@@ -57,38 +101,6 @@
     </li>
     {% endfor %}
   </ul>
-  <form method="post" action="/admin/tasks" class="space-y-2 max-w-2xl">
-    <div class="flex flex-col sm:flex-row gap-2">
-      <select name="room_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
-      </select>
-      <input name="name" placeholder="Aufgabe" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-    </div>
-    <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
-      <div class="flex-1">
-        <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
-        <select name="interval_hours" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <option value="24" data-warn="5">Täglich</option>
-          <option value="168" data-warn="24">Wöchentlich</option>
-          <option value="720" data-warn="72">Monatlich</option>
-          <option value="2160" data-warn="216">Quartalsweise</option>
-        </select>
-      </div>
-      <div class="flex-1">
-        <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
-        <input name="warn_hours" type="number" step="0.5" min="0.5" value="5"
-               class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
-      </div>
-    </div>
-    <p class="text-[11px] text-slate-500 leading-relaxed">
-      Legt fest, wie viele Stunden vor Fälligkeit eine Aufgabe auf <span class="text-warn">Gelb (bald fällig)</span>
-      springt, bevor sie <span class="text-late">rot (überfällig)</span> wird. Beim Wechsel des Turnus wird
-      automatisch ein Richtwert vorgeschlagen (<b>Täglich</b> 5h, <b>Wöchentlich</b> 24h/1 Tag,
-      <b>Monatlich</b> 72h/3 Tage, <b>Quartalsweise</b> 216h/9 Tage) – lässt sich danach frei anpassen.
-    </p>
-    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Aufgabe anlegen</button>
-  </form>
 </div>
 
 <script>

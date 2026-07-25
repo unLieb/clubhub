@@ -5,8 +5,46 @@
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">Gruppen</h1>
 
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Neue Gruppe
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form method="post" action="/admin/groups" class="space-y-2 mt-3 max-w-2xl">
+      <input name="name" placeholder="Name" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Arbeitszeit (Stunde, leer = immer aktiv)</label>
+        <div class="flex items-center gap-2">
+          <input name="work_start_hour" type="number" min="0" max="23" placeholder="von" class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <span class="text-slate-500 text-xs">bis</span>
+          <input name="work_end_hour" type="number" min="0" max="23" placeholder="bis" class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <span class="text-slate-500 text-xs">Uhr</span>
+        </div>
+      </div>
+      {% if channels %}
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Benachrichtigungskanäle</label>
+        <div class="flex flex-wrap gap-2">
+          {% for c in channels %}
+          <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line text-xs cursor-pointer has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+            <input type="checkbox" name="channel_ids" value="{{ c.id }}" class="sr-only">
+            {{ c.name }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Gruppe anlegen</button>
+    </form>
+  </div>
+</details>
+
 <div class="rounded-xl border border-line bg-panel p-4">
-  <ul class="space-y-1 text-sm mb-4">
+  <ul class="space-y-1 text-sm">
     {% for g in groups %}
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
       <details class="group">
@@ -54,32 +92,6 @@
     </li>
     {% endfor %}
   </ul>
-  <form method="post" action="/admin/groups" class="space-y-2 max-w-2xl">
-    <input name="name" placeholder="Name" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-    <div>
-      <label class="block text-[11px] text-slate-400 mb-1">Arbeitszeit (Stunde, leer = immer aktiv)</label>
-      <div class="flex items-center gap-2">
-        <input name="work_start_hour" type="number" min="0" max="23" placeholder="von" class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <span class="text-slate-500 text-xs">bis</span>
-        <input name="work_end_hour" type="number" min="0" max="23" placeholder="bis" class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <span class="text-slate-500 text-xs">Uhr</span>
-      </div>
-    </div>
-    {% if channels %}
-    <div>
-      <label class="block text-[11px] text-slate-400 mb-1">Benachrichtigungskanäle</label>
-      <div class="flex flex-wrap gap-2">
-        {% for c in channels %}
-        <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line text-xs cursor-pointer has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-          <input type="checkbox" name="channel_ids" value="{{ c.id }}" class="sr-only">
-          {{ c.name }}
-        </label>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Gruppe anlegen</button>
-  </form>
 </div>
 
 {% endblock %}

@@ -14,6 +14,41 @@
 </div>
 {% endif %}
 
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Neuer Tag
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form id="add-tag-form" method="post" action="/admin/nfc-tags/add" class="space-y-2 mt-3 max-w-2xl">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <select name="target" id="add-tag-target" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          {% for r in rooms %}
+          <option value="room:{{ r.id }}">Bereich: {{ r.name }}</option>
+          {% endfor %}
+        </select>
+        <input name="label" placeholder="Bezeichnung (optional), z.B. „an der Eingangstür“" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      </div>
+      <input type="hidden" name="uid" id="add-tag-uid">
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="add-tag-write-btn" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Tag beschreiben &amp; registrieren</button>
+        <button type="button" id="add-tag-read-btn" class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Nur UID einlesen</button>
+        <button type="submit" class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Ohne Scan anlegen</button>
+      </div>
+      <span id="add-tag-status" class="block text-xs text-slate-500"></span>
+    </form>
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
+      „Tag beschreiben &amp; registrieren“ schreibt die Ziel-URL direkt auf den Tag und speichert dessen Seriennummer in einem Schritt.
+      „Nur UID einlesen“ registriert einen bereits extern beschriebenen Tag, ohne ihn zu verändern. Beides braucht
+      Chrome auf Android über HTTPS (Web NFC). Ohne das lässt sich ein Tag auch ohne Scan anlegen und die Ziel-URL
+      mit einer Dritt-App wie „NFC Tools“ von Hand aufschreiben.
+    </p>
+  </div>
+</details>
+
 <div class="space-y-4">
   <div class="rounded-xl border border-line bg-panel p-4">
     <h2 class="font-display font-medium mb-3">Registrierte Tags</h2>
@@ -58,33 +93,6 @@
     {% else %}
     <p class="text-slate-500 text-sm italic">Noch keine Tags registriert.</p>
     {% endif %}
-  </div>
-
-  <div class="rounded-xl border border-line bg-panel p-4">
-    <h2 class="font-display font-medium mb-3">Neuen Tag anlegen</h2>
-    <form id="add-tag-form" method="post" action="/admin/nfc-tags/add" class="space-y-2 max-w-2xl">
-      <div class="flex flex-col sm:flex-row gap-2">
-        <select name="target" id="add-tag-target" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          {% for r in rooms %}
-          <option value="room:{{ r.id }}">Bereich: {{ r.name }}</option>
-          {% endfor %}
-        </select>
-        <input name="label" placeholder="Bezeichnung (optional), z.B. „an der Eingangstür“" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      </div>
-      <input type="hidden" name="uid" id="add-tag-uid">
-      <div class="flex flex-wrap items-center gap-2">
-        <button type="button" id="add-tag-write-btn" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Tag beschreiben &amp; registrieren</button>
-        <button type="button" id="add-tag-read-btn" class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Nur UID einlesen</button>
-        <button type="submit" class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Ohne Scan anlegen</button>
-      </div>
-      <span id="add-tag-status" class="block text-xs text-slate-500"></span>
-    </form>
-    <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
-      „Tag beschreiben &amp; registrieren“ schreibt die Ziel-URL direkt auf den Tag und speichert dessen Seriennummer in einem Schritt.
-      „Nur UID einlesen“ registriert einen bereits extern beschriebenen Tag, ohne ihn zu verändern. Beides braucht
-      Chrome auf Android über HTTPS (Web NFC). Ohne das lässt sich ein Tag auch ohne Scan anlegen und die Ziel-URL
-      mit einer Dritt-App wie „NFC Tools“ von Hand aufschreiben.
-    </p>
   </div>
 </div>
 
