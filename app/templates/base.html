@@ -15,6 +15,15 @@
 <title>{% block title %}ClubHUB{% endblock %}</title>
 <link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/static/style.css">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#12161f">
+<!-- iOS unterstützt den Web-App-Manifest-Standard nur teilweise - diese
+     Tags sorgen dort zusätzlich für "Zum Home-Bildschirm"-Icon und ein
+     Fenster ohne Safari-Chrome, analog zu Android/Chrome über das Manifest. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ClubHUB">
+<link rel="apple-touch-icon" href="/static/favicon.png">
 <style>
   .tab-link.active { color: var(--color-go); }
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -256,8 +265,17 @@
   });
 })();
 
-// Browser-Push (Web Push): Service Worker registrieren, Glocken-Button zeigt
-// nur an, wenn der Browser das unterstützt (Fallback: bleibt versteckt).
+// Service Worker: immer registrieren, unabhängig von Login/Push - Grundlage
+// dafür, dass der Browser die Seite überhaupt als installierbare PWA
+// erkennt (Icon auf dem Homescreen). Web-Push unten nutzt dieselbe
+// Registrierung mit, statt ein zweites Mal zu registrieren.
+var clubhubSwRegistration = null;
+if ('serviceWorker' in navigator) {
+  clubhubSwRegistration = navigator.serviceWorker.register('/sw.js');
+}
+
+// Browser-Push (Web Push): Glocken-Button zeigt nur an, wenn der Browser
+// das unterstützt (Fallback: bleibt versteckt).
 (function () {
   var buttons = document.querySelectorAll('.push-toggle-btn');
   if (!buttons.length) return;
@@ -290,9 +308,7 @@
     });
   }
 
-  var registrationPromise = navigator.serviceWorker.register('/sw.js');
-
-  registrationPromise.then(function (reg) {
+  clubhubSwRegistration.then(function (reg) {
     buttons.forEach(function (btn) { btn.classList.remove('hidden'); });
     return reg.pushManager.getSubscription();
   }).then(function (sub) {

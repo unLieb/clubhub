@@ -1,0 +1,14 @@
+{
+  "name": "ClubHUB",
+  "short_name": "ClubHUB",
+  "description": "Reinigungspläne, Meldungen, Inventar und Zeiterfassung für den Verein",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#12161f",
+  "theme_color": "#12161f",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/static/favicon.png", "sizes": "750x750", "type": "image/png" }
+  ]
+}

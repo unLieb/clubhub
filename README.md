@@ -40,6 +40,21 @@ und unter **Verwaltung** eigene Gruppen, Nutzer, Bereiche und Aufgaben anlegen.
 Einsatz auf einen zufälligen Wert setzen (z.B. `openssl rand -hex 32`),
 sonst sind Login-Sessions nicht sicher.
 
+## Als App installieren (PWA)
+
+ClubHUB lässt sich als installierbare Web-App (PWA) nutzen, ohne separaten
+Play-Store-Eintrag - Icon auf dem Homescreen, eigenes Fenster ohne
+Browser-Adressleiste, Push-Benachrichtigungen funktionieren normal weiter:
+
+- **Android (Chrome):** Seite öffnen → Chrome zeigt meist automatisch einen
+  "Zur Startseite hinzufügen"/"App installieren"-Hinweis, sonst über das
+  Drei-Punkte-Menü → "App installieren".
+- **iOS (Safari):** Seite öffnen → Teilen-Symbol → "Zum Home-Bildschirm".
+
+Bewusst ohne Offline-Cache: die App zeigt live Aufgabenstatus, Bestände usw.
+- veraltete gecachte Daten wären hier irreführend statt hilfreich, daher
+  braucht die installierte App weiterhin eine Internetverbindung zum Server.
+
 ## Deployment aufs NAS
 
 `deploy-nas.sh` synct den aktuellen Code-Stand per SSH (tar-Stream statt

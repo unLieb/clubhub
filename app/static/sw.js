@@ -1,4 +1,6 @@
-// ClubHUB Service Worker - ausschließlich für Web Push (kein Offline-Cache).
+// ClubHUB Service Worker - für Web Push und PWA-Installierbarkeit.
+// Bewusst kein Offline-Cache: die App zeigt live Aufgabenstatus, Bestände
+// usw. - veraltete gecachte Antworten wären hier irreführend statt hilfreich.
 
 self.addEventListener('install', function (event) {
   self.skipWaiting();
@@ -6,6 +8,13 @@ self.addEventListener('install', function (event) {
 
 self.addEventListener('activate', function (event) {
   event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', function (event) {
+  // Reiner Passthrough ohne Caching - ein vorhandener fetch-Handler ist bei
+  // manchen Browsern (u.a. älteres Chrome/Samsung Internet) Voraussetzung
+  // dafür, dass die Seite überhaupt als installierbare PWA erkannt wird.
+  event.respondWith(fetch(event.request));
 });
 
 self.addEventListener('push', function (event) {
