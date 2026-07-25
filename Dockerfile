@@ -35,4 +35,12 @@ VOLUME /data
 
 EXPOSE 8000
 
+# Meldet den Container-Status (u.a. sichtbar in Synology Container Manager
+# und `docker ps`) als healthy/unhealthy statt nur "running" - prüft über
+# /healthz auch, ob die Datenbank erreichbar ist, nicht nur ob der Prozess
+# lebt. Docker startet bei "unhealthy" NICHT automatisch neu, das bräuchte
+# einen zusätzlichen Watcher (z.B. willfarrell/autoheal).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -fsS http://localhost:8000/healthz || exit 1
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]

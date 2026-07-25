@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import secrets
@@ -30,6 +31,17 @@ from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BAC
 from .notifications import notify_group
 
 Base.metadata.create_all(bind=engine)
+
+
+class _HealthzLogFilter(logging.Filter):
+    """Blendet den vom Docker-HEALTHCHECK alle 30s erzeugten Zugriff auf
+    /healthz aus dem Access-Log aus, damit dieser nicht die echten Zugriffe
+    darin ertränkt."""
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/healthz" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(_HealthzLogFilter())
 
 app = FastAPI(title="ClubHUB")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "change-me-in-production"))
@@ -63,6 +75,15 @@ def _to_local(ts):
 
 
 templates.env.filters["localtime"] = _to_local
+
+
+@app.get("/healthz")
+def healthz(db: Session = Depends(get_db)):
+    """Für Docker HEALTHCHECK (siehe Dockerfile) - prüft neben dem laufenden
+    Prozess auch, ob die Datenbank tatsächlich erreichbar ist, statt nur
+    "der Uvicorn-Prozess lebt noch" zu bestätigen."""
+    db.execute(text("SELECT 1"))
+    return {"status": "ok"}
 
 
 @app.get("/sw.js")
