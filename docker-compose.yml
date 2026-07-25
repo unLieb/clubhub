@@ -51,3 +51,9 @@ services:
 
 volumes:
   clubhub_data:
+    # Pinnt den tatsächlichen Docker-Volume-Namen auf den historischen Wert
+    # von vor der Umbenennung reinigungsplan -> clubhub, damit die
+    # bestehenden Produktivdaten (NAS, Dev-Rechner) weiterverwendet werden.
+    # Bei einer wirklich frischen Installation legt Docker das Volume unter
+    # diesem Namen einfach neu an - unschön benannt, aber folgenlos.
+    name: reinigungsplan_reinigungsplan_data
