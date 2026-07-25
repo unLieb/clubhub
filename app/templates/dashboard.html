@@ -8,7 +8,7 @@
   <p class="text-slate-300 text-base mt-2">
     {{ greeting }}{% if user %}, {{ user.name }}{% endif %}!
     Heute stehen <span class="font-medium text-slate-100">{{ pending_tasks_count }}</span> {{ "Reinigung" if pending_tasks_count == 1 else "Reinigungen" }} und
-    <span class="font-medium text-slate-100">{{ report_stats.open }}</span> offene {{ "Meldung" if report_stats.open == 1 else "Meldungen" }} an.
+    <span class="font-medium text-slate-100">{{ report_stats.needs_attention }}</span> offene {{ "Meldung" if report_stats.needs_attention == 1 else "Meldungen" }} an.
   </p>
   <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
 </div>
@@ -125,11 +125,11 @@
 </div>
 {% endif %}
 
-{% if report_stats.open %}
+{% if report_stats.needs_attention %}
 <a href="/reports" class="lg:hidden flex items-center justify-between gap-2 rounded-xl border border-late/40 bg-late/10 p-3 mb-6">
   <span class="flex items-center gap-1.5 text-late text-sm font-medium">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    {{ report_stats.open }} {{ "Meldung benötigt" if report_stats.open == 1 else "Meldungen benötigen" }} Aufmerksamkeit
+    {{ report_stats.needs_attention }} {{ "Meldung benötigt" if report_stats.needs_attention == 1 else "Meldungen benötigen" }} Aufmerksamkeit
   </span>
   <span class="text-late text-xs font-medium whitespace-nowrap">Ansehen &rarr;</span>
 </a>
@@ -171,10 +171,19 @@
       <li>
         <a href="/reports" class="flex items-center justify-between py-2.5 hover:text-slate-100">
           <span class="flex items-center gap-2 text-slate-300">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warn"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Offene Meldungen
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Offen
           </span>
           <span class="font-medium">{{ report_stats.open }}</span>
+        </a>
+      </li>
+      <li>
+        <a href="/reports" class="flex items-center justify-between py-2.5 hover:text-slate-100">
+          <span class="flex items-center gap-2 text-slate-300">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warn"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+            In Bearbeitung
+          </span>
+          <span class="font-medium">{{ report_stats.in_progress }}</span>
         </a>
       </li>
       <li>
@@ -187,10 +196,10 @@
         </a>
       </li>
     </ul>
-    {% if report_stats.open %}
+    {% if report_stats.needs_attention %}
     <!-- Auf dem Handy gibt es die gleiche Meldung schon als Banner weiter oben -->
     <div class="hidden lg:flex mt-3 rounded-lg border border-late/40 bg-late/10 p-3 items-center justify-between gap-2 flex-wrap">
-      <span class="text-late text-xs font-medium">{{ report_stats.open }} {{ "Meldung benötigt" if report_stats.open == 1 else "Meldungen benötigen" }} Aufmerksamkeit</span>
+      <span class="text-late text-xs font-medium">{{ report_stats.needs_attention }} {{ "Meldung benötigt" if report_stats.needs_attention == 1 else "Meldungen benötigen" }} Aufmerksamkeit</span>
       <a href="/reports" class="text-late text-xs font-medium whitespace-nowrap hover:underline">Zu den Meldungen &rarr;</a>
     </div>
     {% endif %}

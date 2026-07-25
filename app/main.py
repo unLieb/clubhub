@@ -465,6 +465,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     all_reports = db.query(models.Report).all()
     open_reports = _sort_reports([r for r in all_reports if r.status != "done"])
+    open_count = sum(1 for r in all_reports if r.status == "open")
+    in_progress_count = sum(1 for r in all_reports if r.status == "in_progress")
     done_today_reports = sum(
         1 for r in all_reports
         if r.status == "done" and r.resolved_at and r.resolved_at.astimezone(timezone.utc).date() == today
@@ -479,7 +481,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "stats": {"done_today": done_today, "due_soon": due_soon_count, "overdue": overdue_count},
         "recent_completions": recent_completions,
         "overdue_tasks": overdue_tasks[:6],
-        "report_stats": {"open": len(open_reports), "done_today": done_today_reports},
+        "report_stats": {
+            "open": open_count,
+            "in_progress": in_progress_count,
+            "done_today": done_today_reports,
+            "needs_attention": open_count + in_progress_count,
+        },
         "recent_reports": open_reports[:5],
         "greeting": greeting_for_now(now),
         "pending_tasks_count": due_soon_count + overdue_count,
