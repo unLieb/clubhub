@@ -1145,7 +1145,7 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
         "open_reports": open_reports,
         "done_reports": done_reports,
         "report_meta": report_meta,
-        "rooms": db.query(models.Room).all(),
+        "rooms": db.query(models.Room).order_by(models.Room.name).all(),
         "groups": db.query(models.Group).all(),
     })
 
