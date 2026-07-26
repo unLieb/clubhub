@@ -13,8 +13,9 @@
   <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
 </div>
 
-{% if user and device_authorized %}
-<!-- Ein-/Ausstempeln: nur auf dem autorisierten Zeiterfassungs-Gerät sichtbar -->
+{% if user and (device_authorized or timeclock_user_mode) %}
+<!-- Ein-/Ausstempeln: im Terminal-Modus nur auf dem autorisierten Gerät,
+     im Nutzer-Modus auf jedem eigenen, eingeloggten Gerät sichtbar -->
 <div class="rounded-xl border {% if timeclock_open_entry %}border-go/40 bg-go/10{% else %}border-line bg-panel{% endif %} p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
   <div class="flex items-center gap-3.5">
     <div class="w-11 h-11 rounded-full {% if timeclock_open_entry %}bg-go/20 text-go{% else %}bg-panel2 text-slate-400{% endif %} flex items-center justify-center shrink-0">
@@ -26,7 +27,7 @@
       {% else %}
       <div class="font-display font-medium leading-none">Nicht eingestempelt</div>
       {% endif %}
-      <div class="text-xs text-slate-400 mt-1.5">Zeiterfassung auf diesem autorisierten Gerät</div>
+      <div class="text-xs text-slate-400 mt-1.5">{% if timeclock_user_mode %}Zeiterfassung – Nutzer-Modus{% else %}Zeiterfassung auf diesem autorisierten Gerät{% endif %}</div>
     </div>
   </div>
   <form method="post" action="/timeclock/punch">

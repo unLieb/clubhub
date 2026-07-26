@@ -7,9 +7,32 @@
 <p class="text-slate-400 text-sm mb-6">Buchungen nachträglich korrigieren – z.B. bei vergessenem Ein- oder Ausstempeln.</p>
 
 <div class="rounded-xl border border-line bg-panel p-4 mb-4">
+  <h2 class="font-display font-medium mb-3">Modus</h2>
+  <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
+    Solange noch nicht feststeht, wie die Zeiterfassung offiziell eingeführt wird, lässt sich hier
+    zwischen zwei Betriebsarten wechseln, ohne Buchungen zu verlieren.
+  </p>
+  <form method="post" action="/admin/timeclock/mode" class="flex flex-col sm:flex-row gap-2 max-w-2xl">
+    <button name="mode" value="terminal"
+            class="flex-1 text-left rounded-lg border p-3 {% if not timeclock_user_mode %}border-go/50 bg-go/10{% else %}border-line hover:bg-panel2{% endif %}">
+      <div class="text-sm font-medium {% if not timeclock_user_mode %}text-go{% else %}text-slate-200{% endif %}">Terminal-Modus{% if not timeclock_user_mode %} · aktiv{% endif %}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">Ein-/Ausstempeln nur an einem einzigen autorisierten Gerät, keine Selbstbearbeitung.</div>
+    </button>
+    <button name="mode" value="user"
+            class="flex-1 text-left rounded-lg border p-3 {% if timeclock_user_mode %}border-go/50 bg-go/10{% else %}border-line hover:bg-panel2{% endif %}">
+      <div class="text-sm font-medium {% if timeclock_user_mode %}text-go{% else %}text-slate-200{% endif %}">Nutzer-Modus{% if timeclock_user_mode %} · aktiv{% endif %}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">Jeder stempelt auf seinem eigenen Gerät ein/aus und darf eigene Buchungen selbst bearbeiten.</div>
+    </button>
+  </form>
+</div>
+
+<div class="rounded-xl border border-line bg-panel p-4 mb-4">
   <h2 class="font-display font-medium mb-3">Autorisiertes Gerät</h2>
   <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
-    Ein-/Ausstempeln funktioniert ausschließlich auf genau einem freigeschalteten, stationären Gerät
+    {% if timeclock_user_mode %}
+    Im Nutzer-Modus optional – nur relevant, falls zusätzlich ein gemeinsames Terminal genutzt werden soll.
+    {% endif %}
+    Ein-/Ausstempeln funktioniert auf genau einem freigeschalteten, stationären Gerät
     (z.B. ein Tablet am Empfang) – entweder direkt über den Ein-/Ausstempeln-Button im Dashboard
     (wenn dort jemand persönlich eingeloggt ist) oder über das Terminal unter
     <code class="bg-ink border border-line rounded px-1">{{ kiosk_url }}</code>, wo jeder Mitarbeiter

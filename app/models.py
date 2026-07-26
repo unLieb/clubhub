@@ -297,6 +297,20 @@ class AuthorizedDevice(Base):
     authorized_by = relationship("User")
 
 
+class AppSettings(Base):
+    """Genau eine Zeile mit global zur Laufzeit umschaltbaren Optionen -
+    aktuell nur der Zeiterfassungs-Modus (Terminal vs. Nutzer, siehe
+    main.py). Gleiches Singleton-Muster wie AuthorizedDevice: es existiert
+    entweder keine oder genau eine Zeile."""
+    __tablename__ = "app_settings"
+
+    id = Column(Integer, primary_key=True)
+    # False (Standard) = Terminal-Modus: Ein-/Ausstempeln nur am autorisierten
+    # Gerät, keine Selbstbearbeitung. True = Nutzer-Modus: jeder stempelt auf
+    # seinem eigenen (beliebigen) Gerät und darf eigene Buchungen bearbeiten.
+    timeclock_user_mode = Column(Boolean, nullable=False, default=False)
+
+
 class PushSubscription(Base):
     """Eine Web-Push-Anmeldung eines Browsers/Geräts für einen Nutzer (siehe
     push.py). Ein Nutzer kann mehrere haben (z.B. Handy + Desktop). endpoint

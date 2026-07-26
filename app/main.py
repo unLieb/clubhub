@@ -557,6 +557,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "now": now,
         "now_local": now.astimezone(APP_TIMEZONE),
         "device_authorized": device_is_authorized(request, db),
+        "timeclock_user_mode": get_app_settings(db).timeclock_user_mode,
         "timeclock_open_entry": timeclock_open_entry,
         "currently_clocked_in": currently_clocked_in,
     })
@@ -673,6 +674,7 @@ def compute_time_stats(user, db: Session, now) -> dict:
             open_entry = {"clock_in": clock_in_local}
         if len(history) < 20:
             history.append({
+                "id": e.id,
                 "clock_in": clock_in_local,
                 "clock_out": clock_out_local,
                 "hours": hours,
@@ -694,15 +696,66 @@ def compute_time_stats(user, db: Session, now) -> dict:
     }
 
 
+def get_app_settings(db: Session) -> models.AppSettings:
+    """Holt die eine Einstellungs-Zeile, legt sie beim allerersten Zugriff an
+    (anders als bei AuthorizedDevice bedeutet "keine Zeile" hier nicht "nicht
+    konfiguriert", sondern muss immer einen Default liefern können)."""
+    settings = db.query(models.AppSettings).first()
+    if not settings:
+        settings = models.AppSettings()
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+    return settings
+
+
 @app.get("/timeclock")
 def timeclock_view(request: Request, db: Session = Depends(get_db)):
     user = require_login(request, db)
     stats = compute_time_stats(user, db, ntptime.now_utc())
+    settings = get_app_settings(db)
     return templates.TemplateResponse("timeclock.html", {
         "request": request,
         "user": user,
         "stats": stats,
+        "timeclock_user_mode": settings.timeclock_user_mode,
     })
+
+
+@app.post("/timeclock/self/{entry_id}/edit")
+def timeclock_self_edit(
+    entry_id: int, request: Request,
+    clock_in: str = Form(...), clock_out: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Selbstbearbeitung der eigenen Buchungen - nur im Nutzer-Modus möglich
+    (siehe AppSettings.timeclock_user_mode) und nur für die eigene Buchung,
+    im Gegensatz zur Admin-Korrektur unter /admin/timeclock."""
+    user = require_login(request, db)
+    if not get_app_settings(db).timeclock_user_mode:
+        return RedirectResponse("/timeclock", status_code=302)
+    entry = db.query(models.TimeEntry).filter(
+        models.TimeEntry.id == entry_id, models.TimeEntry.user_id == user.id
+    ).first()
+    if entry:
+        entry.clock_in = _parse_local_dt(clock_in)
+        entry.clock_out = _parse_local_dt(clock_out)
+        db.commit()
+    return RedirectResponse("/timeclock", status_code=302)
+
+
+@app.post("/timeclock/self/{entry_id}/delete")
+def timeclock_self_delete(entry_id: int, request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    if not get_app_settings(db).timeclock_user_mode:
+        return RedirectResponse("/timeclock", status_code=302)
+    entry = db.query(models.TimeEntry).filter(
+        models.TimeEntry.id == entry_id, models.TimeEntry.user_id == user.id
+    ).first()
+    if entry:
+        db.delete(entry)
+        db.commit()
+    return RedirectResponse("/timeclock", status_code=302)
 
 
 # ---------- Zeiterfassungs-Terminal (autorisiertes Gerät) ----------
@@ -784,12 +837,14 @@ def timeclock_kiosk_punch(
 @app.post("/timeclock/punch")
 def timeclock_punch(request: Request, db: Session = Depends(get_db)):
     """Ein-/Ausstempel-Button direkt im Dashboard - für den eingeloggten
-    Nutzer, aber nur wenn das aktuelle Gerät autorisiert ist. So bleibt die
-    Buchung weiterhin an ein konkretes Gerät gebunden, ganz ohne den Umweg
-    über das separate Kiosk-Terminal (/timeclock/kiosk), wenn man ohnehin
-    schon auf dem autorisierten Gerät eingeloggt ist."""
+    Nutzer. Im Terminal-Modus (Standard) nur, wenn das aktuelle Gerät
+    autorisiert ist (Buchung bleibt an ein konkretes Gerät gebunden, ganz
+    ohne den Umweg über das separate Kiosk-Terminal /timeclock/kiosk, wenn
+    man ohnehin schon auf dem autorisierten Gerät eingeloggt ist). Im
+    Nutzer-Modus darf jeder von jedem eigenen, eingeloggten Gerät aus
+    stempeln - siehe AppSettings.timeclock_user_mode."""
     user = require_login(request, db)
-    if not device_is_authorized(request, db):
+    if not device_is_authorized(request, db) and not get_app_settings(db).timeclock_user_mode:
         return RedirectResponse("/", status_code=302)
 
     open_entry = (
@@ -1716,7 +1771,20 @@ def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
         "device": device,
         "device_authorized_local": _aware(device.authorized_at).astimezone(APP_TIMEZONE) if device else None,
         "kiosk_url": f"{str(request.base_url).rstrip('/')}/timeclock/kiosk",
+        "timeclock_user_mode": get_app_settings(db).timeclock_user_mode,
     })
+
+
+@app.post("/admin/timeclock/mode")
+def admin_timeclock_set_mode(request: Request, mode: str = Form(...), db: Session = Depends(get_db)):
+    """Umschalten zwischen Terminal-Modus (Standard, ein autorisiertes Gerät)
+    und Nutzer-Modus (jeder stempelt/bearbeitet auf eigenem Gerät) - z.B.
+    solange offen ist, ob/wie die Zeiterfassung offiziell eingeführt wird."""
+    require_admin(request, db)
+    settings = get_app_settings(db)
+    settings.timeclock_user_mode = (mode == "user")
+    db.commit()
+    return RedirectResponse("/admin/timeclock", status_code=302)
 
 
 @app.post("/admin/timeclock/authorize-device")
