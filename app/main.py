@@ -1391,6 +1391,24 @@ def reports_set_status(
     return RedirectResponse("/reports", status_code=302)
 
 
+@app.post("/reports/{report_id}/delete")
+def reports_delete(report_id: int, request: Request, db: Session = Depends(get_db)):
+    """Meldung endgültig löschen - nur für den Melder selbst (z.B. um Test-
+    Meldungen aufzuräumen) oder Admin/Schichtleiter, nicht für beliebige
+    eingeloggte Nutzer wie beim Statuswechsel/Kommentieren."""
+    user = require_login(request, db)
+    report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    if report and (report.user_id == user.id or user.is_admin or user.is_shift_lead):
+        for photo in report.photos:
+            try:
+                os.remove(os.path.join(REPORT_PHOTOS_DIR, photo.filename))
+            except OSError:
+                pass
+        db.delete(report)
+        db.commit()
+    return RedirectResponse("/reports", status_code=302)
+
+
 @app.post("/reports/{report_id}/comment")
 def reports_add_comment(report_id: int, request: Request, text: str = Form(...), db: Session = Depends(get_db)):
     user = require_login(request, db)
