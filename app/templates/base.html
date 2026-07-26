@@ -317,7 +317,7 @@ if ('serviceWorker' in navigator) {
 
   buttons.forEach(function (btn) {
     btn.addEventListener('click', function () {
-      registrationPromise.then(function (reg) {
+      clubhubSwRegistration.then(function (reg) {
         return reg.pushManager.getSubscription().then(function (sub) {
           if (sub) {
             return sub.unsubscribe()
