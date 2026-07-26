@@ -29,15 +29,15 @@
   </section>
 
   <section class="rounded-xl border border-line bg-panel p-4">
-    <h2 class="font-display font-medium mb-3">PIN ändern</h2>
-    {% if pin_error %}
-    <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">{{ pin_error }}</div>
-    {% elif pin_success %}
-    <div class="rounded-md border border-go/40 bg-go/10 text-go text-sm px-3 py-2 mb-3">PIN geändert.</div>
+    <h2 class="font-display font-medium mb-3">Passwort ändern</h2>
+    {% if password_error %}
+    <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">{{ password_error }}</div>
+    {% elif password_success %}
+    <div class="rounded-md border border-go/40 bg-go/10 text-go text-sm px-3 py-2 mb-3">Passwort geändert.</div>
     {% endif %}
-    <form method="post" action="/profile/pin" class="flex flex-col sm:flex-row gap-2">
-      <input type="password" inputmode="numeric" name="pin" required autocomplete="new-password" placeholder="Neue PIN" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm tracking-widest">
-      <input type="password" inputmode="numeric" name="pin_confirm" required autocomplete="new-password" placeholder="PIN wiederholen" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm tracking-widest">
+    <form method="post" action="/profile/password" class="flex flex-col sm:flex-row gap-2">
+      <input type="password" name="password" required autocomplete="new-password" placeholder="Neues Passwort" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <input type="password" name="password_confirm" required autocomplete="new-password" placeholder="Passwort wiederholen" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Ändern</button>
     </form>
   </section>

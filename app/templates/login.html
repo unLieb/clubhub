@@ -12,17 +12,14 @@
   <form method="post" class="space-y-4">
     <input type="hidden" name="next" value="{{ next or '/' }}">
     <div>
-      <label class="block text-sm text-slate-300 mb-1.5">Name</label>
-      <select name="user_id" required class="w-full rounded-md bg-ink border border-line px-3 py-2 text-slate-100">
-        {% for u in users %}
-        <option value="{{ u.id }}">{{ u.name }}</option>
-        {% endfor %}
-      </select>
+      <label class="block text-sm text-slate-300 mb-1.5">Benutzername oder Personalnummer</label>
+      <input type="text" name="identifier" required autofocus autocomplete="username"
+             class="w-full rounded-md bg-ink border border-line px-3 py-2 text-slate-100">
     </div>
     <div>
-      <label class="block text-sm text-slate-300 mb-1.5">PIN</label>
-      <input type="password" inputmode="numeric" name="pin" required autofocus
-             class="w-full rounded-md bg-ink border border-line px-3 py-2 text-slate-100 tracking-widest text-lg">
+      <label class="block text-sm text-slate-300 mb-1.5">Passwort</label>
+      <input type="password" name="password" required autocomplete="current-password"
+             class="w-full rounded-md bg-ink border border-line px-3 py-2 text-slate-100">
     </div>
     <button type="submit" class="w-full py-2.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium">
       Anmelden

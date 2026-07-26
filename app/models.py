@@ -67,7 +67,13 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
-    pin_hash = Column(String, nullable=False)
+    # Optional, zusätzlich zum Namen als Login-Kennung nutzbar (z.B. wenn
+    # betriebsintern schon Personalnummern vergeben sind). Eindeutigkeit wird
+    # per Unique-Index in der Migration sichergestellt (siehe main.py), nicht
+    # hier über unique=True, da create_all() bei bestehenden Datenbanken keine
+    # neuen Constraints auf schon existierende Tabellen anwendet.
+    personnel_number = Column(String, nullable=True)
+    password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, default=False)
     # Schichtleiter: darf in der Verwaltung fast alles außer löschen und darf
     # niemandem Admin-/Schichtleiter-Rechte zuweisen (nur ein Admin darf das).

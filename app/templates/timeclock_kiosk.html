@@ -50,17 +50,14 @@
       {% endif %}
       <form method="post" action="/timeclock/kiosk" class="space-y-4">
         <div>
-          <label class="block text-sm text-slate-300 mb-1.5">Name</label>
-          <select name="user_id" required class="w-full rounded-md bg-ink border border-line px-3 py-2.5 text-slate-100 text-base">
-            {% for u in users %}
-            <option value="{{ u.id }}">{{ u.name }}</option>
-            {% endfor %}
-          </select>
+          <label class="block text-sm text-slate-300 mb-1.5">Benutzername oder Personalnummer</label>
+          <input type="text" name="identifier" required autocomplete="off"
+                 class="w-full rounded-md bg-ink border border-line px-3 py-2.5 text-slate-100 text-base">
         </div>
         <div>
-          <label class="block text-sm text-slate-300 mb-1.5">PIN</label>
-          <input type="password" inputmode="numeric" name="pin" required
-                 class="w-full rounded-md bg-ink border border-line px-3 py-2.5 text-slate-100 tracking-widest text-lg">
+          <label class="block text-sm text-slate-300 mb-1.5">Passwort</label>
+          <input type="password" name="password" required autocomplete="off"
+                 class="w-full rounded-md bg-ink border border-line px-3 py-2.5 text-slate-100 text-base">
         </div>
         <button type="submit" class="w-full py-3 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-base">
           Stempeln

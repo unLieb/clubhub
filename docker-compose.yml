@@ -18,7 +18,7 @@ services:
 
       # Erster Admin-Account, wird beim allerersten Start automatisch angelegt
       INITIAL_ADMIN_NAME: "Admin"
-      INITIAL_ADMIN_PIN: "0000"
+      INITIAL_ADMIN_PASSWORD: "0000"
 
       # Zeitzone für die Arbeitszeit-Prüfung der Gruppen (Standard: Europe/Berlin)
       # APP_TIMEZONE: "Europe/Berlin"

@@ -25,7 +25,7 @@ from . import ntptime
 from . import backup
 from . import version
 from . import push
-from .auth import hash_pin, verify_pin, get_current_user, require_login, require_admin, require_admin_or_shift_lead
+from .auth import hash_password, verify_password, find_user_by_identifier, get_current_user, require_login, require_admin, require_admin_or_shift_lead
 from .status import task_status, compute_inventory_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
 from .notifications import notify_group, notify_user
@@ -190,6 +190,32 @@ def _migrate_user_avatar(db: Session):
     _ensure_column(db, "users", "avatar_url", "TEXT")
 
 
+def _migrate_user_password_rename(db: Session):
+    """pin_hash -> password_hash: Login wurde von einer kurzen PIN auf ein
+    reguläres Passwort umgestellt, damit Mitarbeiter ihr bestehendes Passwort
+    aus der betrieblich genutzten Zeiterfassung weiterverwenden können.
+    Bestehende bcrypt-Hashes bleiben unverändert gültig, nur die Spalte
+    heißt um (kein erzwungenes Zurücksetzen nötig)."""
+    existing = {row[1] for row in db.execute(text("PRAGMA table_info(users)")).fetchall()}
+    if "pin_hash" in existing and "password_hash" not in existing:
+        db.execute(text("ALTER TABLE users RENAME COLUMN pin_hash TO password_hash"))
+        db.commit()
+
+
+def _migrate_user_personnel_number(db: Session):
+    """Optionale Personalnummer je Nutzer, zusätzlich zum Namen als Login-
+    Kennung nutzbar. Eindeutigkeit über einen separaten Unique-Index statt
+    Column(unique=True), da create_all() bestehende Tabellen nicht ändert -
+    ein Index lässt sich dagegen bei jedem Start idempotent nachziehen
+    (IF NOT EXISTS), auch für schon bestehende Installationen."""
+    _ensure_column(db, "users", "personnel_number", "TEXT")
+    db.execute(text(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_personnel_number "
+        "ON users(personnel_number)"
+    ))
+    db.commit()
+
+
 def _migrate_remove_timeclock_nfc_tags(db: Session):
     """Das Ein-/Ausstempeln lief anfangs über einen gemeinsamen NFC-Tag
     (/timeclock/scan), wurde aber durch ein autorisiertes Terminal ersetzt
@@ -261,6 +287,8 @@ def _startup():
         _migrate_user_time_tracking(db)
         _migrate_remove_timeclock_nfc_tags(db)
         _migrate_user_avatar(db)
+        _migrate_user_password_rename(db)
+        _migrate_user_personnel_number(db)
     finally:
         db.close()
 
@@ -269,10 +297,10 @@ def _startup():
     try:
         if db.query(models.User).count() == 0:
             admin_name = os.environ.get("INITIAL_ADMIN_NAME", "Admin")
-            admin_pin = os.environ.get("INITIAL_ADMIN_PIN", "0000")
-            db.add(models.User(name=admin_name, pin_hash=hash_pin(admin_pin), is_admin=True))
+            admin_password = os.environ.get("INITIAL_ADMIN_PASSWORD", "0000")
+            db.add(models.User(name=admin_name, password_hash=hash_password(admin_password), is_admin=True))
             db.commit()
-            print(f"[Setup] Erster Admin angelegt: '{admin_name}' mit PIN '{admin_pin}' "
+            print(f"[Setup] Erster Admin angelegt: '{admin_name}' mit Passwort '{admin_password}' "
                   f"– bitte nach dem ersten Login unter /admin ändern bzw. eigenen Nutzer anlegen.")
     finally:
         db.close()
@@ -782,18 +810,17 @@ def timeclock_kiosk(request: Request, db: Session = Depends(get_db)):
         return templates.TemplateResponse("timeclock_kiosk.html", {
             "request": request, "user": None, "authorized": False,
         })
-    users = db.query(models.User).order_by(models.User.name).all()
     return templates.TemplateResponse("timeclock_kiosk.html", {
         "request": request, "user": None, "authorized": True,
-        "users": users, "error": None, "result": None,
+        "error": None, "result": None,
     })
 
 
 @app.post("/timeclock/kiosk")
 def timeclock_kiosk_punch(
     request: Request,
-    user_id: int = Form(...),
-    pin: str = Form(...),
+    identifier: str = Form(...),
+    password: str = Form(...),
     db: Session = Depends(get_db),
 ):
     if not device_is_authorized(request, db):
@@ -801,12 +828,11 @@ def timeclock_kiosk_punch(
             "request": request, "user": None, "authorized": False,
         })
 
-    users = db.query(models.User).order_by(models.User.name).all()
-    target_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not target_user or not verify_pin(pin, target_user.pin_hash):
+    target_user = find_user_by_identifier(db, identifier)
+    if not target_user or not verify_password(password, target_user.password_hash):
         return templates.TemplateResponse("timeclock_kiosk.html", {
             "request": request, "user": None, "authorized": True,
-            "users": users, "error": "PIN ist falsch.", "result": None,
+            "error": "Benutzername/Personalnummer oder Passwort ist falsch.", "result": None,
         })
 
     open_entry = (
@@ -825,7 +851,7 @@ def timeclock_kiosk_punch(
 
     return templates.TemplateResponse("timeclock_kiosk.html", {
         "request": request, "user": None, "authorized": True,
-        "users": users, "error": None,
+        "error": None,
         "result": {
             "name": target_user.name,
             "action": action,
@@ -1546,26 +1572,24 @@ def delete_completion(completion_id: int, request: Request, db: Session = Depend
 
 @app.get("/login")
 def login_form(request: Request, next: str = "/", db: Session = Depends(get_db)):
-    users = db.query(models.User).order_by(models.User.name).all()
     return templates.TemplateResponse("login.html", {
-        "request": request, "user": None, "users": users, "next": next, "error": None,
+        "request": request, "user": None, "next": next, "error": None,
     })
 
 
 @app.post("/login")
 def login_submit(
     request: Request,
-    user_id: int = Form(...),
-    pin: str = Form(...),
+    identifier: str = Form(...),
+    password: str = Form(...),
     next: str = Form("/"),
     db: Session = Depends(get_db),
 ):
-    users = db.query(models.User).order_by(models.User.name).all()
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user or not verify_pin(pin, user.pin_hash):
+    user = find_user_by_identifier(db, identifier)
+    if not user or not verify_password(password, user.password_hash):
         return templates.TemplateResponse("login.html", {
-            "request": request, "user": None, "users": users, "next": next,
-            "error": "PIN ist falsch.",
+            "request": request, "user": None, "next": next,
+            "error": "Benutzername/Personalnummer oder Passwort ist falsch.",
         })
     request.session["user_id"] = user.id
     return RedirectResponse(next or "/", status_code=302)
@@ -1585,8 +1609,8 @@ def profile_view(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("profile.html", {
         "request": request,
         "user": user,
-        "pin_error": None,
-        "pin_success": False,
+        "password_error": None,
+        "password_success": False,
     })
 
 
@@ -1608,27 +1632,27 @@ async def profile_set_avatar(
     return RedirectResponse("/profile", status_code=302)
 
 
-@app.post("/profile/pin")
-def profile_change_pin(
+@app.post("/profile/password")
+def profile_change_password(
     request: Request,
-    pin: str = Form(...),
-    pin_confirm: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
     error = None
-    if not pin.strip():
-        error = "PIN darf nicht leer sein."
-    elif pin != pin_confirm:
-        error = "Die PINs stimmen nicht überein."
+    if not password.strip():
+        error = "Passwort darf nicht leer sein."
+    elif password != password_confirm:
+        error = "Die Passwörter stimmen nicht überein."
     else:
-        user.pin_hash = hash_pin(pin)
+        user.password_hash = hash_password(password)
         db.commit()
     return templates.TemplateResponse("profile.html", {
         "request": request,
         "user": user,
-        "pin_error": error,
-        "pin_success": error is None,
+        "password_error": error,
+        "password_success": error is None,
     })
 
 
@@ -2120,7 +2144,8 @@ def admin_delete_channel(channel_id: int, request: Request, db: Session = Depend
 def admin_add_user(
     request: Request,
     name: str = Form(...),
-    pin: str = Form(...),
+    password: str = Form(...),
+    personnel_number: str = Form(""),
     group_id: str = Form(""),
     role: str = Form("mitarbeiter"),
     target_hours_per_month: str = Form(""),
@@ -2137,7 +2162,8 @@ def admin_add_user(
     # im Formular (z.B. per direktem POST) etwas anderes übermittelt wird.
     user = models.User(
         name=name,
-        pin_hash=hash_pin(pin),
+        password_hash=hash_password(password),
+        personnel_number=personnel_number.strip() or None,
         is_admin=actor.is_admin and role == "admin",
         is_shift_lead=actor.is_admin and role == "schichtleiter",
         groups=groups,
@@ -2157,7 +2183,8 @@ def admin_edit_user(
     user_id: int,
     request: Request,
     name: str = Form(...),
-    pin: str = Form(""),
+    password: str = Form(""),
+    personnel_number: str = Form(""),
     group_id: str = Form(""),
     role: str = Form(""),
     target_hours_per_month: str = Form(""),
@@ -2167,13 +2194,14 @@ def admin_edit_user(
     target = db.query(models.User).filter(models.User.id == user_id).first()
     if target:
         # Schichtleiter dürfen Admin-Konten gar nicht anfassen - sonst könnten sie
-        # sich per PIN-Reset eines Admin-Kontos faktisch selbst zum Admin machen.
+        # sich per Passwort-Reset eines Admin-Kontos faktisch selbst zum Admin machen.
         if target.is_admin and not actor.is_admin:
             return RedirectResponse("/admin/users", status_code=302)
 
         target.name = name
-        if pin:
-            target.pin_hash = hash_pin(pin)
+        target.personnel_number = personnel_number.strip() or None
+        if password:
+            target.password_hash = hash_password(password)
         group = db.query(models.Group).filter(models.Group.id == int(group_id)).first() if group_id else None
         target.groups = [group] if group else []
 

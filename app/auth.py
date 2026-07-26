@@ -6,15 +6,27 @@ from .database import get_db
 from .models import User
 
 
-def hash_pin(pin: str) -> str:
-    return bcrypt.hashpw(pin.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
-def verify_pin(pin: str, pin_hash: str) -> bool:
+def verify_password(password: str, password_hash: str) -> bool:
     try:
-        return bcrypt.checkpw(pin.encode("utf-8"), pin_hash.encode("utf-8"))
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except ValueError:
         return False
+
+
+def find_user_by_identifier(db: Session, identifier: str):
+    """Sucht einen Nutzer per Name ODER Personalnummer (Login-Feld ersetzt das
+    frühere Auswahl-Dropdown - ab mehr als ein paar Mitarbeitern unpraktisch,
+    zumal betriebsintern ohnehin oft mit Personalnummer angemeldet wird)."""
+    identifier = identifier.strip()
+    if not identifier:
+        return None
+    return db.query(User).filter(
+        (User.name == identifier) | (User.personnel_number == identifier)
+    ).first()
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):

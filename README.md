@@ -15,7 +15,8 @@ Gruppen-Benachrichtigungen (ntfy/Gotify) und Ampel-Dashboard.
   und eine **Warnzeit in Stunden** (wie viele Stunden vor Fälligkeit sie gelb wird,
   bevor sie rot/überfällig ist).
 - Das **Dashboard** ist öffentlich einsehbar (z.B. auf einem Tablet an der Wand),
-  ein **Login per PIN** ist nur nötig, um eine Aufgabe abzuhaken.
+  ein **Login** (Benutzername oder Personalnummer + Passwort) ist nur nötig, um
+  eine Aufgabe abzuhaken.
 - Ein Hintergrund-Job prüft alle 15 Minuten den Status aller Aufgaben und schickt
   bei einem Wechsel auf Gelb/Rot eine Push-Nachricht an alle Mitglieder der
   betroffenen Gruppe(n) – per ntfy, Gotify und/oder Signal. Gruppen können eine
@@ -32,7 +33,7 @@ docker compose up -d --build
 Die App läuft danach unter `http://<server>:8000`.
 
 Beim allerersten Start wird automatisch ein Admin-Account angelegt
-(Name/PIN aus `INITIAL_ADMIN_NAME` / `INITIAL_ADMIN_PIN` in der
+(Name/Passwort aus `INITIAL_ADMIN_NAME` / `INITIAL_ADMIN_PASSWORD` in der
 `docker-compose.yml`, Standard: `Admin` / `0000`). Damit direkt einloggen
 und unter **Verwaltung** eigene Gruppen, Nutzer, Bereiche und Aufgaben anlegen.
 
@@ -115,7 +116,7 @@ NFC-Tag (z.B. NTAG213-Sticker) schreiben – z.B. mit der kostenlosen App
 "NFC Tools" (Android/iOS). Tag am Bereich anbringen (z.B. neben der Tür).
 
 Scan → Handy öffnet automatisch die Bereichsseite → Aufgaben mit Ampel-Status
-werden angezeigt → nach Login (PIN) lässt sich eine Aufgabe abhaken.
+werden angezeigt → nach Login lässt sich eine Aufgabe abhaken.
 
 ### Tag-Verwaltung (Verwaltung → NFC-Tags)
 
@@ -155,10 +156,11 @@ Gerät). Ein neu autorisiertes Gerät ersetzt automatisch ein zuvor autorisierte
 – es kann immer nur eines gleichzeitig aktiv sein.
 
 Auf dem autorisierten Gerät läuft unter `http://<server>:8000/timeclock/kiosk`
-ein einfaches Terminal: Name auswählen, PIN eingeben, stempeln – ohne dass
-dabei ein Login stattfindet (kein bleibender Session-Zustand auf dem
-gemeinsam genutzten Gerät). Auf jedem anderen, nicht autorisierten Gerät zeigt
-diese URL nur einen Hinweis und lässt sich nicht zum Stempeln nutzen.
+ein einfaches Terminal: Benutzername/Personalnummer und Passwort eingeben,
+stempeln – ohne dass dabei ein Login stattfindet (kein bleibender
+Session-Zustand auf dem gemeinsam genutzten Gerät). Auf jedem anderen, nicht
+autorisierten Gerät zeigt diese URL nur einen Hinweis und lässt sich nicht
+zum Stempeln nutzen.
 
 Ist man auf dem autorisierten Gerät zusätzlich mit dem eigenen Account
 eingeloggt, erscheint im **Dashboard** direkt ein Ein-/Ausstempeln-Button -
@@ -244,7 +246,7 @@ app/
   scheduler.py      Hintergrund-Job für Benachrichtigungen
   notifications.py  ntfy-/Gotify-/Signal-Versand + Browser-Push an Gruppenmitglieder
   push.py           Web-Push: VAPID-Schlüssel, Versand einzelner Subscriptions
-  auth.py           PIN-Login, Session-Handling
+  auth.py           Login (Benutzername/Personalnummer + Passwort), Session-Handling
   static/sw.js      Service Worker (nimmt Push-Nachrichten entgegen)
   templates/        Jinja2-Templates (responsives Tailwind-UI)
 ```
