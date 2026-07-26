@@ -1217,10 +1217,10 @@ async def reports_create(
                 .first()
             )
             if assigned_group:
-                background_tasks.add_task(notify_group, assigned_group, title, msg, "default", "/reports")
+                background_tasks.add_task(notify_group, assigned_group, title, msg, "default", f"/reports?focus=report-{report.id}")
         else:
             for group in room.groups:
-                background_tasks.add_task(notify_group, group, title, msg, "default", "/reports")
+                background_tasks.add_task(notify_group, group, title, msg, "default", f"/reports?focus=report-{report.id}")
 
     return RedirectResponse("/reports", status_code=302)
 
@@ -1283,11 +1283,12 @@ def reports_set_status(
         comment_preview = report.comment if len(report.comment) <= 120 else report.comment[:117] + "…"
         msg = f"{user.name}: „{comment_preview}“"
         target_groups = [report.assigned_group] if report.assigned_group else list(report.room.groups)
+        focus_url = f"/reports?focus=report-{report.id}"
         for group in target_groups:
-            background_tasks.add_task(notify_group, group, title, msg, "default", "/reports")
+            background_tasks.add_task(notify_group, group, title, msg, "default", focus_url)
         already_reached = any(report.user.id == member.id for group in target_groups for member in group.users)
         if report.user.id != user.id and not already_reached:
-            background_tasks.add_task(notify_user, report.user, title, msg, "/reports")
+            background_tasks.add_task(notify_user, report.user, title, msg, focus_url)
 
     return RedirectResponse("/reports", status_code=302)
 

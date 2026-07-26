@@ -4,7 +4,7 @@
 {% block content %}
 
 {% macro report_card(r, meta) %}
-<div class="rounded-xl border border-line border-l-4 {{ rb.priority_border(r.priority) }} bg-panel p-4 {% if r.status == 'done' %}opacity-75{% endif %}">
+<div id="report-{{ r.id }}" class="rounded-xl border border-line border-l-4 {{ rb.priority_border(r.priority) }} bg-panel p-4 {% if r.status == 'done' %}opacity-75{% endif %}">
 
   <!-- Kopfzeile: immer sichtbar -->
   <div class="flex items-start gap-4 flex-wrap">

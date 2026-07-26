@@ -155,7 +155,7 @@
   {% for item in items %}
   {% set st = inventory_status[item.id] %}
   {% set chart = inventory_chart[item.id] %}
-  <div class="inventory-card rounded-xl border border-line border-l-4 {{ border_classes(st.status) }} bg-panel p-4"
+  <div id="item-{{ item.id }}" class="inventory-card rounded-xl border border-line border-l-4 {{ border_classes(st.status) }} bg-panel p-4"
        data-status="{{ st.status }}"
        data-search="{{ (item.name ~ ' ' ~ (item.category or '') ~ ' ' ~ (item.location or '') ~ ' ' ~ (item.group.name if item.group else ''))|lower }}">
 

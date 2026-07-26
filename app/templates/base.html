@@ -265,6 +265,35 @@
   });
 })();
 
+// Ziel-Element aus Benachrichtigungen anspringen: Server hängt bei den
+// Push-Links ein "?focus=<html-id>" an (z.B. "report-12"), damit man beim
+// Antippen einer Benachrichtigung direkt beim ausgelösten Element landet,
+// statt nur auf der allgemeinen Seite.
+(function () {
+  var focusId = new URLSearchParams(window.location.search).get('focus');
+  if (!focusId) return;
+  var el = document.getElementById(focusId);
+  if (!el) return;
+  var details = el.querySelector('details.mt-3.group');
+  if (details) details.open = true;
+  // Erst nach vollständigem Laden scrollen (Bilder etc. verschieben sonst
+  // noch das Layout und der Sprung landet an der falschen Stelle) - falls
+  // "load" beim Ausführen dieses Skripts bereits durch ist, sofort scrollen
+  // statt auf ein Event zu warten, das nie mehr kommt.
+  function scrollToFocusEl() {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  if (document.readyState === 'complete') {
+    scrollToFocusEl();
+  } else {
+    window.addEventListener('load', scrollToFocusEl);
+  }
+  el.classList.add('ring-2', 'ring-go', 'ring-offset-2', 'ring-offset-ink');
+  setTimeout(function () {
+    el.classList.remove('ring-2', 'ring-go', 'ring-offset-2', 'ring-offset-ink');
+  }, 2500);
+})();
+
 // Service Worker: immer registrieren, unabhängig von Login/Push - Grundlage
 // dafür, dass der Browser die Seite überhaupt als installierbare PWA
 // erkennt (Icon auf dem Homescreen). Web-Push unten nutzt dieselbe
