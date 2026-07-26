@@ -346,6 +346,49 @@ def format_hours_de(hours: float) -> str:
 templates.env.globals["format_hours_de"] = format_hours_de
 
 
+def device_label(user_agent: str | None) -> str:
+    """Grobe, menschenlesbare Herkunft einer Push-Subscription aus dem User-Agent
+    (z.B. für "Meine Geräte" in /profile) - hilft zu erkennen, welches Gerät
+    mit welchem Account verknüpft ist, wenn man wie hier mit mehreren Geräten
+    und Accounts parallel testet. Chromium-Browser wie Vivaldi identifizieren
+    sich standardmäßig nicht eigenständig im User-Agent (erscheinen als
+    "Chrome"), daher keine exakte Browsererkennung möglich."""
+    if not user_agent:
+        return "Unbekanntes Gerät"
+    ua = user_agent
+    if "Android" in ua:
+        os_label = "Android"
+    elif "iPhone" in ua:
+        os_label = "iPhone"
+    elif "iPad" in ua:
+        os_label = "iPad"
+    elif "Windows" in ua:
+        os_label = "Windows"
+    elif "Macintosh" in ua:
+        os_label = "Mac"
+    elif "Linux" in ua:
+        os_label = "Linux"
+    else:
+        os_label = "Unbekanntes Gerät"
+
+    if "Firefox" in ua:
+        browser = "Firefox"
+    elif "Edg/" in ua:
+        browser = "Edge"
+    elif "OPR/" in ua or "Opera" in ua:
+        browser = "Opera"
+    elif "Chrome" in ua:
+        browser = "Chrome/Vivaldi"
+    elif "Safari" in ua:
+        browser = "Safari"
+    else:
+        browser = ""
+    return f"{os_label} · {browser}" if browser else os_label
+
+
+templates.env.globals["device_label"] = device_label
+
+
 def format_qty(value) -> str:
     """Zeigt Mengen (Bestand, Gebindegröße) ohne Nachkommastelle, wenn der
     Wert ganzzahlig ist (z.B. "1" statt "1.0"), sonst mit - so bleibt eine
@@ -1381,6 +1424,22 @@ def push_unsubscribe(payload: PushUnsubscribeIn, request: Request, db: Session =
     db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == payload.endpoint).delete()
     db.commit()
     return {"ok": True}
+
+
+@app.post("/push/subscriptions/{sub_id}/delete")
+def push_delete_subscription(sub_id: int, request: Request, db: Session = Depends(get_db)):
+    """Entfernt ein einzelnes Gerät aus der Liste (z.B. altes/falsches Test-
+    Gerät) - anders als /push/unsubscribe (vom Gerät selbst aufgerufen) hier
+    aus der Ferne über die "Meine Geräte"-Übersicht in /profile bzw. für
+    Admins auch für andere Nutzer in der Nutzerverwaltung."""
+    user = require_login(request, db)
+    sub = db.query(models.PushSubscription).filter(models.PushSubscription.id == sub_id).first()
+    if sub and (sub.user_id == user.id or user.is_admin):
+        next_url = "/admin/users" if sub.user_id != user.id else "/profile"
+        db.delete(sub)
+        db.commit()
+        return RedirectResponse(next_url, status_code=302)
+    return RedirectResponse("/profile", status_code=302)
 
 
 # ---------- Historie ----------

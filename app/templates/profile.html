@@ -70,6 +70,32 @@
     </p>
   </section>
 
+  <section class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Meine Geräte (Benachrichtigungen)</h2>
+    {% if user.push_subscriptions %}
+    <ul class="space-y-2">
+      {% for sub in user.push_subscriptions|sort(attribute="created_at", reverse=True) %}
+      <li class="flex items-center justify-between gap-3 rounded-lg border border-line bg-ink/40 px-3 py-2 text-sm">
+        <div class="min-w-0">
+          <div class="text-slate-200">{{ device_label(sub.user_agent) }}</div>
+          <div class="text-[11px] text-slate-500">aktiviert am {{ (sub.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr</div>
+        </div>
+        <form method="post" action="/push/subscriptions/{{ sub.id }}/delete">
+          <button class="px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-late hover:border-late/50 text-xs font-medium whitespace-nowrap">Entfernen</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-slate-500 text-sm italic">Noch kein Gerät für Benachrichtigungen aktiviert - Glocken-Icon oben antippen.</p>
+    {% endif %}
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
+      Jedes Gerät (Handy, PC, Tablet, ...) meldet sich einzeln an - du kannst auf beliebig vielen gleichzeitig
+      angemeldet sein und bekommst Benachrichtigungen dann überall. Browser wie Vivaldi geben sich technisch als
+      "Chrome" aus, daher lässt sich der genaue Browser nicht immer exakt bestimmen.
+    </p>
+  </section>
+
 </div>
 
 {% endblock %}

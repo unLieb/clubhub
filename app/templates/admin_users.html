@@ -59,6 +59,18 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </span>
         </summary>
+        {% if u.push_subscriptions %}
+        <div class="mt-2 space-y-1">
+          {% for sub in u.push_subscriptions|sort(attribute="created_at", reverse=True) %}
+          <div class="flex items-center justify-between gap-3 rounded-md border border-line bg-ink/40 px-2.5 py-1.5 text-xs">
+            <span class="text-slate-300">{{ device_label(sub.user_agent) }} <span class="text-slate-500">– seit {{ (sub.created_at|localtime).strftime("%d.%m.%Y") }}</span></span>
+            <form method="post" action="/push/subscriptions/{{ sub.id }}/delete">
+              <button class="px-2 py-0.5 rounded border border-line text-slate-500 hover:text-late hover:border-late/50 whitespace-nowrap">Entfernen</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% if u.is_admin and not user.is_admin %}
         <p class="text-slate-500 text-xs italic mt-2">Nur Admins können Admin-Konten bearbeiten.</p>
         {% else %}
