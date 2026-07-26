@@ -3,6 +3,8 @@
 Selbstgehostete App zur Verwaltung von Reinigungsplänen mit NFC-Abhaken,
 Gruppen-Benachrichtigungen (ntfy/Gotify) und Ampel-Dashboard.
 
+Änderungshistorie: siehe [CHANGELOG.md](CHANGELOG.md).
+
 ## Konzept
 
 - **Gruppen** (z.B. Hausmeister, Küche, Gastronomie) – Nutzer und Bereiche gehören
