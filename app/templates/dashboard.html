@@ -79,9 +79,19 @@
 </div>
 
 {% if not user %}
-<div class="rounded-lg border border-line bg-panel p-4 text-sm text-slate-300 flex items-center justify-between flex-wrap gap-3">
-  <span>Für Bereiche, Inventar, Meldungen und mehr bitte anmelden.</span>
-  <a href="/login?next=/" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium whitespace-nowrap">Anmelden</a>
+<div class="rounded-xl border border-line bg-panel p-4 mb-6">
+  <div class="text-sm text-slate-300 mb-3">Für Bereiche, Inventar, Meldungen und mehr bitte anmelden.</div>
+  {% if login_error %}
+  <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">Benutzername/Personalnummer oder Passwort ist falsch.</div>
+  {% endif %}
+  <form method="post" action="/login" class="flex flex-col sm:flex-row gap-2">
+    <input type="hidden" name="next" value="/">
+    <input type="text" name="identifier" placeholder="Benutzername oder Personalnummer" required autocomplete="username"
+           class="flex-1 rounded-md bg-ink border border-line px-3 py-2 text-slate-100 text-sm">
+    <input type="password" name="password" placeholder="Passwort" required autocomplete="current-password"
+           class="flex-1 rounded-md bg-ink border border-line px-3 py-2 text-slate-100 text-sm">
+    <button type="submit" class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap">Anmelden</button>
+  </form>
 </div>
 {% endif %}
 

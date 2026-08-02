@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.34.1] - 2026-08-02
+- Login-Formular direkt ins Dashboard eingebettet (kein Umweg mehr über die separate Anmelden-Seite)
+
 ## [0.34.0] - 2026-07-26
 - Login: PIN+Dropdown durch Benutzername/Personalnummer+Passwort ersetzt
 

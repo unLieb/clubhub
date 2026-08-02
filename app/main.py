@@ -588,6 +588,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "timeclock_user_mode": get_app_settings(db).timeclock_user_mode,
         "timeclock_open_entry": timeclock_open_entry,
         "currently_clocked_in": currently_clocked_in,
+        "login_error": bool(request.query_params.get("login_error")),
     })
 
 
@@ -1587,6 +1588,11 @@ def login_submit(
 ):
     user = find_user_by_identifier(db, identifier)
     if not user or not verify_password(password, user.password_hash):
+        if next in ("", "/"):
+            # Login-Formular ist direkt ins Dashboard eingebettet (kein
+            # Umweg über die eigenständige /login-Seite) - Fehler dorthin
+            # zurückspiegeln statt auf die separate Seite umzuleiten.
+            return RedirectResponse("/?login_error=1", status_code=302)
         return templates.TemplateResponse("login.html", {
             "request": request, "user": None, "next": next,
             "error": "Benutzername/Personalnummer oder Passwort ist falsch.",
