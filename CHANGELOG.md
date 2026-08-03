@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.36.0] - 2026-08-03
+- Changelog in der App sichtbar unter /changelog, Versionsnummer in der Sidebar verlinkt dorthin
+
 ## [0.35.0] - 2026-08-03
 - Neue Aufgaben: Turnus kann rückdatiert werden ("Zuletzt erledigt am"), falls schon vor dem Anlegen geputzt wurde
 

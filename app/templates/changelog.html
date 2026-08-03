@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Changelog – ClubHUB{% endblock %}
+{% block content %}
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-1">Changelog</h1>
+<p class="text-slate-400 text-sm mb-6">Alle Änderungen an ClubHUB, neueste zuerst.</p>
+
+{% if entries %}
+<div class="space-y-3 max-w-2xl">
+  {% for e in entries %}
+  <div class="rounded-xl border border-line bg-panel p-4">
+    <div class="flex items-baseline justify-between gap-3 mb-2">
+      <span class="font-display font-medium {% if loop.first %}text-go{% endif %}">v{{ e.version }}</span>
+      <span class="text-xs text-slate-500">{{ e.date }}</span>
+    </div>
+    <ul class="text-sm text-slate-300 space-y-1 list-disc list-inside">
+      {% for item in e.changes %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-slate-500 text-sm italic">Kein Changelog verfügbar.</p>
+{% endif %}
+
+{% endblock %}

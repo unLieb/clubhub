@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY VERSION ./VERSION
+COPY CHANGELOG.md ./CHANGELOG.md
 COPY --from=gitinfo /build_hash.txt ./BUILD_HASH
 
 # CSS aus app/static/input.css bauen, Templates werden automatisch gescannt

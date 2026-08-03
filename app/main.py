@@ -86,6 +86,15 @@ def healthz(db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
+@app.get("/changelog")
+def changelog_page(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse("changelog.html", {
+        "request": request,
+        "user": get_current_user(request, db),
+        "entries": version.CHANGELOG,
+    })
+
+
 @app.get("/sw.js")
 def service_worker():
     # Bewusst unter der Root-URL statt /static/sw.js ausgeliefert: der
