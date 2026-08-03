@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.34.2] - 2026-08-03
+- Sidebar im Desktop-Modus jetzt sticky, scrollt nicht mehr mit dem Seiteninhalt
+
 ## [0.34.1] - 2026-08-02
 - Login-Formular direkt ins Dashboard eingebettet (kein Umweg mehr über die separate Anmelden-Seite)
 
