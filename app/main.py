@@ -2288,10 +2288,17 @@ def admin_add_task(
     name: str = Form(...),
     interval_hours: float = Form(...),
     warn_hours: float = Form(5.0),
+    last_completed: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
-    db.add(models.Task(room_id=room_id, name=name, interval_hours=interval_hours, warn_hours=warn_hours))
+    actor = require_admin_or_shift_lead(request, db)
+    task = models.Task(room_id=room_id, name=name, interval_hours=interval_hours, warn_hours=warn_hours)
+    # Optional rückdatierbar: ohne Angabe würde der Turnus sonst erst ab dem
+    # Anlegezeitpunkt zählen, auch wenn schon vorher geputzt wurde.
+    completed_at = _parse_local_dt(last_completed)
+    if completed_at:
+        task.completions.append(models.Completion(user_id=actor.id, timestamp=completed_at))
+    db.add(task)
     db.commit()
     return RedirectResponse("/admin/tasks", status_code=302)
 

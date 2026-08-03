@@ -44,6 +44,14 @@
         automatisch ein Richtwert vorgeschlagen (<b>Täglich</b> 5h, <b>Wöchentlich</b> 24h/1 Tag,
         <b>Monatlich</b> 72h/3 Tage, <b>Quartalsweise</b> 216h/9 Tage) – lässt sich danach frei anpassen.
       </p>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Zuletzt erledigt am (optional)</label>
+        <input name="last_completed" type="datetime-local" class="w-full sm:w-64 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <p class="text-[11px] text-slate-500 mt-1">
+          Falls schon vor dem Anlegen geputzt wurde - sonst startet der Turnus erst ab jetzt, auch wenn
+          tatsächlich schon früher erledigt wurde. Leer lassen, wenn die Aufgabe noch nie erledigt wurde.
+        </p>
+      </div>
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Aufgabe anlegen</button>
     </form>
   </div>
