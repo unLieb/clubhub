@@ -333,3 +333,25 @@ class PushSubscription(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="push_subscriptions")
+
+
+class Appointment(Base):
+    """Einmaliger oder wiederkehrender Termin (z.B. Mülltonnen-Abholung) -
+    bewusst als einfache, sortierte Liste statt Kalender-Ansicht, da nur
+    wenige, meist wiederkehrende Termine erwartet werden. 'date' ist der
+    nächste anstehende Termin; bei recurrence_days springt er nach Ablauf
+    automatisch auf den nächsten Termin in der Zukunft weiter (siehe
+    scheduler.py), sonst bleibt er als vergangener Termin stehen."""
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    date = Column(DateTime(timezone=True), nullable=False)
+    recurrence_days = Column(Integer, nullable=True)   # None = einmalig
+    notify_days_before = Column(Float, default=1.0)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    notified = Column(Boolean, default=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    group = relationship("Group")
+    user = relationship("User")

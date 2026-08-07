@@ -564,6 +564,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         db.query(models.Completion).order_by(models.Completion.timestamp.desc()).limit(8).all()
     )
 
+    now_local_date = now.astimezone(APP_TIMEZONE).date()
+    upcoming_appointments = [
+        a for a in db.query(models.Appointment).order_by(models.Appointment.date.asc()).all()
+        if _aware(a.date).astimezone(APP_TIMEZONE).date() >= now_local_date
+    ][:5]
+
     all_reports = db.query(models.Report).all()
     open_reports = _sort_reports([r for r in all_reports if r.status != "done"])
     open_count = sum(1 for r in all_reports if r.status == "open")
@@ -589,6 +595,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "needs_attention": open_count + in_progress_count,
         },
         "recent_reports": open_reports[:5],
+        "upcoming_appointments": upcoming_appointments,
         "greeting": greeting_for_now(now),
         "pending_tasks_count": due_soon_count + overdue_count,
         "now": now,
@@ -1491,6 +1498,113 @@ async def reports_add_photos(
     return RedirectResponse("/reports", status_code=302)
 
 
+# ---------- Termine ----------
+
+APPOINTMENT_RECURRENCE_LABELS = {7: "Wöchentlich", 14: "Alle 2 Wochen", 30: "Monatlich"}
+
+
+@app.get("/appointments")
+def appointments_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
+    today = now_local.date()
+    groups = db.query(models.Group).order_by(models.Group.name).all()
+
+    entries = []
+    for a in db.query(models.Appointment).order_by(models.Appointment.date.asc()).all():
+        date_local = _aware(a.date).astimezone(APP_TIMEZONE).date()
+        days_until = (date_local - today).days
+        if days_until == 0:
+            when = "Heute"
+        elif days_until == 1:
+            when = "Morgen"
+        elif days_until > 1:
+            when = f"in {days_until} Tagen"
+        elif days_until == -1:
+            when = "Gestern"
+        else:
+            when = f"vor {-days_until} Tagen"
+        entries.append({
+            "obj": a,
+            "date_local": date_local,
+            "when": when,
+            "past": days_until < 0,
+            "recurrence_label": APPOINTMENT_RECURRENCE_LABELS.get(
+                a.recurrence_days, f"Alle {a.recurrence_days} Tage" if a.recurrence_days else None
+            ),
+        })
+
+    return templates.TemplateResponse("appointments.html", {
+        "request": request,
+        "user": user,
+        "entries": entries,
+        "groups": groups,
+    })
+
+
+@app.post("/appointments")
+def appointments_create(
+    request: Request,
+    name: str = Form(...),
+    date: str = Form(...),
+    recurrence_days: str = Form(""),
+    notify_days_before: float = Form(1.0),
+    group_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    parsed_date = _parse_local_date(date)
+    if parsed_date:
+        db.add(models.Appointment(
+            name=name,
+            date=parsed_date,
+            recurrence_days=int(recurrence_days) if recurrence_days else None,
+            notify_days_before=notify_days_before,
+            group_id=int(group_id) if group_id else None,
+            user_id=user.id,
+        ))
+        db.commit()
+    return RedirectResponse("/appointments", status_code=302)
+
+
+@app.post("/appointments/{appointment_id}/edit")
+def appointments_edit(
+    appointment_id: int,
+    request: Request,
+    name: str = Form(...),
+    date: str = Form(...),
+    recurrence_days: str = Form(""),
+    notify_days_before: float = Form(1.0),
+    group_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    appt = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
+    if appt and (appt.user_id == user.id or user.is_admin or user.is_shift_lead):
+        parsed_date = _parse_local_date(date)
+        if parsed_date:
+            appt.date = parsed_date
+        appt.name = name
+        appt.recurrence_days = int(recurrence_days) if recurrence_days else None
+        appt.notify_days_before = notify_days_before
+        appt.group_id = int(group_id) if group_id else None
+        # Nach jeder Änderung neu erinnern lassen, statt evtl. für immer still
+        # zu bleiben, weil der alte Termin schon als benachrichtigt galt.
+        appt.notified = False
+        db.commit()
+    return RedirectResponse("/appointments", status_code=302)
+
+
+@app.post("/appointments/{appointment_id}/delete")
+def appointments_delete(appointment_id: int, request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    appt = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
+    if appt and (appt.user_id == user.id or user.is_admin or user.is_shift_lead):
+        db.delete(appt)
+        db.commit()
+    return RedirectResponse("/appointments", status_code=302)
+
+
 # ---------- Push (Web Push) ----------
 
 class PushSubscribeIn(BaseModel):
@@ -1791,6 +1905,15 @@ def _parse_local_dt(value: str):
     if not value:
         return None
     naive = datetime.strptime(value, "%Y-%m-%dT%H:%M")
+    return naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+
+
+def _parse_local_date(value: str):
+    """Wie _parse_local_dt, nur für <input type=date> (ohne Uhrzeit) - der
+    Termin wird als lokale Mitternacht (APP_TIMEZONE) interpretiert."""
+    if not value:
+        return None
+    naive = datetime.strptime(value, "%Y-%m-%d")
     return naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
 
 

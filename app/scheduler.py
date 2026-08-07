@@ -1,14 +1,15 @@
 import os
 import logging
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
-from .models import Task, TaskGroupNotice, InventoryItem
+from .models import Task, TaskGroupNotice, InventoryItem, Appointment
 from .status import task_status, compute_inventory_status
-from .notifications import notify_group
+from .notifications import notify_group, notify_user
 from . import ntptime
 from . import backup
 
@@ -23,6 +24,14 @@ BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "3"))
 
 # Statuswechsel, bei denen wir aktiv informieren (green -> gelb/rot ist neu, rot bleibt still nach erster Meldung)
 NOTIFY_ON = {"yellow", "red"}
+
+
+def _aware(ts):
+    """SQLite gibt Zeitstempel manchmal ohne tzinfo zurück, obwohl sie in UTC
+    gespeichert wurden - hier konsistent nachrüsten, bevor mit ihnen gerechnet wird."""
+    if ts is not None and ts.tzinfo is None:
+        return ts.replace(tzinfo=timezone.utc)
+    return ts
 
 
 def _within_working_hours(group, now_local) -> bool:
@@ -114,6 +123,60 @@ def check_inventory_job():
         db.close()
 
 
+def check_appointments_job():
+    """Erinnert vorab an anstehende Termine (z.B. Mülltonnen-Abholung) und
+    lässt wiederkehrende Termine nach Ablauf automatisch auf den nächsten
+    zukünftigen Termin weiterspringen (kein Kalender, nur eine einfache,
+    sich selbst fortschreibende Liste)."""
+    db = SessionLocal()
+    try:
+        now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
+        today = now_local.date()
+        for appt in db.query(Appointment).all():
+            date_local = _aware(appt.date).astimezone(APP_TIMEZONE).date()
+            days_until = (date_local - today).days
+
+            if days_until < 0:
+                # Termin liegt in der Vergangenheit - bei Wiederholung auf den
+                # nächsten zukünftigen Termin weiterspringen, sonst unangetastet
+                # als vergangener Termin stehen lassen.
+                if appt.recurrence_days:
+                    next_date = date_local
+                    while (next_date - today).days < 0:
+                        next_date += timedelta(days=appt.recurrence_days)
+                    appt.date = datetime(
+                        next_date.year, next_date.month, next_date.day, tzinfo=APP_TIMEZONE
+                    ).astimezone(timezone.utc)
+                    appt.notified = False
+                continue
+
+            if appt.notified or days_until > (appt.notify_days_before or 0):
+                continue
+            if appt.group and not _within_working_hours(appt.group, now_local):
+                continue  # wird beim nächsten Tick nachgeholt, sobald Arbeitszeit beginnt
+
+            if days_until == 0:
+                when = "heute"
+            elif days_until == 1:
+                when = "morgen"
+            else:
+                when = f"in {days_until} Tagen"
+            title = f"Termin: {appt.name}"
+            msg = f"{when} ({date_local.strftime('%d.%m.%Y')})"
+            if appt.group:
+                notify_group(appt.group, title, msg, url="/appointments")
+            else:
+                notify_user(appt.user, title, msg, url="/appointments")
+            appt.notified = True
+
+        db.commit()
+    except Exception:
+        logger.exception("Fehler beim Prüfen der Termine")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def scheduled_backup_job():
     try:
         backup.create_scheduled_backup(BACKUP_RETENTION_DAYS)
@@ -126,6 +189,7 @@ def start_scheduler():
     # alle 15 Minuten prüfen; ausreichend granular für Intervalle ab 1h aufwärts
     scheduler.add_job(check_tasks_job, "interval", minutes=15, id="check_tasks")
     scheduler.add_job(check_inventory_job, "interval", minutes=15, id="check_inventory")
+    scheduler.add_job(check_appointments_job, "interval", minutes=15, id="check_appointments")
     # NTP-Offset regelmäßig auffrischen (Erstsync passiert synchron beim App-Start)
     scheduler.add_job(ntptime.sync, "interval", minutes=30, id="ntp_sync")
     # Automatische Sicherungen zu festen lokalen Uhrzeiten, mit Rotation
