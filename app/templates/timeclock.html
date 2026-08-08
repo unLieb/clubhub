@@ -60,7 +60,13 @@
 
 <!-- Verlauf -->
 <div class="rounded-xl border border-line bg-panel p-4">
-  <h2 class="font-display font-medium mb-3">Verlauf</h2>
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="font-display font-medium">Verlauf</h2>
+    <a href="/timeclock/export.pdf" class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-100">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      Als PDF exportieren
+    </a>
+  </div>
   {% if stats.history %}
   <ul class="space-y-1 text-sm">
     {% for e in stats.history %}

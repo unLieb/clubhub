@@ -126,6 +126,67 @@
       </p>
     </div>
   </section>
+
+  <section class="rounded-xl border border-line bg-panel p-4 mt-4">
+    <h2 class="font-display font-medium mb-3">Struktur-Export &amp; -Import</h2>
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
+      Anders als die Sicherung oben: exportiert Gruppen, Bereiche, Aufgaben, Inventar usw. als lesbare JSON-Datei
+      und lässt beim Import auswählen, welche Kategorien übernommen werden sollen. Gedacht für den Umzug auf einen
+      neuen (weitgehend leeren) Server – z.B. um Bereiche/Aufgaben/Inventar zu übernehmen, aber neue, echte Nutzer
+      statt der bisherigen Test-Accounts anzulegen. Enthält bewusst keine Zeiterfassung, Urlaub, Meldungen oder
+      Push-Anmeldungen – das ist instanzgebundene Betriebsdaten, kein zu übernehmender Grundaufbau.
+    </p>
+    <a href="/admin/system/export-data" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Struktur exportieren (JSON)
+    </a>
+
+    <div class="mt-5 pt-4 border-t border-line">
+      <h3 class="text-sm font-medium mb-2">Struktur importieren</h3>
+      {% if import_error %}
+      <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">{{ import_error }}</div>
+      {% endif %}
+      {% if import_summary %}
+      <div class="rounded-md border border-go/40 bg-go/10 text-sm px-3 py-2 mb-3">
+        <div class="text-go font-medium mb-1">Import abgeschlossen</div>
+        <ul class="space-y-0.5">
+          {% for cat in import_categories %}
+          {% set s = import_summary[cat] %}
+          {% if s.created or s.matched or s.skipped %}
+          <li class="text-slate-300">
+            {{ import_category_labels[cat] }}: {{ s.created }} angelegt, {{ s.matched }} schon vorhanden{% if s.skipped %}, {{ s.skipped }} übersprungen{% endif %}
+            {% if s.skip_reasons %}
+            <ul class="ml-4 list-disc text-[11px] text-slate-500">
+              {% for reason in s.skip_reasons %}<li>{{ reason }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+          </li>
+          {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      <form method="post" action="/admin/system/import-data" enctype="multipart/form-data" class="max-w-2xl">
+        <input type="file" name="file" accept=".json,application/json" required
+               class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300 mb-3">
+        <div class="flex flex-wrap gap-2 mb-3">
+          {% for cat in import_categories %}
+          <label class="cursor-pointer text-xs px-2.5 py-1.5 rounded-full border border-line has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+            <input type="checkbox" name="categories" value="{{ cat }}" class="sr-only" {% if cat != "users" %}checked{% endif %}>
+            {{ import_category_labels[cat] }}
+          </label>
+          {% endfor %}
+        </div>
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Importieren</button>
+      </form>
+      <p class="text-[11px] text-slate-500 leading-relaxed mt-2 max-w-2xl">
+        Bereits vorhandene Namen (Gruppe/Bereich/Kanal/Artikel) werden wiederverwendet statt dupliziert; bereits
+        vorhandene Nutzernamen werden übersprungen. Gefahrlos mehrfach ausführbar. "Nutzer" ist standardmäßig
+        abgewählt, da beim Umzug auf einen neuen Server meist neue, echte Accounts statt der bisherigen
+        Test-Nutzer angelegt werden sollen – bei Bedarf einfach mit anhaken.
+      </p>
+    </div>
+  </section>
   {% else %}
   <p class="text-[11px] text-slate-500 mt-4">Backup &amp; Wiederherstellung sind nur für Admins sichtbar.</p>
   {% endif %}

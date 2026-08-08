@@ -74,6 +74,10 @@
           {% endif %}
         </span>
         <span class="flex items-center gap-2 shrink-0">
+          <a href="/admin/timeclock/{{ u.id }}/export.pdf" title="Als PDF exportieren"
+             class="text-slate-500 hover:text-slate-100">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          </a>
           <span class="text-slate-500 text-xs">{{ entries|length }} Buchung{{ "en" if entries|length != 1 else "" }}</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </span>
@@ -122,6 +126,21 @@
       Selbstbearbeitung im Nutzer-Modus) – normale Ein-/Ausstempelungen selbst werden hier nicht aufgeführt,
       nur nachträgliche Eingriffe. Letzte 50 Einträge.
     </p>
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
+      Jeder Eintrag ist per Hash mit dem vorherigen verkettet – eine nachträgliche Änderung direkt an der
+      Datenbank (am Programm vorbei) würde die Kette erkennbar brechen. Das schützt nicht vor jemandem mit
+      vollem Server-Zugriff, macht eine unbemerkte Manipulation der Historie aber deutlich schwerer.
+    </p>
+    <form method="post" action="/admin/timeclock/verify-chain" class="mb-3">
+      <button class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Kette prüfen</button>
+    </form>
+    {% if chain_result %}
+    {% if chain_result.ok %}
+    <div class="rounded-md border border-go/40 bg-go/10 text-go text-sm px-3 py-2 mb-3">Kette intakt – keine Manipulation erkennbar.</div>
+    {% else %}
+    <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">Kette gebrochen bei Eintrag #{{ chain_result.broken_at_id }} – dieser oder ein früherer Eintrag wurde nachträglich verändert.</div>
+    {% endif %}
+    {% endif %}
     {% if audit_entries %}
     <ul class="space-y-1.5 text-sm">
       {% for a in audit_entries %}

@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.40.0] - 2026-08-08
+- Zeiterfassung: Änderungsprotokoll per Hash-Kette verkettet (erkennt nachträgliche Manipulation direkt an der Datenbank) + PDF-Export je Nutzer
+- Neuer selektiver Struktur-Export/-Import (JSON): Gruppen/Bereiche/Aufgaben/Inventar/Termine gezielt auf eine neue Instanz übernehmen, ohne Test-Nutzer mitzuschleppen
+
 ## [0.39.0] - 2026-08-08
 - Zeiterfassung: Änderungsprotokoll für nachträgliche Korrekturen (wer hat wann welche Buchung hinzugefügt, geändert oder gelöscht)
 

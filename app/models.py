@@ -307,6 +307,12 @@ class TimeEntryAudit(Base):
     old_clock_out = Column(DateTime(timezone=True), nullable=True)
     new_clock_in = Column(DateTime(timezone=True), nullable=True)
     new_clock_out = Column(DateTime(timezone=True), nullable=True)
+    # Hash-Kette: sha256 aus den eigenen Feldern + dem Hash des vorherigen
+    # Eintrags (siehe _log_timeclock_change/verify_audit_chain in main.py).
+    # Macht eine nachträgliche Änderung/Löschung eines Log-Eintrags direkt an
+    # der Datenbank (am App-Layer vorbei) erkennbar, da dann die Kette ab
+    # dieser Stelle nicht mehr zum gespeicherten Hash passt.
+    hash = Column(String, nullable=True)
 
     entry_user = relationship("User", foreign_keys=[entry_user_id])
     changed_by = relationship("User", foreign_keys=[changed_by_id])

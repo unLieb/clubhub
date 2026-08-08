@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -23,8 +24,10 @@ from .database import Base, engine, get_db, DB_PATH, SessionLocal
 from . import models
 from . import ntptime
 from . import backup
+from . import data_export
 from . import version
 from . import push
+from . import pdf_export
 from .auth import hash_password, verify_password, find_user_by_identifier, get_current_user, require_login, require_admin, require_admin_or_shift_lead
 from .status import task_status, compute_inventory_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
@@ -211,6 +214,13 @@ def _migrate_user_password_rename(db: Session):
         db.commit()
 
 
+def _migrate_time_entry_audit_hash(db: Session):
+    """Neue Hash-Kette-Spalte auf dem Änderungsprotokoll (kein Altdaten-Bezug,
+    bestehende Einträge ohne Hash werden von verify_audit_chain() einfach als
+    Kette ab dort neu gestartet behandelt, siehe dort)."""
+    _ensure_column(db, "time_entry_audits", "hash", "TEXT")
+
+
 def _migrate_user_personnel_number(db: Session):
     """Optionale Personalnummer je Nutzer, zusätzlich zum Namen als Login-
     Kennung nutzbar. Eindeutigkeit über einen separaten Unique-Index statt
@@ -298,6 +308,7 @@ def _startup():
         _migrate_user_avatar(db)
         _migrate_user_password_rename(db)
         _migrate_user_personnel_number(db)
+        _migrate_time_entry_audit_hash(db)
     finally:
         db.close()
 
@@ -772,6 +783,40 @@ def timeclock_view(request: Request, db: Session = Depends(get_db)):
         "stats": stats,
         "timeclock_user_mode": settings.timeclock_user_mode,
     })
+
+
+def _timeentry_pdf_rows(db: Session, user_id: int) -> list:
+    entries = (
+        db.query(models.TimeEntry)
+        .filter(models.TimeEntry.user_id == user_id)
+        .order_by(models.TimeEntry.clock_in.asc())
+        .all()
+    )
+    return [
+        {
+            "clock_in_local": _aware(e.clock_in).astimezone(APP_TIMEZONE),
+            "clock_out_local": _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None,
+        }
+        for e in entries
+    ]
+
+
+def _timeentry_pdf_response(target_user, entries_local: list) -> Response:
+    generated_at_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
+    pdf_bytes = pdf_export.generate_timeclock_pdf(
+        target_user.name, target_user.personnel_number, entries_local, generated_at_local,
+    )
+    filename = f"zeiterfassung-{target_user.name}-{generated_at_local.strftime('%Y%m%d')}.pdf"
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/timeclock/export.pdf")
+def timeclock_export_pdf(request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    return _timeentry_pdf_response(user, _timeentry_pdf_rows(db, user.id))
 
 
 @app.post("/timeclock/self/{entry_id}/edit")
@@ -2023,14 +2068,44 @@ def _parse_local_date(value: str):
     return naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
 
 
+AUDIT_CHAIN_GENESIS = "genesis"
+
+
+def _audit_chain_string(audit, prev_hash: str) -> str:
+    """Kanonische, eindeutige Darstellung eines Änderungsprotokoll-Eintrags
+    für die Hash-Kette - jedes Feld inkl. Hash des Vorgängers, damit eine
+    nachträgliche Änderung/Löschung/Einfügung an beliebiger Stelle die Kette
+    ab dort erkennbar bricht. Alle Zeitstempel über _aware() normalisiert,
+    da SQLite die tzinfo beim Rückschreiben verliert (siehe _aware) - ohne
+    das würde derselbe Eintrag vor und nach einem Commit/Reload unterschiedliche
+    Hashes ergeben, weil .isoformat() dann mit/ohne UTC-Offset-Suffix formatiert."""
+    parts = [
+        str(audit.id),
+        str(audit.time_entry_id),
+        str(audit.entry_user_id),
+        audit.action,
+        str(audit.changed_by_id),
+        _aware(audit.changed_at).isoformat() if audit.changed_at else "",
+        _aware(audit.old_clock_in).isoformat() if audit.old_clock_in else "",
+        _aware(audit.old_clock_out).isoformat() if audit.old_clock_out else "",
+        _aware(audit.new_clock_in).isoformat() if audit.new_clock_in else "",
+        _aware(audit.new_clock_out).isoformat() if audit.new_clock_out else "",
+        prev_hash,
+    ]
+    return "|".join(parts)
+
+
 def _log_timeclock_change(
     db: Session, entry, action: str, changed_by_id: int,
     old_clock_in=None, old_clock_out=None,
 ):
     """Protokolliert eine Zeiterfassungs-Korrektur (Admin oder Selbstbe-
     arbeitung im Nutzer-Modus) - siehe TimeEntryAudit. Nicht für normale
-    Kiosk-/Dashboard-Stempelungen gedacht, die gelten als Originalquelle."""
-    db.add(models.TimeEntryAudit(
+    Kiosk-/Dashboard-Stempelungen gedacht, die gelten als Originalquelle.
+    Verkettet den neuen Eintrag per Hash mit dem vorherigen (siehe
+    verify_audit_chain) - dafür muss der Eintrag erst geflusht werden, um
+    seine id/changed_at zu kennen, bevor der Hash berechnet werden kann."""
+    audit = models.TimeEntryAudit(
         time_entry_id=entry.id,
         entry_user_id=entry.user_id,
         action=action,
@@ -2039,7 +2114,36 @@ def _log_timeclock_change(
         old_clock_out=old_clock_out,
         new_clock_in=entry.clock_in if action != "deleted" else None,
         new_clock_out=entry.clock_out if action != "deleted" else None,
-    ))
+    )
+    db.add(audit)
+    db.flush()
+    prev = (
+        db.query(models.TimeEntryAudit)
+        .filter(models.TimeEntryAudit.id < audit.id)
+        .order_by(models.TimeEntryAudit.id.desc())
+        .first()
+    )
+    prev_hash = prev.hash if prev and prev.hash else AUDIT_CHAIN_GENESIS
+    audit.hash = hashlib.sha256(_audit_chain_string(audit, prev_hash).encode()).hexdigest()
+
+
+def verify_audit_chain(db: Session) -> dict:
+    """Läuft die Hash-Kette des Änderungsprotokolls komplett durch und meldet
+    die Stelle des ersten Bruchs, falls vorhanden - erkennt jede nachträgliche
+    Änderung/Löschung/Einfügung eines Eintrags direkt an der Datenbank (am
+    App-Layer vorbei). Einträge von vor Einführung der Kette (hash=None)
+    werden als neuer Kettenanfang behandelt, nicht als Bruch."""
+    rows = db.query(models.TimeEntryAudit).order_by(models.TimeEntryAudit.id.asc()).all()
+    prev_hash = AUDIT_CHAIN_GENESIS
+    for row in rows:
+        if row.hash is None:
+            prev_hash = AUDIT_CHAIN_GENESIS
+            continue
+        expected = hashlib.sha256(_audit_chain_string(row, prev_hash).encode()).hexdigest()
+        if row.hash != expected:
+            return {"ok": False, "broken_at_id": row.id, "checked": len(rows)}
+        prev_hash = row.hash
+    return {"ok": True, "checked": len(rows)}
 
 
 @app.get("/admin/timeclock")
@@ -2087,6 +2191,12 @@ def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
             "new_clock_out_local": _aware(a.new_clock_out).astimezone(APP_TIMEZONE) if a.new_clock_out else None,
         })
 
+    chain_result = None
+    if "chain_ok" in request.query_params:
+        chain_result = {"ok": True}
+    elif "chain_broken_at" in request.query_params:
+        chain_result = {"ok": False, "broken_at_id": request.query_params["chain_broken_at"]}
+
     return templates.TemplateResponse("admin_timeclock.html", {
         "request": request,
         "user": admin,
@@ -2097,7 +2207,26 @@ def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
         "kiosk_url": f"{str(request.base_url).rstrip('/')}/timeclock/kiosk",
         "timeclock_user_mode": get_app_settings(db).timeclock_user_mode,
         "audit_entries": audit_entries,
+        "chain_result": chain_result,
     })
+
+
+@app.get("/admin/timeclock/{user_id}/export.pdf")
+def admin_timeclock_export_pdf(user_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404)
+    return _timeentry_pdf_response(target, _timeentry_pdf_rows(db, target.id))
+
+
+@app.post("/admin/timeclock/verify-chain")
+def admin_timeclock_verify_chain(request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    result = verify_audit_chain(db)
+    if result["ok"]:
+        return RedirectResponse("/admin/timeclock?chain_ok=1", status_code=302)
+    return RedirectResponse(f"/admin/timeclock?chain_broken_at={result['broken_at_id']}", status_code=302)
 
 
 @app.post("/admin/timeclock/mode")
@@ -2225,7 +2354,10 @@ def _backup_health(scheduled_backups: list[dict]) -> bool:
     return (ntptime.now_utc() - scheduled_backups[0]["timestamp"]) > threshold
 
 
-def _admin_system_context(request: Request, admin, restore_error: str | None = None) -> dict:
+def _admin_system_context(
+    request: Request, admin, restore_error: str | None = None,
+    import_error: str | None = None, import_summary: dict | None = None,
+) -> dict:
     scheduled_backups = [
         {**b, "timestamp_local": b["timestamp"].astimezone(APP_TIMEZONE)}
         for b in backup.list_scheduled_backups()
@@ -2240,6 +2372,10 @@ def _admin_system_context(request: Request, admin, restore_error: str | None = N
         "backup_retention_days": BACKUP_RETENTION_DAYS,
         "backup_stale": _backup_health(scheduled_backups),
         "restore_error": restore_error,
+        "import_categories": data_export.CATEGORIES,
+        "import_category_labels": data_export.CATEGORY_LABELS,
+        "import_error": import_error,
+        "import_summary": import_summary,
     }
 
 
@@ -2280,6 +2416,39 @@ def admin_download_scheduled_backup(filename: str, request: Request, db: Session
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.get("/admin/system/export-data")
+def admin_export_data(request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    data = data_export.export_data_json(db)
+    filename = f"clubhub-daten-{ntptime.now_utc().strftime('%Y%m%d-%H%M%S')}.json"
+    return Response(
+        content=json.dumps(data, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/admin/system/import-data")
+async def admin_import_data(
+    request: Request,
+    file: UploadFile = File(...),
+    categories: list[str] = Form([]),
+    db: Session = Depends(get_db),
+):
+    admin = require_admin(request, db)
+    raw = await file.read()
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return templates.TemplateResponse(
+            "admin_system.html",
+            _admin_system_context(request, admin, import_error="Keine gültige JSON-Datei (Struktur-Export erwartet, kein .db-Backup)."),
+        )
+    selected = {c for c in categories if c in data_export.CATEGORIES}
+    summary = data_export.import_data_json(db, data, selected, admin)
+    return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, import_summary=summary))
 
 
 def _trigger_restart():
