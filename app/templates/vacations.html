@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Urlaub – ClubHUB{% endblock %}
+{% block content %}
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
+<div class="mb-6 mt-2">
+  <h1 class="font-display text-2xl font-semibold">Urlaub</h1>
+  <p class="text-slate-400 text-sm mt-1">Wer ist wann im Urlaub.</p>
+</div>
+
+{% if user %}
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Neuer Urlaub
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form method="post" action="/vacations" class="space-y-2 mt-3 max-w-2xl">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Von</label>
+          <input name="start_date" type="date" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Bis</label>
+          <input name="end_date" type="date" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        {% if user.is_admin or user.is_shift_lead %}
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Für wen</label>
+          <select name="user_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            {% for u in users %}<option value="{{ u.id }}" {% if u.id == user.id %}selected{% endif %}>{{ u.name }}</option>{% endfor %}
+          </select>
+        </div>
+        {% endif %}
+      </div>
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Eintragen</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
+<div class="space-y-3">
+  {% for e in entries %}
+  {% set v = e.obj %}
+  <div class="rounded-xl border border-line border-l-4 {% if e.state == 'past' %}border-l-line opacity-60{% elif e.state == 'current' %}border-l-go{% else %}border-l-accent{% endif %} bg-panel p-4">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="min-w-0 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-sm shrink-0">
+          {% if v.user.avatar_url %}<img src="{{ v.user.avatar_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ v.user.name[0]|upper }}{% endif %}
+        </div>
+        <div class="min-w-0">
+          <div class="font-medium">{{ v.user.name }}</div>
+          <div class="flex items-center gap-1.5 flex-wrap mt-1 text-xs">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
+              {{ e.start_local.strftime("%d.%m.%Y") }} &ndash; {{ e.end_local.strftime("%d.%m.%Y") }}
+            </span>
+            {% if e.state == 'current' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-go/15 text-go">Aktuell im Urlaub</span>
+            {% elif e.state == 'upcoming' %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-accent/15 text-accent">Bevorstehend</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% if user and (user.id == v.user_id or user.is_admin or user.is_shift_lead) %}
+      <details class="shrink-0">
+        <summary class="cursor-pointer list-none w-7 h-7 rounded-md border border-line flex items-center justify-center text-slate-500 hover:text-slate-100">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </summary>
+        <form method="post" action="/vacations/{{ v.id }}/edit" class="mt-3 space-y-2 w-full sm:w-auto">
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input name="start_date" type="date" value="{{ e.start_local.strftime('%Y-%m-%d') }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <input name="end_date" type="date" value="{{ e.end_local.strftime('%Y-%m-%d') }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            {% if user.is_admin or user.is_shift_lead %}
+            <select name="user_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              {% for u in users %}<option value="{{ u.id }}" {% if u.id == v.user_id %}selected{% endif %}>{{ u.name }}</option>{% endfor %}
+            </select>
+            {% endif %}
+          </div>
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium">Speichern</button>
+            <button type="submit" formaction="/vacations/{{ v.id }}/delete" formnovalidate onclick="return confirm('Urlaubseintrag wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-xs font-medium">Löschen</button>
+          </div>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p class="text-slate-500 text-sm italic">Noch kein Urlaub eingetragen.</p>
+  {% endfor %}
+</div>
+
+{% endblock %}

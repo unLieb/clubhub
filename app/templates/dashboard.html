@@ -115,6 +115,26 @@
 </div>
 {% endif %}
 
+{% if on_vacation_now %}
+<!-- Wer hat gerade Urlaub: für alle eingeloggten Nutzer sichtbar, anders als
+     "Wer ist gerade da" (das bleibt Admin/Schichtleiter vorbehalten) -->
+<div class="rounded-xl border border-line bg-panel p-4 mb-6">
+  <h3 class="font-display font-medium flex items-center gap-2 mb-3">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    Wer hat gerade Urlaub?
+  </h3>
+  <div class="flex flex-wrap gap-2">
+    {% for v in on_vacation_now %}
+    <span class="inline-flex items-center gap-2 text-sm bg-accent/10 text-accent border border-accent/30 rounded-full pl-1.5 pr-3 py-1">
+      <span class="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center font-display font-semibold text-[11px] shrink-0">{{ v.user.name[0]|upper }}</span>
+      {{ v.user.name }}
+      <span class="text-accent/70 text-xs">bis {{ (v.end_date|localtime).strftime("%d.%m.") }}</span>
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {% if upcoming_appointments %}
 <div class="rounded-xl border border-line bg-panel p-4 mb-6">
   <div class="flex items-center justify-between mb-3">

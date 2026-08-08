@@ -570,6 +570,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         if _aware(a.date).astimezone(APP_TIMEZONE).date() >= now_local_date
     ][:5]
 
+    on_vacation_now = [
+        v for v in db.query(models.Vacation).all()
+        if _aware(v.start_date).astimezone(APP_TIMEZONE).date() <= now_local_date
+        <= _aware(v.end_date).astimezone(APP_TIMEZONE).date()
+    ]
+
     all_reports = db.query(models.Report).all()
     open_reports = _sort_reports([r for r in all_reports if r.status != "done"])
     open_count = sum(1 for r in all_reports if r.status == "open")
@@ -596,6 +602,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         },
         "recent_reports": open_reports[:5],
         "upcoming_appointments": upcoming_appointments,
+        "on_vacation_now": on_vacation_now,
         "greeting": greeting_for_now(now),
         "pending_tasks_count": due_soon_count + overdue_count,
         "now": now,
@@ -1603,6 +1610,102 @@ def appointments_delete(appointment_id: int, request: Request, db: Session = Dep
         db.delete(appt)
         db.commit()
     return RedirectResponse("/appointments", status_code=302)
+
+
+# ---------- Urlaub ----------
+
+@app.get("/vacations")
+def vacations_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
+    today = now_local.date()
+    users = db.query(models.User).order_by(models.User.name).all()
+
+    entries = []
+    for v in db.query(models.Vacation).order_by(models.Vacation.start_date.asc()).all():
+        start_local = _aware(v.start_date).astimezone(APP_TIMEZONE).date()
+        end_local = _aware(v.end_date).astimezone(APP_TIMEZONE).date()
+        if today < start_local:
+            state = "upcoming"
+        elif today > end_local:
+            state = "past"
+        else:
+            state = "current"
+        entries.append({
+            "obj": v,
+            "start_local": start_local,
+            "end_local": end_local,
+            "state": state,
+        })
+
+    return templates.TemplateResponse("vacations.html", {
+        "request": request,
+        "user": user,
+        "entries": entries,
+        "users": users,
+    })
+
+
+@app.post("/vacations")
+def vacations_create(
+    request: Request,
+    start_date: str = Form(...),
+    end_date: str = Form(...),
+    user_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    actor = require_login(request, db)
+    start = _parse_local_date(start_date)
+    end = _parse_local_date(end_date)
+    if not start or not end:
+        return RedirectResponse("/vacations", status_code=302)
+    if end < start:
+        start, end = end, start
+    # Nur Admin/Schichtleiter dürfen für jemand anderen eintragen - sonst
+    # gilt der Eintrag immer für den, der ihn selbst anlegt.
+    target_user_id = actor.id
+    if user_id and (actor.is_admin or actor.is_shift_lead):
+        target_user_id = int(user_id)
+    db.add(models.Vacation(
+        user_id=target_user_id, start_date=start, end_date=end, created_by_id=actor.id,
+    ))
+    db.commit()
+    return RedirectResponse("/vacations", status_code=302)
+
+
+@app.post("/vacations/{vacation_id}/edit")
+def vacations_edit(
+    vacation_id: int,
+    request: Request,
+    start_date: str = Form(...),
+    end_date: str = Form(...),
+    user_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    actor = require_login(request, db)
+    vac = db.query(models.Vacation).filter(models.Vacation.id == vacation_id).first()
+    if vac and (vac.user_id == actor.id or actor.is_admin or actor.is_shift_lead):
+        start = _parse_local_date(start_date)
+        end = _parse_local_date(end_date)
+        if start and end:
+            if end < start:
+                start, end = end, start
+            vac.start_date = start
+            vac.end_date = end
+        if user_id and (actor.is_admin or actor.is_shift_lead):
+            vac.user_id = int(user_id)
+        db.commit()
+    return RedirectResponse("/vacations", status_code=302)
+
+
+@app.post("/vacations/{vacation_id}/delete")
+def vacations_delete(vacation_id: int, request: Request, db: Session = Depends(get_db)):
+    actor = require_login(request, db)
+    vac = db.query(models.Vacation).filter(models.Vacation.id == vacation_id).first()
+    if vac and (vac.user_id == actor.id or actor.is_admin or actor.is_shift_lead):
+        db.delete(vac)
+        db.commit()
+    return RedirectResponse("/vacations", status_code=302)
 
 
 # ---------- Push (Web Push) ----------

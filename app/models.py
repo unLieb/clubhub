@@ -355,3 +355,22 @@ class Appointment(Base):
 
     group = relationship("Group")
     user = relationship("User")
+
+
+class Vacation(Base):
+    """Urlaubseintrag eines Nutzers (Von/Bis-Datum, jeweils inklusive).
+    Bewusst ohne Genehmigungs-Workflow (Antrag/Bestätigung) - Kollegen tragen
+    ihren Urlaub erst ein, wenn er ohnehin schon genehmigt ist. created_by_id
+    hält fest, wer den Eintrag angelegt hat (kann von user_id abweichen, wenn
+    ein Admin/Schichtleiter für jemand anderen einträgt, der selbst nicht
+    daran gedacht hat)."""
+    __tablename__ = "vacations"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    start_date = Column(DateTime(timezone=True), nullable=False)
+    end_date = Column(DateTime(timezone=True), nullable=False)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+    created_by = relationship("User", foreign_keys=[created_by_id])

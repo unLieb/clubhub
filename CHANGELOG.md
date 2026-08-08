@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.38.0] - 2026-08-08
+- Neue Funktion "Urlaub": Selbsteintragung + Eintragung für andere durch Admin/Schichtleiter, "Wer hat gerade Urlaub?"-Kachel im Dashboard
+
 ## [0.37.0] - 2026-08-07
 - Neue Funktion "Termine": wiederkehrende/einmalige Termine (z.B. Mülltonnen-Abholung) mit Erinnerung, Dashboard-Widget und eigener Verwaltungsseite
 
