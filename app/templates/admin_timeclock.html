@@ -111,4 +111,48 @@
   {% endfor %}
 </div>
 
+<details class="rounded-xl border border-line bg-panel mt-4 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium">Änderungsprotokoll</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
+      Wer wann welche Buchung nachträglich hinzugefügt, geändert oder gelöscht hat (Admin-Korrektur oder
+      Selbstbearbeitung im Nutzer-Modus) – normale Ein-/Ausstempelungen selbst werden hier nicht aufgeführt,
+      nur nachträgliche Eingriffe. Letzte 50 Einträge.
+    </p>
+    {% if audit_entries %}
+    <ul class="space-y-1.5 text-sm">
+      {% for a in audit_entries %}
+      <li class="border-b border-line/50 last:border-0 py-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-[11px] px-1.5 py-0.5 rounded-full
+            {% if a.action == 'deleted' %}bg-late/15 text-late{% elif a.action == 'added' %}bg-accent/15 text-accent{% else %}bg-warn/15 text-warn{% endif %}">
+            {% if a.action == 'added' %}hinzugefügt{% elif a.action == 'deleted' %}gelöscht{% else %}bearbeitet{% endif %}
+          </span>
+          <span class="text-slate-300">{{ a.changed_by_name }}</span>
+          {% if a.changed_by_name != a.entry_user_name %}
+          <span class="text-slate-500">→ Buchung von {{ a.entry_user_name }}</span>
+          {% endif %}
+          <span class="text-slate-500 text-xs ml-auto whitespace-nowrap">{{ a.changed_at_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</span>
+        </div>
+        <div class="text-xs text-slate-400 mt-1">
+          {% if a.old_clock_in_local %}
+          {{ a.old_clock_in_local.strftime("%d.%m. %H:%M") }}&ndash;{{ a.old_clock_out_local.strftime("%H:%M") if a.old_clock_out_local else "…" }}
+          {% if a.new_clock_in_local %}&rarr;{% endif %}
+          {% endif %}
+          {% if a.new_clock_in_local %}
+          {{ a.new_clock_in_local.strftime("%d.%m. %H:%M") }}&ndash;{{ a.new_clock_out_local.strftime("%H:%M") if a.new_clock_out_local else "…" }}
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-slate-500 text-sm italic">Noch keine nachträglichen Änderungen.</p>
+    {% endif %}
+  </div>
+</details>
+
 {% endblock %}

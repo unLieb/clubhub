@@ -285,6 +285,33 @@ class TimeEntry(Base):
     user = relationship("User", back_populates="time_entries")
 
 
+class TimeEntryAudit(Base):
+    """Änderungsprotokoll für Zeiterfassungs-Korrekturen (nicht für normale
+    Kiosk-/Dashboard-Stempelungen, die gelten als vertrauenswürdige
+    Originalquelle). Deckt sowohl Admin-Korrekturen als auch die
+    Selbstbearbeitung im Nutzer-Modus ab - erfüllt die "manipulationssicher/
+    revisionssicher"-Anforderung an Zeiterfassung (siehe Konversation), da
+    sich nachträglich nachvollziehen lässt, wer wann was geändert hat.
+    time_entry_id bewusst ohne Cascade-Delete verknüpft: der Log-Eintrag muss
+    auch nach dem Löschen der eigentlichen Buchung erhalten bleiben, sonst
+    wäre gerade das Löschen selbst nicht mehr nachvollziehbar."""
+    __tablename__ = "time_entry_audits"
+
+    id = Column(Integer, primary_key=True)
+    time_entry_id = Column(Integer, nullable=True)
+    entry_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action = Column(String, nullable=False)  # "added" | "edited" | "deleted"
+    changed_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    changed_at = Column(DateTime(timezone=True), default=utcnow)
+    old_clock_in = Column(DateTime(timezone=True), nullable=True)
+    old_clock_out = Column(DateTime(timezone=True), nullable=True)
+    new_clock_in = Column(DateTime(timezone=True), nullable=True)
+    new_clock_out = Column(DateTime(timezone=True), nullable=True)
+
+    entry_user = relationship("User", foreign_keys=[entry_user_id])
+    changed_by = relationship("User", foreign_keys=[changed_by_id])
+
+
 class AuthorizedDevice(Base):
     """Genau ein Gerät kann gleichzeitig für das Zeiterfassungs-Terminal
     (/timeclock/kiosk) autorisiert sein - das Autorisieren eines neuen Geräts

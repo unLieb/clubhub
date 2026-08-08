@@ -790,8 +790,10 @@ def timeclock_self_edit(
         models.TimeEntry.id == entry_id, models.TimeEntry.user_id == user.id
     ).first()
     if entry:
+        old_in, old_out = entry.clock_in, entry.clock_out
         entry.clock_in = _parse_local_dt(clock_in)
         entry.clock_out = _parse_local_dt(clock_out)
+        _log_timeclock_change(db, entry, "edited", user.id, old_in, old_out)
         db.commit()
     return RedirectResponse("/timeclock", status_code=302)
 
@@ -805,6 +807,7 @@ def timeclock_self_delete(entry_id: int, request: Request, db: Session = Depends
         models.TimeEntry.id == entry_id, models.TimeEntry.user_id == user.id
     ).first()
     if entry:
+        _log_timeclock_change(db, entry, "deleted", user.id, entry.clock_in, entry.clock_out)
         db.delete(entry)
         db.commit()
     return RedirectResponse("/timeclock", status_code=302)
@@ -2020,6 +2023,25 @@ def _parse_local_date(value: str):
     return naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
 
 
+def _log_timeclock_change(
+    db: Session, entry, action: str, changed_by_id: int,
+    old_clock_in=None, old_clock_out=None,
+):
+    """Protokolliert eine Zeiterfassungs-Korrektur (Admin oder Selbstbe-
+    arbeitung im Nutzer-Modus) - siehe TimeEntryAudit. Nicht für normale
+    Kiosk-/Dashboard-Stempelungen gedacht, die gelten als Originalquelle."""
+    db.add(models.TimeEntryAudit(
+        time_entry_id=entry.id,
+        entry_user_id=entry.user_id,
+        action=action,
+        changed_by_id=changed_by_id,
+        old_clock_in=old_clock_in,
+        old_clock_out=old_clock_out,
+        new_clock_in=entry.clock_in if action != "deleted" else None,
+        new_clock_out=entry.clock_out if action != "deleted" else None,
+    ))
+
+
 @app.get("/admin/timeclock")
 def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
     # Nur Admin, nicht Schichtleiter: Korrekturen wirken sich direkt auf den
@@ -2046,6 +2068,25 @@ def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
             for e in entries
         ]
     device = get_authorized_device(db)
+
+    audit_entries = []
+    for a in (
+        db.query(models.TimeEntryAudit)
+        .order_by(models.TimeEntryAudit.changed_at.desc())
+        .limit(50)
+        .all()
+    ):
+        audit_entries.append({
+            "changed_at_local": _aware(a.changed_at).astimezone(APP_TIMEZONE),
+            "changed_by_name": a.changed_by.name if a.changed_by else "?",
+            "entry_user_name": a.entry_user.name if a.entry_user else "?",
+            "action": a.action,
+            "old_clock_in_local": _aware(a.old_clock_in).astimezone(APP_TIMEZONE) if a.old_clock_in else None,
+            "old_clock_out_local": _aware(a.old_clock_out).astimezone(APP_TIMEZONE) if a.old_clock_out else None,
+            "new_clock_in_local": _aware(a.new_clock_in).astimezone(APP_TIMEZONE) if a.new_clock_in else None,
+            "new_clock_out_local": _aware(a.new_clock_out).astimezone(APP_TIMEZONE) if a.new_clock_out else None,
+        })
+
     return templates.TemplateResponse("admin_timeclock.html", {
         "request": request,
         "user": admin,
@@ -2055,6 +2096,7 @@ def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
         "device_authorized_local": _aware(device.authorized_at).astimezone(APP_TIMEZONE) if device else None,
         "kiosk_url": f"{str(request.base_url).rstrip('/')}/timeclock/kiosk",
         "timeclock_user_mode": get_app_settings(db).timeclock_user_mode,
+        "audit_entries": audit_entries,
     })
 
 
@@ -2112,14 +2154,17 @@ def admin_timeclock_add(
     clock_out: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin(request, db)
+    admin = require_admin(request, db)
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user:
-        db.add(models.TimeEntry(
+        entry = models.TimeEntry(
             user_id=user.id,
             clock_in=_parse_local_dt(clock_in),
             clock_out=_parse_local_dt(clock_out),
-        ))
+        )
+        db.add(entry)
+        db.flush()  # damit entry.id für das Protokoll existiert
+        _log_timeclock_change(db, entry, "added", admin.id)
         db.commit()
     return RedirectResponse("/admin/timeclock", status_code=302)
 
@@ -2132,20 +2177,23 @@ def admin_timeclock_edit(
     clock_out: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin(request, db)
+    admin = require_admin(request, db)
     entry = db.query(models.TimeEntry).filter(models.TimeEntry.id == entry_id).first()
     if entry:
+        old_in, old_out = entry.clock_in, entry.clock_out
         entry.clock_in = _parse_local_dt(clock_in)
         entry.clock_out = _parse_local_dt(clock_out)
+        _log_timeclock_change(db, entry, "edited", admin.id, old_in, old_out)
         db.commit()
     return RedirectResponse("/admin/timeclock", status_code=302)
 
 
 @app.post("/admin/timeclock/{entry_id}/delete")
 def admin_timeclock_delete(entry_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    admin = require_admin(request, db)
     entry = db.query(models.TimeEntry).filter(models.TimeEntry.id == entry_id).first()
     if entry:
+        _log_timeclock_change(db, entry, "deleted", admin.id, entry.clock_in, entry.clock_out)
         db.delete(entry)
         db.commit()
     return RedirectResponse("/admin/timeclock", status_code=302)
