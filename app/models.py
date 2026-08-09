@@ -78,6 +78,13 @@ class User(Base):
     # Schichtleiter: darf in der Verwaltung fast alles außer löschen und darf
     # niemandem Admin-/Schichtleiter-Rechte zuweisen (nur ein Admin darf das).
     is_shift_lead = Column(Boolean, default=False)
+    # Entwickler: technischer Vollzugriff auf die Anwendungsebene (Bereiche,
+    # Aufgaben, Inventar, Meldungen, Termine, Gruppen, System-Status usw.),
+    # aber explizit KEIN Zugriff auf Benutzerverwaltung oder Zeiterfassung
+    # (weder Einsicht noch Bearbeitung) - für den Fall, dass der Entwickler
+    # der App selbst als Mitarbeiter im Betrieb arbeitet und bewusst keinen
+    # Zugriff auf Kollegen-Personal-/Lohndaten haben will/soll.
+    is_developer = Column(Boolean, default=False)
     # Stundensatz pflegt jeder Nutzer selbst im eigenen Profil (siehe /profile) -
     # nur er sieht den daraus berechneten Verdienst in der Zeiterfassung.
     hourly_wage = Column(Float, nullable=True)              # Stundensatz in €

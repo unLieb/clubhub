@@ -10,6 +10,7 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
+  {% if user.is_admin or user.is_shift_lead %}
   <a href="/admin/users" class="flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
     <div class="w-12 h-12 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -24,6 +25,7 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
     </span>
   </a>
+  {% endif %}
 
   <a href="/admin/groups" class="flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
     <div class="w-12 h-12 rounded-full bg-go/15 text-go flex items-center justify-center shrink-0">

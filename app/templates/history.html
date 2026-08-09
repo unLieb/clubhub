@@ -13,7 +13,7 @@
         <th class="text-left px-4 py-2.5">Bereich</th>
         <th class="text-left px-4 py-2.5">Aufgabe</th>
         <th class="text-left px-4 py-2.5">Erledigt von</th>
-        {% if user and user.is_admin %}<th class="px-4 py-2.5"></th>{% endif %}
+        {% if user and (user.is_admin or user.is_developer) %}<th class="px-4 py-2.5"></th>{% endif %}
       </tr>
     </thead>
     <tbody class="divide-y divide-line">
@@ -23,7 +23,7 @@
         <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
         <td class="px-4 py-2.5">{{ c.task.name }}</td>
         <td class="px-4 py-2.5 text-slate-300">{{ c.user.name }}</td>
-        {% if user and user.is_admin %}
+        {% if user and (user.is_admin or user.is_developer) %}
         <td class="px-4 py-2.5 text-right">
           <form method="post" action="/history/{{ c.id }}/delete" onsubmit="return confirm('Diese Erledigung wirklich zurückziehen? Die Aufgabe gilt danach wieder als nicht erledigt (Stand: vorherige Erledigung bzw. nie erledigt).')">
             <button class="text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-late whitespace-nowrap">Rückgängig</button>

@@ -28,7 +28,10 @@ from . import data_export
 from . import version
 from . import push
 from . import pdf_export
-from .auth import hash_password, verify_password, find_user_by_identifier, get_current_user, require_login, require_admin, require_admin_or_shift_lead
+from .auth import (
+    hash_password, verify_password, find_user_by_identifier, get_current_user, require_login,
+    require_admin, require_admin_or_shift_lead, require_admin_or_developer, require_staff_or_developer,
+)
 from .status import task_status, compute_inventory_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
 from .notifications import notify_group, notify_user
@@ -214,6 +217,11 @@ def _migrate_user_password_rename(db: Session):
         db.commit()
 
 
+def _migrate_user_developer_role(db: Session):
+    """Neue Rolle 'Entwickler' (kein Altdaten-Bezug, Standard: False)."""
+    _ensure_column(db, "users", "is_developer", "INTEGER DEFAULT 0")
+
+
 def _migrate_time_entry_audit_hash(db: Session):
     """Neue Hash-Kette-Spalte auf dem Änderungsprotokoll (kein Altdaten-Bezug,
     bestehende Einträge ohne Hash werden von verify_audit_chain() einfach als
@@ -309,6 +317,7 @@ def _startup():
         _migrate_user_password_rename(db)
         _migrate_user_personnel_number(db)
         _migrate_time_entry_audit_hash(db)
+        _migrate_user_developer_role(db)
     finally:
         db.close()
 
@@ -967,7 +976,7 @@ def tag_target_url(request: Request, tag) -> str:
 
 @app.get("/admin/nfc-tags")
 def admin_nfc_tags_page(request: Request, db: Session = Depends(get_db)):
-    admin = require_admin_or_shift_lead(request, db)
+    admin = require_staff_or_developer(request, db)
     tags = db.query(models.NfcTag).order_by(models.NfcTag.created_at.desc()).all()
     rooms = db.query(models.Room).order_by(models.Room.name).all()
     base = str(request.base_url).rstrip("/")
@@ -999,7 +1008,7 @@ def admin_nfc_tags_add(
     uid: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     if not target.startswith("room:"):
         return RedirectResponse("/admin/nfc-tags", status_code=302)
     target_type, target_room_id = "room", int(target.split(":", 1)[1])
@@ -1016,7 +1025,7 @@ def admin_nfc_tags_add(
 
 @app.post("/admin/nfc-tags/{tag_id}/rescan")
 def admin_nfc_tags_rescan(tag_id: int, request: Request, uid: str = Form(...), db: Session = Depends(get_db)):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     tag = db.query(models.NfcTag).filter(models.NfcTag.id == tag_id).first()
     if tag:
         tag.uid = uid.strip() or None
@@ -1027,7 +1036,7 @@ def admin_nfc_tags_rescan(tag_id: int, request: Request, uid: str = Form(...), d
 
 @app.post("/admin/nfc-tags/{tag_id}/edit")
 def admin_nfc_tags_edit(tag_id: int, request: Request, label: str = Form(""), db: Session = Depends(get_db)):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     tag = db.query(models.NfcTag).filter(models.NfcTag.id == tag_id).first()
     if tag:
         tag.label = label.strip() or None
@@ -1037,7 +1046,7 @@ def admin_nfc_tags_edit(tag_id: int, request: Request, label: str = Form(""), db
 
 @app.post("/admin/nfc-tags/{tag_id}/delete")
 def admin_nfc_tags_delete(tag_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     tag = db.query(models.NfcTag).filter(models.NfcTag.id == tag_id).first()
     if tag:
         db.delete(tag)
@@ -1264,7 +1273,7 @@ async def inventory_set_image(
     image_url_input: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    actor = require_admin_or_shift_lead(request, db)
+    actor = require_staff_or_developer(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
     if item and user_can_see_inventory_item(actor, item):
         if image_file is not None and image_file.filename:
@@ -1496,7 +1505,7 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
     eingeloggte Nutzer wie beim Statuswechsel/Kommentieren."""
     user = require_login(request, db)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
-    if report and (report.user_id == user.id or user.is_admin or user.is_shift_lead):
+    if report and (report.user_id == user.id or user.is_admin or user.is_shift_lead or user.is_developer):
         for photo in report.photos:
             try:
                 os.remove(os.path.join(REPORT_PHOTOS_DIR, photo.filename))
@@ -1635,7 +1644,7 @@ def appointments_edit(
 ):
     user = require_login(request, db)
     appt = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
-    if appt and (appt.user_id == user.id or user.is_admin or user.is_shift_lead):
+    if appt and (appt.user_id == user.id or user.is_admin or user.is_shift_lead or user.is_developer):
         parsed_date = _parse_local_date(date)
         if parsed_date:
             appt.date = parsed_date
@@ -1654,7 +1663,7 @@ def appointments_edit(
 def appointments_delete(appointment_id: int, request: Request, db: Session = Depends(get_db)):
     user = require_login(request, db)
     appt = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
-    if appt and (appt.user_id == user.id or user.is_admin or user.is_shift_lead):
+    if appt and (appt.user_id == user.id or user.is_admin or user.is_shift_lead or user.is_developer):
         db.delete(appt)
         db.commit()
     return RedirectResponse("/appointments", status_code=302)
@@ -1712,7 +1721,7 @@ def vacations_create(
     # Nur Admin/Schichtleiter dürfen für jemand anderen eintragen - sonst
     # gilt der Eintrag immer für den, der ihn selbst anlegt.
     target_user_id = actor.id
-    if user_id and (actor.is_admin or actor.is_shift_lead):
+    if user_id and (actor.is_admin or actor.is_shift_lead or actor.is_developer):
         target_user_id = int(user_id)
     db.add(models.Vacation(
         user_id=target_user_id, start_date=start, end_date=end, created_by_id=actor.id,
@@ -1732,7 +1741,7 @@ def vacations_edit(
 ):
     actor = require_login(request, db)
     vac = db.query(models.Vacation).filter(models.Vacation.id == vacation_id).first()
-    if vac and (vac.user_id == actor.id or actor.is_admin or actor.is_shift_lead):
+    if vac and (vac.user_id == actor.id or actor.is_admin or actor.is_shift_lead or actor.is_developer):
         start = _parse_local_date(start_date)
         end = _parse_local_date(end_date)
         if start and end:
@@ -1740,7 +1749,7 @@ def vacations_edit(
                 start, end = end, start
             vac.start_date = start
             vac.end_date = end
-        if user_id and (actor.is_admin or actor.is_shift_lead):
+        if user_id and (actor.is_admin or actor.is_shift_lead or actor.is_developer):
             vac.user_id = int(user_id)
         db.commit()
     return RedirectResponse("/vacations", status_code=302)
@@ -1750,7 +1759,7 @@ def vacations_edit(
 def vacations_delete(vacation_id: int, request: Request, db: Session = Depends(get_db)):
     actor = require_login(request, db)
     vac = db.query(models.Vacation).filter(models.Vacation.id == vacation_id).first()
-    if vac and (vac.user_id == actor.id or actor.is_admin or actor.is_shift_lead):
+    if vac and (vac.user_id == actor.id or actor.is_admin or actor.is_shift_lead or actor.is_developer):
         db.delete(vac)
         db.commit()
     return RedirectResponse("/vacations", status_code=302)
@@ -1834,8 +1843,8 @@ def history(request: Request, db: Session = Depends(get_db)):
 @app.post("/history/{completion_id}/delete")
 def delete_completion(completion_id: int, request: Request, db: Session = Depends(get_db)):
     """Zieht eine versehentlich als erledigt markierte Aufgabe zurück - nur
-    Admin, da das den Fälligkeits-Status der Aufgabe direkt beeinflusst."""
-    require_admin(request, db)
+    Admin/Entwickler, da das den Fälligkeits-Status der Aufgabe direkt beeinflusst."""
+    require_admin_or_developer(request, db)
     completion = db.query(models.Completion).filter(models.Completion.id == completion_id).first()
     if completion:
         db.delete(completion)
@@ -1954,7 +1963,7 @@ def profile_set_pay(
 
 @app.get("/admin")
 def admin_home(request: Request, db: Session = Depends(get_db)):
-    admin = require_admin_or_shift_lead(request, db)
+    admin = require_staff_or_developer(request, db)
     return templates.TemplateResponse("admin_index.html", {
         "request": request,
         "user": admin,
@@ -1987,7 +1996,7 @@ def admin_users_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/groups")
 def admin_groups_page(request: Request, db: Session = Depends(get_db)):
-    admin = require_admin_or_shift_lead(request, db)
+    admin = require_staff_or_developer(request, db)
     return templates.TemplateResponse("admin_groups.html", {
         "request": request,
         "user": admin,
@@ -1998,7 +2007,7 @@ def admin_groups_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/rooms")
 def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
-    admin = require_admin_or_shift_lead(request, db)
+    admin = require_staff_or_developer(request, db)
     return templates.TemplateResponse("admin_rooms.html", {
         "request": request,
         "user": admin,
@@ -2009,7 +2018,7 @@ def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/tasks")
 def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
-    admin = require_admin_or_shift_lead(request, db)
+    admin = require_staff_or_developer(request, db)
     tasks = db.query(models.Task).join(models.Room).order_by(models.Room.name, models.Task.name).all()
     return templates.TemplateResponse("admin_tasks.html", {
         "request": request,
@@ -2026,7 +2035,7 @@ _INVENTORY_STATUS_ORDER = {"empty": 0, "critical": 1, "low": 2, "ok": 3}
 def admin_inventory_page(
     request: Request, img_fetch_failed: str = "", sort: str = "status", db: Session = Depends(get_db)
 ):
-    admin = require_admin_or_shift_lead(request, db)
+    admin = require_staff_or_developer(request, db)
     items = filter_inventory_for_user(db.query(models.InventoryItem).all(), admin)
     if sort == "name":
         items.sort(key=lambda i: i.name.lower())
@@ -2330,7 +2339,7 @@ def admin_timeclock_delete(entry_id: int, request: Request, db: Session = Depend
 
 @app.get("/admin/notifications")
 def admin_notifications_page(request: Request, db: Session = Depends(get_db)):
-    admin = require_admin_or_shift_lead(request, db)
+    admin = require_staff_or_developer(request, db)
     return templates.TemplateResponse("admin_notifications.html", {
         "request": request,
         "user": admin,
@@ -2381,13 +2390,13 @@ def _admin_system_context(
 
 @app.get("/admin/system")
 def admin_system_page(request: Request, db: Session = Depends(get_db)):
-    admin = require_admin_or_shift_lead(request, db)
+    admin = require_staff_or_developer(request, db)
     return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin))
 
 
 @app.post("/admin/system/resync-ntp")
 def admin_resync_ntp(request: Request, db: Session = Depends(get_db)):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     ntptime.sync()
     return RedirectResponse("/admin/system", status_code=302)
 
@@ -2512,7 +2521,7 @@ def admin_add_group(
     work_end_hour: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     channels = db.query(models.NotificationChannel).filter(models.NotificationChannel.id.in_(channel_ids)).all()
     db.add(models.Group(
         name=name,
@@ -2534,7 +2543,7 @@ def admin_edit_group(
     work_end_hour: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if group:
         group.name = name
@@ -2547,7 +2556,7 @@ def admin_edit_group(
 
 @app.post("/admin/groups/{group_id}/delete")
 def admin_delete_group(group_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if group:
         db.delete(group)
@@ -2563,7 +2572,7 @@ def admin_add_channel(
     target: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     db.add(models.NotificationChannel(name=name, type=type, target=target or None))
     db.commit()
     return RedirectResponse("/admin/notifications", status_code=302)
@@ -2578,7 +2587,7 @@ def admin_edit_channel(
     target: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     channel = db.query(models.NotificationChannel).filter(models.NotificationChannel.id == channel_id).first()
     if channel:
         channel.name = name
@@ -2590,7 +2599,7 @@ def admin_edit_channel(
 
 @app.post("/admin/channels/{channel_id}/delete")
 def admin_delete_channel(channel_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     channel = db.query(models.NotificationChannel).filter(models.NotificationChannel.id == channel_id).first()
     if channel:
         db.delete(channel)
@@ -2615,15 +2624,17 @@ def admin_add_user(
         group = db.query(models.Group).filter(models.Group.id == int(group_id)).first()
         if group:
             groups = [group]
-    # Nur Admins dürfen beim Anlegen direkt Admin-/Schichtleiter-Rechte vergeben;
-    # ein Schichtleiter legt immer nur normale Mitarbeiter-Konten an, auch wenn
-    # im Formular (z.B. per direktem POST) etwas anderes übermittelt wird.
+    # Nur Admins dürfen beim Anlegen direkt Admin-/Schichtleiter-/Entwickler-
+    # Rechte vergeben; ein Schichtleiter legt immer nur normale Mitarbeiter-
+    # Konten an, auch wenn im Formular (z.B. per direktem POST) etwas anderes
+    # übermittelt wird.
     user = models.User(
         name=name,
         password_hash=hash_password(password),
         personnel_number=personnel_number.strip() or None,
         is_admin=actor.is_admin and role == "admin",
         is_shift_lead=actor.is_admin and role == "schichtleiter",
+        is_developer=actor.is_admin and role == "entwickler",
         groups=groups,
     )
     # Hier nur beim Anlegen durch einen vollen Admin setzbar (Schichtleiter
@@ -2663,16 +2674,18 @@ def admin_edit_user(
         group = db.query(models.Group).filter(models.Group.id == int(group_id)).first() if group_id else None
         target.groups = [group] if group else []
 
-        # Nur ein Admin darf Rollen ändern (Admin/Schichtleiter vergeben oder
-        # entziehen); bei einem Schichtleiter als Akteur bleibt die Rolle des
-        # bearbeiteten Nutzers unverändert, egal was im Formular ankommt.
+        # Nur ein Admin darf Rollen ändern (Admin/Schichtleiter/Entwickler
+        # vergeben oder entziehen); bei einem Schichtleiter als Akteur bleibt
+        # die Rolle des bearbeiteten Nutzers unverändert, egal was im
+        # Formular ankommt.
         if actor.is_admin:
-            desired_role = role if role in ("mitarbeiter", "schichtleiter", "admin") else "mitarbeiter"
+            desired_role = role if role in ("mitarbeiter", "schichtleiter", "admin", "entwickler") else "mitarbeiter"
             other_admins = db.query(models.User).filter(models.User.is_admin == True, models.User.id != user_id).count()
             if target.is_admin and desired_role != "admin" and other_admins == 0:
                 desired_role = "admin"  # letzten Admin nicht versehentlich entmachten
             target.is_admin = desired_role == "admin"
             target.is_shift_lead = desired_role == "schichtleiter"
+            target.is_developer = desired_role == "entwickler"
             # Hier nur von einem vollen Admin änderbar; der Nutzer selbst kann sie
             # zusätzlich im eigenen Profil anpassen - beide pflegen denselben Wert.
             target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
@@ -2699,7 +2712,7 @@ def admin_add_room(
     group_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all()
     db.add(models.Room(name=name, groups=groups))
     db.commit()
@@ -2714,7 +2727,7 @@ def admin_edit_room(
     group_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if room:
         room.name = name
@@ -2725,7 +2738,7 @@ def admin_edit_room(
 
 @app.post("/admin/rooms/{room_id}/delete")
 def admin_delete_room(room_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if room:
         db.delete(room)
@@ -2743,7 +2756,7 @@ def admin_add_task(
     last_completed: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    actor = require_admin_or_shift_lead(request, db)
+    actor = require_staff_or_developer(request, db)
     task = models.Task(room_id=room_id, name=name, interval_hours=interval_hours, warn_hours=warn_hours)
     # Optional rückdatierbar: ohne Angabe würde der Turnus sonst erst ab dem
     # Anlegezeitpunkt zählen, auch wenn schon vorher geputzt wurde.
@@ -2765,7 +2778,7 @@ def admin_edit_task(
     warn_hours: float = Form(5.0),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if task:
         task.room_id = room_id
@@ -2778,7 +2791,7 @@ def admin_edit_task(
 
 @app.post("/admin/tasks/{task_id}/delete")
 def admin_delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if task:
         db.delete(task)
@@ -2804,7 +2817,7 @@ def admin_add_inventory_item(
     next: str = Form("/admin/inventory"),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    require_staff_or_developer(request, db)
     reorder_url = reorder_url or None
     # Kauflink direkt beim Anlegen gesetzt -> automatisch das Produktbild
     # der verlinkten Seite als Artikelbild übernehmen, falls auffindbar.
@@ -2848,7 +2861,7 @@ def admin_edit_inventory_item(
     next: str = Form("/admin/inventory"),
     db: Session = Depends(get_db),
 ):
-    actor = require_admin_or_shift_lead(request, db)
+    actor = require_staff_or_developer(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
     if item and not user_can_see_inventory_item(actor, item):
         item = None
@@ -2884,7 +2897,7 @@ def admin_edit_inventory_item(
 
 @app.post("/admin/inventory/{item_id}/delete")
 def admin_delete_inventory_item(item_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
     if item:
         db.delete(item)

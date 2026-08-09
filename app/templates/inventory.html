@@ -84,7 +84,7 @@
   {% for u in pack_units %}<option value="{{ u }}">{% endfor %}
 </datalist>
 
-{% if user and (user.is_admin or user.is_shift_lead) %}
+{% if user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
 <details class="rounded-xl border border-line bg-panel mb-6 group">
   <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3 rounded-xl bg-go/90 hover:bg-go text-oncolor group-open:rounded-b-none">
     <span class="font-medium flex items-center gap-2">
@@ -161,7 +161,7 @@
 
     <!-- Kopfzeile: immer sichtbar -->
     <div class="flex items-center gap-4 flex-wrap">
-      {% if user and (user.is_admin or user.is_shift_lead) %}
+      {% if user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
       <details class="relative shrink-0">
         <summary class="list-none cursor-pointer w-14 h-14 rounded-lg bg-panel2 overflow-hidden flex items-center justify-center text-slate-500 hover:text-slate-300">
           {% if item.image_url %}
@@ -346,7 +346,7 @@
             {% elif item.reorder_url %}
             <a href="{{ item.reorder_url }}" target="_blank" rel="noopener" class="block text-center mt-3 px-3 py-1.5 rounded-md {{ 'bg-warn/90 hover:bg-warn text-oncolor' if st.status == 'low' else 'bg-panel2 hover:bg-line text-slate-300' }} text-sm font-medium">Nachbestellen</a>
             {% endif %}
-            {% if user and (user.is_admin or user.is_shift_lead) %}
+            {% if user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
             <a href="/admin/inventory" class="block text-[11px] text-slate-500 hover:text-slate-300 mt-3">Stammdaten bearbeiten &rarr;</a>
             {% endif %}
           </div>
@@ -357,7 +357,7 @@
   {% else %}
   <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
     Noch keine Artikel angelegt.
-    {% if user and user.is_admin %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
+    {% if user and (user.is_admin or user.is_developer) %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
   </div>
   {% endfor %}
   <p id="inventory-empty" class="hidden rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">Keine Artikel gefunden.</p>

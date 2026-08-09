@@ -74,7 +74,7 @@
           {% endif %}
         </div>
       </div>
-      {% if user and (user.id == a.user_id or user.is_admin or user.is_shift_lead) %}
+      {% if user and (user.id == a.user_id or user.is_admin or user.is_shift_lead or user.is_developer) %}
       <details class="shrink-0">
         <summary class="cursor-pointer list-none w-7 h-7 rounded-md border border-line flex items-center justify-center text-slate-500 hover:text-slate-100">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>

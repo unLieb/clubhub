@@ -12,7 +12,7 @@
   {% if not rooms %}
   <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
     Noch keine Bereiche angelegt.
-    {% if user and user.is_admin %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
+    {% if user and (user.is_admin or user.is_developer) %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
   </div>
   {% else %}
   <div class="flex items-center justify-end gap-2 mb-3">

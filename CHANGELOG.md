@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.41.0] - 2026-08-09
+- Neue Rolle "Entwickler": voller Zugriff auf Bereiche/Aufgaben/Inventar/Meldungen/Termine/Gruppen/System-Status, aber explizit kein Zugriff auf Benutzerverwaltung oder Zeiterfassung (weder Einsicht noch Bearbeitung)
+
 ## [0.40.0] - 2026-08-08
 - Zeiterfassung: Änderungsprotokoll per Hash-Kette verkettet (erkennt nachträgliche Manipulation direkt an der Datenbank) + PDF-Export je Nutzer
 - Neuer selektiver Struktur-Export/-Import (JSON): Gruppen/Bereiche/Aufgaben/Inventar/Termine gezielt auf eine neue Instanz übernehmen, ohne Test-Nutzer mitzuschleppen

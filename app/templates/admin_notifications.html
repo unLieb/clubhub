@@ -58,7 +58,7 @@
           <input name="target" value="{{ c.target or '' }}" placeholder="ntfy-Topic / Gotify-Token / Signal-Nummer (+49…)" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           <div class="flex gap-2">
             <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
-            {% if user.is_admin %}
+            {% if user.is_admin or user.is_developer %}
             <button type="submit" formaction="/admin/channels/{{ c.id }}/delete" formnovalidate onclick="return confirm('„{{ c.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
             {% endif %}
           </div>
