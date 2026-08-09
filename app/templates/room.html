@@ -65,7 +65,7 @@
     <div class="px-4 pb-4 pt-1 border-t border-line">
       <form method="post" action="/room/{{ room.id }}/setups" enctype="multipart/form-data" class="space-y-2 mt-3 max-w-2xl">
         <input name="name" placeholder="Name, z.B. „Hochzeit Bankett“" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <textarea name="note" placeholder="Notiz (optional), z.B. Tischanzahl, Besonderheiten" rows="2" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+        <textarea name="note" placeholder="Notiz (optional) – ein Stichpunkt pro Zeile, z.B.&#10;24 Tische à 8 Personen&#10;Bühne links&#10;Garderobe im Flur" rows="3" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
         <div>
           <label class="block text-[11px] text-slate-400 mb-1">Bilder (optional, mehrere möglich)</label>
           <input type="file" name="photos" accept="image/*" multiple class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
@@ -96,7 +96,13 @@
       </summary>
       <div class="px-4 pb-4 border-t border-line pt-3">
         {% if s.note %}
-        <p class="text-sm text-slate-300 mb-3">{{ s.note }}</p>
+        <ul class="list-disc pl-4 space-y-0.5 text-sm text-slate-300 mb-3">
+          {% for line in s.note.split('\n') %}
+          {% if line.strip() %}
+          <li>{{ line.strip() }}</li>
+          {% endif %}
+          {% endfor %}
+        </ul>
         {% endif %}
         <div class="flex flex-wrap gap-2">
           {% for p in s.photos %}
@@ -115,9 +121,19 @@
           {% endif %}
         </div>
         {% if user and (user.id == s.created_by_id or user.is_admin or user.is_shift_lead or user.is_developer) %}
-        <form method="post" action="/setups/{{ s.id }}/delete" onsubmit="return confirm('„{{ s.name }}“ wirklich löschen?')" class="mt-3">
-          <button class="text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-late">Aufbau löschen</button>
-        </form>
+        <div class="flex items-center gap-2 mt-3">
+          <details>
+            <summary class="cursor-pointer list-none inline-block text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-slate-100">Bearbeiten</summary>
+            <form method="post" action="/setups/{{ s.id }}/edit" class="mt-2 space-y-2 max-w-md">
+              <input name="name" value="{{ s.name }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <textarea name="note" rows="3" placeholder="Ein Stichpunkt pro Zeile" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">{{ s.note or '' }}</textarea>
+              <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium">Speichern</button>
+            </form>
+          </details>
+          <form method="post" action="/setups/{{ s.id }}/delete" onsubmit="return confirm('„{{ s.name }}“ wirklich löschen?')">
+            <button class="text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-late">Löschen</button>
+          </form>
+        </div>
         {% endif %}
       </div>
     </details>

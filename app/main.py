@@ -771,6 +771,20 @@ async def room_setup_add_photos(
     return RedirectResponse(f"/room/{setup.room_id}" if setup else "/", status_code=302)
 
 
+@app.post("/setups/{setup_id}/edit")
+def room_setup_edit(
+    setup_id: int, request: Request, name: str = Form(...), note: str = Form(""), db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    setup = db.query(models.RoomSetup).filter(models.RoomSetup.id == setup_id).first()
+    if setup and (setup.created_by_id == user.id or user.is_admin or user.is_shift_lead or user.is_developer):
+        setup.name = name
+        setup.note = note.strip() or None
+        db.commit()
+        return RedirectResponse(f"/room/{setup.room_id}", status_code=302)
+    return RedirectResponse("/", status_code=302)
+
+
 @app.post("/setups/{setup_id}/delete")
 def room_setup_delete(setup_id: int, request: Request, db: Session = Depends(get_db)):
     user = require_login(request, db)

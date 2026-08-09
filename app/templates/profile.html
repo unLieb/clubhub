@@ -80,7 +80,7 @@
           <div class="text-slate-200">{{ device_label(sub.user_agent) }}</div>
           <div class="text-[11px] text-slate-500">aktiviert am {{ (sub.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr</div>
         </div>
-        <form method="post" action="/push/subscriptions/{{ sub.id }}/delete">
+        <form method="post" action="/push/subscriptions/{{ sub.id }}/delete" onsubmit="return confirm('Gerät wirklich entfernen? Push-Benachrichtigungen kommen dort danach nicht mehr an, bis neu abonniert wird.')">
           <button class="px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-late hover:border-late/50 text-xs font-medium whitespace-nowrap">Entfernen</button>
         </form>
       </li>

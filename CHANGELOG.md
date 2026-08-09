@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.42.1] - 2026-08-09
+- Aufbauten: Bearbeiten-Möglichkeit ergänzt, Notizen als Stichpunktliste statt Fließtext
+- Löschbestätigung für "Meine Geräte" (Push-Abos) ergänzt, die bislang fehlte
+
 ## [0.42.0] - 2026-08-09
 - Neue Funktion "Aufbauten": Referenzfotos je Bereich, wie für bestimmte Veranstaltungen umgebaut werden soll; Pauschalkräfte dürfen keine anlegen (neues Nutzer-Flag)
 
