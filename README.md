@@ -110,6 +110,59 @@ Backup der vorherigen eigenständigen Datei liegt unter
 `docker-compose.yml.bak` im selben Ordner, falls der Symlink jemals
 rückgängig gemacht werden muss.
 
+## Deployment ohne eigenen Server-Zugriff (fertiges Image)
+
+Für einen Server, den nicht du selbst administrierst (z.B. eine Firmen-IT
+oder ein Kollege), eignet sich `deploy-nas.sh` nicht – das setzt eigenen
+SSH-Zugriff voraus. Stattdessen landet bei jedem Release zusätzlich ein
+fertig gebautes Image in der **privaten** GitHub Container Registry
+(`ghcr.io/unlieb/clubhub`), das jeder mit Docker und einem Zugriffs-Token
+ohne Quellcode/Build-Toolchain starten kann.
+
+**Einmalig auf dem Zielserver:**
+
+```bash
+# Einmalig einloggen (Token braucht mindestens read:packages, von dir als
+# Repo-Besitzer über GitHub → Settings → Developer settings → Personal
+# access tokens vergeben und dem jeweiligen Account Lesezugriff aufs
+# private Package "clubhub" gewähren).
+echo "<TOKEN>" | docker login ghcr.io -u <github-nutzername> --password-stdin
+```
+
+`docker-compose.yml` wie gewohnt, nur `build: .` durch `image:` ersetzt:
+
+```yaml
+services:
+  clubhub:
+    image: ghcr.io/unlieb/clubhub:latest   # oder eine feste Version, z.B. :0.42.0
+    container_name: ClubHUB
+    restart: unless-stopped
+    ports:
+      - "8055:8000"
+    volumes:
+      - clubhub_data:/data
+    environment:
+      SECRET_KEY: "..."
+      # ... (Rest wie in der Haupt-docker-compose.yml)
+volumes:
+  clubhub_data:
+```
+
+```bash
+docker compose up -d
+```
+
+**Ein Update einspielen** (durch wen auch immer den Server betreut):
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Neue Versionen lande ich (der Entwickler) selbst per `docker push` in der
+Registry – dafür braucht es keinen Zugriff auf den Zielserver, nur auf die
+eigene lokale Docker-Umgebung. Wer den Server betreut, entscheidet dann
+selbst, wann er `docker compose pull` ausführt.
+
 ## NFC-Tags beschreiben
 
 Jeder Bereich bekommt eine eigene URL: `http://<server>:8000/room/<bereich-id>`
