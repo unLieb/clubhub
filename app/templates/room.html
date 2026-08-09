@@ -49,4 +49,83 @@
   {% endfor %}
 </div>
 
+<div class="mt-8">
+  <h2 class="font-display text-lg font-semibold mb-1">Aufbauten</h2>
+  <p class="text-slate-400 text-sm mb-4">Referenzfotos, wie dieser Bereich für bestimmte Veranstaltungen aufgebaut werden soll.</p>
+
+  {% if user and not user.is_flat_rate %}
+  <details class="rounded-xl border border-line bg-panel mb-4 group">
+    <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+      <span class="font-display font-medium flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Aufbau hinzufügen
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+    </summary>
+    <div class="px-4 pb-4 pt-1 border-t border-line">
+      <form method="post" action="/room/{{ room.id }}/setups" enctype="multipart/form-data" class="space-y-2 mt-3 max-w-2xl">
+        <input name="name" placeholder="Name, z.B. „Hochzeit Bankett“" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <textarea name="note" placeholder="Notiz (optional), z.B. Tischanzahl, Besonderheiten" rows="2" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Bilder (optional, mehrere möglich)</label>
+          <input type="file" name="photos" accept="image/*" multiple class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+        </div>
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Aufbau anlegen</button>
+      </form>
+    </div>
+  </details>
+  {% endif %}
+
+  {% if setups %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {% for s in setups %}
+    <details class="rounded-xl border border-line bg-panel group">
+      <summary class="cursor-pointer list-none flex items-center gap-3 p-4">
+        <div class="w-14 h-14 rounded-lg bg-panel2 overflow-hidden shrink-0 flex items-center justify-center text-slate-500">
+          {% if s.photos %}
+          <img src="/uploads/setups/{{ s.photos[0].filename }}" alt="" class="w-full h-full object-cover">
+          {% else %}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          {% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-medium truncate">{{ s.name }}</div>
+          <div class="text-xs text-slate-500 mt-0.5">{{ s.photos|length }} Bild{{ "er" if s.photos|length != 1 else "" }}{% if s.created_by %} &middot; von {{ s.created_by.name }}{% endif %}</div>
+        </div>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="px-4 pb-4 border-t border-line pt-3">
+        {% if s.note %}
+        <p class="text-sm text-slate-300 mb-3">{{ s.note }}</p>
+        {% endif %}
+        <div class="flex flex-wrap gap-2">
+          {% for p in s.photos %}
+          <a href="/uploads/setups/{{ p.filename }}" target="_blank">
+            <img src="/uploads/setups/{{ p.filename }}" alt="" class="w-16 h-16 rounded-lg object-cover border border-line">
+          </a>
+          {% endfor %}
+          {% if user and not user.is_flat_rate %}
+          <form method="post" action="/setups/{{ s.id }}/photos" enctype="multipart/form-data" class="contents">
+            <label class="w-16 h-16 rounded-lg border border-dashed border-line flex flex-col items-center justify-center text-slate-500 hover:bg-panel2 hover:text-slate-300 cursor-pointer text-[10px] gap-1">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Bild
+              <input type="file" name="photos" accept="image/*" multiple class="hidden" onchange="this.form.submit()">
+            </label>
+          </form>
+          {% endif %}
+        </div>
+        {% if user and (user.id == s.created_by_id or user.is_admin or user.is_shift_lead or user.is_developer) %}
+        <form method="post" action="/setups/{{ s.id }}/delete" onsubmit="return confirm('„{{ s.name }}“ wirklich löschen?')" class="mt-3">
+          <button class="text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-late">Aufbau löschen</button>
+        </form>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-slate-500 italic text-sm">Noch keine Aufbauten hinterlegt.</p>
+  {% endif %}
+</div>
+
 {% endblock %}

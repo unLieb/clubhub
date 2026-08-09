@@ -85,6 +85,10 @@ class User(Base):
     # der App selbst als Mitarbeiter im Betrieb arbeitet und bewusst keinen
     # Zugriff auf Kollegen-Personal-/Lohndaten haben will/soll.
     is_developer = Column(Boolean, default=False)
+    # Pauschalkraft: unabhängig von der Rolle (die meisten sind einfache
+    # "Mitarbeiter") - dient aktuell nur dazu, das Anlegen von Aufbauten
+    # (siehe RoomSetup) auf "richtige" Mitarbeiter zu beschränken.
+    is_flat_rate = Column(Boolean, default=False)
     # Stundensatz pflegt jeder Nutzer selbst im eigenen Profil (siehe /profile) -
     # nur er sieht den daraus berechneten Verdienst in der Zeiterfassung.
     hourly_wage = Column(Float, nullable=True)              # Stundensatz in €
@@ -113,6 +117,37 @@ class Room(Base):
 
     groups = relationship("Group", secondary=room_group, back_populates="rooms")
     tasks = relationship("Task", back_populates="room", cascade="all, delete-orphan")
+
+
+class RoomSetup(Base):
+    """Aufbau-Vorlage für einen Bereich (z.B. "Hochzeit Bankett", "Konzert
+    Stehplätze") mit Referenzfotos, wie der Raum für eine bestimmte Art
+    Veranstaltung umgebaut werden soll. Anlegen bewusst nicht für
+    Pauschalkräfte (siehe User.is_flat_rate)."""
+    __tablename__ = "room_setups"
+
+    id = Column(Integer, primary_key=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
+    name = Column(String, nullable=False)
+    note = Column(String, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    room = relationship("Room")
+    created_by = relationship("User")
+    photos = relationship(
+        "RoomSetupPhoto", back_populates="setup", cascade="all, delete-orphan", order_by="RoomSetupPhoto.id"
+    )
+
+
+class RoomSetupPhoto(Base):
+    __tablename__ = "room_setup_photos"
+
+    id = Column(Integer, primary_key=True)
+    setup_id = Column(Integer, ForeignKey("room_setups.id"), nullable=False)
+    filename = Column(String, nullable=False)  # relativ zu uploads/setups/
+
+    setup = relationship("RoomSetup", back_populates="photos")
 
 
 class Task(Base):

@@ -62,6 +62,8 @@ INVENTORY_IMAGES_DIR = os.path.join(UPLOADS_DIR, "inventory")
 os.makedirs(INVENTORY_IMAGES_DIR, exist_ok=True)
 AVATAR_IMAGES_DIR = os.path.join(UPLOADS_DIR, "avatars")
 os.makedirs(AVATAR_IMAGES_DIR, exist_ok=True)
+SETUP_PHOTOS_DIR = os.path.join(UPLOADS_DIR, "setups")
+os.makedirs(SETUP_PHOTOS_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -222,6 +224,11 @@ def _migrate_user_developer_role(db: Session):
     _ensure_column(db, "users", "is_developer", "INTEGER DEFAULT 0")
 
 
+def _migrate_user_flat_rate(db: Session):
+    """Neues Pauschalkraft-Flag (kein Altdaten-Bezug, Standard: False)."""
+    _ensure_column(db, "users", "is_flat_rate", "INTEGER DEFAULT 0")
+
+
 def _migrate_time_entry_audit_hash(db: Session):
     """Neue Hash-Kette-Spalte auf dem Änderungsprotokoll (kein Altdaten-Bezug,
     bestehende Einträge ohne Hash werden von verify_audit_chain() einfach als
@@ -318,6 +325,7 @@ def _startup():
         _migrate_user_personnel_number(db)
         _migrate_time_entry_audit_hash(db)
         _migrate_user_developer_role(db)
+        _migrate_user_flat_rate(db)
     finally:
         db.close()
 
@@ -680,11 +688,18 @@ def room_view(room_id: int, request: Request, db: Session = Depends(get_db)):
         else:
             s["duration_text"] = None
         statuses[t.id] = s
+    setups = (
+        db.query(models.RoomSetup)
+        .filter(models.RoomSetup.room_id == room_id)
+        .order_by(models.RoomSetup.name)
+        .all()
+    )
     return templates.TemplateResponse("room.html", {
         "request": request,
         "user": user,
         "room": room,
         "statuses": statuses,
+        "setups": setups,
     })
 
 
@@ -700,6 +715,77 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
         )
         db.commit()
     return RedirectResponse(f"/room/{room_id}", status_code=302)
+
+
+@app.post("/room/{room_id}/setups")
+async def room_setups_create(
+    room_id: int,
+    request: Request,
+    name: str = Form(...),
+    note: str = Form(""),
+    photos: list[UploadFile] = File([]),
+    db: Session = Depends(get_db),
+):
+    """Neue Aufbau-Vorlage für einen Bereich (siehe RoomSetup) - bewusst nicht
+    für Pauschalkräfte, siehe User.is_flat_rate."""
+    user = require_login(request, db)
+    if user.is_flat_rate:
+        return RedirectResponse(f"/room/{room_id}", status_code=302)
+
+    setup = models.RoomSetup(room_id=room_id, name=name, note=note.strip() or None, created_by_id=user.id)
+    db.add(setup)
+    db.commit()
+
+    for photo in photos:
+        if not photo or not photo.filename:
+            continue
+        data = await photo.read()
+        if data and (photo.content_type or "").startswith("image/"):
+            ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
+            filename = f"{uuid.uuid4().hex}{ext}"
+            with open(os.path.join(SETUP_PHOTOS_DIR, filename), "wb") as f:
+                f.write(data)
+            db.add(models.RoomSetupPhoto(setup_id=setup.id, filename=filename))
+    db.commit()
+    return RedirectResponse(f"/room/{room_id}", status_code=302)
+
+
+@app.post("/setups/{setup_id}/photos")
+async def room_setup_add_photos(
+    setup_id: int, request: Request, photos: list[UploadFile] = File([]), db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    setup = db.query(models.RoomSetup).filter(models.RoomSetup.id == setup_id).first()
+    if setup and not user.is_flat_rate:
+        for photo in photos:
+            if not photo or not photo.filename:
+                continue
+            data = await photo.read()
+            if data and (photo.content_type or "").startswith("image/"):
+                ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
+                filename = f"{uuid.uuid4().hex}{ext}"
+                with open(os.path.join(SETUP_PHOTOS_DIR, filename), "wb") as f:
+                    f.write(data)
+                db.add(models.RoomSetupPhoto(setup_id=setup.id, filename=filename))
+        db.commit()
+    return RedirectResponse(f"/room/{setup.room_id}" if setup else "/", status_code=302)
+
+
+@app.post("/setups/{setup_id}/delete")
+def room_setup_delete(setup_id: int, request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    setup = db.query(models.RoomSetup).filter(models.RoomSetup.id == setup_id).first()
+    if setup and (setup.created_by_id == user.id or user.is_admin or user.is_shift_lead or user.is_developer):
+        room_id = setup.room_id
+        for photo in setup.photos:
+            try:
+                os.remove(os.path.join(SETUP_PHOTOS_DIR, photo.filename))
+            except OSError:
+                pass
+        db.delete(setup)
+        db.commit()
+        return RedirectResponse(f"/room/{room_id}", status_code=302)
+    return RedirectResponse("/", status_code=302)
 
 
 # ---------- Zeiterfassung ----------
@@ -2616,6 +2702,7 @@ def admin_add_user(
     group_id: str = Form(""),
     role: str = Form("mitarbeiter"),
     target_hours_per_month: str = Form(""),
+    is_flat_rate: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -2642,6 +2729,7 @@ def admin_add_user(
     # im eigenen Profil anpassen, Stundensatz sowieso nur dort.
     if actor.is_admin:
         user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
+        user.is_flat_rate = bool(is_flat_rate)
     db.add(user)
     db.commit()
     return RedirectResponse("/admin/users", status_code=302)
@@ -2657,6 +2745,7 @@ def admin_edit_user(
     group_id: str = Form(""),
     role: str = Form(""),
     target_hours_per_month: str = Form(""),
+    is_flat_rate: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -2689,6 +2778,7 @@ def admin_edit_user(
             # Hier nur von einem vollen Admin änderbar; der Nutzer selbst kann sie
             # zusätzlich im eigenen Profil anpassen - beide pflegen denselben Wert.
             target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
+            target.is_flat_rate = bool(is_flat_rate)
         db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 
