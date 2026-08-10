@@ -231,17 +231,15 @@ def _migrate_room_setup_events(db: Session):
     haben. Für jeden bisherigen Aufbau ohne event_id wird ein eigenes Event
     mit demselben Namen angelegt (1:1), damit nichts verloren geht."""
     _ensure_column(db, "room_setups", "event_id", "INTEGER")
-    try:
-        rows = db.execute(
-            text("SELECT id, name, created_by_id, created_at FROM room_setups WHERE event_id IS NULL")
-        ).fetchall()
-    except OperationalError:
-        return  # frisches Setup: Tabelle hat noch keine Zeilen
-    for setup_id, name, created_by_id, created_at in rows:
-        event = models.EventSetup(name=name, created_by_id=created_by_id, created_at=created_at)
+    # Über die ORM statt raw SQL lesen, damit created_at als echtes
+    # datetime-Objekt kommt (raw SQL liefert hier nur den rohen SQLite-Text,
+    # das crasht beim Insert ins neue DateTime-Feld von EventSetup).
+    orphans = db.query(models.RoomSetup).filter(models.RoomSetup.event_id.is_(None)).all()
+    for setup in orphans:
+        event = models.EventSetup(name=setup.name, created_by_id=setup.created_by_id, created_at=setup.created_at)
         db.add(event)
         db.flush()
-        db.execute(text("UPDATE room_setups SET event_id = :eid WHERE id = :sid"), {"eid": event.id, "sid": setup_id})
+        setup.event_id = event.id
     db.commit()
 
 
