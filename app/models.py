@@ -119,20 +119,44 @@ class Room(Base):
     tasks = relationship("Task", back_populates="room", cascade="all, delete-orphan")
 
 
+class EventSetup(Base):
+    """Gemeinsamer Name für einen Aufbau, der mehrere Bereiche gleichzeitig
+    betrifft (z.B. "Party 1" im Ausschank, Club und Salon) - jeder Bereich
+    bekommt einen eigenen RoomSetup-Eintrag mit eigenen Fotos/Notiz (sieht ja
+    pro Raum unterschiedlich aus), teilt sich aber diesen Namen, damit er
+    nicht in jedem Bereich neu eingetragen werden muss."""
+    __tablename__ = "event_setups"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    created_by = relationship("User")
+    room_setups = relationship(
+        "RoomSetup", back_populates="event", cascade="all, delete-orphan", order_by="RoomSetup.id"
+    )
+
+
 class RoomSetup(Base):
-    """Aufbau-Vorlage für einen Bereich (z.B. "Hochzeit Bankett", "Konzert
-    Stehplätze") mit Referenzfotos, wie der Raum für eine bestimmte Art
-    Veranstaltung umgebaut werden soll. Anlegen bewusst nicht für
-    Pauschalkräfte (siehe User.is_flat_rate)."""
+    """Aufbau-Vorlage für einen einzelnen Bereich innerhalb eines EventSetup
+    (z.B. wie der Ausschank für "Party 1" umgebaut werden soll) mit eigenen
+    Referenzfotos. Anlegen bewusst nicht für Pauschalkräfte (siehe
+    User.is_flat_rate). `name` ist seit Einführung von EventSetup nicht mehr
+    die Anzeige-Quelle (das ist event.name) - bleibt aber befüllt (=
+    event.name zum Anlegezeitpunkt), damit die Spalte nicht per Migration
+    entfernt werden muss."""
     __tablename__ = "room_setups"
 
     id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("event_setups.id"), nullable=True)
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
     name = Column(String, nullable=False)
     note = Column(String, nullable=True)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
+    event = relationship("EventSetup", back_populates="room_setups")
     room = relationship("Room")
     created_by = relationship("User")
     photos = relationship(

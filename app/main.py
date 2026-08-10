@@ -224,6 +224,27 @@ def _migrate_user_developer_role(db: Session):
     _ensure_column(db, "users", "is_developer", "INTEGER DEFAULT 0")
 
 
+def _migrate_room_setup_events(db: Session):
+    """Führt bestehende Aufbauten (früher: eigener Name direkt am RoomSetup,
+    fest an genau einen Bereich gebunden) ins EventSetup-Modell über - ein
+    Event kann jetzt mehrere Bereichs-Einträge mit je eigenen Fotos/Notizen
+    haben. Für jeden bisherigen Aufbau ohne event_id wird ein eigenes Event
+    mit demselben Namen angelegt (1:1), damit nichts verloren geht."""
+    _ensure_column(db, "room_setups", "event_id", "INTEGER")
+    try:
+        rows = db.execute(
+            text("SELECT id, name, created_by_id, created_at FROM room_setups WHERE event_id IS NULL")
+        ).fetchall()
+    except OperationalError:
+        return  # frisches Setup: Tabelle hat noch keine Zeilen
+    for setup_id, name, created_by_id, created_at in rows:
+        event = models.EventSetup(name=name, created_by_id=created_by_id, created_at=created_at)
+        db.add(event)
+        db.flush()
+        db.execute(text("UPDATE room_setups SET event_id = :eid WHERE id = :sid"), {"eid": event.id, "sid": setup_id})
+    db.commit()
+
+
 def _migrate_user_flat_rate(db: Session):
     """Neues Pauschalkraft-Flag (kein Altdaten-Bezug, Standard: False)."""
     _ensure_column(db, "users", "is_flat_rate", "INTEGER DEFAULT 0")
@@ -326,6 +347,7 @@ def _startup():
         _migrate_time_entry_audit_hash(db)
         _migrate_user_developer_role(db)
         _migrate_user_flat_rate(db)
+        _migrate_room_setup_events(db)
     finally:
         db.close()
 
@@ -691,15 +713,24 @@ def room_view(room_id: int, request: Request, db: Session = Depends(get_db)):
     setups = (
         db.query(models.RoomSetup)
         .filter(models.RoomSetup.room_id == room_id)
-        .order_by(models.RoomSetup.name)
+        .join(models.EventSetup)
+        .order_by(models.EventSetup.name)
         .all()
     )
+    # Events, die diesen Bereich noch nicht als eigenen Eintrag haben - nur
+    # die im "Zu bestehendem Aufbau hinzufügen"-Formular auswählbar, sonst
+    # könnte man versehentlich zwei Einträge für denselben Bereich anlegen.
+    attachable_events = [
+        e for e in db.query(models.EventSetup).order_by(models.EventSetup.name).all()
+        if not any(rs.room_id == room_id for rs in e.room_setups)
+    ]
     return templates.TemplateResponse("room.html", {
         "request": request,
         "user": user,
         "room": room,
         "statuses": statuses,
         "setups": setups,
+        "attachable_events": attachable_events,
     })
 
 
@@ -726,13 +757,60 @@ async def room_setups_create(
     photos: list[UploadFile] = File([]),
     db: Session = Depends(get_db),
 ):
-    """Neue Aufbau-Vorlage für einen Bereich (siehe RoomSetup) - bewusst nicht
-    für Pauschalkräfte, siehe User.is_flat_rate."""
+    """Neuer Aufbau (siehe EventSetup) mit einem ersten Bereichs-Eintrag
+    (siehe RoomSetup) - bewusst nicht für Pauschalkräfte, siehe User.is_flat_rate."""
     user = require_login(request, db)
     if user.is_flat_rate:
         return RedirectResponse(f"/room/{room_id}", status_code=302)
 
-    setup = models.RoomSetup(room_id=room_id, name=name, note=note.strip() or None, created_by_id=user.id)
+    event = models.EventSetup(name=name, created_by_id=user.id)
+    db.add(event)
+    db.commit()
+
+    setup = models.RoomSetup(
+        event_id=event.id, room_id=room_id, name=name, note=note.strip() or None, created_by_id=user.id,
+    )
+    db.add(setup)
+    db.commit()
+
+    for photo in photos:
+        if not photo or not photo.filename:
+            continue
+        data = await photo.read()
+        if data and (photo.content_type or "").startswith("image/"):
+            ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
+            filename = f"{uuid.uuid4().hex}{ext}"
+            with open(os.path.join(SETUP_PHOTOS_DIR, filename), "wb") as f:
+                f.write(data)
+            db.add(models.RoomSetupPhoto(setup_id=setup.id, filename=filename))
+    db.commit()
+    return RedirectResponse(f"/room/{room_id}", status_code=302)
+
+
+@app.post("/room/{room_id}/setups/attach")
+async def room_setups_attach(
+    room_id: int,
+    request: Request,
+    event_id: int = Form(...),
+    note: str = Form(""),
+    photos: list[UploadFile] = File([]),
+    db: Session = Depends(get_db),
+):
+    """Fügt diesem Bereich einen eigenen Eintrag zu einem bereits bestehenden
+    Aufbau (EventSetup) hinzu - z.B. wenn "Party 1" schon im Ausschank
+    dokumentiert ist und jetzt auch der Club dazukommt. Eigene Fotos/Notiz,
+    gemeinsamer Name mit den anderen Bereichs-Einträgen desselben Events."""
+    user = require_login(request, db)
+    if user.is_flat_rate:
+        return RedirectResponse(f"/room/{room_id}", status_code=302)
+
+    event = db.query(models.EventSetup).filter(models.EventSetup.id == event_id).first()
+    if not event or any(rs.room_id == room_id for rs in event.room_setups):
+        return RedirectResponse(f"/room/{room_id}", status_code=302)
+
+    setup = models.RoomSetup(
+        event_id=event.id, room_id=room_id, name=event.name, note=note.strip() or None, created_by_id=user.id,
+    )
     db.add(setup)
     db.commit()
 
@@ -775,9 +853,13 @@ async def room_setup_add_photos(
 def room_setup_edit(
     setup_id: int, request: Request, name: str = Form(...), note: str = Form(""), db: Session = Depends(get_db),
 ):
+    """Der Name gehört dem EventSetup (gemeinsam für alle Bereichs-Einträge
+    desselben Aufbaus), die Notiz gehört nur diesem einen Bereichs-Eintrag."""
     user = require_login(request, db)
     setup = db.query(models.RoomSetup).filter(models.RoomSetup.id == setup_id).first()
     if setup and (setup.created_by_id == user.id or user.is_admin or user.is_shift_lead or user.is_developer):
+        if setup.event:
+            setup.event.name = name
         setup.name = name
         setup.note = note.strip() or None
         db.commit()
@@ -787,10 +869,14 @@ def room_setup_edit(
 
 @app.post("/setups/{setup_id}/delete")
 def room_setup_delete(setup_id: int, request: Request, db: Session = Depends(get_db)):
+    """Löscht nur den Bereichs-Eintrag; ist es der letzte Bereichs-Eintrag
+    des Events, wird das EventSetup gleich mit aufgeräumt, damit keine leeren
+    Aufbauten in der "Zu bestehendem Aufbau hinzufügen"-Auswahl übrig bleiben."""
     user = require_login(request, db)
     setup = db.query(models.RoomSetup).filter(models.RoomSetup.id == setup_id).first()
     if setup and (setup.created_by_id == user.id or user.is_admin or user.is_shift_lead or user.is_developer):
         room_id = setup.room_id
+        event = setup.event
         for photo in setup.photos:
             try:
                 os.remove(os.path.join(SETUP_PHOTOS_DIR, photo.filename))
@@ -798,6 +884,9 @@ def room_setup_delete(setup_id: int, request: Request, db: Session = Depends(get
                 pass
         db.delete(setup)
         db.commit()
+        if event and len(event.room_setups) == 0:
+            db.delete(event)
+            db.commit()
         return RedirectResponse(f"/room/{room_id}", status_code=302)
     return RedirectResponse("/", status_code=302)
 
