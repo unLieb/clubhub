@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.48.0] - 2026-08-12
+- Aufgaben: Verwaltung auf kompakte, filterbare Tabelle umgestellt (Suche, Bereich/Turnus/Status-Filter, Seiten) statt langer Aufklapp-Liste – skaliert für 100+ Aufgaben, Bearbeiten bleibt weiterhin inline
+
 ## [0.47.2] - 2026-08-12
 - Aufgaben: Bereiche im Bearbeiten-Formular jetzt einfach an-/abwählbar (statt separater "hinzufügen"-Liste) – Abwählen entfernt die Aufgabe aus dem Bereich (mit Bestätigungsabfrage, da die Erledigungs-Historie dabei verloren geht)
 

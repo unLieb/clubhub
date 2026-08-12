@@ -2239,6 +2239,17 @@ def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
             if t.group_key:
                 sibling_rooms[t.id] = [s.room.name for s in by_key[t.group_key] if s.id != t.id]
                 sibling_room_ids[t.id] = [s.room_id for s in by_key[t.group_key] if s.id != t.id]
+    # Status (Farbe/zuletzt erledigt) je Aufgabe für die kompakte Tabelle -
+    # gleiches Prinzip wie in room_view().
+    now = ntptime.now_utc()
+    statuses = {}
+    last_completed_text = {}
+    for t in tasks:
+        s = task_status(t, now)
+        statuses[t.id] = s
+        last_completed_text[t.id] = (
+            f"vor {format_duration_de(now - s['last_completed'])}" if s["last_completed"] else "Noch nie"
+        )
     return templates.TemplateResponse("admin_tasks.html", {
         "request": request,
         "user": admin,
@@ -2246,6 +2257,8 @@ def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
         "rooms": db.query(models.Room).order_by(models.Room.name).all(),
         "sibling_room_ids": sibling_room_ids,
         "sibling_rooms": sibling_rooms,
+        "statuses": statuses,
+        "last_completed_text": last_completed_text,
     })
 
 

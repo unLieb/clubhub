@@ -76,79 +76,159 @@
   </div>
 </details>
 
-<div class="rounded-xl border border-line bg-panel p-4">
-  <ul class="space-y-1 text-sm">
-    {% for t in tasks %}
-    <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
-      <details class="group">
-        <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
-          <span>
-            {{ t.room.name }} – {{ t.name }}
+{% macro turnus_label(hours) -%}
+  {%- if hours == 24 -%}Täglich
+  {%- elif hours == 168 -%}Wöchentlich
+  {%- elif hours == 336 -%}Alle 2 Wochen
+  {%- elif hours == 720 -%}Monatlich
+  {%- elif hours == 2160 -%}Quartalsweise
+  {%- elif hours == 0 -%}Nach Bedarf
+  {%- else -%}alle {{ hours|int }}h
+  {%- endif -%}
+{%- endmacro %}
+
+<div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+  <div class="relative flex-1 sm:max-w-xs">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="task-search" type="text" placeholder="Aufgaben suchen…" autocomplete="off" class="w-full rounded-md bg-panel border border-line pl-9 pr-3 py-2 text-sm">
+  </div>
+  <select id="task-room-filter" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
+    <option value="">Alle Bereiche</option>
+    {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+  </select>
+  <select id="task-interval-filter" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
+    <option value="">Alle Intervalle</option>
+    <option value="24">Täglich</option>
+    <option value="168">Wöchentlich</option>
+    <option value="336">Alle 2 Wochen</option>
+    <option value="720">Monatlich</option>
+    <option value="2160">Quartalsweise</option>
+    <option value="0">Nach Bedarf</option>
+  </select>
+  <select id="task-status-filter" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
+    <option value="">Alle Status</option>
+    <option value="green">Grün</option>
+    <option value="yellow">Gelb (bald fällig)</option>
+    <option value="red">Rot (überfällig)</option>
+    <option value="on_demand">Nach Bedarf</option>
+  </select>
+</div>
+
+<div class="rounded-xl border border-line bg-panel overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm" id="task-table">
+      <thead>
+        <tr class="text-left text-[11px] text-slate-500 border-b border-line">
+          <th class="py-2 pl-4 pr-2 font-medium w-3"></th>
+          <th class="py-2 pr-2 font-medium">Aufgabe</th>
+          <th class="py-2 pr-2 font-medium">Bereich</th>
+          <th class="py-2 pr-2 font-medium">Turnus</th>
+          <th class="py-2 pr-2 font-medium">Zuletzt erledigt</th>
+          <th class="py-2 pr-4 font-medium text-right">Bearbeiten</th>
+        </tr>
+      </thead>
+      {% for t in tasks %}
+      {% set s = statuses[t.id] %}
+      <tbody
+        data-task
+        data-search="{{ (t.room.name ~ ' ' ~ t.name ~ ' ' ~ (t.note or ''))|lower }}"
+        data-room="{{ t.room_id }}"
+        data-interval="{{ t.interval_hours|int }}"
+        data-status="{{ 'on_demand' if s.on_demand else s.status }}"
+      >
+        <tr class="border-b border-line/50 hover:bg-panel2/50">
+          <td class="py-2 pl-4 pr-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full {% if s.on_demand %}bg-slate-500{% elif s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
+          </td>
+          <td class="py-2 pr-2">
+            <span class="text-slate-200">{{ t.name }}</span>
             {% if sibling_rooms.get(t.id) %}<span class="text-slate-500 text-xs block">auch in: {{ sibling_rooms[t.id]|join(', ') }}</span>{% endif %}
-          </span>
-          <span class="flex items-center gap-2 shrink-0">
-            <span class="text-slate-500 text-xs">
-              {% if t.interval_hours == 24 %}Täglich
-              {% elif t.interval_hours == 168 %}Wöchentlich
-              {% elif t.interval_hours == 336 %}Alle 2 Wochen
-              {% elif t.interval_hours == 720 %}Monatlich
-              {% elif t.interval_hours == 2160 %}Quartalsweise
-              {% elif t.interval_hours == 0 %}Nach Bedarf
-              {% else %}alle {{ t.interval_hours|int }}h{% endif %}{% if t.interval_hours != 0 %}, gelb ab {{ t.warn_hours|round(1) }}h vorher{% endif %}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </span>
-        </summary>
-        <form method="post" action="/admin/tasks/{{ t.id }}/edit" class="mt-2 space-y-2 max-w-2xl" data-room-edit-form>
-          {% set covered_ids = [t.room_id] + sibling_room_ids.get(t.id, []) %}
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Bereiche</label>
-            <div class="flex flex-wrap gap-1.5">
-              {% for r in rooms %}
-              <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-                <input type="checkbox" name="room_ids" value="{{ r.id }}" class="sr-only room-chip-input" data-room-name="{{ r.name }}" {% if r.id in covered_ids %}checked{% endif %}>{{ r.name }}
-              </label>
-              {% endfor %}
-            </div>
-            <p class="text-[11px] text-slate-500 mt-1">
-              Bereich abwählen entfernt die Aufgabe (inkl. Erledigungs-Historie) aus diesem Bereich, Bereich
-              anhaken legt sie dort baugleich neu an. Name/Turnus/Notiz gelten für alle ausgewählten Bereiche gemeinsam.
-            </p>
-            <input name="name" value="{{ t.name }}" required class="mt-2 w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          </div>
-          <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
-            <div class="flex-1">
-              <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
-              <select name="interval_hours" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-                <option value="24" data-warn="5" {% if t.interval_hours == 24 %}selected{% endif %}>Täglich</option>
-                <option value="168" data-warn="24" {% if t.interval_hours == 168 %}selected{% endif %}>Wöchentlich</option>
-                <option value="336" data-warn="48" {% if t.interval_hours == 336 %}selected{% endif %}>Alle 2 Wochen</option>
-                <option value="720" data-warn="72" {% if t.interval_hours == 720 %}selected{% endif %}>Monatlich</option>
-                <option value="2160" data-warn="216" {% if t.interval_hours == 2160 %}selected{% endif %}>Quartalsweise</option>
-                <option value="0" {% if t.interval_hours == 0 %}selected{% endif %}>Nach Bedarf</option>
-              </select>
-            </div>
-            <div class="flex-1 warn-hours-field">
-              <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
-              <input name="warn_hours" type="number" step="0.5" min="0.5" value="{{ t.warn_hours }}"
-                     class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
-            </div>
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
-            <textarea name="note" rows="2" placeholder="Zusätzliche Hinweise zur Ausführung" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">{{ t.note or '' }}</textarea>
-          </div>
-          <div class="flex gap-2">
-            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
-            {% if user.is_admin or user.is_developer %}
-            <button type="submit" formaction="/admin/tasks/{{ t.id }}/delete" formnovalidate onclick="return confirm('„{{ t.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
-            {% endif %}
-          </div>
-        </form>
-      </details>
-    </li>
-    {% endfor %}
-  </ul>
+          </td>
+          <td class="py-2 pr-2 text-slate-300">{{ t.room.name }}</td>
+          <td class="py-2 pr-2 text-slate-300">{{ turnus_label(t.interval_hours) }}</td>
+          <td class="py-2 pr-2 text-slate-400">{{ last_completed_text[t.id] }}</td>
+          <td class="py-2 pr-4 text-right">
+            <button type="button" class="task-edit-toggle p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Bearbeiten">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
+          </td>
+        </tr>
+        <tr class="task-edit-row hidden border-b border-line/50 bg-ink/30">
+          <td></td>
+          <td colspan="5" class="py-3 pr-4">
+            <form method="post" action="/admin/tasks/{{ t.id }}/edit" class="space-y-2 max-w-2xl" data-room-edit-form>
+              {% set covered_ids = [t.room_id] + sibling_room_ids.get(t.id, []) %}
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Bereiche</label>
+                <div class="flex flex-wrap gap-1.5">
+                  {% for r in rooms %}
+                  <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+                    <input type="checkbox" name="room_ids" value="{{ r.id }}" class="sr-only room-chip-input" data-room-name="{{ r.name }}" {% if r.id in covered_ids %}checked{% endif %}>{{ r.name }}
+                  </label>
+                  {% endfor %}
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">
+                  Bereich abwählen entfernt die Aufgabe (inkl. Erledigungs-Historie) aus diesem Bereich, Bereich
+                  anhaken legt sie dort baugleich neu an. Name/Turnus/Notiz gelten für alle ausgewählten Bereiche gemeinsam.
+                </p>
+                <input name="name" value="{{ t.name }}" required class="mt-2 w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              </div>
+              <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
+                <div class="flex-1">
+                  <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
+                  <select name="interval_hours" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+                    <option value="24" data-warn="5" {% if t.interval_hours == 24 %}selected{% endif %}>Täglich</option>
+                    <option value="168" data-warn="24" {% if t.interval_hours == 168 %}selected{% endif %}>Wöchentlich</option>
+                    <option value="336" data-warn="48" {% if t.interval_hours == 336 %}selected{% endif %}>Alle 2 Wochen</option>
+                    <option value="720" data-warn="72" {% if t.interval_hours == 720 %}selected{% endif %}>Monatlich</option>
+                    <option value="2160" data-warn="216" {% if t.interval_hours == 2160 %}selected{% endif %}>Quartalsweise</option>
+                    <option value="0" {% if t.interval_hours == 0 %}selected{% endif %}>Nach Bedarf</option>
+                  </select>
+                </div>
+                <div class="flex-1 warn-hours-field">
+                  <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
+                  <input name="warn_hours" type="number" step="0.5" min="0.5" value="{{ t.warn_hours }}"
+                         class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+                  <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
+                <textarea name="note" rows="2" placeholder="Zusätzliche Hinweise zur Ausführung" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">{{ t.note or '' }}</textarea>
+              </div>
+              <div class="flex gap-2">
+                <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+                {% if user.is_admin or user.is_developer %}
+                <button type="submit" formaction="/admin/tasks/{{ t.id }}/delete" formnovalidate onclick="return confirm('„{{ t.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+                {% endif %}
+              </div>
+            </form>
+          </td>
+        </tr>
+      </tbody>
+      {% else %}
+      <tbody>
+        <tr><td colspan="6" class="py-8 text-center text-slate-500 text-sm">Noch keine Aufgaben angelegt.</td></tr>
+      </tbody>
+      {% endfor %}
+    </table>
+    <p id="task-empty" class="hidden py-8 text-center text-slate-500 text-sm">Keine Aufgaben gefunden.</p>
+  </div>
+
+  <div id="task-pagination" class="hidden px-4 py-3 border-t border-line text-sm">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <span id="task-pagination-info" class="text-slate-400 text-xs"></span>
+      <div class="flex items-center gap-2">
+        <div id="task-pagination-pages" class="flex items-center gap-1"></div>
+        <select id="task-page-size" class="rounded-md bg-panel border border-line px-2 py-1 text-xs ml-2">
+          <option value="10">10 pro Seite</option>
+          <option value="25">25 pro Seite</option>
+          <option value="50">50 pro Seite</option>
+          <option value="all">Alle</option>
+        </select>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -199,6 +279,89 @@
       }
     });
   });
+
+  document.querySelectorAll('.task-edit-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var row = btn.closest('tbody').querySelector('.task-edit-row');
+      row.classList.toggle('hidden');
+    });
+  });
+
+  (function () {
+    var allBodies = Array.prototype.slice.call(document.querySelectorAll('tbody[data-task]'));
+    if (!allBodies.length) return;
+
+    var search = document.getElementById('task-search');
+    var roomFilter = document.getElementById('task-room-filter');
+    var intervalFilter = document.getElementById('task-interval-filter');
+    var statusFilter = document.getElementById('task-status-filter');
+    var empty = document.getElementById('task-empty');
+    var pagination = document.getElementById('task-pagination');
+    var paginationInfo = document.getElementById('task-pagination-info');
+    var paginationPages = document.getElementById('task-pagination-pages');
+    var pageSizeSelect = document.getElementById('task-page-size');
+
+    var currentPage = 1;
+
+    function filtered() {
+      var q = (search.value || '').trim().toLowerCase();
+      var room = roomFilter.value;
+      var interval = intervalFilter.value;
+      var status = statusFilter.value;
+      return allBodies.filter(function (tb) {
+        var matchesSearch = !q || tb.dataset.search.indexOf(q) !== -1;
+        var matchesRoom = !room || tb.dataset.room === room;
+        var matchesInterval = !interval || tb.dataset.interval === interval;
+        var matchesStatus = !status || tb.dataset.status === status;
+        return matchesSearch && matchesRoom && matchesInterval && matchesStatus;
+      });
+    }
+
+    function render() {
+      var matches = filtered();
+      var pageSize = pageSizeSelect.value === 'all' ? matches.length || 1 : parseInt(pageSizeSelect.value, 10);
+      var pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
+      if (currentPage > pageCount) currentPage = pageCount;
+      if (currentPage < 1) currentPage = 1;
+
+      var start = (currentPage - 1) * pageSize;
+      var end = start + pageSize;
+
+      allBodies.forEach(function (tb) { tb.classList.add('hidden'); });
+      matches.slice(start, end).forEach(function (tb) { tb.classList.remove('hidden'); });
+
+      empty.classList.toggle('hidden', matches.length !== 0);
+
+      if (matches.length === 0 || pageSizeSelect.value === 'all') {
+        pagination.classList.add('hidden');
+      } else {
+        pagination.classList.remove('hidden');
+        var shownEnd = Math.min(end, matches.length);
+        paginationInfo.textContent = (start + 1) + '–' + shownEnd + ' von ' + matches.length + ' Aufgaben';
+        paginationPages.innerHTML = '';
+        for (var p = 1; p <= pageCount; p++) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = p;
+          btn.className = 'px-2.5 py-1 rounded-md text-xs ' + (p === currentPage
+            ? 'bg-go/90 text-oncolor font-medium'
+            : 'text-slate-400 hover:bg-panel2 hover:text-slate-100');
+          (function (page) {
+            btn.addEventListener('click', function () { currentPage = page; render(); });
+          })(p);
+          paginationPages.appendChild(btn);
+        }
+      }
+    }
+
+    [search].forEach(function (el) { el.addEventListener('input', function () { currentPage = 1; render(); }); });
+    [roomFilter, intervalFilter, statusFilter].forEach(function (el) {
+      el.addEventListener('change', function () { currentPage = 1; render(); });
+    });
+    pageSizeSelect.addEventListener('change', function () { currentPage = 1; render(); });
+
+    render();
+  })();
 </script>
 
 {% endblock %}
