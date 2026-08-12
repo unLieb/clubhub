@@ -34,6 +34,13 @@ group_channel = Table(
     Column("channel_id", Integer, ForeignKey("notification_channels.id"), primary_key=True),
 )
 
+task_group = Table(
+    "task_group",
+    Base.metadata,
+    Column("task_id", Integer, ForeignKey("tasks.id"), primary_key=True),
+    Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
+)
+
 
 class Group(Base):
     __tablename__ = "groups"
@@ -49,6 +56,7 @@ class Group(Base):
     users = relationship("User", secondary=user_group, back_populates="groups")
     rooms = relationship("Room", secondary=room_group, back_populates="groups")
     channels = relationship("NotificationChannel", secondary=group_channel, back_populates="groups")
+    tasks = relationship("Task", secondary=task_group, back_populates="groups")
 
 
 class NotificationChannel(Base):
@@ -191,6 +199,14 @@ class Task(Base):
     # aber das Bearbeiten von Name/Turnus/Notiz zieht bei allen mit demselben
     # Schlüssel nach. None bei normalen, nicht gruppierten Aufgaben.
     group_key = Column(String, nullable=True)
+
+    # Explizit zuständige Gruppen ("Wer?", zusätzlich zum Bereich als "Wo?").
+    # Leer = keine Einschränkung, es gelten automatisch alle Gruppen, die dem
+    # Bereich zugeordnet sind (bisheriges Verhalten, keine Nacharbeit an
+    # bestehenden Aufgaben nötig). Nur explizit angehakte Gruppen schränken
+    # ein, z.B. wenn ein Bereich mehreren Gruppen zugeordnet ist, eine
+    # bestimmte Aufgabe darin aber nur eine davon betrifft.
+    groups = relationship("Group", secondary=task_group, back_populates="tasks")
 
     room = relationship("Room", back_populates="tasks")
     completions = relationship(

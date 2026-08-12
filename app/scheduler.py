@@ -52,7 +52,10 @@ def check_tasks_job():
             result = task_status(task)
             new_status = result["status"]
 
-            for group in task.room.groups:
+            # Explizit zugewiesene Gruppen benachrichtigen, falls gesetzt -
+            # sonst wie bisher alle Gruppen des Bereichs (Rückwärtskompatibel
+            # für Aufgaben ohne eigene Gruppen-Zuordnung).
+            for group in (task.groups or task.room.groups):
                 notice = (
                     db.query(TaskGroupNotice)
                     .filter_by(task_id=task.id, group_id=group.id)

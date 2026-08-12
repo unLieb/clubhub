@@ -32,6 +32,23 @@
       <div class="flex flex-col sm:flex-row gap-2">
         <input name="name" placeholder="Aufgabe" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       </div>
+      {% if groups %}
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Zuständige Gruppen (optional)</label>
+        <div class="flex flex-wrap gap-1.5">
+          {% for g in groups %}
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+            <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only">{{ g.name }}
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-[11px] text-slate-500 mt-1">
+          Keine Auswahl = automatisch alle Gruppen zuständig, die dem Bereich zugeordnet sind. Nur ankreuzen,
+          um auf bestimmte Gruppen einzuschränken (z.B. wenn ein Bereich mehreren Gruppen zugeordnet ist,
+          diese Aufgabe darin aber nur eine davon betrifft).
+        </p>
+      </div>
+      {% endif %}
       <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
         <div class="flex-1">
           <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
@@ -112,6 +129,12 @@
     <option value="red">Rot (überfällig)</option>
     <option value="on_demand">Nach Bedarf</option>
   </select>
+  {% if groups %}
+  <select id="task-group-filter" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
+    <option value="">Alle Gruppen</option>
+    {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+  </select>
+  {% endif %}
 </div>
 
 <div class="rounded-xl border border-line bg-panel overflow-hidden">
@@ -123,18 +146,21 @@
           <th class="py-2 pr-2 font-medium">Aufgabe</th>
           <th class="py-2 pr-2 font-medium">Bereich</th>
           <th class="py-2 pr-2 font-medium">Turnus</th>
+          <th class="py-2 pr-2 font-medium">Gruppen</th>
           <th class="py-2 pr-2 font-medium">Zuletzt erledigt</th>
           <th class="py-2 pr-4 font-medium text-right">Bearbeiten</th>
         </tr>
       </thead>
       {% for t in tasks %}
       {% set s = statuses[t.id] %}
+      {% set eff_groups = effective_groups.get(t.id, []) %}
       <tbody
         data-task
         data-search="{{ (t.room.name ~ ' ' ~ t.name ~ ' ' ~ (t.note or ''))|lower }}"
         data-room="{{ t.room_id }}"
         data-interval="{{ t.interval_hours|int }}"
         data-status="{{ 'on_demand' if s.on_demand else s.status }}"
+        data-groups="{{ eff_groups|map(attribute='id')|join(',') }}"
       >
         <tr class="border-b border-line/50 hover:bg-panel2/50">
           <td class="py-2 pl-4 pr-2">
@@ -146,6 +172,10 @@
           </td>
           <td class="py-2 pr-2 text-slate-300">{{ t.room.name }}</td>
           <td class="py-2 pr-2 text-slate-300">{{ turnus_label(t.interval_hours) }}</td>
+          <td class="py-2 pr-2 text-slate-400 text-xs">
+            {% if eff_groups %}{{ eff_groups|map(attribute='name')|join(', ') }}{% if not t.groups %}<span class="text-slate-500"> (Bereich-Standard)</span>{% endif %}
+            {% else %}–{% endif %}
+          </td>
           <td class="py-2 pr-2 text-slate-400">{{ last_completed_text[t.id] }}</td>
           <td class="py-2 pr-4 text-right">
             <button type="button" class="task-edit-toggle p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Bearbeiten">
@@ -155,7 +185,7 @@
         </tr>
         <tr class="task-edit-row hidden border-b border-line/50 bg-ink/30">
           <td></td>
-          <td colspan="5" class="py-3 pr-4">
+          <td colspan="6" class="py-3 pr-4">
             <form method="post" action="/admin/tasks/{{ t.id }}/edit" class="space-y-2 max-w-2xl" data-room-edit-form>
               {% set covered_ids = [t.room_id] + sibling_room_ids.get(t.id, []) %}
               <div>
@@ -173,6 +203,22 @@
                 </p>
                 <input name="name" value="{{ t.name }}" required class="mt-2 w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
               </div>
+              {% if groups %}
+              {% set task_group_ids = t.groups|map(attribute='id')|list %}
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Zuständige Gruppen (optional)</label>
+                <div class="flex flex-wrap gap-1.5">
+                  {% for g in groups %}
+                  <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+                    <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only" {% if g.id in task_group_ids %}checked{% endif %}>{{ g.name }}
+                  </label>
+                  {% endfor %}
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">
+                  Keine Auswahl = automatisch alle Gruppen des Bereichs ({{ t.room.groups|map(attribute='name')|join(', ') if t.room.groups else 'keine zugeordnet' }}).
+                </p>
+              </div>
+              {% endif %}
               <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
                 <div class="flex-1">
                   <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
@@ -208,7 +254,7 @@
       </tbody>
       {% else %}
       <tbody>
-        <tr><td colspan="6" class="py-8 text-center text-slate-500 text-sm">Noch keine Aufgaben angelegt.</td></tr>
+        <tr><td colspan="7" class="py-8 text-center text-slate-500 text-sm">Noch keine Aufgaben angelegt.</td></tr>
       </tbody>
       {% endfor %}
     </table>
@@ -295,6 +341,7 @@
     var roomFilter = document.getElementById('task-room-filter');
     var intervalFilter = document.getElementById('task-interval-filter');
     var statusFilter = document.getElementById('task-status-filter');
+    var groupFilter = document.getElementById('task-group-filter');
     var empty = document.getElementById('task-empty');
     var pagination = document.getElementById('task-pagination');
     var paginationInfo = document.getElementById('task-pagination-info');
@@ -308,12 +355,14 @@
       var room = roomFilter.value;
       var interval = intervalFilter.value;
       var status = statusFilter.value;
+      var group = groupFilter ? groupFilter.value : '';
       return allBodies.filter(function (tb) {
         var matchesSearch = !q || tb.dataset.search.indexOf(q) !== -1;
         var matchesRoom = !room || tb.dataset.room === room;
         var matchesInterval = !interval || tb.dataset.interval === interval;
         var matchesStatus = !status || tb.dataset.status === status;
-        return matchesSearch && matchesRoom && matchesInterval && matchesStatus;
+        var matchesGroup = !group || (tb.dataset.groups || '').split(',').indexOf(group) !== -1;
+        return matchesSearch && matchesRoom && matchesInterval && matchesStatus && matchesGroup;
       });
     }
 
@@ -355,8 +404,8 @@
     }
 
     [search].forEach(function (el) { el.addEventListener('input', function () { currentPage = 1; render(); }); });
-    [roomFilter, intervalFilter, statusFilter].forEach(function (el) {
-      el.addEventListener('change', function () { currentPage = 1; render(); });
+    [roomFilter, intervalFilter, statusFilter, groupFilter].forEach(function (el) {
+      if (el) el.addEventListener('change', function () { currentPage = 1; render(); });
     });
     pageSizeSelect.addEventListener('change', function () { currentPage = 1; render(); });
 

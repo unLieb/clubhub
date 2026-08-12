@@ -2250,15 +2250,22 @@ def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
         last_completed_text[t.id] = (
             f"vor {format_duration_de(now - s['last_completed'])}" if s["last_completed"] else "Noch nie"
         )
+    # Gruppen-Zuständigkeit: explizit gesetzte Gruppen, sonst geerbt vom
+    # Bereich (siehe Task.groups-Kommentar in models.py und check_tasks_job()).
+    effective_groups = {}
+    for t in tasks:
+        effective_groups[t.id] = t.groups if t.groups else t.room.groups
     return templates.TemplateResponse("admin_tasks.html", {
         "request": request,
         "user": admin,
         "tasks": tasks,
         "rooms": db.query(models.Room).order_by(models.Room.name).all(),
+        "groups": db.query(models.Group).order_by(models.Group.name).all(),
         "sibling_room_ids": sibling_room_ids,
         "sibling_rooms": sibling_rooms,
         "statuses": statuses,
         "last_completed_text": last_completed_text,
+        "effective_groups": effective_groups,
     })
 
 
@@ -2993,19 +3000,23 @@ def admin_add_task(
     warn_hours: float = Form(5.0),
     note: str = Form(""),
     last_completed: str = Form(""),
+    group_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
     actor = require_staff_or_developer(request, db)
     # Optional rückdatierbar: ohne Angabe würde der Turnus sonst erst ab dem
     # Anlegezeitpunkt zählen, auch wenn schon vorher geputzt wurde.
     completed_at = _parse_local_dt(last_completed)
+    # Explizite Gruppen-Zuständigkeit optional - leer bedeutet automatisch
+    # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
+    selected_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all() if group_ids else []
     # Mehrere Bereiche zugleich -> baugleiche Aufgabe pro Bereich mit eigener
     # Erledigungs-Historie, aber gemeinsamem group_key fürs Zusammen-Bearbeiten.
     group_key = uuid.uuid4().hex if len(room_ids) > 1 else None
     for rid in room_ids:
         task = models.Task(
             room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
-            note=note.strip() or None, group_key=group_key,
+            note=note.strip() or None, group_key=group_key, groups=list(selected_groups),
         )
         if completed_at:
             task.completions.append(models.Completion(user_id=actor.id, timestamp=completed_at))
@@ -3023,6 +3034,7 @@ def admin_edit_task(
     interval_hours: float = Form(...),
     warn_hours: float = Form(5.0),
     note: str = Form(""),
+    group_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
     require_staff_or_developer(request, db)
@@ -3031,6 +3043,10 @@ def admin_edit_task(
         # Mindestens ein Bereich muss übrig bleiben - ohne Angabe lieber
         # nichts ändern, statt versehentlich alle Instanzen zu löschen.
         return RedirectResponse("/admin/tasks", status_code=302)
+
+    # Explizite Gruppen-Zuständigkeit optional - leer bedeutet automatisch
+    # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
+    selected_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all() if group_ids else []
 
     group_key = task.group_key
     group_tasks = (
@@ -3052,6 +3068,7 @@ def admin_edit_task(
         t.interval_hours = interval_hours
         t.warn_hours = warn_hours
         t.note = note.strip() or None
+        t.groups = list(selected_groups)
 
     # Neu hinzugekommene Bereiche: baugleiche Aufgabe dort neu anlegen.
     added_ids = new_ids - old_ids
@@ -3061,7 +3078,7 @@ def admin_edit_task(
     for rid in added_ids:
         db.add(models.Task(
             room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
-            note=note.strip() or None, group_key=group_key,
+            note=note.strip() or None, group_key=group_key, groups=list(selected_groups),
         ))
 
     # Bleibt nur noch ein Bereich übrig, braucht es keinen Gruppen-Schlüssel mehr.
