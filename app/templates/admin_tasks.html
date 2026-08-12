@@ -98,33 +98,23 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </span>
         </summary>
-        <form method="post" action="/admin/tasks/{{ t.id }}/edit" class="mt-2 space-y-2 max-w-2xl">
-          <div class="flex flex-col sm:flex-row gap-2">
-            <select name="room_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              {% for r in rooms %}<option value="{{ r.id }}" {% if r.id == t.room_id %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
-            </select>
-            <input name="name" value="{{ t.name }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          </div>
-          {% if sibling_rooms.get(t.id) %}
-          <p class="text-[11px] text-slate-500">
-            Name/Turnus/Notiz gelten auch für: {{ sibling_rooms[t.id]|join(', ') }}. Der Bereich lässt sich nur für diese Instanz ändern.
-          </p>
-          {% endif %}
+        <form method="post" action="/admin/tasks/{{ t.id }}/edit" class="mt-2 space-y-2 max-w-2xl" data-room-edit-form>
           {% set covered_ids = [t.room_id] + sibling_room_ids.get(t.id, []) %}
-          {% set addable_rooms = rooms|rejectattr('id', 'in', covered_ids)|list %}
-          {% if addable_rooms %}
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Auch für weitere Bereiche anlegen</label>
+            <label class="block text-[11px] text-slate-400 mb-1">Bereiche</label>
             <div class="flex flex-wrap gap-1.5">
-              {% for r in addable_rooms %}
+              {% for r in rooms %}
               <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-                <input type="checkbox" name="add_room_ids" value="{{ r.id }}" class="sr-only">{{ r.name }}
+                <input type="checkbox" name="room_ids" value="{{ r.id }}" class="sr-only room-chip-input" data-room-name="{{ r.name }}" {% if r.id in covered_ids %}checked{% endif %}>{{ r.name }}
               </label>
               {% endfor %}
             </div>
-            <p class="text-[11px] text-slate-500 mt-1">Legt beim Speichern baugleiche Aufgaben in den ausgewählten Bereichen an.</p>
+            <p class="text-[11px] text-slate-500 mt-1">
+              Bereich abwählen entfernt die Aufgabe (inkl. Erledigungs-Historie) aus diesem Bereich, Bereich
+              anhaken legt sie dort baugleich neu an. Name/Turnus/Notiz gelten für alle ausgewählten Bereiche gemeinsam.
+            </p>
+            <input name="name" value="{{ t.name }}" required class="mt-2 w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           </div>
-          {% endif %}
           <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
             <div class="flex-1">
               <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
@@ -185,6 +175,29 @@
     hoursInput.addEventListener('input', updateHint);
     updateHint();
     updateVisibility();
+  });
+
+  document.querySelectorAll('[data-room-edit-form]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      var chips = form.querySelectorAll('.room-chip-input');
+      var checkedCount = 0;
+      var removed = [];
+      chips.forEach(function (cb) {
+        if (cb.checked) checkedCount++;
+        if (cb.defaultChecked && !cb.checked) removed.push(cb.dataset.roomName);
+      });
+      if (checkedCount === 0) {
+        alert('Mindestens ein Bereich muss ausgewählt bleiben.');
+        e.preventDefault();
+        return;
+      }
+      if (removed.length && !confirm(
+        'Bereich' + (removed.length > 1 ? 'e' : '') + ' „' + removed.join('“, „') + '“ wirklich aus dieser Aufgabe entfernen? ' +
+        'Die Erledigungs-Historie für ' + (removed.length > 1 ? 'diese Bereiche' : 'diesen Bereich') + ' geht dabei verloren.'
+      )) {
+        e.preventDefault();
+      }
+    });
   });
 </script>
 

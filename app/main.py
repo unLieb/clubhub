@@ -3005,46 +3005,58 @@ def admin_add_task(
 def admin_edit_task(
     task_id: int,
     request: Request,
-    room_id: int = Form(...),
+    room_ids: list[int] = Form([]),
     name: str = Form(...),
     interval_hours: float = Form(...),
     warn_hours: float = Form(5.0),
     note: str = Form(""),
-    add_room_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
     require_staff_or_developer(request, db)
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if task:
-        task.room_id = room_id
-        task.name = name
-        task.interval_hours = interval_hours
-        task.warn_hours = warn_hours
-        task.note = note.strip() or None
-        # Baugleiche Aufgaben in anderen Bereichen mitziehen (nur die
-        # gemeinsamen Angaben, nicht den Bereich oder die Erledigungen).
-        if task.group_key:
-            siblings = db.query(models.Task).filter(
-                models.Task.group_key == task.group_key, models.Task.id != task.id,
-            ).all()
-            for sib in siblings:
-                sib.name = name
-                sib.interval_hours = interval_hours
-                sib.warn_hours = warn_hours
-                sib.note = note.strip() or None
-        # Nachträglich weitere Bereiche zuweisen: legt für jeden ausgewählten
-        # Bereich eine neue baugleiche Aufgabe mit demselben group_key an -
-        # bekam die Aufgabe bisher noch keinen (war nicht gruppiert), wird
-        # jetzt einer vergeben.
-        if add_room_ids:
-            if not task.group_key:
-                task.group_key = uuid.uuid4().hex
-            for rid in add_room_ids:
-                db.add(models.Task(
-                    room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
-                    note=note.strip() or None, group_key=task.group_key,
-                ))
-        db.commit()
+    if not task or not room_ids:
+        # Mindestens ein Bereich muss übrig bleiben - ohne Angabe lieber
+        # nichts ändern, statt versehentlich alle Instanzen zu löschen.
+        return RedirectResponse("/admin/tasks", status_code=302)
+
+    group_key = task.group_key
+    group_tasks = (
+        db.query(models.Task).filter(models.Task.group_key == group_key).all()
+        if group_key else [task]
+    )
+    by_room = {t.room_id: t for t in group_tasks}
+    new_ids = set(room_ids)
+    old_ids = set(by_room.keys())
+
+    # Abgewählte Bereiche: Aufgabe (inkl. Erledigungs-Historie) dort löschen.
+    for rid in old_ids - new_ids:
+        db.delete(by_room[rid])
+
+    # Weiterhin ausgewählte Bereiche: gemeinsame Angaben aktualisieren.
+    for rid in old_ids & new_ids:
+        t = by_room[rid]
+        t.name = name
+        t.interval_hours = interval_hours
+        t.warn_hours = warn_hours
+        t.note = note.strip() or None
+
+    # Neu hinzugekommene Bereiche: baugleiche Aufgabe dort neu anlegen.
+    added_ids = new_ids - old_ids
+    if added_ids and not group_key:
+        group_key = uuid.uuid4().hex
+        task.group_key = group_key
+    for rid in added_ids:
+        db.add(models.Task(
+            room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
+            note=note.strip() or None, group_key=group_key,
+        ))
+
+    # Bleibt nur noch ein Bereich übrig, braucht es keinen Gruppen-Schlüssel mehr.
+    if group_key and len(new_ids) <= 1:
+        for t in db.query(models.Task).filter(models.Task.group_key == group_key).all():
+            t.group_key = None
+
+    db.commit()
     return RedirectResponse("/admin/tasks", status_code=302)
 
 
