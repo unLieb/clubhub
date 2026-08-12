@@ -110,6 +110,21 @@
             Name/Turnus/Notiz gelten auch für: {{ sibling_rooms[t.id]|join(', ') }}. Der Bereich lässt sich nur für diese Instanz ändern.
           </p>
           {% endif %}
+          {% set covered_ids = [t.room_id] + sibling_room_ids.get(t.id, []) %}
+          {% set addable_rooms = rooms|rejectattr('id', 'in', covered_ids)|list %}
+          {% if addable_rooms %}
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Auch für weitere Bereiche anlegen</label>
+            <div class="flex flex-wrap gap-1.5">
+              {% for r in addable_rooms %}
+              <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+                <input type="checkbox" name="add_room_ids" value="{{ r.id }}" class="sr-only">{{ r.name }}
+              </label>
+              {% endfor %}
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">Legt beim Speichern baugleiche Aufgaben in den ausgewählten Bereichen an.</p>
+          </div>
+          {% endif %}
           <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
             <div class="flex-1">
               <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>

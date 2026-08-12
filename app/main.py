@@ -2225,8 +2225,10 @@ def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
 def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
     admin = require_staff_or_developer(request, db)
     tasks = db.query(models.Task).join(models.Room).order_by(models.Room.name, models.Task.name).all()
-    # Für den "auch in: ..."-Hinweis bei baugleichen Aufgaben in mehreren Bereichen.
+    # Für den "auch in: ..."-Hinweis sowie die "weitere Bereiche hinzufügen"-Auswahl
+    # bei baugleichen Aufgaben in mehreren Bereichen.
     sibling_rooms = {}
+    sibling_room_ids = {}
     group_keys = {t.group_key for t in tasks if t.group_key}
     if group_keys:
         grouped = db.query(models.Task).filter(models.Task.group_key.in_(group_keys)).all()
@@ -2236,11 +2238,13 @@ def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
         for t in tasks:
             if t.group_key:
                 sibling_rooms[t.id] = [s.room.name for s in by_key[t.group_key] if s.id != t.id]
+                sibling_room_ids[t.id] = [s.room_id for s in by_key[t.group_key] if s.id != t.id]
     return templates.TemplateResponse("admin_tasks.html", {
         "request": request,
         "user": admin,
         "tasks": tasks,
         "rooms": db.query(models.Room).order_by(models.Room.name).all(),
+        "sibling_room_ids": sibling_room_ids,
         "sibling_rooms": sibling_rooms,
     })
 
@@ -3006,6 +3010,7 @@ def admin_edit_task(
     interval_hours: float = Form(...),
     warn_hours: float = Form(5.0),
     note: str = Form(""),
+    add_room_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
     require_staff_or_developer(request, db)
@@ -3027,6 +3032,18 @@ def admin_edit_task(
                 sib.interval_hours = interval_hours
                 sib.warn_hours = warn_hours
                 sib.note = note.strip() or None
+        # Nachträglich weitere Bereiche zuweisen: legt für jeden ausgewählten
+        # Bereich eine neue baugleiche Aufgabe mit demselben group_key an -
+        # bekam die Aufgabe bisher noch keinen (war nicht gruppiert), wird
+        # jetzt einer vergeben.
+        if add_room_ids:
+            if not task.group_key:
+                task.group_key = uuid.uuid4().hex
+            for rid in add_room_ids:
+                db.add(models.Task(
+                    room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
+                    note=note.strip() or None, group_key=task.group_key,
+                ))
         db.commit()
     return RedirectResponse("/admin/tasks", status_code=302)
 
