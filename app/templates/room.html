@@ -16,12 +16,15 @@
 <div class="space-y-3">
   {% for task in room.tasks %}
   {% set s = statuses[task.id] %}
-  <div id="task-{{ task.id }}" class="rounded-xl border border-line bg-panel p-4 flex items-center justify-between gap-4">
+  <div id="task-{{ task.id }}" class="rounded-xl border p-4 flex items-center justify-between gap-4 {% if task.id == just_done_task_id %}border-go bg-go/10{% else %}border-line bg-panel{% endif %}">
     <div>
       <div class="flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full status-dot
           {% if s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
         <span class="font-medium">{{ task.name }}</span>
+        {% if task.id == just_done_task_id %}
+        <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-go/15 text-go font-medium">✓ Gerade erledigt</span>
+        {% endif %}
       </div>
       {% if s.duration_text %}
       <p class="text-xs mt-1 font-medium {% if s.status == 'red' %}text-late{% else %}text-warn{% endif %}">
@@ -37,8 +40,9 @@
       </p>
     </div>
     {% if user %}
-    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete">
-      <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap">
+    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete"
+          onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Wird gespeichert…';">
+      <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap disabled:opacity-60">
         Erledigt
       </button>
     </form>

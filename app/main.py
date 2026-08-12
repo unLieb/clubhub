@@ -690,7 +690,7 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
 # ---------- Raum / Scan ----------
 
 @app.get("/room/{room_id}")
-def room_view(room_id: int, request: Request, db: Session = Depends(get_db)):
+def room_view(room_id: int, request: Request, done: str = "", db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
     if redirect:
         return redirect
@@ -729,6 +729,7 @@ def room_view(room_id: int, request: Request, db: Session = Depends(get_db)):
         "statuses": statuses,
         "setups": setups,
         "attachable_events": attachable_events,
+        "just_done_task_id": int(done) if done.isdigit() else None,
     })
 
 
@@ -743,7 +744,11 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
             {"last_status": "green"}
         )
         db.commit()
-    return RedirectResponse(f"/room/{room_id}", status_code=302)
+    # done=<task_id> im Redirect, damit die Seite die gerade erledigte Aufgabe
+    # kurz sichtbar hervorheben kann - sonst ist die einzige Rückmeldung eine
+    # kleine Textzeile, die leicht übersehen wird (siehe Nutzer-Feedback: ohne
+    # sichtbare Bestätigung wurde "Erledigt" mehrfach hintereinander gedrückt).
+    return RedirectResponse(f"/room/{room_id}?done={task_id}", status_code=302)
 
 
 @app.post("/room/{room_id}/setups")

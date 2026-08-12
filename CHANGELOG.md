@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.43.1] - 2026-08-12
+- Fix: "Erledigt"-Button gab keine sichtbare Rückmeldung, was zu versehentlichem Mehrfach-Abhaken führte – Button sperrt jetzt beim Klick, erledigte Aufgabe wird kurz hervorgehoben
+
 ## [0.43.0] - 2026-08-10
 - Aufbauten können jetzt mehrere Bereiche gleichzeitig betreffen (z.B. eine Party in mehreren Räumen) – gemeinsamer Name, aber jeder Bereich behält eigene Fotos/Notiz; bestehende Aufbauten werden automatisch migriert
 
