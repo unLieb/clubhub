@@ -27,6 +27,7 @@
           <select name="interval_hours" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             <option value="24" data-warn="5">Täglich</option>
             <option value="168" data-warn="24">Wöchentlich</option>
+            <option value="336" data-warn="48">Alle 2 Wochen</option>
             <option value="720" data-warn="72">Monatlich</option>
             <option value="2160" data-warn="216">Quartalsweise</option>
           </select>
@@ -42,7 +43,8 @@
         Legt fest, wie viele Stunden vor Fälligkeit eine Aufgabe auf <span class="text-warn">Gelb (bald fällig)</span>
         springt, bevor sie <span class="text-late">rot (überfällig)</span> wird. Beim Wechsel des Turnus wird
         automatisch ein Richtwert vorgeschlagen (<b>Täglich</b> 5h, <b>Wöchentlich</b> 24h/1 Tag,
-        <b>Monatlich</b> 72h/3 Tage, <b>Quartalsweise</b> 216h/9 Tage) – lässt sich danach frei anpassen.
+        <b>Alle 2 Wochen</b> 48h/2 Tage, <b>Monatlich</b> 72h/3 Tage, <b>Quartalsweise</b> 216h/9 Tage) –
+        lässt sich danach frei anpassen.
       </p>
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Zuletzt erledigt am (optional)</label>
@@ -68,6 +70,7 @@
             <span class="text-slate-500 text-xs">
               {% if t.interval_hours == 24 %}Täglich
               {% elif t.interval_hours == 168 %}Wöchentlich
+              {% elif t.interval_hours == 336 %}Alle 2 Wochen
               {% elif t.interval_hours == 720 %}Monatlich
               {% elif t.interval_hours == 2160 %}Quartalsweise
               {% else %}alle {{ t.interval_hours|int }}h{% endif %}, gelb ab {{ t.warn_hours|round(1) }}h vorher</span>
@@ -87,6 +90,7 @@
               <select name="interval_hours" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
                 <option value="24" data-warn="5" {% if t.interval_hours == 24 %}selected{% endif %}>Täglich</option>
                 <option value="168" data-warn="24" {% if t.interval_hours == 168 %}selected{% endif %}>Wöchentlich</option>
+                <option value="336" data-warn="48" {% if t.interval_hours == 336 %}selected{% endif %}>Alle 2 Wochen</option>
                 <option value="720" data-warn="72" {% if t.interval_hours == 720 %}selected{% endif %}>Monatlich</option>
                 <option value="2160" data-warn="216" {% if t.interval_hours == 2160 %}selected{% endif %}>Quartalsweise</option>
               </select>
