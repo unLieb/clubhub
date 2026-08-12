@@ -47,6 +47,10 @@
         lässt sich danach frei anpassen.
       </p>
       <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
+        <textarea name="note" rows="2" placeholder="Zusätzliche Hinweise zur Ausführung" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+      </div>
+      <div>
         <label class="block text-[11px] text-slate-400 mb-1">Zuletzt erledigt am (optional)</label>
         <input name="last_completed" type="datetime-local" class="w-full sm:w-64 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
         <p class="text-[11px] text-slate-500 mt-1">
@@ -101,6 +105,10 @@
                      class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
               <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
             </div>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
+            <textarea name="note" rows="2" placeholder="Zusätzliche Hinweise zur Ausführung" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">{{ t.note or '' }}</textarea>
           </div>
           <div class="flex gap-2">
             <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>

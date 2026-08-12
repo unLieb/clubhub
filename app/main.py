@@ -224,6 +224,11 @@ def _migrate_user_developer_role(db: Session):
     _ensure_column(db, "users", "is_developer", "INTEGER DEFAULT 0")
 
 
+def _migrate_task_note(db: Session):
+    """Neue optionale Notiz je Aufgabe (kein Altdaten-Bezug)."""
+    _ensure_column(db, "tasks", "note", "TEXT")
+
+
 def _migrate_room_setup_events(db: Session):
     """Führt bestehende Aufbauten (früher: eigener Name direkt am RoomSetup,
     fest an genau einen Bereich gebunden) ins EventSetup-Modell über - ein
@@ -346,6 +351,7 @@ def _startup():
         _migrate_user_developer_role(db)
         _migrate_user_flat_rate(db)
         _migrate_room_setup_events(db)
+        _migrate_task_note(db)
     finally:
         db.close()
 
@@ -2949,11 +2955,14 @@ def admin_add_task(
     name: str = Form(...),
     interval_hours: float = Form(...),
     warn_hours: float = Form(5.0),
+    note: str = Form(""),
     last_completed: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_staff_or_developer(request, db)
-    task = models.Task(room_id=room_id, name=name, interval_hours=interval_hours, warn_hours=warn_hours)
+    task = models.Task(
+        room_id=room_id, name=name, interval_hours=interval_hours, warn_hours=warn_hours, note=note.strip() or None,
+    )
     # Optional rückdatierbar: ohne Angabe würde der Turnus sonst erst ab dem
     # Anlegezeitpunkt zählen, auch wenn schon vorher geputzt wurde.
     completed_at = _parse_local_dt(last_completed)
@@ -2972,6 +2981,7 @@ def admin_edit_task(
     name: str = Form(...),
     interval_hours: float = Form(...),
     warn_hours: float = Form(5.0),
+    note: str = Form(""),
     db: Session = Depends(get_db),
 ):
     require_staff_or_developer(request, db)
@@ -2981,6 +2991,7 @@ def admin_edit_task(
         task.name = name
         task.interval_hours = interval_hours
         task.warn_hours = warn_hours
+        task.note = note.strip() or None
         db.commit()
     return RedirectResponse("/admin/tasks", status_code=302)
 

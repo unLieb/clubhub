@@ -38,6 +38,15 @@
           noch nie erledigt
         {% endif %}
       </p>
+      {% if task.note %}
+      <ul class="list-disc pl-4 space-y-0.5 text-xs text-slate-300 mt-1.5">
+        {% for line in task.note.split('\n') %}
+        {% if line.strip() %}
+        <li>{{ line.strip() }}</li>
+        {% endif %}
+        {% endfor %}
+      </ul>
+      {% endif %}
     </div>
     {% if user %}
     <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete"

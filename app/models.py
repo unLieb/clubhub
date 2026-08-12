@@ -183,6 +183,7 @@ class Task(Base):
 
     interval_hours = Column(Float, nullable=False)      # rollierendes Intervall
     warn_hours = Column(Float, default=5.0)              # ab wie vielen Stunden vor Fälligkeit gelb
+    note = Column(String, nullable=True)                 # zusätzliche Hinweise, z.B. Details zur Ausführung
 
     room = relationship("Room", back_populates="tasks")
     completions = relationship(

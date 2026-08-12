@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.45.0] - 2026-08-12
+- Aufgaben: optionale Notiz (Stichpunkte) ergänzen, sichtbar direkt auf der Bereichsseite
+
 ## [0.44.0] - 2026-08-12
 - Aufgaben: neuer Turnus "Alle 2 Wochen" ergänzt
 
