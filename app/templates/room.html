@@ -20,8 +20,11 @@
     <div>
       <div class="flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full status-dot
-          {% if s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
+          {% if s.on_demand %}bg-slate-500{% elif s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
         <span class="font-medium">{{ task.name }}</span>
+        {% if s.on_demand %}
+        <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">Nach Bedarf</span>
+        {% endif %}
         {% if task.id == just_done_task_id %}
         <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-go/15 text-go font-medium">✓ Gerade erledigt</span>
         {% endif %}

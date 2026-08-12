@@ -7,10 +7,26 @@ def task_status(task, now=None):
     """
     Berechnet Status ('green' | 'yellow' | 'red') sowie die relevanten
     Zeitpunkte für eine Aufgabe, basierend auf rollierendem Intervall.
+    interval_hours == 0 ist der Sonderwert "Nach Bedarf" (kein Datenbank-
+    Schema-Wechsel nötig, da 0 als echtes Intervall ohnehin sinnlos wäre):
+    solche Aufgaben werden nie automatisch gelb/rot und lösen dadurch auch
+    keine Erinnerung aus (check_tasks_job benachrichtigt nur bei gelb/rot).
     """
     now = now or ntptime.now_utc()
 
     last = task.completions[0].timestamp if task.completions else None
+
+    if task.interval_hours == 0:
+        if last is not None and last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        return {
+            "status": "green",
+            "last_completed": last,
+            "due_at": None,
+            "warn_at": None,
+            "on_demand": True,
+        }
+
     if last is None:
         # nie erledigt -> sofort fällig (rot), Basis ist "Erstellung/jetzt"
         due_at = now
@@ -34,6 +50,7 @@ def task_status(task, now=None):
         "last_completed": last,
         "due_at": due_at,
         "warn_at": warn_at,
+        "on_demand": False,
     }
 
 
