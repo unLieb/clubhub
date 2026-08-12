@@ -184,6 +184,13 @@ class Task(Base):
     interval_hours = Column(Float, nullable=False)      # rollierendes Intervall
     warn_hours = Column(Float, default=5.0)              # ab wie vielen Stunden vor Fälligkeit gelb
     note = Column(String, nullable=True)                 # zusätzliche Hinweise, z.B. Details zur Ausführung
+    # Gemeinsamer Schlüssel für baugleiche Aufgaben, die für mehrere Bereiche
+    # auf einmal angelegt wurden (z.B. "Lüftung reinigen" in 3 Räumen) - jede
+    # Bereichs-Instanz bleibt ein eigenständiger Task mit eigenen Erledigungen
+    # (ein Raum sauber zu haben heißt nicht, dass die anderen es auch sind),
+    # aber das Bearbeiten von Name/Turnus/Notiz zieht bei allen mit demselben
+    # Schlüssel nach. None bei normalen, nicht gruppierten Aufgaben.
+    group_key = Column(String, nullable=True)
 
     room = relationship("Room", back_populates="tasks")
     completions = relationship(

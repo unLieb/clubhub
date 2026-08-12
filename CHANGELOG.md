@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.47.0] - 2026-08-12
+- Aufgaben: mehrere Bereiche auf einmal auswählbar beim Anlegen – für baugleiche Aufgaben (z.B. "Lüftung reinigen" in mehreren Räumen) reicht ein Formular; jeder Bereich behält eigene Erledigungen, Name/Turnus/Notiz bleiben beim Bearbeiten für alle gemeinsam änderbar
+
 ## [0.46.0] - 2026-08-12
 - Aufgaben: neuer Turnus "Nach Bedarf" für Aufgaben ohne festen Rhythmus – wird nie automatisch gelb/rot, löst keine Erinnerung aus
 

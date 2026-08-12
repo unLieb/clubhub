@@ -229,6 +229,12 @@ def _migrate_task_note(db: Session):
     _ensure_column(db, "tasks", "note", "TEXT")
 
 
+def _migrate_task_group_key(db: Session):
+    """Neuer optionaler Gruppierungs-Schlüssel für baugleiche Aufgaben in
+    mehreren Bereichen (kein Altdaten-Bezug)."""
+    _ensure_column(db, "tasks", "group_key", "TEXT")
+
+
 def _migrate_room_setup_events(db: Session):
     """Führt bestehende Aufbauten (früher: eigener Name direkt am RoomSetup,
     fest an genau einen Bereich gebunden) ins EventSetup-Modell über - ein
@@ -352,6 +358,7 @@ def _startup():
         _migrate_user_flat_rate(db)
         _migrate_room_setup_events(db)
         _migrate_task_note(db)
+        _migrate_task_group_key(db)
     finally:
         db.close()
 
@@ -2218,11 +2225,23 @@ def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
 def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
     admin = require_staff_or_developer(request, db)
     tasks = db.query(models.Task).join(models.Room).order_by(models.Room.name, models.Task.name).all()
+    # Für den "auch in: ..."-Hinweis bei baugleichen Aufgaben in mehreren Bereichen.
+    sibling_rooms = {}
+    group_keys = {t.group_key for t in tasks if t.group_key}
+    if group_keys:
+        grouped = db.query(models.Task).filter(models.Task.group_key.in_(group_keys)).all()
+        by_key = {}
+        for t in grouped:
+            by_key.setdefault(t.group_key, []).append(t)
+        for t in tasks:
+            if t.group_key:
+                sibling_rooms[t.id] = [s.room.name for s in by_key[t.group_key] if s.id != t.id]
     return templates.TemplateResponse("admin_tasks.html", {
         "request": request,
         "user": admin,
         "tasks": tasks,
         "rooms": db.query(models.Room).order_by(models.Room.name).all(),
+        "sibling_rooms": sibling_rooms,
     })
 
 
@@ -2951,7 +2970,7 @@ def admin_delete_room(room_id: int, request: Request, db: Session = Depends(get_
 @app.post("/admin/tasks")
 def admin_add_task(
     request: Request,
-    room_id: int = Form(...),
+    room_ids: list[int] = Form(...),
     name: str = Form(...),
     interval_hours: float = Form(...),
     warn_hours: float = Form(5.0),
@@ -2960,15 +2979,20 @@ def admin_add_task(
     db: Session = Depends(get_db),
 ):
     actor = require_staff_or_developer(request, db)
-    task = models.Task(
-        room_id=room_id, name=name, interval_hours=interval_hours, warn_hours=warn_hours, note=note.strip() or None,
-    )
     # Optional rückdatierbar: ohne Angabe würde der Turnus sonst erst ab dem
     # Anlegezeitpunkt zählen, auch wenn schon vorher geputzt wurde.
     completed_at = _parse_local_dt(last_completed)
-    if completed_at:
-        task.completions.append(models.Completion(user_id=actor.id, timestamp=completed_at))
-    db.add(task)
+    # Mehrere Bereiche zugleich -> baugleiche Aufgabe pro Bereich mit eigener
+    # Erledigungs-Historie, aber gemeinsamem group_key fürs Zusammen-Bearbeiten.
+    group_key = uuid.uuid4().hex if len(room_ids) > 1 else None
+    for rid in room_ids:
+        task = models.Task(
+            room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
+            note=note.strip() or None, group_key=group_key,
+        )
+        if completed_at:
+            task.completions.append(models.Completion(user_id=actor.id, timestamp=completed_at))
+        db.add(task)
     db.commit()
     return RedirectResponse("/admin/tasks", status_code=302)
 
@@ -2992,6 +3016,17 @@ def admin_edit_task(
         task.interval_hours = interval_hours
         task.warn_hours = warn_hours
         task.note = note.strip() or None
+        # Baugleiche Aufgaben in anderen Bereichen mitziehen (nur die
+        # gemeinsamen Angaben, nicht den Bereich oder die Erledigungen).
+        if task.group_key:
+            siblings = db.query(models.Task).filter(
+                models.Task.group_key == task.group_key, models.Task.id != task.id,
+            ).all()
+            for sib in siblings:
+                sib.name = name
+                sib.interval_hours = interval_hours
+                sib.warn_hours = warn_hours
+                sib.note = note.strip() or None
         db.commit()
     return RedirectResponse("/admin/tasks", status_code=302)
 

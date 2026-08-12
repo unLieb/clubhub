@@ -15,10 +15,21 @@
   </summary>
   <div class="px-4 pb-4 pt-1 border-t border-line">
     <form method="post" action="/admin/tasks" class="space-y-2 mt-3 max-w-2xl">
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Bereiche (Mehrfachauswahl möglich)</label>
+        <div class="flex flex-wrap gap-1.5">
+          {% for r in rooms %}
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+            <input type="checkbox" name="room_ids" value="{{ r.id }}" class="sr-only">{{ r.name }}
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-[11px] text-slate-500 mt-1">
+          Bei mehreren Bereichen wird die Aufgabe für jeden einzeln angelegt (eigene Erledigungen je Bereich),
+          aber Name/Turnus/Notiz bleiben beim Bearbeiten für alle gemeinsam änderbar.
+        </p>
+      </div>
       <div class="flex flex-col sm:flex-row gap-2">
-        <select name="room_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
-        </select>
         <input name="name" placeholder="Aufgabe" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       </div>
       <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
@@ -71,7 +82,10 @@
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
       <details class="group">
         <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
-          <span>{{ t.room.name }} – {{ t.name }}</span>
+          <span>
+            {{ t.room.name }} – {{ t.name }}
+            {% if sibling_rooms.get(t.id) %}<span class="text-slate-500 text-xs block">auch in: {{ sibling_rooms[t.id]|join(', ') }}</span>{% endif %}
+          </span>
           <span class="flex items-center gap-2 shrink-0">
             <span class="text-slate-500 text-xs">
               {% if t.interval_hours == 24 %}Täglich
@@ -91,6 +105,11 @@
             </select>
             <input name="name" value="{{ t.name }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           </div>
+          {% if sibling_rooms.get(t.id) %}
+          <p class="text-[11px] text-slate-500">
+            Name/Turnus/Notiz gelten auch für: {{ sibling_rooms[t.id]|join(', ') }}. Der Bereich lässt sich nur für diese Instanz ändern.
+          </p>
+          {% endif %}
           <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
             <div class="flex-1">
               <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
