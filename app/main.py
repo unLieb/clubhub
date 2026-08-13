@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import text, or_
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, joinedload
 
@@ -2092,20 +2092,80 @@ def push_delete_subscription(sub_id: int, request: Request, db: Session = Depend
 
 # ---------- Historie ----------
 
+_HISTORY_PAGE_SIZES = (25, 50, 100)
+
+
 @app.get("/history")
-def history(request: Request, db: Session = Depends(get_db)):
+def history(
+    request: Request,
+    q: str = "",
+    room_id: str = "",
+    user_id: str = "",
+    period: str = "",
+    page: int = 1,
+    page_size: int = 25,
+    db: Session = Depends(get_db),
+):
     user, redirect = require_login_page(request, db)
     if redirect:
         return redirect
-    # Kein Limit mehr (früher 200) - stattdessen Suche/Filter/Seiten wie bei
-    # den Aufgaben, damit ältere Einträge nicht mehr unsichtbar wegfallen.
-    completions = db.query(models.Completion).order_by(models.Completion.timestamp.desc()).all()
+    # Serverseitige Suche/Filter/Seiten statt alles auf einmal zu laden - bei
+    # ca. 30-40 Erledigungen/Tag über alle Bereiche wäre eine Seite, die die
+    # komplette Historie clientseitig rendert und filtert, in ein bis zwei
+    # Jahren spürbar langsam (mehrere MB HTML, zehntausende DOM-Zeilen). So
+    # bleibt jede Seite unabhängig von der Gesamtgröße der Historie leicht.
+    query = (
+        db.query(models.Completion)
+        .join(models.Task, models.Completion.task_id == models.Task.id)
+        .join(models.Room, models.Task.room_id == models.Room.id)
+        .join(models.User, models.Completion.user_id == models.User.id)
+    )
+    if q.strip():
+        like = f"%{q.strip()}%"
+        query = query.filter(or_(
+            models.Task.name.ilike(like), models.Room.name.ilike(like), models.User.name.ilike(like),
+        ))
+    if room_id.isdigit():
+        query = query.filter(models.Task.room_id == int(room_id))
+    if user_id.isdigit():
+        query = query.filter(models.Completion.user_id == int(user_id))
+    if period in ("today", "week", "month"):
+        now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
+        if period == "today":
+            start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == "week":
+            start_local = (now_local - timedelta(days=now_local.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start_local = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        query = query.filter(models.Completion.timestamp >= start_local.astimezone(timezone.utc))
+
+    total = query.count()
+    page_size = page_size if page_size in _HISTORY_PAGE_SIZES else 25
+    page_count = max(1, (total + page_size - 1) // page_size)
+    page = min(max(1, page), page_count)
+    completions = (
+        query.order_by(models.Completion.timestamp.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
     return templates.TemplateResponse("history.html", {
         "request": request,
         "user": user,
         "completions": completions,
         "rooms": db.query(models.Room).order_by(models.Room.name).all(),
         "history_users": db.query(models.User).order_by(models.User.name).all(),
+        "q": q,
+        "room_id": room_id,
+        "user_id": user_id,
+        "period": period,
+        "page": page,
+        "page_size": page_size,
+        "page_sizes": _HISTORY_PAGE_SIZES,
+        "page_count": page_count,
+        "total": total,
+        "range_start": (page - 1) * page_size + 1 if total else 0,
+        "range_end": min(page * page_size, total),
     })
 
 

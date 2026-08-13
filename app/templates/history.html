@@ -5,30 +5,31 @@
 <a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-5">Historie</h1>
 
-<div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+<form method="get" action="/history" id="hist-filter-form" class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
   <div class="relative flex-1 sm:max-w-xs">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-    <input id="hist-search" type="text" placeholder="Suchen…" autocomplete="off" class="w-full rounded-md bg-panel border border-line pl-9 pr-3 py-2 text-sm">
+    <input name="q" value="{{ q }}" type="text" placeholder="Suchen…" autocomplete="off" class="w-full rounded-md bg-panel border border-line pl-9 pr-3 py-2 text-sm">
   </div>
-  <select id="hist-room-filter" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
+  <select name="room_id" onchange="this.form.submit()" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
     <option value="">Alle Bereiche</option>
-    {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+    {% for r in rooms %}<option value="{{ r.id }}" {% if room_id == r.id|string %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
   </select>
-  <select id="hist-user-filter" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
+  <select name="user_id" onchange="this.form.submit()" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
     <option value="">Alle Nutzer</option>
-    {% for u in history_users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+    {% for u in history_users %}<option value="{{ u.id }}" {% if user_id == u.id|string %}selected{% endif %}>{{ u.name }}</option>{% endfor %}
   </select>
-  <select id="hist-period-filter" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
+  <select name="period" onchange="this.form.submit()" class="rounded-md bg-panel border border-line px-3 py-2 text-sm">
     <option value="">Alle Zeiträume</option>
-    <option value="today">Heute</option>
-    <option value="week">Diese Woche</option>
-    <option value="month">Dieser Monat</option>
+    <option value="today" {% if period == 'today' %}selected{% endif %}>Heute</option>
+    <option value="week" {% if period == 'week' %}selected{% endif %}>Diese Woche</option>
+    <option value="month" {% if period == 'month' %}selected{% endif %}>Dieser Monat</option>
   </select>
-</div>
+  <button class="px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium sm:hidden">Suchen</button>
+</form>
 
 <div class="rounded-xl border border-line bg-panel overflow-hidden">
   <div class="overflow-x-auto">
-    <table class="w-full text-sm" id="hist-table">
+    <table class="w-full text-sm">
       <thead class="bg-ink/60 text-slate-400 text-xs uppercase tracking-wide">
         <tr>
           <th class="text-left px-4 py-2.5">Datum</th>
@@ -40,13 +41,7 @@
       </thead>
       <tbody class="divide-y divide-line">
         {% for c in completions %}
-        <tr
-          data-hist-row
-          data-search="{{ (c.task.room.name ~ ' ' ~ c.task.name ~ ' ' ~ c.user.name)|lower }}"
-          data-room="{{ c.task.room_id }}"
-          data-user="{{ c.user_id }}"
-          data-date="{{ (c.timestamp|localtime).strftime('%Y-%m-%d') }}"
-        >
+        <tr>
           <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime)|reldate }}</td>
           <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
           <td class="px-4 py-2.5">{{ c.task.name }}</td>
@@ -60,123 +55,30 @@
           {% endif %}
         </tr>
         {% else %}
-        <tr><td colspan="5" class="px-4 py-6 text-center text-slate-500 italic">Noch keine Einträge</td></tr>
+        <tr><td colspan="5" class="px-4 py-6 text-center text-slate-500 italic">Keine Einträge gefunden.</td></tr>
         {% endfor %}
       </tbody>
     </table>
-    <p id="hist-empty" class="hidden py-8 text-center text-slate-500 text-sm">Keine Einträge gefunden.</p>
   </div>
 
-  <div id="hist-pagination" class="hidden px-4 py-3 border-t border-line text-sm">
+  {% if total %}
+  <div class="px-4 py-3 border-t border-line text-sm">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-      <span id="hist-pagination-info" class="text-slate-400 text-xs"></span>
+      <span class="text-slate-400 text-xs">{{ range_start }}–{{ range_end }} von {{ total }} Einträgen</span>
       <div class="flex items-center gap-2">
-        <div id="hist-pagination-pages" class="flex items-center gap-1"></div>
-        <select id="hist-page-size" class="rounded-md bg-panel border border-line px-2 py-1 text-xs ml-2">
-          <option value="25">25 pro Seite</option>
-          <option value="50">50 pro Seite</option>
-          <option value="100">100 pro Seite</option>
-          <option value="all">Alle</option>
+        <div class="flex items-center gap-1">
+          {% for p in range(1, page_count + 1) %}
+          <button type="submit" form="hist-filter-form" name="page" value="{{ p }}"
+                  class="px-2.5 py-1 rounded-md text-xs {% if p == page %}bg-go/90 text-oncolor font-medium{% else %}text-slate-400 hover:bg-panel2 hover:text-slate-100{% endif %}">{{ p }}</button>
+          {% endfor %}
+        </div>
+        <select name="page_size" form="hist-filter-form" onchange="this.form.submit()" class="rounded-md bg-panel border border-line px-2 py-1 text-xs ml-2">
+          {% for ps in page_sizes %}<option value="{{ ps }}" {% if ps == page_size %}selected{% endif %}>{{ ps }} pro Seite</option>{% endfor %}
         </select>
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
-
-<script>
-  (function () {
-    var allRows = Array.prototype.slice.call(document.querySelectorAll('tr[data-hist-row]'));
-    if (!allRows.length) return;
-
-    var search = document.getElementById('hist-search');
-    var roomFilter = document.getElementById('hist-room-filter');
-    var userFilter = document.getElementById('hist-user-filter');
-    var periodFilter = document.getElementById('hist-period-filter');
-    var empty = document.getElementById('hist-empty');
-    var pagination = document.getElementById('hist-pagination');
-    var paginationInfo = document.getElementById('hist-pagination-info');
-    var paginationPages = document.getElementById('hist-pagination-pages');
-    var pageSizeSelect = document.getElementById('hist-page-size');
-
-    var currentPage = 1;
-
-    function isoDate(d) {
-      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    }
-
-    function periodStart(period) {
-      var now = new Date();
-      if (period === 'today') return isoDate(now);
-      if (period === 'week') {
-        var day = (now.getDay() + 6) % 7; // Montag = 0
-        var monday = new Date(now);
-        monday.setDate(now.getDate() - day);
-        return isoDate(monday);
-      }
-      if (period === 'month') return isoDate(now).slice(0, 8) + '01';
-      return null;
-    }
-
-    function filtered() {
-      var q = (search.value || '').trim().toLowerCase();
-      var room = roomFilter.value;
-      var uid = userFilter.value;
-      var period = periodFilter.value;
-      var minDate = period ? periodStart(period) : null;
-      return allRows.filter(function (row) {
-        var matchesSearch = !q || row.dataset.search.indexOf(q) !== -1;
-        var matchesRoom = !room || row.dataset.room === room;
-        var matchesUser = !uid || row.dataset.user === uid;
-        var matchesPeriod = !minDate || row.dataset.date >= minDate;
-        return matchesSearch && matchesRoom && matchesUser && matchesPeriod;
-      });
-    }
-
-    function render() {
-      var matches = filtered();
-      var pageSize = pageSizeSelect.value === 'all' ? matches.length || 1 : parseInt(pageSizeSelect.value, 10);
-      var pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
-      if (currentPage > pageCount) currentPage = pageCount;
-      if (currentPage < 1) currentPage = 1;
-
-      var start = (currentPage - 1) * pageSize;
-      var end = start + pageSize;
-
-      allRows.forEach(function (row) { row.classList.add('hidden'); });
-      matches.slice(start, end).forEach(function (row) { row.classList.remove('hidden'); });
-
-      empty.classList.toggle('hidden', matches.length !== 0);
-
-      if (matches.length === 0 || pageSizeSelect.value === 'all') {
-        pagination.classList.add('hidden');
-      } else {
-        pagination.classList.remove('hidden');
-        var shownEnd = Math.min(end, matches.length);
-        paginationInfo.textContent = (start + 1) + '–' + shownEnd + ' von ' + matches.length + ' Einträgen';
-        paginationPages.innerHTML = '';
-        for (var p = 1; p <= pageCount; p++) {
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.textContent = p;
-          btn.className = 'px-2.5 py-1 rounded-md text-xs ' + (p === currentPage
-            ? 'bg-go/90 text-oncolor font-medium'
-            : 'text-slate-400 hover:bg-panel2 hover:text-slate-100');
-          (function (page) {
-            btn.addEventListener('click', function () { currentPage = page; render(); });
-          })(p);
-          paginationPages.appendChild(btn);
-        }
-      }
-    }
-
-    [search].forEach(function (el) { el.addEventListener('input', function () { currentPage = 1; render(); }); });
-    [roomFilter, userFilter, periodFilter].forEach(function (el) {
-      el.addEventListener('change', function () { currentPage = 1; render(); });
-    });
-    pageSizeSelect.addEventListener('change', function () { currentPage = 1; render(); });
-
-    render();
-  })();
-</script>
 
 {% endblock %}

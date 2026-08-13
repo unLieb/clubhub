@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.51.1] - 2026-08-13
+- Historie: Suche/Filter/Seiten laufen jetzt als echte Datenbank-Abfrage statt clientseitig - bei ca. 30-40 Erledigungen/Tag über alle Bereiche wäre die vorherige Variante (alles auf einmal laden, im Browser filtern) binnen ein bis zwei Jahren spürbar langsam geworden. Jede Seite bleibt jetzt unabhängig von der Gesamtgröße der Historie gleich leicht
+
 ## [0.51.0] - 2026-08-13
 - Historie: starres 200-Einträge-Limit entfernt, stattdessen Suche + Filter nach Bereich/Nutzer/Zeitraum + Seiten (25/50/100/Alle) - kein Eintrag geht mehr verloren, egal wie alt
 
