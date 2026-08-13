@@ -9,7 +9,7 @@
   <table class="w-full text-sm">
     <thead class="bg-ink/60 text-slate-400 text-xs uppercase tracking-wide">
       <tr>
-        <th class="text-left px-4 py-2.5">Zeitpunkt</th>
+        <th class="text-left px-4 py-2.5">Datum</th>
         <th class="text-left px-4 py-2.5">Bereich</th>
         <th class="text-left px-4 py-2.5">Aufgabe</th>
         <th class="text-left px-4 py-2.5">Erledigt von</th>
@@ -19,7 +19,7 @@
     <tbody class="divide-y divide-line">
       {% for c in completions %}
       <tr>
-        <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime).strftime("%d.%m.%Y, %H:%M") }}</td>
+        <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime).strftime("%d.%m.%Y") }}</td>
         <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
         <td class="px-4 py-2.5">{{ c.task.name }}</td>
         <td class="px-4 py-2.5 text-slate-300">{{ c.user.name }}</td>

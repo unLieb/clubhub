@@ -24,7 +24,7 @@
     {% endif %}
     <p class="text-xs text-slate-400 mt-1">
       {% if s.last_completed %}
-        zuletzt erledigt: {{ (s.last_completed|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr
+        zuletzt erledigt: {{ (s.last_completed|localtime).strftime("%d.%m.%Y") }}
       {% else %}
         noch nie erledigt
       {% endif %}
