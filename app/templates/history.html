@@ -19,7 +19,7 @@
     <tbody class="divide-y divide-line">
       {% for c in completions %}
       <tr>
-        <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime).strftime("%d.%m.%Y") }}</td>
+        <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime)|reldate }}</td>
         <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
         <td class="px-4 py-2.5">{{ c.task.name }}</td>
         <td class="px-4 py-2.5 text-slate-300">{{ c.user.name }}</td>

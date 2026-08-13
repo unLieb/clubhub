@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.50.3] - 2026-08-13
+- Erledigungs-Datum zeigt jetzt "heute"/"gestern" statt des Datums, wenn zutreffend (Historie, Bereichsseite, Dashboard, Bereiche-Übersicht) - ältere Erledigungen weiterhin als TT.MM.JJJJ
+
 ## [0.50.2] - 2026-08-13
 - Historie, Bereichsseite, "Letzte Reinigungen" auf dem Dashboard und die Bereiche-Übersicht zeigen jetzt nur noch das Datum statt Datum+Uhrzeit - Turnus-Berechnung und Benachrichtigungen nutzen intern weiterhin die volle Uhrzeit
 

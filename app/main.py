@@ -85,6 +85,23 @@ def _to_local(ts):
 templates.env.filters["localtime"] = _to_local
 
 
+def _relative_date_de(ts_local):
+    """Formatiert ein bereits lokalisiertes Datum (siehe localtime-Filter)
+    als 'heute'/'gestern', sonst als TT.MM.JJJJ."""
+    if ts_local is None:
+        return None
+    today = ntptime.now_utc().astimezone(APP_TIMEZONE).date()
+    d = ts_local.date()
+    if d == today:
+        return "heute"
+    if d == today - timedelta(days=1):
+        return "gestern"
+    return ts_local.strftime("%d.%m.%Y")
+
+
+templates.env.filters["reldate"] = _relative_date_de
+
+
 @app.get("/healthz")
 def healthz(db: Session = Depends(get_db)):
     """Für Docker HEALTHCHECK (siehe Dockerfile) - prüft neben dem laufenden

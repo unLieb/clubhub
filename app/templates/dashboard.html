@@ -275,7 +275,7 @@
           <span class="truncate">{{ c.task.room.name }}</span>
           <span class="text-slate-500 truncate">&middot; {{ c.user.name }}</span>
         </div>
-        <span class="text-slate-500 text-xs whitespace-nowrap">{{ (c.timestamp|localtime).strftime("%d.%m.%Y") }}</span>
+        <span class="text-slate-500 text-xs whitespace-nowrap">{{ (c.timestamp|localtime)|reldate }}</span>
       </li>
       {% else %}
       <li class="py-4 text-center text-slate-500 text-sm italic">Noch keine Einträge</li>
