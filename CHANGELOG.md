@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.51.0] - 2026-08-13
+- Historie: starres 200-Einträge-Limit entfernt, stattdessen Suche + Filter nach Bereich/Nutzer/Zeitraum + Seiten (25/50/100/Alle) - kein Eintrag geht mehr verloren, egal wie alt
+
 ## [0.50.3] - 2026-08-13
 - Erledigungs-Datum zeigt jetzt "heute"/"gestern" statt des Datums, wenn zutreffend (Historie, Bereichsseite, Dashboard, Bereiche-Übersicht) - ältere Erledigungen weiterhin als TT.MM.JJJJ
 

@@ -2097,11 +2097,15 @@ def history(request: Request, db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
     if redirect:
         return redirect
-    completions = db.query(models.Completion).order_by(models.Completion.timestamp.desc()).limit(200).all()
+    # Kein Limit mehr (früher 200) - stattdessen Suche/Filter/Seiten wie bei
+    # den Aufgaben, damit ältere Einträge nicht mehr unsichtbar wegfallen.
+    completions = db.query(models.Completion).order_by(models.Completion.timestamp.desc()).all()
     return templates.TemplateResponse("history.html", {
         "request": request,
         "user": user,
         "completions": completions,
+        "rooms": db.query(models.Room).order_by(models.Room.name).all(),
+        "history_users": db.query(models.User).order_by(models.User.name).all(),
     })
 
 
