@@ -7,7 +7,7 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
 ## [0.50.2] - 2026-08-13
-- Historie, Bereichsseite und "Letzte Reinigungen" auf dem Dashboard zeigen jetzt nur noch das Datum statt Datum+Uhrzeit - Turnus-Berechnung und Benachrichtigungen nutzen intern weiterhin die volle Uhrzeit
+- Historie, Bereichsseite, "Letzte Reinigungen" auf dem Dashboard und die Bereiche-Übersicht zeigen jetzt nur noch das Datum statt Datum+Uhrzeit - Turnus-Berechnung und Benachrichtigungen nutzen intern weiterhin die volle Uhrzeit
 
 ## [0.50.1] - 2026-08-13
 - Bereichsseite: erledigte Aufgaben verschwinden jetzt aus der Liste, statt grün stehen zu bleiben - tauchen erst beim nächsten Turnus-Alarm (gelb/rot) wieder auf, "Nach Bedarf"-Aufgaben bleiben immer sichtbar. Bereits Erledigtes bleibt über einen einklappbaren Abschnitt einsehbar
