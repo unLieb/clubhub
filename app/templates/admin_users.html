@@ -36,16 +36,14 @@
           <option value="schichtleiter">Schichtleiter</option>
           <option value="admin">Admin</option>
           <option value="entwickler">Entwickler</option>
+          <option value="pauschalkraft">Pauschalkraft</option>
         </select>
+        <p class="text-[11px] text-slate-500 mt-1">Pauschalkraft darf keine Aufbauten anlegen.</p>
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Sollzeit/Monat (Std.)</label>
         <input type="number" step="0.5" min="0" name="target_hours_per_month" placeholder="z.B. 173" class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       </div>
-      <label class="flex items-center gap-2 text-sm text-slate-300">
-        <input type="checkbox" name="is_flat_rate" value="1" class="rounded border-line bg-ink">
-        Pauschalkraft (darf keine Aufbauten anlegen)
-      </label>
       {% endif %}
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Nutzer anlegen</button>
     </form>
@@ -59,7 +57,7 @@
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
       <details class="group">
         <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
-          <span>{{ u.name }}{% if u.is_admin %} <span class="text-go text-xs">(Admin)</span>{% elif u.is_shift_lead %} <span class="text-accent text-xs">(Schichtleiter)</span>{% elif u.is_developer %} <span class="text-violet text-xs">(Entwickler)</span>{% endif %}{% if u.is_flat_rate %} <span class="text-slate-500 text-xs">(Pauschalkraft)</span>{% endif %}{% if u.personnel_number %} <span class="text-slate-500 text-xs">#{{ u.personnel_number }}</span>{% endif %}</span>
+          <span>{{ u.name }}{% if u.is_admin %} <span class="text-go text-xs">(Admin)</span>{% elif u.is_shift_lead %} <span class="text-accent text-xs">(Schichtleiter)</span>{% elif u.is_developer %} <span class="text-violet text-xs">(Entwickler)</span>{% elif u.is_flat_rate %} <span class="text-slate-500 text-xs">(Pauschalkraft)</span>{% endif %}{% if u.personnel_number %} <span class="text-slate-500 text-xs">#{{ u.personnel_number }}</span>{% endif %}</span>
           <span class="flex items-center gap-2 shrink-0">
             <span class="text-slate-500 text-xs">{{ u.groups | map(attribute="name") | join(", ") or "keine Gruppen" }}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -101,20 +99,18 @@
           <div>
             <label class="block text-[11px] text-slate-400 mb-1">Rolle</label>
             <select name="role" class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              <option value="mitarbeiter" {% if not u.is_admin and not u.is_shift_lead and not u.is_developer %}selected{% endif %}>Mitarbeiter</option>
+              <option value="mitarbeiter" {% if not u.is_admin and not u.is_shift_lead and not u.is_developer and not u.is_flat_rate %}selected{% endif %}>Mitarbeiter</option>
               <option value="schichtleiter" {% if u.is_shift_lead %}selected{% endif %}>Schichtleiter</option>
               <option value="admin" {% if u.is_admin %}selected{% endif %}>Admin</option>
               <option value="entwickler" {% if u.is_developer %}selected{% endif %}>Entwickler</option>
+              <option value="pauschalkraft" {% if u.is_flat_rate %}selected{% endif %}>Pauschalkraft</option>
             </select>
+            <p class="text-[11px] text-slate-500 mt-1">Pauschalkraft darf keine Aufbauten anlegen.</p>
           </div>
           <div>
             <label class="block text-[11px] text-slate-400 mb-1">Sollzeit/Monat (Std.)</label>
             <input type="number" step="0.5" min="0" name="target_hours_per_month" value="{{ u.target_hours_per_month if u.target_hours_per_month is not none else '' }}" placeholder="z.B. 173" class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           </div>
-          <label class="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" name="is_flat_rate" value="1" {% if u.is_flat_rate %}checked{% endif %} class="rounded border-line bg-ink">
-            Pauschalkraft (darf keine Aufbauten anlegen)
-          </label>
           {% endif %}
           <div class="flex gap-2">
             <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>

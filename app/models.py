@@ -41,6 +41,19 @@ task_group = Table(
     Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
 )
 
+# Persönliche Sichtbarkeits-Einstellung (kein Recht, keine Admin-Vergabe):
+# jeder Nutzer kann für sich selbst Gruppen im Inventar ausblenden, die ihn
+# nicht interessieren (z.B. eine Führungskraft, die andere Gruppen verwaltet,
+# blendet Technik/Hausmeister-Artikel für sich aus). Betrifft aktuell nur
+# das Inventar - bei Bedarf später um weitere Tabellen für andere Seiten
+# erweiterbar, statt eine Seite fest zu verdrahten.
+user_hidden_inventory_group = Table(
+    "user_hidden_inventory_group",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
+)
+
 
 class Group(Base):
     __tablename__ = "groups"
@@ -93,9 +106,9 @@ class User(Base):
     # der App selbst als Mitarbeiter im Betrieb arbeitet und bewusst keinen
     # Zugriff auf Kollegen-Personal-/Lohndaten haben will/soll.
     is_developer = Column(Boolean, default=False)
-    # Pauschalkraft: unabhängig von der Rolle (die meisten sind einfache
-    # "Mitarbeiter") - dient aktuell nur dazu, das Anlegen von Aufbauten
-    # (siehe RoomSetup) auf "richtige" Mitarbeiter zu beschränken.
+    # Pauschalkraft: eigene Rolle (schließt sich mit Admin/Schichtleiter/
+    # Entwickler gegenseitig aus, siehe "Rolle"-Auswahl in admin_users.html) -
+    # verhindert aktuell das Anlegen von Aufbauten (siehe RoomSetup).
     is_flat_rate = Column(Boolean, default=False)
     # Stundensatz pflegt jeder Nutzer selbst im eigenen Profil (siehe /profile) -
     # nur er sieht den daraus berechneten Verdienst in der Zeiterfassung.
@@ -107,6 +120,7 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
 
     groups = relationship("Group", secondary=user_group, back_populates="users")
+    hidden_inventory_groups = relationship("Group", secondary=user_hidden_inventory_group)
     completions = relationship("Completion", back_populates="user", cascade="all, delete-orphan")
     time_entries = relationship(
         "TimeEntry", back_populates="user", cascade="all, delete-orphan",

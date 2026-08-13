@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.50.0] - 2026-08-13
+- Nutzerverwaltung: Pauschalkraft ist jetzt eine eigene Rolle im "Rolle"-Auswahlmenü statt einer separaten Checkbox
+- Inventar: jeder kann für sich selbst Gruppen ausblenden, die ihn nicht interessieren ("Sichtbarkeit anpassen") - rein persönliche Einstellung, ändert nichts für andere und erweitert nicht die ohnehin erlaubte Sicht
+
 ## [0.49.1] - 2026-08-13
 - Aufgaben: baugleiche Aufgabe kann jetzt "aus der Gruppe gelöst" werden, um Turnus/Name/Notiz nur für einen einzelnen Bereich abweichend einzustellen, ohne die anderen Bereiche oder die Erledigungs-Historie zu beeinflussen
 

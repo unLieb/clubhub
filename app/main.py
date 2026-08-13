@@ -1280,7 +1280,13 @@ def user_can_see_inventory_item(user, item) -> bool:
 
 
 def filter_inventory_for_user(items, user):
-    return [i for i in items if user_can_see_inventory_item(user, i)]
+    visible = [i for i in items if user_can_see_inventory_item(user, i)]
+    # Persönliche Ausblendung (siehe User.hidden_inventory_groups) - kein
+    # Recht, nur eine Deckelung der ohnehin schon erlaubten Sicht nach unten.
+    if user and user.hidden_inventory_groups:
+        hidden_ids = {g.id for g in user.hidden_inventory_groups}
+        visible = [i for i in visible if i.group_id not in hidden_ids]
+    return visible
 
 
 _OG_IMAGE_PATTERNS = [
@@ -1435,6 +1441,14 @@ def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session
     inventory_status = {item.id: compute_inventory_status(item) for item in items}
     inventory_consumption = {item.id: compute_inventory_consumption(item, now) for item in items}
     inventory_chart = {item.id: build_consumption_chart(inventory_consumption[item.id]) for item in items}
+    # Für die "Sichtbarkeit anpassen"-Auswahl: nur Gruppen, die für den Nutzer
+    # ohnehin sichtbar wären (siehe user_can_see_inventory_item) - Ausblenden
+    # ist eine Einschränkung der eigenen Sicht, kein Freischalten fremder Daten.
+    visible_groups_for_filter = (
+        db.query(models.Group).order_by(models.Group.name).all() if user and user.is_admin
+        else sorted(user.groups, key=lambda g: g.name) if user else []
+    )
+    hidden_group_ids = {g.id for g in user.hidden_inventory_groups} if user else set()
     return templates.TemplateResponse("inventory.html", {
         "request": request,
         "user": user,
@@ -1443,12 +1457,30 @@ def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session
         "inventory_consumption": inventory_consumption,
         "inventory_chart": inventory_chart,
         "groups": db.query(models.Group).all(),
+        "visible_groups_for_filter": visible_groups_for_filter,
+        "hidden_group_ids": hidden_group_ids,
         "categories": sorted({i.category for i in items if i.category}),
         "locations": sorted({i.location for i in items if i.location}),
         "units": sorted({i.unit for i in items if i.unit}),
         "pack_units": sorted({i.pack_unit for i in items if i.pack_unit}),
         "img_fetch_failed": bool(img_fetch_failed),
     })
+
+
+@app.post("/inventory/hidden-groups")
+def inventory_set_hidden_groups(
+    request: Request,
+    hidden_group_ids: list[int] = Form([]),
+    db: Session = Depends(get_db),
+):
+    # Persönliche Einstellung, kein Admin-Recht - jeder angemeldete Nutzer
+    # darf seine eigene Sicht anpassen.
+    user = require_login(request, db)
+    user.hidden_inventory_groups = (
+        db.query(models.Group).filter(models.Group.id.in_(hidden_group_ids)).all() if hidden_group_ids else []
+    )
+    db.commit()
+    return RedirectResponse("/inventory", status_code=302)
 
 
 @app.post("/inventory/{item_id}/adjust")
@@ -2857,7 +2889,6 @@ def admin_add_user(
     group_id: str = Form(""),
     role: str = Form("mitarbeiter"),
     target_hours_per_month: str = Form(""),
-    is_flat_rate: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -2866,10 +2897,10 @@ def admin_add_user(
         group = db.query(models.Group).filter(models.Group.id == int(group_id)).first()
         if group:
             groups = [group]
-    # Nur Admins dürfen beim Anlegen direkt Admin-/Schichtleiter-/Entwickler-
-    # Rechte vergeben; ein Schichtleiter legt immer nur normale Mitarbeiter-
-    # Konten an, auch wenn im Formular (z.B. per direktem POST) etwas anderes
-    # übermittelt wird.
+    # Nur Admins dürfen beim Anlegen direkt Admin-/Schichtleiter-/Entwickler-/
+    # Pauschalkraft-Rechte vergeben; ein Schichtleiter legt immer nur normale
+    # Mitarbeiter-Konten an, auch wenn im Formular (z.B. per direktem POST)
+    # etwas anderes übermittelt wird.
     user = models.User(
         name=name,
         password_hash=hash_password(password),
@@ -2877,6 +2908,7 @@ def admin_add_user(
         is_admin=actor.is_admin and role == "admin",
         is_shift_lead=actor.is_admin and role == "schichtleiter",
         is_developer=actor.is_admin and role == "entwickler",
+        is_flat_rate=actor.is_admin and role == "pauschalkraft",
         groups=groups,
     )
     # Hier nur beim Anlegen durch einen vollen Admin setzbar (Schichtleiter
@@ -2884,7 +2916,6 @@ def admin_add_user(
     # im eigenen Profil anpassen, Stundensatz sowieso nur dort.
     if actor.is_admin:
         user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
-        user.is_flat_rate = bool(is_flat_rate)
     db.add(user)
     db.commit()
     return RedirectResponse("/admin/users", status_code=302)
@@ -2900,7 +2931,6 @@ def admin_edit_user(
     group_id: str = Form(""),
     role: str = Form(""),
     target_hours_per_month: str = Form(""),
-    is_flat_rate: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -2918,22 +2948,22 @@ def admin_edit_user(
         group = db.query(models.Group).filter(models.Group.id == int(group_id)).first() if group_id else None
         target.groups = [group] if group else []
 
-        # Nur ein Admin darf Rollen ändern (Admin/Schichtleiter/Entwickler
-        # vergeben oder entziehen); bei einem Schichtleiter als Akteur bleibt
-        # die Rolle des bearbeiteten Nutzers unverändert, egal was im
-        # Formular ankommt.
+        # Nur ein Admin darf Rollen ändern (Admin/Schichtleiter/Entwickler/
+        # Pauschalkraft vergeben oder entziehen); bei einem Schichtleiter als
+        # Akteur bleibt die Rolle des bearbeiteten Nutzers unverändert, egal
+        # was im Formular ankommt.
         if actor.is_admin:
-            desired_role = role if role in ("mitarbeiter", "schichtleiter", "admin", "entwickler") else "mitarbeiter"
+            desired_role = role if role in ("mitarbeiter", "schichtleiter", "admin", "entwickler", "pauschalkraft") else "mitarbeiter"
             other_admins = db.query(models.User).filter(models.User.is_admin == True, models.User.id != user_id).count()
             if target.is_admin and desired_role != "admin" and other_admins == 0:
                 desired_role = "admin"  # letzten Admin nicht versehentlich entmachten
             target.is_admin = desired_role == "admin"
             target.is_shift_lead = desired_role == "schichtleiter"
             target.is_developer = desired_role == "entwickler"
+            target.is_flat_rate = desired_role == "pauschalkraft"
             # Hier nur von einem vollen Admin änderbar; der Nutzer selbst kann sie
             # zusätzlich im eigenen Profil anpassen - beide pflegen denselben Wert.
             target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
-            target.is_flat_rate = bool(is_flat_rate)
         db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 
