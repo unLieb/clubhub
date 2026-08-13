@@ -721,6 +721,13 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
         else:
             s["duration_text"] = None
         statuses[t.id] = s
+    # Erledigte (grüne) Aufgaben aus der Hauptliste ausblenden, damit man beim
+    # Abarbeiten nicht an bereits Erledigtem vorbeischeitzen muss - sie tauchen
+    # erst beim nächsten Turnus-Alarm (gelb/rot) wieder auf. "Nach Bedarf"-
+    # Aufgaben haben keinen Alarm und bleiben deshalb immer sichtbar.
+    pending_tasks = [t for t in room.tasks if statuses[t.id]["on_demand"] or statuses[t.id]["status"] != "green"]
+    pending_task_ids = {t.id for t in pending_tasks}
+    done_tasks = [t for t in room.tasks if t.id not in pending_task_ids]
     setups = (
         db.query(models.RoomSetup)
         .filter(models.RoomSetup.room_id == room_id)
@@ -735,14 +742,18 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
         e for e in db.query(models.EventSetup).order_by(models.EventSetup.name).all()
         if not any(rs.room_id == room_id for rs in e.room_setups)
     ]
+    just_done_task_id = int(done) if done.isdigit() else None
+    just_done_task_name = next((t.name for t in room.tasks if t.id == just_done_task_id), None)
     return templates.TemplateResponse("room.html", {
         "request": request,
         "user": user,
         "room": room,
         "statuses": statuses,
+        "pending_tasks": pending_tasks,
+        "done_tasks": done_tasks,
         "setups": setups,
         "attachable_events": attachable_events,
-        "just_done_task_id": int(done) if done.isdigit() else None,
+        "just_done_task_name": just_done_task_name,
     })
 
 

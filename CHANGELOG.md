@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.50.1] - 2026-08-13
+- Bereichsseite: erledigte Aufgaben verschwinden jetzt aus der Liste, statt grün stehen zu bleiben - tauchen erst beim nächsten Turnus-Alarm (gelb/rot) wieder auf, "Nach Bedarf"-Aufgaben bleiben immer sichtbar. Bereits Erledigtes bleibt über einen einklappbaren Abschnitt einsehbar
+
 ## [0.50.0] - 2026-08-13
 - Nutzerverwaltung: Pauschalkraft ist jetzt eine eigene Rolle im "Rolle"-Auswahlmenü statt einer separaten Checkbox
 - Inventar: jeder kann für sich selbst Gruppen ausblenden, die ihn nicht interessieren ("Sichtbarkeit anpassen") - rein persönliche Einstellung, ändert nichts für andere und erweitert nicht die ohnehin erlaubte Sicht

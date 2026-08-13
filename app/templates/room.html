@@ -6,6 +6,50 @@
 <h1 class="font-display text-2xl font-semibold mt-2 mb-1">{{ room.name }}</h1>
 <p class="text-slate-400 text-sm mb-6">{{ room.groups | map(attribute="name") | join(", ") }}</p>
 
+{% macro task_row(task, s) %}
+<div id="task-{{ task.id }}" class="rounded-xl border border-line bg-panel p-4 flex items-center justify-between gap-4">
+  <div>
+    <div class="flex items-center gap-2">
+      <span class="w-2.5 h-2.5 rounded-full status-dot
+        {% if s.on_demand %}bg-slate-500{% elif s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
+      <span class="font-medium">{{ task.name }}</span>
+      {% if s.on_demand %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">Nach Bedarf</span>
+      {% endif %}
+    </div>
+    {% if s.duration_text %}
+    <p class="text-xs mt-1 font-medium {% if s.status == 'red' %}text-late{% else %}text-warn{% endif %}">
+      {{ s.duration_text }}
+    </p>
+    {% endif %}
+    <p class="text-xs text-slate-400 mt-1">
+      {% if s.last_completed %}
+        zuletzt erledigt: {{ (s.last_completed|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr
+      {% else %}
+        noch nie erledigt
+      {% endif %}
+    </p>
+    {% if task.note %}
+    <ul class="list-disc pl-4 space-y-0.5 text-xs text-slate-300 mt-1.5">
+      {% for line in task.note.split('\n') %}
+      {% if line.strip() %}
+      <li>{{ line.strip() }}</li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% if user %}
+  <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete"
+        onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Wird gespeichert…';">
+    <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap disabled:opacity-60">
+      Erledigt
+    </button>
+  </form>
+  {% endif %}
+</div>
+{% endmacro %}
+
 {% if not user %}
 <div class="rounded-lg border border-line bg-panel p-3 mb-5 text-sm text-slate-300 flex items-center justify-between">
   <span>Zum Abhaken einer Aufgabe anmelden.</span>
@@ -13,57 +57,39 @@
 </div>
 {% endif %}
 
+{% if just_done_task_name %}
+<div class="rounded-lg border border-go/40 bg-go/10 text-go text-sm px-4 py-3 mb-4 flex items-center gap-2">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+  „{{ just_done_task_name }}“ erledigt!
+</div>
+{% endif %}
+
 <div class="space-y-3">
-  {% for task in room.tasks %}
-  {% set s = statuses[task.id] %}
-  <div id="task-{{ task.id }}" class="rounded-xl border p-4 flex items-center justify-between gap-4 {% if task.id == just_done_task_id %}border-go bg-go/10{% else %}border-line bg-panel{% endif %}">
-    <div>
-      <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full status-dot
-          {% if s.on_demand %}bg-slate-500{% elif s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
-        <span class="font-medium">{{ task.name }}</span>
-        {% if s.on_demand %}
-        <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">Nach Bedarf</span>
-        {% endif %}
-        {% if task.id == just_done_task_id %}
-        <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-go/15 text-go font-medium">✓ Gerade erledigt</span>
-        {% endif %}
-      </div>
-      {% if s.duration_text %}
-      <p class="text-xs mt-1 font-medium {% if s.status == 'red' %}text-late{% else %}text-warn{% endif %}">
-        {{ s.duration_text }}
-      </p>
-      {% endif %}
-      <p class="text-xs text-slate-400 mt-1">
-        {% if s.last_completed %}
-          zuletzt erledigt: {{ (s.last_completed|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr
-        {% else %}
-          noch nie erledigt
-        {% endif %}
-      </p>
-      {% if task.note %}
-      <ul class="list-disc pl-4 space-y-0.5 text-xs text-slate-300 mt-1.5">
-        {% for line in task.note.split('\n') %}
-        {% if line.strip() %}
-        <li>{{ line.strip() }}</li>
-        {% endif %}
-        {% endfor %}
-      </ul>
-      {% endif %}
-    </div>
-    {% if user %}
-    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete"
-          onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Wird gespeichert…';">
-      <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap disabled:opacity-60">
-        Erledigt
-      </button>
-    </form>
-    {% endif %}
-  </div>
+  {% for task in pending_tasks %}
+  {{ task_row(task, statuses[task.id]) }}
+  {% else %}
+  {% if room.tasks %}
+  <p class="text-slate-500 italic">Keine offenen Aufgaben – alles erledigt.</p>
   {% else %}
   <p class="text-slate-500 italic">Keine Aufgaben in diesem Bereich.</p>
+  {% endif %}
   {% endfor %}
 </div>
+
+{% if done_tasks %}
+<details class="mt-4 group">
+  <summary class="cursor-pointer list-none flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-300">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    Bereits erledigt ({{ done_tasks|length }})
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="space-y-3 mt-3">
+    {% for task in done_tasks %}
+    {{ task_row(task, statuses[task.id]) }}
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
 
 <div class="mt-8">
   <h2 class="font-display text-lg font-semibold mb-1">Aufbauten</h2>
