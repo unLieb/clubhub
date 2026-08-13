@@ -201,6 +201,16 @@
                   Bereich abwählen entfernt die Aufgabe (inkl. Erledigungs-Historie) aus diesem Bereich, Bereich
                   anhaken legt sie dort baugleich neu an. Name/Turnus/Notiz gelten für alle ausgewählten Bereiche gemeinsam.
                 </p>
+                {% if t.group_key %}
+                <label class="flex items-start gap-2 mt-2 text-[11px] text-slate-400 cursor-pointer">
+                  <input type="checkbox" name="detach_group" value="1" class="detach-group-checkbox mt-0.5">
+                  <span>
+                    Nur für <b>{{ t.room.name }}</b> abweichend einstellen (aus der Gruppe lösen) – Name/Turnus/Notiz
+                    gelten danach nur noch für diesen Bereich, die anderen bleiben unverändert und weiterhin
+                    gruppiert. Die Bereichs-Auswahl oben wird dabei ignoriert, Erledigungs-Historie bleibt erhalten.
+                  </span>
+                </label>
+                {% endif %}
                 <input name="name" value="{{ t.name }}" required class="mt-2 w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
               </div>
               {% if groups %}
@@ -305,6 +315,9 @@
 
   document.querySelectorAll('[data-room-edit-form]').forEach(function (form) {
     form.addEventListener('submit', function (e) {
+      var detach = form.querySelector('.detach-group-checkbox');
+      if (detach && detach.checked) return; // Bereichs-Auswahl wird beim Lösen ignoriert, keine Validierung nötig
+
       var chips = form.querySelectorAll('.room-chip-input');
       var checkedCount = 0;
       var removed = [];

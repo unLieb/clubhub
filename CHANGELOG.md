@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.49.1] - 2026-08-13
+- Aufgaben: baugleiche Aufgabe kann jetzt "aus der Gruppe gelöst" werden, um Turnus/Name/Notiz nur für einen einzelnen Bereich abweichend einzustellen, ohne die anderen Bereiche oder die Erledigungs-Historie zu beeinflussen
+
 ## [0.49.0] - 2026-08-12
 - Aufgaben: optional zuständige Gruppen zuweisbar (zusätzlich zum Bereich) – ohne Auswahl gelten automatisch alle Gruppen des Bereichs wie bisher; neue Spalte + Filter "Gruppen" in der Aufgaben-Tabelle
 - Fix: Überfällig-Benachrichtigungen gingen bislang an alle Gruppen eines Bereichs, auch wenn eine Aufgabe nur eine davon betrifft (z.B. Gastronomie bei einer reinen Hausmeister-Aufgabe im gemeinsam genutzten Ausschank) – berücksichtigt jetzt die explizite Gruppen-Zuordnung, falls gesetzt

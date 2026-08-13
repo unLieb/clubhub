@@ -3035,18 +3035,37 @@ def admin_edit_task(
     warn_hours: float = Form(5.0),
     note: str = Form(""),
     group_ids: list[int] = Form([]),
+    detach_group: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     require_staff_or_developer(request, db)
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task or not room_ids:
-        # Mindestens ein Bereich muss übrig bleiben - ohne Angabe lieber
-        # nichts ändern, statt versehentlich alle Instanzen zu löschen.
+    if not task:
         return RedirectResponse("/admin/tasks", status_code=302)
 
     # Explizite Gruppen-Zuständigkeit optional - leer bedeutet automatisch
     # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
     selected_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all() if group_ids else []
+
+    # Nur diese eine Instanz aus der Gruppe lösen: wird ab sofort unabhängig
+    # bearbeitbar (z.B. abweichender Turnus für einen Bereich), ohne die
+    # anderen Bereiche der bisherigen Gruppe zu berühren oder die
+    # Erledigungs-Historie dieser Instanz zu verlieren. Bereichs-Auswahl
+    # wird dabei bewusst ignoriert - der Bereich bleibt unverändert.
+    if detach_group and task.group_key:
+        task.group_key = None
+        task.name = name
+        task.interval_hours = interval_hours
+        task.warn_hours = warn_hours
+        task.note = note.strip() or None
+        task.groups = list(selected_groups)
+        db.commit()
+        return RedirectResponse("/admin/tasks", status_code=302)
+
+    if not room_ids:
+        # Mindestens ein Bereich muss übrig bleiben - ohne Angabe lieber
+        # nichts ändern, statt versehentlich alle Instanzen zu löschen.
+        return RedirectResponse("/admin/tasks", status_code=302)
 
     group_key = task.group_key
     group_tasks = (
