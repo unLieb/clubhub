@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.51.2] - 2026-08-13
+- Aufgaben und Historie: Pfeil-Buttons zum Vor-/Zurückblättern bei den Seiten ergänzt (zusätzlich zu den anklickbaren Seitenzahlen)
+
 ## [0.51.1] - 2026-08-13
 - Historie: Suche/Filter/Seiten laufen jetzt als echte Datenbank-Abfrage statt clientseitig - bei ca. 30-40 Erledigungen/Tag über alle Bereiche wäre die vorherige Variante (alles auf einmal laden, im Browser filtern) binnen ein bis zwei Jahren spürbar langsam geworden. Jede Seite bleibt jetzt unabhängig von der Gesamtgröße der Historie gleich leicht
 

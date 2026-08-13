@@ -275,7 +275,9 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
       <span id="task-pagination-info" class="text-slate-400 text-xs"></span>
       <div class="flex items-center gap-2">
+        <button type="button" id="task-page-prev" class="px-2 py-1 rounded-md text-xs text-slate-400 hover:bg-panel2 hover:text-slate-100 disabled:opacity-30 disabled:pointer-events-none" aria-label="Vorherige Seite">&lsaquo;</button>
         <div id="task-pagination-pages" class="flex items-center gap-1"></div>
+        <button type="button" id="task-page-next" class="px-2 py-1 rounded-md text-xs text-slate-400 hover:bg-panel2 hover:text-slate-100 disabled:opacity-30 disabled:pointer-events-none" aria-label="Nächste Seite">&rsaquo;</button>
         <select id="task-page-size" class="rounded-md bg-panel border border-line px-2 py-1 text-xs ml-2">
           <option value="10">10 pro Seite</option>
           <option value="25">25 pro Seite</option>
@@ -359,6 +361,8 @@
     var pagination = document.getElementById('task-pagination');
     var paginationInfo = document.getElementById('task-pagination-info');
     var paginationPages = document.getElementById('task-pagination-pages');
+    var pagePrev = document.getElementById('task-page-prev');
+    var pageNext = document.getElementById('task-page-next');
     var pageSizeSelect = document.getElementById('task-page-size');
 
     var currentPage = 1;
@@ -413,8 +417,13 @@
           })(p);
           paginationPages.appendChild(btn);
         }
+        pagePrev.disabled = currentPage <= 1;
+        pageNext.disabled = currentPage >= pageCount;
       }
     }
+
+    pagePrev.addEventListener('click', function () { if (currentPage > 1) { currentPage--; render(); } });
+    pageNext.addEventListener('click', function () { currentPage++; render(); });
 
     [search].forEach(function (el) { el.addEventListener('input', function () { currentPage = 1; render(); }); });
     [roomFilter, intervalFilter, statusFilter, groupFilter].forEach(function (el) {
