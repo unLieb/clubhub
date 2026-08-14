@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.52.0] - 2026-08-14
+- Dashboard: doppelte "Aktuelle Meldungen"-Sektion entfernt, Meldungen-Kachel zeigt die obersten offenen Meldungen jetzt direkt an
+- Dashboard: KPI-Kacheln "Erledigt heute" (Vergleich zu gestern) und "Bereiche gesamt" (Anzahl Gruppen) mit zusätzlichem Kontext
+
 ## [0.51.2] - 2026-08-13
 - Aufgaben und Historie: Pfeil-Buttons zum Vor-/Zurückblättern bei den Seiten ergänzt (zusätzlich zu den anklickbaren Seitenzahlen)
 

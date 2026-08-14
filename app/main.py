@@ -632,9 +632,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     attention_rooms = [r for r in rooms if room_status[r.id]["status"] != "green"]
 
     today = now.date()
-    done_today = (
+    today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+    done_today = db.query(models.Completion).filter(models.Completion.timestamp >= today_start).count()
+    yesterday_start = today_start - timedelta(days=1)
+    done_yesterday = (
         db.query(models.Completion)
-        .filter(models.Completion.timestamp >= datetime(today.year, today.month, today.day, tzinfo=timezone.utc))
+        .filter(models.Completion.timestamp >= yesterday_start, models.Completion.timestamp < today_start)
         .count()
     )
 
@@ -669,7 +672,13 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "rooms": rooms,
         "attention_rooms": attention_rooms,
         "room_status": room_status,
-        "stats": {"done_today": done_today, "due_soon": due_soon_count, "overdue": overdue_count},
+        "stats": {
+            "done_today": done_today,
+            "done_today_delta": done_today - done_yesterday,
+            "due_soon": due_soon_count,
+            "overdue": overdue_count,
+            "group_count": db.query(models.Group).count(),
+        },
         "recent_completions": recent_completions,
         "overdue_tasks": overdue_tasks[:6],
         "report_stats": {
