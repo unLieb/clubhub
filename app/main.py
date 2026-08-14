@@ -570,9 +570,17 @@ def compute_room_statuses(rooms, now):
                 due_soon_count += 1
             elif s["status"] == "red":
                 overdue_count += 1
+                # "Überfällig seit X" wäre bei nie erledigten Aufgaben irreführend -
+                # due_at wird dort bei jeder Berechnung neu auf "jetzt" gesetzt, die
+                # angezeigte Dauer bliebe für immer nahe null statt die tatsächliche
+                # (unbekannte) Wartezeit widerzuspiegeln.
+                if s["last_completed"] is None:
+                    dt = "Noch nie erledigt"
+                else:
+                    dt = f"Überfällig seit {format_duration_de(now - s['due_at'])}"
                 overdue_tasks.append({
                     "task": task,
-                    "duration_text": f"Überfällig seit {format_duration_de(now - s['due_at'])}",
+                    "duration_text": dt,
                 })
             if task.completions and (last_completed is None or task.completions[0].timestamp > last_completed):
                 last_completed = task.completions[0].timestamp
@@ -582,7 +590,9 @@ def compute_room_statuses(rooms, now):
             # Bereich ohne Aufgaben -> neutral als "erledigt" behandeln
             worst = {"status": "green", "due_at": now, "warn_at": now}
 
-        if worst["status"] == "red":
+        if worst["status"] == "red" and worst["last_completed"] is None:
+            duration_text = "noch nie erledigt"
+        elif worst["status"] == "red":
             duration_text = f"seit {format_duration_de(now - worst['due_at'])}"
         elif worst["status"] == "yellow":
             duration_text = f"fällig in {format_duration_de(worst['due_at'] - now)}"
@@ -740,7 +750,9 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     statuses = {}
     for t in room.tasks:
         s = task_status(t, now)
-        if s["status"] == "red":
+        if s["status"] == "red" and s["last_completed"] is None:
+            s["duration_text"] = "Noch nie erledigt"
+        elif s["status"] == "red":
             s["duration_text"] = f"Überfällig seit {format_duration_de(now - s['due_at'])}"
         elif s["status"] == "yellow":
             s["duration_text"] = f"Fällig in {format_duration_de(s['due_at'] - now)}"
