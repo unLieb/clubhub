@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <!-- Äußerer Kreis -->
+  <circle cx="50" cy="50" r="44" fill="none" stroke="#34D399" stroke-width="6" />
+  
+  <!-- C & H Verbindung (Eckige Kanten) -->
+  <path d="M 45 32 H 34 C 26.26 32 20 38.26 20 46 V 54 C 20 61.74 26.26 68 34 68 H 45" 
+        fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" />
+  
+  <!-- H Stempel und Quersteg -->
+  <path d="M 45 28 V 72 M 45 50 H 70 M 70 28 V 72" 
+        fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" />
+  
+  <!-- Equalizer-Balken (Mehr Abstand nach unten & rechts) -->
+  <rect x="51" y="38" width="3" height="5" fill="#34D399" />
+  <rect x="56.5" y="34" width="3" height="9" fill="#34D399" />
+  <rect x="62" y="30" width="3" height="13" fill="#34D399" />
+</svg>

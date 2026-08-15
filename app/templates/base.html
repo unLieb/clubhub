@@ -97,14 +97,21 @@
 
   <!-- Sidebar (ab lg) - sticky, damit sie beim Scrollen des Inhalts stehen bleibt -->
   <aside class="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto w-60 shrink-0 bg-sidebar border-r border-sidebar-line flex-col">
-    <div class="flex items-center gap-2.5 px-5 py-5">
-      <a href="/" class="w-8 h-8 rounded-lg bg-go/15 flex items-center justify-center shrink-0">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#33c481" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+    <div class="flex items-center gap-2 px-5 py-5">
+      <a href="/" class="w-8 h-8 shrink-0 flex items-center justify-center">
+        <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="44" fill="none" stroke="#34D399" stroke-width="6" />
+          <path d="M 45 32 H 34 C 26.26 32 20 38.26 20 46 V 54 C 20 61.74 26.26 68 34 68 H 45"
+                fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" />
+          <path d="M 45 28 V 72 M 45 50 H 70 M 70 28 V 72"
+                fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" />
+          <rect x="51" y="38" width="3" height="5" fill="#34D399" />
+          <rect x="56.5" y="34" width="3" height="9" fill="#34D399" />
+          <rect x="62" y="30" width="3" height="13" fill="#34D399" />
+        </svg>
       </a>
-      <div>
-        <a href="/" class="block font-display font-semibold leading-tight text-sidebar-text-strong">ClubHUB</a>
-        <a href="/changelog" class="block text-[11px] text-sidebar-muted leading-tight hover:text-sidebar-text-strong hover:underline" title="Änderungshistorie ansehen">v{{ app_version }}</a>
-      </div>
+      <a href="/" class="font-display font-semibold leading-tight text-sidebar-text-strong">ClubHUB</a>
+      <a href="/changelog" class="text-[11px] text-sidebar-muted leading-tight hover:text-sidebar-text-strong hover:underline" title="Änderungshistorie ansehen">v{{ app_version }}</a>
     </div>
 
     <nav class="flex-1 px-3 py-2 space-y-0.5 text-sm">

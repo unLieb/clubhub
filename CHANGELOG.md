@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.54.0] - 2026-08-15
+- Neues Logo (logo.svg) ersetzt das Platzhalter-Icon in der Sidebar-Kopfzeile, Icon/"ClubHUB"/Versionsnummer stehen jetzt sauber in einer Reihe
+- Favicon (inkl. Apple-Touch-Icon und PWA-Icon) auf das neue Logo umgestellt
+
 ## [0.53.0] - 2026-08-15
 - Aufgaben: Turnus lässt sich jetzt auf bestimmte Wochentage einschränken ("Aktive Wochentage"). Damit lassen sich geteilte Zuständigkeiten (z.B. Hausmeisterei Mo-Fr, Toilettenbetreuung Sa+So) oder reine Wochenend-Aufgaben sauber abbilden - die Fälligkeit überspringt inaktive Tage, statt übers Wochenende hinweg fälschlich fällig zu werden
 
