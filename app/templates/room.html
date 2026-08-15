@@ -16,6 +16,9 @@
       {% if s.on_demand %}
       <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">Nach Bedarf</span>
       {% endif %}
+      {% if task.active_weekdays|weekday_label %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">{{ task.active_weekdays|weekday_label }}</span>
+      {% endif %}
     </div>
     {% if s.duration_text %}
     <p class="text-xs mt-1 font-medium {% if s.status == 'red' %}text-late{% else %}text-warn{% endif %}">

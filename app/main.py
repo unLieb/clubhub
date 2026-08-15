@@ -101,6 +101,24 @@ def _relative_date_de(ts_local):
 
 templates.env.filters["reldate"] = _relative_date_de
 
+_WEEKDAY_ABBR_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
+
+def _weekday_label_de(raw):
+    """Kurzform der aktiven Wochentage einer Aufgabe für Badges, z.B. 'Mo–Fr'
+    oder 'Sa+So'. None (keine Einschränkung) -> kein Label."""
+    if not raw:
+        return None
+    days = sorted(int(d) for d in raw.split(",") if d.strip() != "")
+    if not days or len(days) == 7:
+        return None
+    if days == list(range(days[0], days[-1] + 1)) and len(days) > 1:
+        return f"{_WEEKDAY_ABBR_DE[days[0]]}–{_WEEKDAY_ABBR_DE[days[-1]]}"
+    return "+".join(_WEEKDAY_ABBR_DE[d] for d in days)
+
+
+templates.env.filters["weekday_label"] = _weekday_label_de
+
 
 @app.get("/healthz")
 def healthz(db: Session = Depends(get_db)):
@@ -252,6 +270,12 @@ def _migrate_task_group_key(db: Session):
     _ensure_column(db, "tasks", "group_key", "TEXT")
 
 
+def _migrate_task_active_weekdays(db: Session):
+    """Neue optionale Wochentag-Einschränkung je Aufgabe (kein Altdaten-Bezug,
+    NULL = weiterhin an jedem Tag aktiv wie bisher)."""
+    _ensure_column(db, "tasks", "active_weekdays", "TEXT")
+
+
 def _migrate_room_setup_events(db: Session):
     """Führt bestehende Aufbauten (früher: eigener Name direkt am RoomSetup,
     fest an genau einen Bereich gebunden) ins EventSetup-Modell über - ein
@@ -376,6 +400,7 @@ def _startup():
         _migrate_room_setup_events(db)
         _migrate_task_note(db)
         _migrate_task_group_key(db)
+        _migrate_task_active_weekdays(db)
     finally:
         db.close()
 
@@ -2463,6 +2488,16 @@ def _parse_local_date(value: str):
     return naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
 
 
+def _normalize_active_weekdays(values: list[int]):
+    """Wandelt die angehakten Wochentage (0=Mo...6=So) aus dem Formular in
+    den DB-Wert um - alle sieben (oder aus Versehen keiner) angehakt heißt
+    "keine Einschränkung" (None), wie bisher an jedem Tag aktiv."""
+    selected = sorted(set(values))
+    if len(selected) == 0 or len(selected) == 7:
+        return None
+    return ",".join(str(d) for d in selected)
+
+
 AUDIT_CHAIN_GENESIS = "genesis"
 
 
@@ -3144,6 +3179,7 @@ def admin_add_task(
     note: str = Form(""),
     last_completed: str = Form(""),
     group_ids: list[int] = Form([]),
+    active_weekdays: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
     actor = require_staff_or_developer(request, db)
@@ -3153,6 +3189,7 @@ def admin_add_task(
     # Explizite Gruppen-Zuständigkeit optional - leer bedeutet automatisch
     # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
     selected_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all() if group_ids else []
+    awd = _normalize_active_weekdays(active_weekdays)
     # Mehrere Bereiche zugleich -> baugleiche Aufgabe pro Bereich mit eigener
     # Erledigungs-Historie, aber gemeinsamem group_key fürs Zusammen-Bearbeiten.
     group_key = uuid.uuid4().hex if len(room_ids) > 1 else None
@@ -3160,6 +3197,7 @@ def admin_add_task(
         task = models.Task(
             room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
             note=note.strip() or None, group_key=group_key, groups=list(selected_groups),
+            active_weekdays=awd,
         )
         if completed_at:
             task.completions.append(models.Completion(user_id=actor.id, timestamp=completed_at))
@@ -3178,6 +3216,7 @@ def admin_edit_task(
     warn_hours: float = Form(5.0),
     note: str = Form(""),
     group_ids: list[int] = Form([]),
+    active_weekdays: list[int] = Form([]),
     detach_group: bool = Form(False),
     db: Session = Depends(get_db),
 ):
@@ -3189,6 +3228,7 @@ def admin_edit_task(
     # Explizite Gruppen-Zuständigkeit optional - leer bedeutet automatisch
     # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
     selected_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all() if group_ids else []
+    awd = _normalize_active_weekdays(active_weekdays)
 
     # Nur diese eine Instanz aus der Gruppe lösen: wird ab sofort unabhängig
     # bearbeitbar (z.B. abweichender Turnus für einen Bereich), ohne die
@@ -3202,6 +3242,7 @@ def admin_edit_task(
         task.warn_hours = warn_hours
         task.note = note.strip() or None
         task.groups = list(selected_groups)
+        task.active_weekdays = awd
         db.commit()
         return RedirectResponse("/admin/tasks", status_code=302)
 
@@ -3231,6 +3272,7 @@ def admin_edit_task(
         t.warn_hours = warn_hours
         t.note = note.strip() or None
         t.groups = list(selected_groups)
+        t.active_weekdays = awd
 
     # Neu hinzugekommene Bereiche: baugleiche Aufgabe dort neu anlegen.
     added_ids = new_ids - old_ids
@@ -3241,6 +3283,7 @@ def admin_edit_task(
         db.add(models.Task(
             room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
             note=note.strip() or None, group_key=group_key, groups=list(selected_groups),
+            active_weekdays=awd,
         ))
 
     # Bleibt nur noch ein Bereich übrig, braucht es keinen Gruppen-Schlüssel mehr.

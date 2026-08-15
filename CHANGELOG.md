@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.53.0] - 2026-08-15
+- Aufgaben: Turnus lässt sich jetzt auf bestimmte Wochentage einschränken ("Aktive Wochentage"). Damit lassen sich geteilte Zuständigkeiten (z.B. Hausmeisterei Mo-Fr, Toilettenbetreuung Sa+So) oder reine Wochenend-Aufgaben sauber abbilden - die Fälligkeit überspringt inaktive Tage, statt übers Wochenende hinweg fälschlich fällig zu werden
+
 ## [0.52.1] - 2026-08-14
 - Fix: nie erledigte Aufgaben zeigten dauerhaft "Überfällig seit unter 1 Minute" statt der tatsächlichen (unbekannten) Wartezeit - due_at wurde bei jeder Anzeige neu auf "jetzt" gesetzt. Zeigt jetzt korrekt "Noch nie erledigt"
 

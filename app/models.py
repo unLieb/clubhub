@@ -214,6 +214,13 @@ class Task(Base):
     # Schlüssel nach. None bei normalen, nicht gruppierten Aufgaben.
     group_key = Column(String, nullable=True)
 
+    # Optionale Einschränkung auf bestimmte Wochentage (CSV aus 0=Montag ...
+    # 6=Sonntag, z.B. "0,1,2,3,4" für Mo-Fr). None = keine Einschränkung, wie
+    # bisher an jedem Tag aktiv. Für geteilte Turnusse (z.B. Hausmeisterei
+    # Mo-Fr, Toilettenbetreuung Sa+So) legt man zwei Tasks mit derselben
+    # Aufgabe/demselben Bereich, aber unterschiedlichen Gruppen + Wochentagen an.
+    active_weekdays = Column(String, nullable=True)
+
     # Explizit zuständige Gruppen ("Wer?", zusätzlich zum Bereich als "Wo?").
     # Leer = keine Einschränkung, es gelten automatisch alle Gruppen, die dem
     # Bereich zugeordnet sind (bisheriges Verhalten, keine Nacharbeit an

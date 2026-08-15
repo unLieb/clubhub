@@ -77,6 +77,22 @@
         automatisch gelb/rot und löst keine Erinnerung aus, sondern wird erledigt, wenn jemand sieht, dass es nötig ist.
       </p>
       <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Aktive Wochentage</label>
+        <div class="flex flex-wrap gap-1.5">
+          {% for wd, wlabel in [(0,'Mo'),(1,'Di'),(2,'Mi'),(3,'Do'),(4,'Fr'),(5,'Sa'),(6,'So')] %}
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+            <input type="checkbox" name="active_weekdays" value="{{ wd }}" checked class="sr-only">{{ wlabel }}
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-[11px] text-slate-500 mt-1">
+          Alle angehakt (Standard) = Aufgabe zählt an jedem Tag. Abwählen für Aufgaben, die nur an bestimmten
+          Wochentagen fällig werden sollen, z.B. nur Mo-Fr oder nur am Wochenende - praktisch bei geteilter
+          Zuständigkeit (unter der Woche Team A, am Wochenende Team B: dafür zwei Aufgaben mit passenden
+          Wochentagen und je eigener Gruppen-Zuständigkeit anlegen).
+        </p>
+      </div>
+      <div>
         <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
         <textarea name="note" rows="2" placeholder="Zusätzliche Hinweise zur Ausführung" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
       </div>
@@ -171,7 +187,10 @@
             {% if sibling_rooms.get(t.id) %}<span class="text-slate-500 text-xs block">auch in: {{ sibling_rooms[t.id]|join(', ') }}</span>{% endif %}
           </td>
           <td class="py-2 pr-2 text-slate-300">{{ t.room.name }}</td>
-          <td class="py-2 pr-2 text-slate-300">{{ turnus_label(t.interval_hours) }}</td>
+          <td class="py-2 pr-2 text-slate-300">
+            {{ turnus_label(t.interval_hours) }}
+            {% if t.active_weekdays|weekday_label %}<span class="text-[11px] text-slate-500">({{ t.active_weekdays|weekday_label }})</span>{% endif %}
+          </td>
           <td class="py-2 pr-2 text-slate-400 text-xs">
             {% if eff_groups %}{{ eff_groups|map(attribute='name')|join(', ') }}{% if not t.groups %}<span class="text-slate-500"> (Bereich-Standard)</span>{% endif %}
             {% else %}–{% endif %}
@@ -247,6 +266,18 @@
                          class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
                   <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
                 </div>
+              </div>
+              {% set active_set = t.active_weekdays.split(',')|map('int')|list if t.active_weekdays else range(7)|list %}
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Aktive Wochentage</label>
+                <div class="flex flex-wrap gap-1.5">
+                  {% for wd, wlabel in [(0,'Mo'),(1,'Di'),(2,'Mi'),(3,'Do'),(4,'Fr'),(5,'Sa'),(6,'So')] %}
+                  <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+                    <input type="checkbox" name="active_weekdays" value="{{ wd }}" {% if wd in active_set %}checked{% endif %} class="sr-only">{{ wlabel }}
+                  </label>
+                  {% endfor %}
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Alle angehakt = Aufgabe zählt an jedem Tag.</p>
               </div>
               <div>
                 <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
