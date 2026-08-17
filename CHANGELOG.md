@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.55.1] - 2026-08-17
+- Fix: Sammel-Buttons ("Tägliche erledigen" / "Tägliche abhaken") erledigen jetzt nur noch Aufgaben mit Turnus "Täglich" statt aller fälligen/überfälligen Aufgaben unabhängig vom Turnus - wöchentliche/monatliche Aufgaben wurden dabei bisher versehentlich mit abgehakt
+
 ## [0.55.0] - 2026-08-17
 - Aufgaben: Sammel-Button "Alle erledigen" auf jeder Bereichs-Card markiert alle aktuell fälligen/überfälligen Aufgaben des Bereichs auf einmal als erledigt
 - Dashboard: sekundärer Button "Alle abhaken" im Header von "Überfällige Aufgaben" erledigt bereichsübergreifend alle überfälligen Aufgaben auf einmal (mit Sicherheitsabfrage)

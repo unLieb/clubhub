@@ -582,6 +582,13 @@ def compute_room_statuses(rooms, now):
     overdue_tasks = []
     due_soon_count = 0
     overdue_count = 0
+    # Bereiche mit mindestens einer fälligen/überfälligen TÄGLICHEN Aufgabe -
+    # Basis für den "Tägliche erledigen"-Sammel-Button auf der Bereichs-Card,
+    # der bewusst nur die Tagesroutine abhakt statt aller Turnusse (z.B. eine
+    # überfällige monatliche Aufgabe soll dabei nicht versehentlich mit
+    # abgehakt werden, siehe Nutzer-Feedback nach der ersten Version).
+    daily_due_room_ids = set()
+    daily_overdue_count = 0
 
     for room in rooms:
         worst = None
@@ -591,6 +598,10 @@ def compute_room_statuses(rooms, now):
             s = task_status(task, now)
             if worst is None or STATUS_RANK[s["status"]] > STATUS_RANK[worst["status"]]:
                 worst = s
+            if task.interval_hours == 24 and s["status"] in ("yellow", "red"):
+                daily_due_room_ids.add(room.id)
+                if s["status"] == "red":
+                    daily_overdue_count += 1
             if s["status"] == "yellow":
                 due_soon_count += 1
             elif s["status"] == "red":
@@ -632,7 +643,7 @@ def compute_room_statuses(rooms, now):
             "icon": guess_room_icon(room.name),
         }
 
-    return room_status, overdue_tasks, due_soon_count, overdue_count
+    return room_status, overdue_tasks, due_soon_count, overdue_count, daily_due_room_ids, daily_overdue_count
 
 
 @app.get("/")
@@ -663,7 +674,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             {"user": e.user, "since": _aware(e.clock_in).astimezone(APP_TIMEZONE)} for e in open_entries
         ]
 
-    room_status, overdue_tasks, due_soon_count, overdue_count = compute_room_statuses(rooms, now)
+    room_status, overdue_tasks, due_soon_count, overdue_count, daily_due_room_ids, daily_overdue_count = (
+        compute_room_statuses(rooms, now)
+    )
     attention_rooms = [r for r in rooms if room_status[r.id]["status"] != "green"]
 
     today = now.date()
@@ -707,6 +720,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "rooms": rooms,
         "attention_rooms": attention_rooms,
         "room_status": room_status,
+        "daily_due_room_ids": daily_due_room_ids,
+        "daily_overdue_count": daily_overdue_count,
         "stats": {
             "done_today": done_today,
             "done_today_delta": done_today - done_yesterday,
@@ -744,7 +759,7 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
         return redirect
     rooms = db.query(models.Room).all()
     now = ntptime.now_utc()
-    room_status, _, _, _ = compute_room_statuses(rooms, now)
+    room_status, _, _, _, daily_due_room_ids, _ = compute_room_statuses(rooms, now)
     if sort == "name":
         rooms.sort(key=lambda r: r.name.lower())
     else:
@@ -757,6 +772,7 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
         "user": user,
         "rooms": rooms,
         "room_status": room_status,
+        "daily_due_room_ids": daily_due_room_ids,
         "sort": sort,
     })
 
@@ -862,32 +878,43 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
 @app.post("/room/{room_id}/complete-due")
 def complete_due_tasks(room_id: int, request: Request, next: str = Form("/"), db: Session = Depends(get_db)):
     """Sammel-Button auf der Bereichs-Card: markiert alle aktuell fälligen
-    (gelb) oder überfälligen (rot) Aufgaben dieses Bereichs auf einmal als
-    erledigt - reduziert die Klickarbeit bei den täglichen Routine-Checks.
-    "Nach Bedarf"-Aufgaben und bereits erledigte (grüne) bleiben unberührt."""
+    (gelb) oder überfälligen (rot) TÄGLICHEN Aufgaben dieses Bereichs auf
+    einmal als erledigt - reduziert die Klickarbeit bei den täglichen
+    Routine-Checks. Bewusst nur Turnus "Täglich" (interval_hours == 24),
+    nicht sämtliche fälligen Aufgaben: seltenere Turnusse (wöchentlich,
+    monatlich, ...) sollen dabei nicht versehentlich mit abgehakt werden,
+    siehe Nutzer-Feedback nach der ersten Version. "Nach Bedarf"-Aufgaben und
+    bereits erledigte (grüne) bleiben ohnehin unberührt."""
     user = require_login(request, db)
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if not room:
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
-    due_tasks = [t for t in room.tasks if task_status(t, now)["status"] in ("yellow", "red")]
+    due_tasks = [
+        t for t in room.tasks
+        if t.interval_hours == 24 and task_status(t, now)["status"] in ("yellow", "red")
+    ]
     _complete_tasks(db, due_tasks, user.id)
     count = len(due_tasks)
-    msg = f"{count} {'Aufgabe' if count == 1 else 'Aufgaben'} für {room.name} als erledigt markiert"
+    msg = f"{count} tägliche {'Aufgabe' if count == 1 else 'Aufgaben'} für {room.name} als erledigt markiert"
     return RedirectResponse(_with_toast(next, msg), status_code=302)
 
 
 @app.post("/tasks/complete-overdue")
 def complete_all_overdue(request: Request, next: str = Form("/"), db: Session = Depends(get_db)):
     """Sekundärer Sammel-Button im "Überfällige Aufgaben"-Widget: markiert
-    bereichsübergreifend alle aktuell überfälligen (roten) Aufgaben als
-    erledigt, nicht nur die im Widget sichtbaren obersten Einträge."""
+    bereichsübergreifend alle aktuell überfälligen (roten) TÄGLICHEN Aufgaben
+    als erledigt (gleiche Turnus-Einschränkung wie complete_due_tasks), nicht
+    nur die im Widget sichtbaren obersten Einträge."""
     user = require_login(request, db)
     now = ntptime.now_utc()
-    overdue = [t for t in db.query(models.Task).all() if task_status(t, now)["status"] == "red"]
+    overdue = [
+        t for t in db.query(models.Task).all()
+        if t.interval_hours == 24 and task_status(t, now)["status"] == "red"
+    ]
     _complete_tasks(db, overdue, user.id)
     count = len(overdue)
-    msg = f"{count} überfällige {'Aufgabe' if count == 1 else 'Aufgaben'} als erledigt markiert"
+    msg = f"{count} überfällige tägliche {'Aufgabe' if count == 1 else 'Aufgaben'} als erledigt markiert"
     return RedirectResponse(_with_toast(next, msg), status_code=302)
 
 
