@@ -32,11 +32,11 @@
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Rolle</label>
         <select name="role" class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <option value="mitarbeiter" selected>Mitarbeiter</option>
-          <option value="schichtleiter">Schichtleiter</option>
           <option value="admin">Admin</option>
           <option value="entwickler">Entwickler</option>
+          <option value="mitarbeiter" selected>Mitarbeiter</option>
           <option value="pauschalkraft">Pauschalkraft</option>
+          <option value="schichtleiter">Schichtleiter</option>
         </select>
         <p class="text-[11px] text-slate-500 mt-1">Pauschalkraft darf keine Aufbauten anlegen.</p>
       </div>
@@ -99,11 +99,11 @@
           <div>
             <label class="block text-[11px] text-slate-400 mb-1">Rolle</label>
             <select name="role" class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              <option value="mitarbeiter" {% if not u.is_admin and not u.is_shift_lead and not u.is_developer and not u.is_flat_rate %}selected{% endif %}>Mitarbeiter</option>
-              <option value="schichtleiter" {% if u.is_shift_lead %}selected{% endif %}>Schichtleiter</option>
               <option value="admin" {% if u.is_admin %}selected{% endif %}>Admin</option>
               <option value="entwickler" {% if u.is_developer %}selected{% endif %}>Entwickler</option>
+              <option value="mitarbeiter" {% if not u.is_admin and not u.is_shift_lead and not u.is_developer and not u.is_flat_rate %}selected{% endif %}>Mitarbeiter</option>
               <option value="pauschalkraft" {% if u.is_flat_rate %}selected{% endif %}>Pauschalkraft</option>
+              <option value="schichtleiter" {% if u.is_shift_lead %}selected{% endif %}>Schichtleiter</option>
             </select>
             <p class="text-[11px] text-slate-500 mt-1">Pauschalkraft darf keine Aufbauten anlegen.</p>
           </div>
