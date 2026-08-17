@@ -54,19 +54,6 @@
     {% endif %}
   </div>
   <div class="flex items-center gap-2 shrink-0">
-    {% if can_manage_tasks %}
-    <button type="button" class="task-edit-btn p-2 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="„{{ task.name }}“ bearbeiten"
-      data-id="{{ task.id }}"
-      data-name="{{ task.name }}"
-      data-interval-hours="{{ task.interval_hours }}"
-      data-warn-hours="{{ task.warn_hours }}"
-      data-note="{{ task.note or '' }}"
-      data-active-weekdays="{{ task.active_weekdays or '' }}"
-      data-group-ids="{{ task.groups|map(attribute='id')|join(',') }}"
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-    </button>
-    {% endif %}
     {% if user %}
     <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete"
           onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Wird gespeichert…';">
@@ -74,6 +61,29 @@
         Erledigt
       </button>
     </form>
+    {% endif %}
+    {% if can_manage_tasks %}
+    <div class="relative task-kebab-wrap">
+      <button type="button" class="task-kebab-btn p-2 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für „{{ task.name }}“" aria-haspopup="true" aria-expanded="false">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
+      </button>
+      <div class="task-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1">
+        <button type="button" class="task-edit-btn w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" aria-label="„{{ task.name }}“ bearbeiten"
+          data-id="{{ task.id }}"
+          data-name="{{ task.name }}"
+          data-interval-hours="{{ task.interval_hours }}"
+          data-warn-hours="{{ task.warn_hours }}"
+          data-note="{{ task.note or '' }}"
+          data-active-weekdays="{{ task.active_weekdays or '' }}"
+          data-group-ids="{{ task.groups|map(attribute='id')|join(',') }}"
+        >Bearbeiten</button>
+        {% if can_delete_tasks %}
+        <form method="post" action="/admin/tasks/{{ task.id }}/delete" onsubmit="return confirm('„{{ task.name }}“ wirklich löschen?');">
+          <button type="submit" class="w-full text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">Löschen</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
     {% endif %}
   </div>
 </div>
@@ -422,8 +432,33 @@
     var newBtn = document.getElementById('task-new-btn');
     if (newBtn) newBtn.addEventListener('click', openCreate);
 
+    // Kebab-Menü je Aufgaben-Karte (Bearbeiten/Löschen) - getrennt vom
+    // "Erledigt"-Button, damit versehentliche Klicks beim Abhaken nicht
+    // gleich den Bearbeiten-Dialog öffnen.
+    function closeAllKebabMenus() {
+      document.querySelectorAll('.task-kebab-menu').forEach(function (menu) { menu.classList.add('hidden'); });
+      document.querySelectorAll('.task-kebab-btn').forEach(function (btn) { btn.setAttribute('aria-expanded', 'false'); });
+    }
+    document.querySelectorAll('.task-kebab-wrap').forEach(function (wrap) {
+      var btn = wrap.querySelector('.task-kebab-btn');
+      var menu = wrap.querySelector('.task-kebab-menu');
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var wasOpen = !menu.classList.contains('hidden');
+        closeAllKebabMenus();
+        if (!wasOpen) {
+          menu.classList.remove('hidden');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+    document.addEventListener('click', closeAllKebabMenus);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAllKebabMenus();
+    });
+
     document.querySelectorAll('.task-edit-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () { openEdit(btn); });
+      btn.addEventListener('click', function () { closeAllKebabMenus(); openEdit(btn); });
     });
 
     fields.interval.addEventListener('change', function () {

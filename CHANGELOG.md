@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.63.0] - 2026-08-17
+- Bereichs-Detailseite: Stift-Icon direkt neben dem "Erledigt"-Button entfernt (verhindert versehentliche Klicks beim Abhaken), stattdessen dezentes Kebab-Menü (⋮) am rechten Rand mit "Bearbeiten"/"Löschen"
+- Kebab-Menü nur für Admins/Schichtleiter/Entwickler sichtbar - normale Mitarbeiter sehen an der Aufgaben-Karte ausschließlich den "Erledigt"-Button
+
 ## [0.62.0] - 2026-08-17
 - Änderungsprotokoll unter Verwaltung > Zeiterfassung für lange Historien optimiert: schlankere Kopfzeile mit Info-Icon (Tooltip statt Fließtext-Erklärung), "Kette prüfen"-Button + Status-Badge ("Kette intakt") jetzt direkt oben rechts in der Kopfzeile
 - Textliste durch strukturierte Tabelle ersetzt (Zeitpunkt, Aktion, Bearbeiter, Mitarbeiter, betroffene Schicht inkl. "vorher"-Angabe bei Bearbeitungen)
