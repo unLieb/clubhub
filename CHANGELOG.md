@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.62.0] - 2026-08-17
+- Änderungsprotokoll unter Verwaltung > Zeiterfassung für lange Historien optimiert: schlankere Kopfzeile mit Info-Icon (Tooltip statt Fließtext-Erklärung), "Kette prüfen"-Button + Status-Badge ("Kette intakt") jetzt direkt oben rechts in der Kopfzeile
+- Textliste durch strukturierte Tabelle ersetzt (Zeitpunkt, Aktion, Bearbeiter, Mitarbeiter, betroffene Schicht inkl. "vorher"-Angabe bei Bearbeitungen)
+- Anzeige initial auf die 10 neuesten Einträge begrenzt, "Ältere Einträge laden (+10)"-Button blendet weitere bei Bedarf ein
+
 ## [0.61.0] - 2026-08-17
 - Neu: App-Import unter Verwaltung > Zeiterfassung. Buchungen aus dem Export der "Zeiterfassung Pro" App (DynamicG, z.B. `timerec-workunits-pro.txt`) lassen sich per Datei-Upload einem Mitarbeiter zuordnen und importieren
 - Bereits vorhandene Buchungen (gleicher Mitarbeiter + exakt gleiche Kommen-Zeit) werden automatisch als Duplikat übersprungen, ungültige/leere Zeilen werden ignoriert

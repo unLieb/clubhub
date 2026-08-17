@@ -2806,11 +2806,14 @@ def admin_timeclock_page(request: Request, month: str = "", db: Session = Depend
 
     device = get_authorized_device(db)
 
+    # Serverseitig grosszuegiger gedeckelt (200) als initial angezeigt (10) -
+    # der Rest liegt bereits im DOM und wird nur per "Aeltere laden"-Button
+    # sichtbar gemacht (siehe admin_timeclock.html), ohne Nachladen vom Server.
     audit_entries = []
     for a in (
         db.query(models.TimeEntryAudit)
         .order_by(models.TimeEntryAudit.changed_at.desc())
-        .limit(50)
+        .limit(200)
         .all()
     ):
         audit_entries.append({

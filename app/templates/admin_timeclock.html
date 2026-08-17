@@ -385,62 +385,97 @@
 </details>
 
 <details class="rounded-xl border border-line bg-panel group">
-  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
-    <span class="font-display font-medium">Änderungsprotokoll</span>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="flex items-center gap-1.5 min-w-0">
+      <span class="font-display font-medium">Änderungsprotokoll</span>
+      <span class="shrink-0 text-slate-500 hover:text-slate-300 cursor-help" title="Wer wann welche Buchung nachträglich hinzugefügt, geändert oder gelöscht hat (Admin-Korrektur oder Selbstbearbeitung im Nutzer-Modus) – normale Ein-/Ausstempelungen selbst werden hier nicht aufgeführt, nur nachträgliche Eingriffe. Jeder Eintrag ist per Hash mit dem vorherigen verkettet – eine nachträgliche Änderung direkt an der Datenbank (am Programm vorbei) würde die Kette erkennbar brechen.">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      </span>
+    </span>
+    <span class="flex items-center gap-2 shrink-0">
+      <span class="flex items-center gap-2" onclick="event.stopPropagation()">
+        {% if chain_result %}
+        {% if chain_result.ok %}
+        <span class="text-[11px] px-2 py-0.5 rounded-full bg-go/15 text-go font-medium whitespace-nowrap">Kette intakt</span>
+        {% else %}
+        <span class="text-[11px] px-2 py-0.5 rounded-full bg-late/15 text-late font-medium whitespace-nowrap">Kette gebrochen (#{{ chain_result.broken_at_id }})</span>
+        {% endif %}
+        {% endif %}
+        <form method="post" action="/admin/timeclock/verify-chain">
+          <button class="px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-xs font-medium whitespace-nowrap">Kette prüfen</button>
+        </form>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+    </span>
   </summary>
   <div class="px-4 pb-4 pt-1 border-t border-line">
-    <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
-      Wer wann welche Buchung nachträglich hinzugefügt, geändert oder gelöscht hat (Admin-Korrektur oder
-      Selbstbearbeitung im Nutzer-Modus) – normale Ein-/Ausstempelungen selbst werden hier nicht aufgeführt,
-      nur nachträgliche Eingriffe. Letzte 50 Einträge.
-    </p>
-    <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
-      Jeder Eintrag ist per Hash mit dem vorherigen verkettet – eine nachträgliche Änderung direkt an der
-      Datenbank (am Programm vorbei) würde die Kette erkennbar brechen. Das schützt nicht vor jemandem mit
-      vollem Server-Zugriff, macht eine unbemerkte Manipulation der Historie aber deutlich schwerer.
-    </p>
-    <form method="post" action="/admin/timeclock/verify-chain" class="mb-3">
-      <button class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Kette prüfen</button>
-    </form>
-    {% if chain_result %}
-    {% if chain_result.ok %}
-    <div class="rounded-md border border-go/40 bg-go/10 text-go text-sm px-3 py-2 mb-3">Kette intakt – keine Manipulation erkennbar.</div>
-    {% else %}
-    <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">Kette gebrochen bei Eintrag #{{ chain_result.broken_at_id }} – dieser oder ein früherer Eintrag wurde nachträglich verändert.</div>
-    {% endif %}
-    {% endif %}
     {% if audit_entries %}
-    <ul class="space-y-1.5 text-sm">
-      {% for a in audit_entries %}
-      <li class="border-b border-line/50 last:border-0 py-2">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-[11px] px-1.5 py-0.5 rounded-full
-            {% if a.action == 'deleted' %}bg-late/15 text-late{% elif a.action == 'added' %}bg-accent/15 text-accent{% else %}bg-warn/15 text-warn{% endif %}">
-            {% if a.action == 'added' %}hinzugefügt{% elif a.action == 'deleted' %}gelöscht{% else %}bearbeitet{% endif %}
-          </span>
-          <span class="text-slate-300">{{ a.changed_by_name }}</span>
-          {% if a.changed_by_name != a.entry_user_name %}
-          <span class="text-slate-500">→ Buchung von {{ a.entry_user_name }}</span>
-          {% endif %}
-          <span class="text-slate-500 text-xs ml-auto whitespace-nowrap">{{ a.changed_at_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</span>
-        </div>
-        <div class="text-xs text-slate-400 mt-1">
-          {% if a.old_clock_in_local %}
-          {{ a.old_clock_in_local.strftime("%d.%m. %H:%M") }}&ndash;{{ a.old_clock_out_local.strftime("%H:%M") if a.old_clock_out_local else "…" }}
-          {% if a.new_clock_in_local %}&rarr;{% endif %}
-          {% endif %}
-          {% if a.new_clock_in_local %}
-          {{ a.new_clock_in_local.strftime("%d.%m. %H:%M") }}&ndash;{{ a.new_clock_out_local.strftime("%H:%M") if a.new_clock_out_local else "…" }}
-          {% endif %}
-        </div>
-      </li>
-      {% endfor %}
-    </ul>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" id="tc-audit-table">
+        <thead>
+          <tr class="text-left text-[11px] text-slate-500 border-b border-line">
+            <th class="py-2 pr-2 font-medium">Zeitpunkt</th>
+            <th class="py-2 pr-2 font-medium">Aktion</th>
+            <th class="py-2 pr-2 font-medium">Bearbeiter</th>
+            <th class="py-2 pr-2 font-medium">Mitarbeiter</th>
+            <th class="py-2 pl-2 font-medium">Betroffene Schicht</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in audit_entries %}
+          <tr class="tc-audit-row border-b border-line/50 last:border-0 {% if loop.index > 10 %}hidden{% endif %}" data-row-index="{{ loop.index0 }}">
+            <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ a.changed_at_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</td>
+            <td class="py-2 pr-2 whitespace-nowrap">
+              <span class="text-[11px] px-1.5 py-0.5 rounded-full
+                {% if a.action == 'deleted' %}bg-late/15 text-late{% elif a.action == 'added' %}bg-accent/15 text-accent{% else %}bg-warn/15 text-warn{% endif %}">
+                {% if a.action == 'added' %}Hinzugefügt{% elif a.action == 'deleted' %}Gelöscht{% else %}Geändert{% endif %}
+              </span>
+            </td>
+            <td class="py-2 pr-2 text-slate-300 whitespace-nowrap">{{ a.changed_by_name }}</td>
+            <td class="py-2 pr-2 text-slate-300 whitespace-nowrap">{{ a.entry_user_name }}</td>
+            <td class="py-2 pl-2 text-slate-400 whitespace-nowrap">
+              {% if a.new_clock_in_local %}
+              {{ a.new_clock_in_local.strftime("%d.%m.%Y") }}, {{ a.new_clock_in_local.strftime("%H:%M") }}&ndash;{{ a.new_clock_out_local.strftime("%H:%M") if a.new_clock_out_local else "…" }} Uhr
+              {% elif a.old_clock_in_local %}
+              {{ a.old_clock_in_local.strftime("%d.%m.%Y") }}, {{ a.old_clock_in_local.strftime("%H:%M") }}&ndash;{{ a.old_clock_out_local.strftime("%H:%M") if a.old_clock_out_local else "…" }} Uhr
+              {% endif %}
+              {% if a.action == 'edited' and a.old_clock_in_local %}
+              <div class="text-[11px] text-slate-500">vorher: {{ a.old_clock_in_local.strftime("%d.%m.%Y") }}, {{ a.old_clock_in_local.strftime("%H:%M") }}&ndash;{{ a.old_clock_out_local.strftime("%H:%M") if a.old_clock_out_local else "…" }} Uhr</div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if audit_entries|length > 10 %}
+    <button type="button" id="tc-audit-load-more" class="mt-3 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-xs font-medium">Ältere Einträge laden (+10)</button>
+    {% endif %}
     {% else %}
     <p class="text-slate-500 text-sm italic">Noch keine nachträglichen Änderungen.</p>
     {% endif %}
   </div>
 </details>
+
+<script>
+  // Änderungsprotokoll: initial nur 10 Zeilen zeigen, Rest liegt bereits im
+  // DOM (server-seitig geladen, siehe audit_entries) und wird nur bei Bedarf
+  // per Klick sichtbar gemacht - kein Nachladen vom Server nötig. Eigener
+  // Script-Block hier unten, da das Element erst an dieser Stelle im
+  // Dokument existiert (der Haupt-Script-Block oben läuft vorher).
+  (function () {
+    var loadMoreBtn = document.getElementById('tc-audit-load-more');
+    if (!loadMoreBtn) return;
+    loadMoreBtn.addEventListener('click', function () {
+      var hiddenRows = document.querySelectorAll('#tc-audit-table .tc-audit-row.hidden');
+      for (var i = 0; i < Math.min(10, hiddenRows.length); i++) {
+        hiddenRows[i].classList.remove('hidden');
+      }
+      if (hiddenRows.length <= 10) {
+        loadMoreBtn.classList.add('hidden');
+      }
+    });
+  })();
+</script>
 
 {% endblock %}
