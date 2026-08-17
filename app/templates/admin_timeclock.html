@@ -5,10 +5,16 @@
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <div class="flex items-start justify-between gap-3 mt-2 mb-1">
   <h1 class="font-display text-2xl font-semibold">Zeiterfassung</h1>
-  <button type="button" id="tc-new-btn" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Buchung hinzufügen
-  </button>
+  <div class="flex items-center gap-2 shrink-0">
+    <button type="button" id="tc-import-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      App-Import (.txt/.csv)
+    </button>
+    <button type="button" id="tc-new-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Buchung hinzufügen
+    </button>
+  </div>
 </div>
 <p class="text-slate-400 text-sm mb-6">Buchungen nachträglich korrigieren – z.B. bei vergessenem Ein- oder Ausstempeln.</p>
 
@@ -97,6 +103,39 @@
       </tbody>
     </table>
     <p id="tc-empty" class="hidden py-8 text-center text-slate-500 text-sm">Keine Buchungen für diesen Mitarbeiter in diesem Monat.</p>
+  </div>
+</div>
+
+<!-- Import-Modal: Export-Datei aus "Zeiterfassung Pro" (DynamicG) einem
+     Mitarbeiter zuordnen und als Buchungen importieren. -->
+<div id="tc-import-overlay" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+<div id="tc-import-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-xl border border-line bg-panel shadow-xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-4 py-3.5 border-b border-line sticky top-0 bg-panel">
+      <h2 class="font-display font-medium">App-Import (Zeiterfassung Pro)</h2>
+      <button type="button" id="tc-import-close" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="post" action="/admin/timeclock/import" enctype="multipart/form-data" class="p-4 space-y-3">
+      <input type="hidden" name="month" value="{{ month_value }}">
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Mitarbeiter</label>
+        <select name="user_id" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          {% for u in users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+        </select>
+        <p class="text-[11px] text-slate-500 mt-1">Welchem Mitarbeiter sollen die Buchungen aus der Datei zugeordnet werden?</p>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Export-Datei</label>
+        <input type="file" name="file" accept=".txt,.csv" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+        <p class="text-[11px] text-slate-500 mt-1">
+          Export aus „Zeiterfassung Pro“ (DynamicG), z.B. <code class="bg-ink border border-line rounded px-1">timerec-workunits-pro.txt</code>.
+          Bereits vorhandene Buchungen (gleicher Mitarbeiter + exakt gleiche Kommen-Zeit) werden automatisch übersprungen.
+        </p>
+      </div>
+      <button type="submit" class="w-full px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Importieren</button>
+    </form>
   </div>
 </div>
 
@@ -249,6 +288,33 @@
         pdfLink.classList.add('hidden');
         pdfLink.classList.remove('flex');
       }
+    });
+  })();
+
+  // Import-Modal: einfaches oeffnen/schliessen, das Formular selbst ist ein
+  // ganz normaler Multipart-POST (kein fetch/AJAX) - der Server schickt nach
+  // dem Import per Redirect + Toast zurueck, was die Tabelle automatisch neu laedt.
+  (function () {
+    var importBtn = document.getElementById('tc-import-btn');
+    if (!importBtn) return;
+    var overlay = document.getElementById('tc-import-overlay');
+    var modal = document.getElementById('tc-import-modal');
+    var closeBtn = document.getElementById('tc-import-close');
+
+    function openModal() {
+      overlay.classList.remove('hidden');
+      modal.classList.remove('hidden');
+    }
+    function closeModal() {
+      overlay.classList.add('hidden');
+      modal.classList.add('hidden');
+    }
+
+    importBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', closeModal);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
     });
   })();
 </script>

@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.61.0] - 2026-08-17
+- Neu: App-Import unter Verwaltung > Zeiterfassung. Buchungen aus dem Export der "Zeiterfassung Pro" App (DynamicG, z.B. `timerec-workunits-pro.txt`) lassen sich per Datei-Upload einem Mitarbeiter zuordnen und importieren
+- Bereits vorhandene Buchungen (gleicher Mitarbeiter + exakt gleiche Kommen-Zeit) werden automatisch als Duplikat übersprungen, ungültige/leere Zeilen werden ignoriert
+- Rückmeldung per Toast (z.B. "14 Buchungen für Sebastian importiert, 2 Duplikate übersprungen"), bei fehlerhafter Datei erscheint ein roter Fehler-Toast
+
 ## [0.60.1] - 2026-08-17
 - Zeiterfassung skaliert jetzt für viele Mitarbeiter: Einzelkacheln pro Person oben ersetzt durch 3 kompakte Monats-KPIs (Gesamtstunden, Buchungen, aktive Mitarbeiter); die Monatsstunden je Person stehen stattdessen direkt im "Alle Mitarbeiter"-Dropdown (z.B. "Sebastian (16 Std. 42 Min.)")
 - Alle Arbeitszeiten (Tabelle, KPIs, Dropdown) als "X Std. Y Min." statt Dezimalwert

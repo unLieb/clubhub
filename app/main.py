@@ -853,13 +853,19 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     })
 
 
-def _with_toast(path: str, message: str) -> str:
+def _with_toast(path: str, message: str, kind: str = "success") -> str:
     """Hängt eine Toast-Nachricht als Query-Param an eine Redirect-Zielseite an
     (siehe base.html, liest ?bulk_toast= aus und zeigt eine kurze Bestätigung
     an) - so bekommt man bei Sammel-Aktionen ohne JS/fetch trotzdem sofortiges
-    Feedback, ohne von der bestehenden Server-Redirect-Architektur abzuweichen."""
+    Feedback, ohne von der bestehenden Server-Redirect-Architektur abzuweichen.
+    kind="error" färbt den Toast rot statt grün (z.B. für einen fehlgeschlagenen
+    Datei-Import) - Standard bleibt "success", damit bestehende Aufrufe ohne
+    Änderung weiterlaufen."""
     sep = "&" if "?" in path else "?"
-    return f"{path}{sep}bulk_toast={quote(message)}"
+    target = f"{path}{sep}bulk_toast={quote(message)}"
+    if kind != "success":
+        target += f"&bulk_toast_kind={kind}"
+    return target
 
 
 def _complete_tasks(db: Session, tasks: list, user_id: int):
@@ -2909,12 +2915,127 @@ def admin_revoke_device(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/admin/timeclock", status_code=302)
 
 
-def _timeclock_redirect(month: str, message: str) -> str:
+def _timeclock_redirect(month: str, message: str, kind: str = "success") -> str:
     """Redirect zurück zur Zeiterfassungs-Tabelle, behält dabei den gerade
     betrachteten Monat (statt immer auf den aktuellen zurückzuspringen) und
     zeigt eine kurze Toast-Bestätigung (siehe _with_toast)."""
     target = f"/admin/timeclock?month={month}" if month else "/admin/timeclock"
-    return _with_toast(target, message)
+    return _with_toast(target, message, kind)
+
+
+_TIMECLOCK_IMPORT_DT_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def _parse_timeclock_import(text: str):
+    """Parst den Pipe-getrennten Export von 'Zeiterfassung Pro' (DynamicG,
+    Datei z.B. timerec-workunits-pro.txt). Kopfzeile beginnt mit '#' und
+    benennt die Spalten (z.B. 'DATE|CHECKIN|CHECKOUT|...') - CHECKIN/CHECKOUT
+    werden über den Spaltennamen gesucht statt über eine feste Position, da
+    die Datei weitere, für uns irrelevante Spalten enthalten kann.
+    Gibt (rows, skipped_invalid, error) zurück: rows als Liste von
+    (clock_in, clock_out) naiven datetimes (noch ohne Zeitzone), skipped_invalid
+    als Anzahl übersprungener leerer/kaputter Zeilen, error als Fehlertext
+    oder None (nur bei einem grundsätzlichen Formatproblem der ganzen Datei,
+    einzelne kaputte Zeilen sind kein Fehler, siehe Anforderung "ignoriere
+    ungültige Zeilen")."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return [], 0, "Datei ist leer."
+    header = lines[0]
+    if not header.startswith("#"):
+        return [], 0, "Unbekanntes Dateiformat (Kopfzeile mit '#' fehlt)."
+    columns = [c.strip().upper() for c in header.lstrip("#").strip().split("|")]
+    if "CHECKIN" not in columns or "CHECKOUT" not in columns:
+        return [], 0, "Spalten CHECKIN/CHECKOUT nicht in der Kopfzeile gefunden."
+    checkin_idx = columns.index("CHECKIN")
+    checkout_idx = columns.index("CHECKOUT")
+
+    rows = []
+    skipped_invalid = 0
+    for line in lines[1:]:
+        fields = line.split("|")
+        if len(fields) <= max(checkin_idx, checkout_idx):
+            skipped_invalid += 1
+            continue
+        checkin_raw = fields[checkin_idx].strip()
+        checkout_raw = fields[checkout_idx].strip()
+        if not checkin_raw:
+            skipped_invalid += 1
+            continue
+        try:
+            clock_in = datetime.strptime(checkin_raw, _TIMECLOCK_IMPORT_DT_FORMAT)
+        except ValueError:
+            skipped_invalid += 1
+            continue
+        clock_out = None
+        if checkout_raw:
+            try:
+                clock_out = datetime.strptime(checkout_raw, _TIMECLOCK_IMPORT_DT_FORMAT)
+            except ValueError:
+                skipped_invalid += 1
+                continue
+        if clock_out and clock_out <= clock_in:
+            skipped_invalid += 1
+            continue
+        rows.append((clock_in, clock_out))
+    return rows, skipped_invalid, None
+
+
+@app.post("/admin/timeclock/import")
+async def admin_timeclock_import(
+    request: Request,
+    user_id: int = Form(...),
+    file: UploadFile = File(...),
+    month: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    admin = require_admin(request, db)
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return RedirectResponse(_timeclock_redirect(month, "Unbekannter Mitarbeiter.", "error"), status_code=302)
+
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+
+    parsed_rows, skipped_invalid, error = _parse_timeclock_import(text)
+    if error:
+        return RedirectResponse(_timeclock_redirect(month, error, "error"), status_code=302)
+
+    # Duplikat-Schutz: gleicher Mitarbeiter + exakt dieselbe Kommen-Zeit gilt
+    # als bereits erfasst (siehe Anforderung) - einmal vorab laden statt pro
+    # Zeile einzeln zu fragen, da Dateien durchaus hundert+ Zeilen haben können.
+    existing_clock_ins = {
+        _aware(ts) for (ts,) in db.query(models.TimeEntry.clock_in).filter(models.TimeEntry.user_id == user_id).all()
+    }
+
+    imported = 0
+    skipped_duplicate = 0
+    for clock_in_naive, clock_out_naive in parsed_rows:
+        clock_in_utc = clock_in_naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+        if clock_in_utc in existing_clock_ins:
+            skipped_duplicate += 1
+            continue
+        clock_out_utc = (
+            clock_out_naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc) if clock_out_naive else None
+        )
+        entry = models.TimeEntry(user_id=user_id, clock_in=clock_in_utc, clock_out=clock_out_utc)
+        db.add(entry)
+        db.flush()  # damit entry.id für das Protokoll existiert
+        _log_timeclock_change(db, entry, "added", admin.id)
+        existing_clock_ins.add(clock_in_utc)
+        imported += 1
+    db.commit()
+
+    parts = [f"{imported} {'Buchung' if imported == 1 else 'Buchungen'} für {user.name} importiert"]
+    if skipped_duplicate:
+        parts.append(f"{skipped_duplicate} Duplikat{'e' if skipped_duplicate != 1 else ''} übersprungen")
+    if skipped_invalid:
+        parts.append(f"{skipped_invalid} ungültige Zeile{'n' if skipped_invalid != 1 else ''} ignoriert")
+    message = ", ".join(parts) + "."
+    return RedirectResponse(_timeclock_redirect(month, message), status_code=302)
 
 
 @app.post("/admin/timeclock/{user_id}/add")

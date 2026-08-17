@@ -43,8 +43,8 @@
 
 <!-- Toast fuer Sammel-Aktionen (siehe ?bulk_toast= in base.html-Skript unten) -->
 <div id="bulk-toast" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100%-2rem)]">
-  <div class="flex items-center gap-2 rounded-lg border border-go/40 bg-go text-oncolor text-sm font-medium px-4 py-2.5 shadow-lg">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+  <div id="bulk-toast-box" class="flex items-center gap-2 rounded-lg border border-go/40 bg-go text-oncolor text-sm font-medium px-4 py-2.5 shadow-lg">
+    <span id="bulk-toast-icon" class="shrink-0"></span>
     <span id="bulk-toast-text"></span>
   </div>
 </div>
@@ -382,20 +382,35 @@
   }, 2500);
 })();
 
-// Toast nach Sammel-Aktionen (Bereichs-/Alle-abhaken-Buttons): Server hängt
-// "?bulk_toast=<Text>" an den Redirect an, damit es ohne fetch/AJAX trotzdem
-// eine sofortige Bestätigung gibt. Query-Param danach aus der URL entfernen,
-// damit ein Neuladen der Seite den Toast nicht erneut zeigt.
+// Toast nach Sammel-Aktionen (Bereichs-/Alle-abhaken-Buttons, Zeiterfassungs-
+// Import, ...): Server hängt "?bulk_toast=<Text>" (optional "&bulk_toast_kind=
+// error" fuer rotes statt gruenes Styling, z.B. bei einem fehlgeschlagenen
+// Datei-Import) an den Redirect an, damit es ohne fetch/AJAX trotzdem eine
+// sofortige Bestätigung gibt. Query-Param danach aus der URL entfernen, damit
+// ein Neuladen der Seite den Toast nicht erneut zeigt.
 (function () {
+  var TOAST_ICONS = {
+    success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>'
+  };
   var params = new URLSearchParams(window.location.search);
   var msg = params.get('bulk_toast');
   if (!msg) return;
   var toast = document.getElementById('bulk-toast');
+  var box = document.getElementById('bulk-toast-box');
+  var icon = document.getElementById('bulk-toast-icon');
   var text = document.getElementById('bulk-toast-text');
   if (!toast || !text) return;
+  var kind = params.get('bulk_toast_kind') === 'error' ? 'error' : 'success';
+  box.classList.toggle('border-go/40', kind === 'success');
+  box.classList.toggle('bg-go', kind === 'success');
+  box.classList.toggle('border-late/40', kind === 'error');
+  box.classList.toggle('bg-late', kind === 'error');
+  icon.innerHTML = TOAST_ICONS[kind];
   text.textContent = msg;
   toast.classList.remove('hidden');
   params.delete('bulk_toast');
+  params.delete('bulk_toast_kind');
   var query = params.toString();
   window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
   setTimeout(function () {
