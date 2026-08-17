@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.64.0] - 2026-08-17
+- Umami-Analytics-Tracking eingebunden (self-hosted auf stats.nifflheim.de)
+
 ## [0.63.0] - 2026-08-17
 - Bereichs-Detailseite: Stift-Icon direkt neben dem "Erledigt"-Button entfernt (verhindert versehentliche Klicks beim Abhaken), stattdessen dezentes Kebab-Menü (⋮) am rechten Rand mit "Bearbeiten"/"Löschen"
 - Kebab-Menü nur für Admins/Schichtleiter/Entwickler sichtbar - normale Mitarbeiter sehen an der Aufgaben-Karte ausschließlich den "Erledigt"-Button
