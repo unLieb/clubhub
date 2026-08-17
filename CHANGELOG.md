@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.55.0] - 2026-08-17
+- Aufgaben: Sammel-Button "Alle erledigen" auf jeder Bereichs-Card markiert alle aktuell fälligen/überfälligen Aufgaben des Bereichs auf einmal als erledigt
+- Dashboard: sekundärer Button "Alle abhaken" im Header von "Überfällige Aufgaben" erledigt bereichsübergreifend alle überfälligen Aufgaben auf einmal (mit Sicherheitsabfrage)
+- Beide Sammel-Aktionen zeigen danach eine kurze Toast-Bestätigung mit Anzahl und Bereich
+
 ## [0.54.0] - 2026-08-15
 - Neues Logo (logo.svg) ersetzt das Platzhalter-Icon in der Sidebar-Kopfzeile, Icon/"ClubHUB"/Versionsnummer stehen jetzt sauber in einer Reihe
 - Favicon (inkl. Apple-Touch-Icon und PWA-Icon) auf das neue Logo umgestellt

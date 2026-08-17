@@ -7,7 +7,7 @@ import secrets
 import signal
 import uuid
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, quote
 
 import httpx
 from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks, HTTPException
@@ -820,6 +820,27 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     })
 
 
+def _with_toast(path: str, message: str) -> str:
+    """Hängt eine Toast-Nachricht als Query-Param an eine Redirect-Zielseite an
+    (siehe base.html, liest ?bulk_toast= aus und zeigt eine kurze Bestätigung
+    an) - so bekommt man bei Sammel-Aktionen ohne JS/fetch trotzdem sofortiges
+    Feedback, ohne von der bestehenden Server-Redirect-Architektur abzuweichen."""
+    sep = "&" if "?" in path else "?"
+    return f"{path}{sep}bulk_toast={quote(message)}"
+
+
+def _complete_tasks(db: Session, tasks: list, user_id: int):
+    """Markiert mehrere Aufgaben auf einmal als erledigt (gleiche Effekte wie
+    complete_task pro Aufgabe: Completion anlegen, Gruppen-Benachrichtigungs-
+    status zurücksetzen), für die Sammel-Buttons unten."""
+    for task in tasks:
+        db.add(models.Completion(task_id=task.id, user_id=user_id))
+        db.query(models.TaskGroupNotice).filter(models.TaskGroupNotice.task_id == task.id).update(
+            {"last_status": "green"}
+        )
+    db.commit()
+
+
 @app.post("/room/{room_id}/task/{task_id}/complete")
 def complete_task(room_id: int, task_id: int, request: Request, db: Session = Depends(get_db)):
     user = require_login(request, db)
@@ -836,6 +857,38 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
     # kleine Textzeile, die leicht übersehen wird (siehe Nutzer-Feedback: ohne
     # sichtbare Bestätigung wurde "Erledigt" mehrfach hintereinander gedrückt).
     return RedirectResponse(f"/room/{room_id}?done={task_id}", status_code=302)
+
+
+@app.post("/room/{room_id}/complete-due")
+def complete_due_tasks(room_id: int, request: Request, next: str = Form("/"), db: Session = Depends(get_db)):
+    """Sammel-Button auf der Bereichs-Card: markiert alle aktuell fälligen
+    (gelb) oder überfälligen (rot) Aufgaben dieses Bereichs auf einmal als
+    erledigt - reduziert die Klickarbeit bei den täglichen Routine-Checks.
+    "Nach Bedarf"-Aufgaben und bereits erledigte (grüne) bleiben unberührt."""
+    user = require_login(request, db)
+    room = db.query(models.Room).filter(models.Room.id == room_id).first()
+    if not room:
+        return RedirectResponse("/", status_code=302)
+    now = ntptime.now_utc()
+    due_tasks = [t for t in room.tasks if task_status(t, now)["status"] in ("yellow", "red")]
+    _complete_tasks(db, due_tasks, user.id)
+    count = len(due_tasks)
+    msg = f"{count} {'Aufgabe' if count == 1 else 'Aufgaben'} für {room.name} als erledigt markiert"
+    return RedirectResponse(_with_toast(next, msg), status_code=302)
+
+
+@app.post("/tasks/complete-overdue")
+def complete_all_overdue(request: Request, next: str = Form("/"), db: Session = Depends(get_db)):
+    """Sekundärer Sammel-Button im "Überfällige Aufgaben"-Widget: markiert
+    bereichsübergreifend alle aktuell überfälligen (roten) Aufgaben als
+    erledigt, nicht nur die im Widget sichtbaren obersten Einträge."""
+    user = require_login(request, db)
+    now = ntptime.now_utc()
+    overdue = [t for t in db.query(models.Task).all() if task_status(t, now)["status"] == "red"]
+    _complete_tasks(db, overdue, user.id)
+    count = len(overdue)
+    msg = f"{count} überfällige {'Aufgabe' if count == 1 else 'Aufgaben'} als erledigt markiert"
+    return RedirectResponse(_with_toast(next, msg), status_code=302)
 
 
 @app.post("/room/{room_id}/setups")

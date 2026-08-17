@@ -41,6 +41,14 @@
 <body class="bg-bg text-slate-100 font-body min-h-screen" data-vapid-key="{{ vapid_public_key() if user else '' }}">
 {% set badges = nav_badges(request) %}
 
+<!-- Toast fuer Sammel-Aktionen (siehe ?bulk_toast= in base.html-Skript unten) -->
+<div id="bulk-toast" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100%-2rem)]">
+  <div class="flex items-center gap-2 rounded-lg border border-go/40 bg-go text-oncolor text-sm font-medium px-4 py-2.5 shadow-lg">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+    <span id="bulk-toast-text"></span>
+  </div>
+</div>
+
 <!-- Theme-Umschalter, oben rechts (ab lg) -->
 <div class="hidden lg:flex fixed top-4 right-4 z-50 items-center gap-2">
   {% if user %}
@@ -320,6 +328,27 @@
   setTimeout(function () {
     el.classList.remove('ring-2', 'ring-go', 'ring-offset-2', 'ring-offset-ink');
   }, 2500);
+})();
+
+// Toast nach Sammel-Aktionen (Bereichs-/Alle-abhaken-Buttons): Server hängt
+// "?bulk_toast=<Text>" an den Redirect an, damit es ohne fetch/AJAX trotzdem
+// eine sofortige Bestätigung gibt. Query-Param danach aus der URL entfernen,
+// damit ein Neuladen der Seite den Toast nicht erneut zeigt.
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var msg = params.get('bulk_toast');
+  if (!msg) return;
+  var toast = document.getElementById('bulk-toast');
+  var text = document.getElementById('bulk-toast-text');
+  if (!toast || !text) return;
+  text.textContent = msg;
+  toast.classList.remove('hidden');
+  params.delete('bulk_toast');
+  var query = params.toString();
+  window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+  setTimeout(function () {
+    toast.classList.add('hidden');
+  }, 4000);
 })();
 
 // Service Worker: immer registrieren, unabhängig von Login/Push - Grundlage

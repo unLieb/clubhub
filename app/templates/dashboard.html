@@ -302,11 +302,20 @@
   </div>
 
   <div class="hidden lg:block rounded-xl border border-line bg-panel p-4">
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between mb-3 gap-2">
       <h2 class="font-display font-medium flex items-center gap-2">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-late"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
         Überfällige Aufgaben
       </h2>
+      {% if user and stats.overdue %}
+      <form method="post" action="/tasks/complete-overdue"
+            onsubmit="return confirm('Alle {{ stats.overdue }} überfälligen Aufgaben – bereichsübergreifend – als erledigt markieren?');">
+        <input type="hidden" name="next" value="/">
+        <button type="submit" class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-go/15 text-go hover:bg-go/25 transition-colors whitespace-nowrap">
+          Alle abhaken
+        </button>
+      </form>
+      {% endif %}
     </div>
     <ul class="divide-y divide-line">
       {% for entry in overdue_tasks %}
