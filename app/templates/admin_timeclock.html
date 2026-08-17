@@ -3,119 +3,304 @@
 {% block content %}
 
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
-<h1 class="font-display text-2xl font-semibold mt-2 mb-1">Zeiterfassung</h1>
+<div class="flex items-start justify-between gap-3 mt-2 mb-1">
+  <h1 class="font-display text-2xl font-semibold">Zeiterfassung</h1>
+  <button type="button" id="tc-new-btn" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Buchung hinzufügen
+  </button>
+</div>
 <p class="text-slate-400 text-sm mb-6">Buchungen nachträglich korrigieren – z.B. bei vergessenem Ein- oder Ausstempeln.</p>
 
+<!-- Monatsfilter -->
 <div class="rounded-xl border border-line bg-panel p-4 mb-4">
-  <h2 class="font-display font-medium mb-3">Modus</h2>
-  <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
-    Solange noch nicht feststeht, wie die Zeiterfassung offiziell eingeführt wird, lässt sich hier
-    zwischen zwei Betriebsarten wechseln, ohne Buchungen zu verlieren.
-  </p>
-  <form method="post" action="/admin/timeclock/mode" class="flex flex-col sm:flex-row gap-2 max-w-2xl">
-    <button name="mode" value="terminal"
-            class="flex-1 text-left rounded-lg border p-3 {% if not timeclock_user_mode %}border-go/50 bg-go/10{% else %}border-line hover:bg-panel2{% endif %}">
-      <div class="text-sm font-medium {% if not timeclock_user_mode %}text-go{% else %}text-slate-200{% endif %}">Terminal-Modus{% if not timeclock_user_mode %} · aktiv{% endif %}</div>
-      <div class="text-[11px] text-slate-500 mt-0.5">Ein-/Ausstempeln nur an einem einzigen autorisierten Gerät, keine Selbstbearbeitung.</div>
-    </button>
-    <button name="mode" value="user"
-            class="flex-1 text-left rounded-lg border p-3 {% if timeclock_user_mode %}border-go/50 bg-go/10{% else %}border-line hover:bg-panel2{% endif %}">
-      <div class="text-sm font-medium {% if timeclock_user_mode %}text-go{% else %}text-slate-200{% endif %}">Nutzer-Modus{% if timeclock_user_mode %} · aktiv{% endif %}</div>
-      <div class="text-[11px] text-slate-500 mt-0.5">Jeder stempelt auf seinem eigenen Gerät ein/aus und darf eigene Buchungen selbst bearbeiten.</div>
-    </button>
-  </form>
-</div>
+  <div class="flex flex-wrap items-center gap-2">
+    <a href="/admin/timeclock?month={{ prev_month_value }}" class="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Vorheriger Monat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </a>
+    <input type="month" value="{{ month_value }}" onchange="location.href = '/admin/timeclock?month=' + this.value"
+           class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <a href="/admin/timeclock?month={{ next_month_value }}" class="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Nächster Monat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </a>
+    <a href="/admin/timeclock" class="text-xs text-slate-500 hover:text-slate-300 ml-1">Aktueller Monat</a>
+  </div>
 
-<div class="rounded-xl border border-line bg-panel p-4 mb-4">
-  <h2 class="font-display font-medium mb-3">Autorisiertes Gerät</h2>
-  <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
-    {% if timeclock_user_mode %}
-    Im Nutzer-Modus optional – nur relevant, falls zusätzlich ein gemeinsames Terminal genutzt werden soll.
-    {% endif %}
-    Ein-/Ausstempeln funktioniert auf genau einem freigeschalteten, stationären Gerät
-    (z.B. ein Tablet am Empfang) – entweder direkt über den Ein-/Ausstempeln-Button im Dashboard
-    (wenn dort jemand persönlich eingeloggt ist) oder über das Terminal unter
-    <code class="bg-ink border border-line rounded px-1">{{ kiosk_url }}</code>, wo jeder Mitarbeiter
-    seinen Benutzernamen/Personalnummer und sein Passwort eingibt. So bleibt eine Buchung immer an das konkrete Gerät
-    gebunden, statt beliebig von unterwegs möglich zu sein.
-  </p>
-  {% if device %}
-  <div class="rounded-lg border border-go/40 bg-go/10 p-3 mb-3">
-    <div class="text-go text-sm font-medium">{{ device.label or "Unbenanntes Gerät" }} ist autorisiert</div>
-    <div class="text-xs text-slate-400 mt-1">
-      seit {{ device_authorized_local.strftime("%d.%m.%Y, %H:%M") }} Uhr
-      {% if device.authorized_by %}von {{ device.authorized_by.name }}{% endif %}
+  <!-- Zusammenfassung: Monats-Gesamtstunden pro Mitarbeiter -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mt-4">
+    {% for s in summary %}
+    <div class="rounded-lg border border-line bg-panel2 p-3">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-sm font-medium truncate">{{ s.user.name }}</span>
+        <a href="/admin/timeclock/{{ s.user.id }}/export.pdf" title="Gesamte Historie als PDF exportieren" class="text-slate-500 hover:text-slate-100 shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        </a>
+      </div>
+      <div class="text-lg font-display font-semibold text-slate-100 mt-0.5">{{ "%.1f"|format(s.hours) }} Std.</div>
+      {% if s.user.target_hours_per_month %}
+      <div class="text-[11px] text-slate-500 mt-0.5">Soll: {{ "%.0f"|format(s.user.target_hours_per_month) }} Std.</div>
+      {% endif %}
     </div>
+    {% endfor %}
   </div>
-  <form method="post" action="/admin/timeclock/revoke-device" onsubmit="return confirm('Autorisierung wirklich aufheben? Das Gerät kann danach nicht mehr ein-/ausstempeln, bis ein neues autorisiert wird.')">
-    <button class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Autorisierung aufheben</button>
-  </form>
-  {% else %}
-  <p class="text-warn text-sm mb-3">Aktuell ist kein Gerät autorisiert – das Terminal ist für niemanden nutzbar.</p>
-  {% endif %}
-  <form method="post" action="/admin/timeclock/authorize-device" class="mt-3 pt-3 border-t border-line flex flex-col sm:flex-row gap-2 max-w-2xl"
-        onsubmit="return confirm('Dieses Gerät hier jetzt für die Zeiterfassung autorisieren? Ein zuvor autorisiertes Gerät verliert dabei automatisch die Berechtigung.')">
-    <input name="label" placeholder="Bezeichnung (optional), z.B. „Tablet Empfang“" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Dieses Gerät autorisieren</button>
-  </form>
-  <p class="text-[11px] text-slate-500 mt-2">Nur ausführen, wenn du diese Seite gerade auf dem Gerät geöffnet hast, das du autorisieren willst.</p>
 </div>
 
-<div class="space-y-3">
-  {% for u in users %}
-  {% set entries = entries_by_user[u.id] %}
-  <div class="rounded-xl border border-line bg-panel p-4">
-    <details class="group">
-      <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
-        <span class="flex items-center gap-2">
-          {{ u.name }}
-          {% if entries and entries[0].open %}
-          <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-go/15 text-go">eingestempelt seit {{ entries[0].clock_in_local.strftime("%d.%m. %H:%M") }}</span>
-          {% endif %}
-        </span>
-        <span class="flex items-center gap-2 shrink-0">
-          <a href="/admin/timeclock/{{ u.id }}/export.pdf" title="Als PDF exportieren"
-             class="text-slate-500 hover:text-slate-100">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-          </a>
-          <span class="text-slate-500 text-xs">{{ entries|length }} Buchung{{ "en" if entries|length != 1 else "" }}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        </span>
-      </summary>
-
-      <ul class="mt-3 space-y-1 text-sm">
-        {% for e in entries %}
-        <li class="border-b border-line/50 last:border-0 py-2">
-          <form method="post" action="/admin/timeclock/{{ e.id }}/edit" class="flex flex-col sm:flex-row sm:items-center gap-2 max-w-2xl">
-            <input type="datetime-local" name="clock_in" required value="{{ e.clock_in_local.strftime('%Y-%m-%dT%H:%M') }}"
-                   class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <span class="hidden sm:inline text-slate-500">&ndash;</span>
-            <input type="datetime-local" name="clock_out" value="{{ e.clock_out_local.strftime('%Y-%m-%dT%H:%M') if e.clock_out_local else '' }}"
-                   placeholder="läuft noch" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <div class="flex gap-2 shrink-0">
-              <button class="px-2.5 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium">Speichern</button>
-              <button type="submit" formaction="/admin/timeclock/{{ e.id }}/delete" formnovalidate onclick="return confirm('Buchung wirklich löschen?')"
-                      class="px-2.5 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-xs font-medium">Löschen</button>
-            </div>
-          </form>
-        </li>
+<!-- Zentrale Buchungs-Tabelle -->
+<div class="rounded-xl border border-line bg-panel p-4 mb-4">
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    <select id="tc-user-filter" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <option value="">Alle Mitarbeiter</option>
+      {% for u in users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+    </select>
+    <span class="text-xs text-slate-500 ml-auto whitespace-nowrap">{{ rows|length }} Buchung{{ "en" if rows|length != 1 else "" }}</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm" id="tc-table">
+      <thead>
+        <tr class="text-left text-[11px] text-slate-500 border-b border-line">
+          <th class="py-2 pr-2 font-medium">Mitarbeiter</th>
+          <th class="py-2 pr-2 font-medium">Datum</th>
+          <th class="py-2 pr-2 font-medium">Kommen</th>
+          <th class="py-2 pr-2 font-medium">Gehen</th>
+          <th class="py-2 pr-2 font-medium">Dauer</th>
+          <th class="py-2 pl-2 font-medium text-right">Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr data-user-id="{{ r.user_id }}" class="border-b border-line/50 last:border-0 hover:bg-panel2/50">
+          <td class="py-2 pr-2 text-slate-200 whitespace-nowrap">{{ r.user_name }}</td>
+          <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ r.clock_in_local.strftime('%d.%m.%Y') }}</td>
+          <td class="py-2 pr-2 text-slate-300 whitespace-nowrap">{{ r.clock_in_local.strftime('%H:%M') }}</td>
+          <td class="py-2 pr-2 whitespace-nowrap {% if r.open %}text-go font-medium{% else %}text-slate-300{% endif %}">
+            {% if r.open %}läuft noch{% else %}{{ r.clock_out_local.strftime('%H:%M') }}{% endif %}
+          </td>
+          <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ "%.2f"|format(r.hours) }} Std.</td>
+          <td class="py-2 pl-2 text-right">
+            <button type="button" class="tc-edit-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Buchung von {{ r.user_name }} bearbeiten"
+              data-id="{{ r.id }}"
+              data-user-name="{{ r.user_name }}"
+              data-clock-in="{{ r.clock_in_local.strftime('%Y-%m-%dT%H:%M') }}"
+              data-clock-out="{{ r.clock_out_local.strftime('%Y-%m-%dT%H:%M') if r.clock_out_local else '' }}"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
+          </td>
+        </tr>
         {% else %}
-        <li class="text-slate-500 text-sm italic py-2">Noch keine Buchungen.</li>
+        <tr><td colspan="6" class="py-8 text-center text-slate-500 text-sm">Keine Buchungen in diesem Monat.</td></tr>
         {% endfor %}
-      </ul>
-
-      <form method="post" action="/admin/timeclock/{{ u.id }}/add" class="mt-3 pt-3 border-t border-line flex flex-col sm:flex-row sm:items-center gap-2 max-w-2xl">
-        <input type="datetime-local" name="clock_in" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <span class="hidden sm:inline text-slate-500">&ndash;</span>
-        <input type="datetime-local" name="clock_out" placeholder="optional" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <button class="px-3 py-1.5 rounded-md bg-accent/90 hover:bg-accent text-oncolor text-sm font-medium whitespace-nowrap">Buchung hinzufügen</button>
-      </form>
-    </details>
+      </tbody>
+    </table>
+    <p id="tc-empty" class="hidden py-8 text-center text-slate-500 text-sm">Keine Buchungen für diesen Mitarbeiter in diesem Monat.</p>
   </div>
-  {% endfor %}
 </div>
 
-<details class="rounded-xl border border-line bg-panel mt-4 group">
+<!-- Slide-Over Drawer: gemeinsames Formular fuer Anlegen und Bearbeiten -->
+<div id="tc-drawer-overlay" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+<div id="tc-drawer" class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-panel border-l border-line z-50 translate-x-full transition-transform duration-200 overflow-y-auto">
+  <div class="flex items-center justify-between px-4 py-3.5 border-b border-line sticky top-0 bg-panel">
+    <h2 id="tc-drawer-title" class="font-display font-medium">Buchung hinzufügen</h2>
+    <button type="button" id="tc-drawer-close" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <form id="tc-drawer-form" method="post" action="/admin/timeclock/0/add" class="p-4 space-y-3">
+    <input type="hidden" name="month" value="{{ month_value }}">
+
+    <div id="tc-f-user-field">
+      <label class="block text-[11px] text-slate-400 mb-1">Mitarbeiter</label>
+      <select id="tc-f-user" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        {% for u in users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div id="tc-f-user-display" class="hidden">
+      <label class="block text-[11px] text-slate-400 mb-1">Mitarbeiter</label>
+      <p id="tc-f-user-name-text" class="text-sm text-slate-200 px-2.5 py-1.5 rounded-md bg-ink border border-line"></p>
+    </div>
+
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Kommen</label>
+      <input type="datetime-local" name="clock_in" id="tc-f-clock-in" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    </div>
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Gehen (optional)</label>
+      <input type="datetime-local" name="clock_out" id="tc-f-clock-out" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <p class="text-[11px] text-slate-500 mt-1">Leer lassen, wenn die Schicht noch läuft.</p>
+    </div>
+
+    <div class="flex gap-2 pt-2 border-t border-line">
+      <button type="submit" id="tc-drawer-submit" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Buchung hinzufügen</button>
+      <button type="submit" id="tc-drawer-delete" formnovalidate class="hidden px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    var overlay = document.getElementById('tc-drawer-overlay');
+    var drawer = document.getElementById('tc-drawer');
+    var form = document.getElementById('tc-drawer-form');
+    var title = document.getElementById('tc-drawer-title');
+    var submitBtn = document.getElementById('tc-drawer-submit');
+    var deleteBtn = document.getElementById('tc-drawer-delete');
+    var userField = document.getElementById('tc-f-user-field');
+    var userSelect = document.getElementById('tc-f-user');
+    var userDisplay = document.getElementById('tc-f-user-display');
+    var userNameText = document.getElementById('tc-f-user-name-text');
+    var clockIn = document.getElementById('tc-f-clock-in');
+    var clockOut = document.getElementById('tc-f-clock-out');
+    var userFilter = document.getElementById('tc-user-filter');
+
+    function openDrawer() {
+      overlay.classList.remove('hidden');
+      drawer.classList.remove('translate-x-full');
+    }
+    function closeDrawer() {
+      overlay.classList.add('hidden');
+      drawer.classList.add('translate-x-full');
+    }
+
+    function openCreate() {
+      title.textContent = 'Buchung hinzufügen';
+      submitBtn.textContent = 'Buchung hinzufügen';
+      if (deleteBtn) deleteBtn.classList.add('hidden');
+      userField.classList.remove('hidden');
+      userDisplay.classList.add('hidden');
+      clockIn.value = '';
+      clockOut.value = '';
+      // Bereits gefilterten Mitarbeiter vorauswaehlen, falls einer aktiv ist.
+      if (userFilter.value) userSelect.value = userFilter.value;
+      form.action = '/admin/timeclock/' + userSelect.value + '/add';
+      openDrawer();
+      clockIn.focus();
+    }
+
+    function openEdit(btn) {
+      var d = btn.dataset;
+      form.action = '/admin/timeclock/' + d.id + '/edit';
+      title.textContent = 'Buchung bearbeiten';
+      submitBtn.textContent = 'Speichern';
+      userField.classList.add('hidden');
+      userDisplay.classList.remove('hidden');
+      userNameText.textContent = d.userName;
+      clockIn.value = d.clockIn;
+      clockOut.value = d.clockOut || '';
+      if (deleteBtn) {
+        deleteBtn.classList.remove('hidden');
+        deleteBtn.setAttribute('formaction', '/admin/timeclock/' + d.id + '/delete');
+        deleteBtn.onclick = function () {
+          return confirm('Buchung von ' + d.userName + ' wirklich löschen?');
+        };
+      }
+      openDrawer();
+      clockIn.focus();
+    }
+
+    userSelect.addEventListener('change', function () {
+      form.action = '/admin/timeclock/' + userSelect.value + '/add';
+    });
+
+    var newBtn = document.getElementById('tc-new-btn');
+    if (newBtn) newBtn.addEventListener('click', openCreate);
+
+    document.querySelectorAll('.tc-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openEdit(btn); });
+    });
+
+    document.getElementById('tc-drawer-close').addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !drawer.classList.contains('translate-x-full')) closeDrawer();
+    });
+
+    // Mitarbeiter-Filter fuer die Tabelle (rein clientseitig, kein Reload).
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#tc-table tbody tr[data-user-id]'));
+    var emptyMsg = document.getElementById('tc-empty');
+    var tableWrap = document.getElementById('tc-table');
+    if (rows.length) {
+      userFilter.addEventListener('change', function () {
+        var val = userFilter.value;
+        var visibleCount = 0;
+        rows.forEach(function (row) {
+          var match = !val || row.dataset.userId === val;
+          row.classList.toggle('hidden', !match);
+          if (match) visibleCount++;
+        });
+        emptyMsg.classList.toggle('hidden', visibleCount !== 0);
+        tableWrap.classList.toggle('hidden', visibleCount === 0);
+      });
+    }
+  })();
+</script>
+
+<details class="rounded-xl border border-line bg-panel mb-4 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium">Modus</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
+      Solange noch nicht feststeht, wie die Zeiterfassung offiziell eingeführt wird, lässt sich hier
+      zwischen zwei Betriebsarten wechseln, ohne Buchungen zu verlieren.
+    </p>
+    <form method="post" action="/admin/timeclock/mode" class="flex flex-col sm:flex-row gap-2 max-w-2xl">
+      <button name="mode" value="terminal"
+              class="flex-1 text-left rounded-lg border p-3 {% if not timeclock_user_mode %}border-go/50 bg-go/10{% else %}border-line hover:bg-panel2{% endif %}">
+        <div class="text-sm font-medium {% if not timeclock_user_mode %}text-go{% else %}text-slate-200{% endif %}">Terminal-Modus{% if not timeclock_user_mode %} · aktiv{% endif %}</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">Ein-/Ausstempeln nur an einem einzigen autorisierten Gerät, keine Selbstbearbeitung.</div>
+      </button>
+      <button name="mode" value="user"
+              class="flex-1 text-left rounded-lg border p-3 {% if timeclock_user_mode %}border-go/50 bg-go/10{% else %}border-line hover:bg-panel2{% endif %}">
+        <div class="text-sm font-medium {% if timeclock_user_mode %}text-go{% else %}text-slate-200{% endif %}">Nutzer-Modus{% if timeclock_user_mode %} · aktiv{% endif %}</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">Jeder stempelt auf seinem eigenen Gerät ein/aus und darf eigene Buchungen selbst bearbeiten.</div>
+      </button>
+    </form>
+  </div>
+</details>
+
+<details class="rounded-xl border border-line bg-panel mb-4 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium">Autorisiertes Gerät</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-3 max-w-2xl">
+      {% if timeclock_user_mode %}
+      Im Nutzer-Modus optional – nur relevant, falls zusätzlich ein gemeinsames Terminal genutzt werden soll.
+      {% endif %}
+      Ein-/Ausstempeln funktioniert auf genau einem freigeschalteten, stationären Gerät
+      (z.B. ein Tablet am Empfang) – entweder direkt über den Ein-/Ausstempeln-Button im Dashboard
+      (wenn dort jemand persönlich eingeloggt ist) oder über das Terminal unter
+      <code class="bg-ink border border-line rounded px-1">{{ kiosk_url }}</code>, wo jeder Mitarbeiter
+      seinen Benutzernamen/Personalnummer und sein Passwort eingibt. So bleibt eine Buchung immer an das konkrete Gerät
+      gebunden, statt beliebig von unterwegs möglich zu sein.
+    </p>
+    {% if device %}
+    <div class="rounded-lg border border-go/40 bg-go/10 p-3 mb-3">
+      <div class="text-go text-sm font-medium">{{ device.label or "Unbenanntes Gerät" }} ist autorisiert</div>
+      <div class="text-xs text-slate-400 mt-1">
+        seit {{ device_authorized_local.strftime("%d.%m.%Y, %H:%M") }} Uhr
+        {% if device.authorized_by %}von {{ device.authorized_by.name }}{% endif %}
+      </div>
+    </div>
+    <form method="post" action="/admin/timeclock/revoke-device" onsubmit="return confirm('Autorisierung wirklich aufheben? Das Gerät kann danach nicht mehr ein-/ausstempeln, bis ein neues autorisiert wird.')">
+      <button class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Autorisierung aufheben</button>
+    </form>
+    {% else %}
+    <p class="text-warn text-sm mb-3">Aktuell ist kein Gerät autorisiert – das Terminal ist für niemanden nutzbar.</p>
+    {% endif %}
+    <form method="post" action="/admin/timeclock/authorize-device" class="mt-3 pt-3 border-t border-line flex flex-col sm:flex-row gap-2 max-w-2xl"
+          onsubmit="return confirm('Dieses Gerät hier jetzt für die Zeiterfassung autorisieren? Ein zuvor autorisiertes Gerät verliert dabei automatisch die Berechtigung.')">
+      <input name="label" placeholder="Bezeichnung (optional), z.B. „Tablet Empfang“" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Dieses Gerät autorisieren</button>
+    </form>
+    <p class="text-[11px] text-slate-500 mt-2">Nur ausführen, wenn du diese Seite gerade auf dem Gerät geöffnet hast, das du autorisieren willst.</p>
+  </div>
+</details>
+
+<details class="rounded-xl border border-line bg-panel group">
   <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
     <span class="font-display font-medium">Änderungsprotokoll</span>
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>

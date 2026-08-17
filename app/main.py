@@ -2716,31 +2716,82 @@ def verify_audit_chain(db: Session) -> dict:
     return {"ok": True, "checked": len(rows)}
 
 
+def _parse_month_param(month: str, local_now):
+    """Parst '?month=YYYY-MM' zu (Monats-Anfang, Monats-Anfang-danach, als
+    lokale date-Objekte) - fällt auf den laufenden Kalendermonat zurück, wenn
+    der Parameter fehlt oder ungültig ist."""
+    today = local_now.date()
+    if month:
+        try:
+            year, mon = (int(p) for p in month.split("-", 1))
+            month_start = today.replace(year=year, month=mon, day=1)
+        except (ValueError, TypeError):
+            month_start = today.replace(day=1)
+    else:
+        month_start = today.replace(day=1)
+    if month_start.month == 12:
+        next_month_start = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month_start = month_start.replace(month=month_start.month + 1)
+    return month_start, next_month_start
+
+
 @app.get("/admin/timeclock")
-def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
+def admin_timeclock_page(request: Request, month: str = "", db: Session = Depends(get_db)):
     # Nur Admin, nicht Schichtleiter: Korrekturen wirken sich direkt auf den
     # berechneten Verdienst eines Nutzers aus (dieselbe Einschränkung wie
     # beim Stundensatz/Sollzeit selbst).
     admin = require_admin(request, db)
+    now = ntptime.now_utc()
+    local_now = now.astimezone(APP_TIMEZONE)
+    month_start, next_month_start = _parse_month_param(month, local_now)
+    month_value = f"{month_start.year:04d}-{month_start.month:02d}"
+    if month_start.month == 1:
+        prev_month_value = f"{month_start.year - 1:04d}-12"
+    else:
+        prev_month_value = f"{month_start.year:04d}-{month_start.month - 1:02d}"
+    next_month_value = f"{next_month_start.year:04d}-{next_month_start.month:02d}"
+    # Monatsgrenzen als lokale Mitternacht nach UTC umgerechnet (nicht als
+    # UTC-Mitternacht), damit die Zuordnung zu Tag/Monat konsistent zum
+    # lokalen Datum von clock_in bleibt (siehe compute_time_stats).
+    range_start_utc = datetime(month_start.year, month_start.month, month_start.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+    range_end_utc = datetime(next_month_start.year, next_month_start.month, next_month_start.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+
     users = db.query(models.User).order_by(models.User.name).all()
-    entries_by_user = {}
-    for u in users:
-        entries = (
-            db.query(models.TimeEntry)
-            .filter(models.TimeEntry.user_id == u.id)
-            .order_by(models.TimeEntry.clock_in.desc())
-            .limit(30)
-            .all()
-        )
-        entries_by_user[u.id] = [
-            {
-                "id": e.id,
-                "clock_in_local": _aware(e.clock_in).astimezone(APP_TIMEZONE),
-                "clock_out_local": _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None,
-                "open": e.clock_out is None,
-            }
-            for e in entries
-        ]
+    users_by_id = {u.id: u for u in users}
+
+    month_entries = (
+        db.query(models.TimeEntry)
+        .filter(models.TimeEntry.clock_in >= range_start_utc, models.TimeEntry.clock_in < range_end_utc)
+        .order_by(models.TimeEntry.clock_in.desc())
+        .all()
+    )
+
+    rows = []
+    hours_by_user = {u.id: 0.0 for u in users}
+    for e in month_entries:
+        u = users_by_id.get(e.user_id)
+        hours = _entry_hours(e, now)
+        hours_by_user[e.user_id] = hours_by_user.get(e.user_id, 0.0) + hours
+        clock_in_local = _aware(e.clock_in).astimezone(APP_TIMEZONE)
+        clock_out_local = _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None
+        rows.append({
+            "id": e.id,
+            "user_id": e.user_id,
+            "user_name": u.name if u else "?",
+            "clock_in_local": clock_in_local,
+            "clock_out_local": clock_out_local,
+            "open": e.clock_out is None,
+            "hours": hours,
+        })
+
+    # Zusammenfassung: alle Nutzer, auch ohne Buchungen in diesem Monat (damit
+    # fehlende Buchungen auffallen), sortiert nach Name wie die Nutzerliste.
+    summary = [
+        {"user": u, "hours": hours_by_user.get(u.id, 0.0)}
+        for u in users
+    ]
+
     device = get_authorized_device(db)
 
     audit_entries = []
@@ -2771,7 +2822,11 @@ def admin_timeclock_page(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "user": admin,
         "users": users,
-        "entries_by_user": entries_by_user,
+        "rows": rows,
+        "summary": summary,
+        "month_value": month_value,
+        "prev_month_value": prev_month_value,
+        "next_month_value": next_month_value,
         "device": device,
         "device_authorized_local": _aware(device.authorized_at).astimezone(APP_TIMEZONE) if device else None,
         "kiosk_url": f"{str(request.base_url).rstrip('/')}/timeclock/kiosk",
@@ -2845,12 +2900,21 @@ def admin_revoke_device(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/admin/timeclock", status_code=302)
 
 
+def _timeclock_redirect(month: str, message: str) -> str:
+    """Redirect zurück zur Zeiterfassungs-Tabelle, behält dabei den gerade
+    betrachteten Monat (statt immer auf den aktuellen zurückzuspringen) und
+    zeigt eine kurze Toast-Bestätigung (siehe _with_toast)."""
+    target = f"/admin/timeclock?month={month}" if month else "/admin/timeclock"
+    return _with_toast(target, message)
+
+
 @app.post("/admin/timeclock/{user_id}/add")
 def admin_timeclock_add(
     user_id: int,
     request: Request,
     clock_in: str = Form(...),
     clock_out: str = Form(""),
+    month: str = Form(""),
     db: Session = Depends(get_db),
 ):
     admin = require_admin(request, db)
@@ -2865,7 +2929,7 @@ def admin_timeclock_add(
         db.flush()  # damit entry.id für das Protokoll existiert
         _log_timeclock_change(db, entry, "added", admin.id)
         db.commit()
-    return RedirectResponse("/admin/timeclock", status_code=302)
+    return RedirectResponse(_timeclock_redirect(month, "Buchung hinzugefügt."), status_code=302)
 
 
 @app.post("/admin/timeclock/{entry_id}/edit")
@@ -2874,6 +2938,7 @@ def admin_timeclock_edit(
     request: Request,
     clock_in: str = Form(...),
     clock_out: str = Form(""),
+    month: str = Form(""),
     db: Session = Depends(get_db),
 ):
     admin = require_admin(request, db)
@@ -2884,18 +2949,20 @@ def admin_timeclock_edit(
         entry.clock_out = _parse_local_dt(clock_out)
         _log_timeclock_change(db, entry, "edited", admin.id, old_in, old_out)
         db.commit()
-    return RedirectResponse("/admin/timeclock", status_code=302)
+    return RedirectResponse(_timeclock_redirect(month, "Buchung gespeichert."), status_code=302)
 
 
 @app.post("/admin/timeclock/{entry_id}/delete")
-def admin_timeclock_delete(entry_id: int, request: Request, db: Session = Depends(get_db)):
+def admin_timeclock_delete(
+    entry_id: int, request: Request, month: str = Form(""), db: Session = Depends(get_db)
+):
     admin = require_admin(request, db)
     entry = db.query(models.TimeEntry).filter(models.TimeEntry.id == entry_id).first()
     if entry:
         _log_timeclock_change(db, entry, "deleted", admin.id, entry.clock_in, entry.clock_out)
         db.delete(entry)
         db.commit()
-    return RedirectResponse("/admin/timeclock", status_code=302)
+    return RedirectResponse(_timeclock_redirect(month, "Buchung gelöscht."), status_code=302)
 
 
 @app.get("/admin/notifications")

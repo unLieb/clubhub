@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.60.0] - 2026-08-17
+- Verwaltung > Zeiterfassung neu strukturiert für bessere Skalierbarkeit: Monatsfilter (Standard aktueller Monat, mit Vor/Zurück-Navigation) ersetzt die per-Nutzer-Akkordeons durch eine zentrale, nach Mitarbeiter filterbare Tabelle aller Buchungen des gewählten Monats
+- Neue Übersicht der Monats-Gesamtstunden pro Mitarbeiter oben auf der Seite
+- Bearbeiten und "Buchung hinzufügen" laufen jetzt über einen Slide-Over-Drawer statt Inline-Datumsfeldern in der Liste; der gewählte Monat bleibt nach dem Speichern/Löschen erhalten
+
 ## [0.59.1] - 2026-08-17
 - Verwaltung > Nutzer: Rollen-Auswahl (Anlegen + Bearbeiten) alphabetisch sortiert (Admin, Entwickler, Mitarbeiter, Pauschalkraft, Schichtleiter)
 
