@@ -3,10 +3,16 @@
 {% block content %}
 
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
-<h1 class="font-display text-2xl font-semibold mt-2 mb-6">Inventar</h1>
+<div class="flex items-center justify-between gap-3 mt-2 mb-6">
+  <h1 class="font-display text-2xl font-semibold">Inventar</h1>
+  <button type="button" id="inv-new-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium shrink-0">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Neuer Artikel
+  </button>
+</div>
 
 {% if img_fetch_failed %}
-<div class="max-w-2xl rounded-lg border border-warn/40 bg-warn/10 text-warn text-sm px-4 py-3 mb-5">
+<div class="rounded-lg border border-warn/40 bg-warn/10 text-warn text-sm px-4 py-3 mb-5">
   Das Produktbild konnte nicht automatisch vom Kauflink geladen werden – manche Shops blockieren
   automatisierte Abrufe (z.B. Hygi.de). Bild stattdessen manuell hochladen oder per URL einfügen:
   Klick auf das kleine Artikel-Icon unter <a href="/inventory" class="underline">Inventar</a>.
@@ -26,75 +32,6 @@
   {% for u in pack_units %}<option value="{{ u }}">{% endfor %}
 </datalist>
 
-<details class="rounded-xl border border-line bg-panel mb-6 group">
-  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
-    <span class="font-display font-medium flex items-center gap-2">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Neuer Artikel
-    </span>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-  </summary>
-  <div class="px-4 pb-4 pt-1 border-t border-line">
-    <form method="post" action="/admin/inventory" class="space-y-2 mt-3 max-w-2xl">
-      <div class="flex flex-col sm:flex-row gap-2">
-        <input name="name" placeholder="Artikel, z.B. Allzweckreiniger" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <select name="group_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <option value="">– keine Gruppe –</option>
-          {% for g in groups %}
-          <option value="{{ g.id }}">{{ g.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="flex flex-col sm:flex-row gap-2">
-        <input name="category" list="inv-categories" placeholder="Kategorie, z.B. Reinigungsmittel" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <input name="location" list="inv-locations" placeholder="Lagerort, z.B. Lager A" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      </div>
-      <details class="group rounded-lg border border-go/40 bg-go/5 p-3" open>
-        <summary class="cursor-pointer list-none flex items-center justify-between text-sm font-medium text-go">
-          Verpackungseinheit (Gebinde)
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-        </summary>
-        <div class="flex flex-wrap gap-2 mt-2">
-          <div class="flex-1 min-w-[90px]">
-            <label class="block text-[11px] text-slate-400 mb-1">Gebinde</label>
-            <input name="unit" list="inv-units" placeholder="z.B. Kanister, Rolle" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          </div>
-          <div class="flex-1 min-w-[90px]">
-            <label class="block text-[11px] text-slate-400 mb-1">Mehrzahl (optional)</label>
-            <input name="unit_plural" placeholder="z.B. Kanister, Rollen" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          </div>
-          <div class="flex-1 min-w-[90px]">
-            <label class="block text-[11px] text-slate-400 mb-1">Einheit</label>
-            <input name="pack_unit" list="inv-pack-units" placeholder="z.B. Liter, Rollen, Stück" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          </div>
-          <div class="w-16 shrink-0">
-            <label class="block text-[11px] text-slate-400 mb-1">je Gebinde</label>
-            <input name="pack_size" type="number" step="0.5" min="0" placeholder="10" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
-          </div>
-          <div class="w-16 shrink-0">
-            <label class="block text-[11px] text-slate-400 mb-1">Ist</label>
-            <input name="stock_current" type="number" step="0.5" value="0" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
-          </div>
-          <div class="w-16 shrink-0">
-            <label class="block text-[11px] text-slate-400 mb-1">Soll</label>
-            <input name="stock_min" type="number" step="0.5" value="0" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
-          </div>
-          <div class="w-16 shrink-0">
-            <label class="block text-[11px] text-slate-400 mb-1">Mindest</label>
-            <input name="stock_critical" type="number" step="0.5" min="0" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
-          </div>
-        </div>
-      </details>
-      <div>
-        <label class="block text-[11px] text-slate-400 mb-1">Bezugsquelle (optional, für „Nachbestellen“)</label>
-        <input name="reorder_url" type="url" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      </div>
-      <p class="text-[11px] text-slate-500">Fällt der Ist- unter den Mindestbestand, wird die zugeordnete Gruppe benachrichtigt (respektiert deren Arbeitszeit).</p>
-      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Artikel anlegen</button>
-    </form>
-  </div>
-</details>
-
 <div class="rounded-xl border border-line bg-panel p-4">
   {% if inventory_items %}
   <div class="flex items-center justify-end gap-2 mb-3">
@@ -105,87 +42,234 @@
       <option value="category" {% if sort == "category" %}selected{% endif %}>Kategorie</option>
     </select>
   </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-[11px] text-slate-500 border-b border-line">
+          <th class="py-2 pr-2 font-medium">Artikel</th>
+          <th class="py-2 pr-2 font-medium">Bestand</th>
+          <th class="py-2 pr-2 font-medium">Kategorie</th>
+          <th class="py-2 pr-2 font-medium">Lagerort</th>
+          <th class="py-2 pr-2 font-medium">Gruppe</th>
+          <th class="py-2 pl-2 font-medium text-right">Bearbeiten</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in inventory_items %}
+        <tr class="border-b border-line/50 last:border-0 hover:bg-panel2/50">
+          <td class="py-2 pr-2 text-slate-200">{{ i.name }}</td>
+          <td class="py-2 pr-2 text-slate-400 text-xs whitespace-nowrap">
+            {{ i.stock_current|qty }}/{{ i.stock_min|qty }}{% if i.unit %} {{ i|unit_label(i.stock_current, i.stock_min) }}{% endif %}{% if i.pack_size and i.pack_unit %} à {{ i.pack_size|qty }} {{ i.pack_unit }}{% endif %}
+          </td>
+          <td class="py-2 pr-2 text-slate-400">{{ i.category or "–" }}</td>
+          <td class="py-2 pr-2 text-slate-400">{{ i.location or "–" }}</td>
+          <td class="py-2 pr-2 text-slate-400">{{ i.group.name if i.group else "–" }}</td>
+          <td class="py-2 pl-2 text-right">
+            <button type="button" class="inv-edit-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="„{{ i.name }}“ bearbeiten"
+              data-id="{{ i.id }}"
+              data-name="{{ i.name }}"
+              data-group-id="{{ i.group_id or '' }}"
+              data-category="{{ i.category or '' }}"
+              data-location="{{ i.location or '' }}"
+              data-stock-current="{{ i.stock_current }}"
+              data-stock-min="{{ i.stock_min }}"
+              data-stock-critical="{{ i.stock_critical if i.stock_critical is not none else '' }}"
+              data-unit="{{ i.unit or '' }}"
+              data-unit-plural="{{ i.unit_plural or '' }}"
+              data-pack-unit="{{ i.pack_unit or '' }}"
+              data-pack-size="{{ i.pack_size if i.pack_size is not none else '' }}"
+              data-reorder-url="{{ i.reorder_url or '' }}"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine Artikel angelegt.
+  </div>
   {% endif %}
-  <ul class="space-y-1 text-sm">
-    {% for i in inventory_items %}
-    <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
-      <details class="group">
-        <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
-          <span>{{ i.name }}</span>
-          <span class="flex items-center gap-2 shrink-0">
-            <span class="text-slate-500 text-xs">{{ i.stock_current|qty }}/{{ i.stock_min|qty }}{% if i.unit %} {{ i|unit_label(i.stock_current, i.stock_min) }}{% endif %}{% if i.pack_size and i.pack_unit %} à {{ i.pack_size|qty }} {{ i.pack_unit }}{% endif %}{% if i.category %} &middot; {{ i.category }}{% endif %}{% if i.location %} &middot; {{ i.location }}{% endif %}{% if i.group %} &middot; {{ i.group.name }}{% endif %}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </span>
-        </summary>
-        <form method="post" action="/admin/inventory/{{ i.id }}/edit" class="mt-2 space-y-2 max-w-2xl">
-          <div class="flex flex-col sm:flex-row gap-2">
-            <input name="name" value="{{ i.name }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <select name="group_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              <option value="">– keine Gruppe –</option>
-              {% for g in groups %}
-              <option value="{{ g.id }}" {% if i.group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <input name="category" list="inv-categories" value="{{ i.category or '' }}" placeholder="Kategorie, z.B. Reinigungsmittel" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <input name="location" list="inv-locations" value="{{ i.location or '' }}" placeholder="Lagerort, z.B. Lager A" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          </div>
-          <details class="group rounded-lg border border-go/40 bg-go/5 p-3" {% if i.unit or i.pack_size or i.pack_unit %}open{% endif %}>
-            <summary class="cursor-pointer list-none flex items-center justify-between text-sm font-medium text-go">
-              Verpackungseinheit (Gebinde)
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-            </summary>
-            <div class="flex flex-wrap gap-2 mt-2">
-              <div class="flex-1 min-w-[90px]">
-                <label class="block text-[11px] text-slate-400 mb-1">Gebinde</label>
-                <input name="unit" list="inv-units" value="{{ i.unit or '' }}" placeholder="z.B. Kanister, Rolle" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              </div>
-              <div class="flex-1 min-w-[90px]">
-                <label class="block text-[11px] text-slate-400 mb-1">Mehrzahl (optional)</label>
-                <input name="unit_plural" value="{{ i.unit_plural or '' }}" placeholder="z.B. Kanister, Rollen" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              </div>
-              <div class="flex-1 min-w-[90px]">
-                <label class="block text-[11px] text-slate-400 mb-1">Einheit</label>
-                <input name="pack_unit" list="inv-pack-units" value="{{ i.pack_unit or '' }}" placeholder="z.B. Liter, Rollen, Stück" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              </div>
-              <div class="w-16 shrink-0">
-                <label class="block text-[11px] text-slate-400 mb-1">je Gebinde</label>
-                <input name="pack_size" type="number" step="0.5" min="0" placeholder="10" value="{{ i.pack_size if i.pack_size is not none else '' }}" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
-              </div>
-              <div class="w-16 shrink-0">
-                <label class="block text-[11px] text-slate-400 mb-1">Ist</label>
-                <input name="stock_current" type="number" step="0.5" value="{{ i.stock_current }}" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
-              </div>
-              <div class="w-16 shrink-0">
-                <label class="block text-[11px] text-slate-400 mb-1">Soll</label>
-                <input name="stock_min" type="number" step="0.5" value="{{ i.stock_min }}" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
-              </div>
-              <div class="w-16 shrink-0">
-                <label class="block text-[11px] text-slate-400 mb-1">Mindest</label>
-                <input name="stock_critical" type="number" step="0.5" min="0" value="{{ i.stock_critical if i.stock_critical is not none else '' }}" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
-              </div>
-            </div>
-            <p class="text-[11px] text-slate-500 mt-2">
-              Unter Soll-Bestand gilt der Artikel als „Niedriger Bestand“ (kann warten), unter Mindestbestand
-              als „Kritisch“ (sofort bestellen). Ohne eigenen Wert wird automatisch die Hälfte des Soll-Bestands verwendet.
-            </p>
-          </details>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Bezugsquelle (optional, für „Nachbestellen“ – Produktbild wird bei neuem Link automatisch übernommen)</label>
-            <input name="reorder_url" type="url" value="{{ i.reorder_url or '' }}" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          </div>
-          <div class="flex gap-2">
-            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
-            {% if user.is_admin or user.is_developer %}
-            <button type="submit" formaction="/admin/inventory/{{ i.id }}/delete" formnovalidate onclick="return confirm('„{{ i.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
-            {% endif %}
-          </div>
-        </form>
-      </details>
-    </li>
-    {% endfor %}
-  </ul>
 </div>
+
+<!-- Slide-Over Drawer: gemeinsames Formular fuer Anlegen und Bearbeiten,
+     JS befuellt es je nach Klickziel (Button "Neuer Artikel" vs. Bearbeiten-
+     Icon einer Zeile) statt zwei getrennte Aufklapp-Formulare vorzuhalten. -->
+<div id="inv-drawer-overlay" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+<div id="inv-drawer" class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-panel border-l border-line z-50 translate-x-full transition-transform duration-200 overflow-y-auto">
+  <div class="flex items-center justify-between px-4 py-3.5 border-b border-line sticky top-0 bg-panel z-10">
+    <h2 id="inv-drawer-title" class="font-display font-medium">Neuer Artikel</h2>
+    <button type="button" id="inv-drawer-close" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <form id="inv-drawer-form" method="post" action="/admin/inventory" class="p-4 space-y-5">
+
+    <div class="space-y-2">
+      <h3 class="text-[11px] uppercase tracking-wide text-slate-500 font-medium">Stammdaten</h3>
+      <input name="name" id="inv-f-name" placeholder="Artikel, z.B. Allzweckreiniger" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <select name="group_id" id="inv-f-group" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <option value="">– keine Gruppe –</option>
+        {% for g in groups %}
+        <option value="{{ g.id }}">{{ g.name }}</option>
+        {% endfor %}
+      </select>
+      <input name="category" id="inv-f-category" list="inv-categories" placeholder="Kategorie, z.B. Reinigungsmittel" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <input name="location" id="inv-f-location" list="inv-locations" placeholder="Lagerort, z.B. Lager A" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    </div>
+
+    <div class="space-y-2">
+      <h3 class="text-[11px] uppercase tracking-wide text-slate-500 font-medium">Bestände</h3>
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Ist</label>
+          <input name="stock_current" id="inv-f-stock-current" type="number" step="0.5" value="0" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Soll</label>
+          <input name="stock_min" id="inv-f-stock-min" type="number" step="0.5" value="0" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Mindest</label>
+          <input name="stock_critical" id="inv-f-stock-critical" type="number" step="0.5" min="0" class="w-full rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-500">
+        Unter Soll-Bestand gilt der Artikel als „Niedriger Bestand“ (kann warten), unter Mindestbestand
+        als „Kritisch“ (sofort bestellen). Ohne eigenen Wert wird automatisch die Hälfte des Soll-Bestands verwendet.
+      </p>
+    </div>
+
+    <div class="space-y-2">
+      <h3 class="text-[11px] uppercase tracking-wide text-slate-500 font-medium">Gebinde &amp; Einheiten</h3>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Gebinde</label>
+          <input name="unit" id="inv-f-unit" list="inv-units" placeholder="z.B. Kanister, Rolle" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Mehrzahl (optional)</label>
+          <input name="unit_plural" id="inv-f-unit-plural" placeholder="z.B. Kanister, Rollen" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Einheit</label>
+          <input name="pack_unit" id="inv-f-pack-unit" list="inv-pack-units" placeholder="z.B. Liter, Rollen, Stück" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Menge je Gebinde</label>
+          <input name="pack_size" id="inv-f-pack-size" type="number" step="0.5" min="0" placeholder="10" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <h3 class="text-[11px] uppercase tracking-wide text-slate-500 font-medium">Einkauf</h3>
+      <label class="block text-[11px] text-slate-400 mb-1">Shop-URL für „Nachbestellen“ (optional – Produktbild wird bei neuem Link automatisch übernommen)</label>
+      <input name="reorder_url" id="inv-f-reorder-url" type="url" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    </div>
+
+    <p class="text-[11px] text-slate-500">Fällt der Ist- unter den Mindestbestand, wird die zugeordnete Gruppe benachrichtigt (respektiert deren Arbeitszeit).</p>
+
+    <div class="flex gap-2 pt-2 border-t border-line">
+      <button type="submit" id="inv-drawer-submit" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Artikel anlegen</button>
+      {% if user.is_admin or user.is_developer %}
+      <button type="submit" id="inv-drawer-delete" formnovalidate class="hidden px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    var overlay = document.getElementById('inv-drawer-overlay');
+    var drawer = document.getElementById('inv-drawer');
+    var form = document.getElementById('inv-drawer-form');
+    var title = document.getElementById('inv-drawer-title');
+    var submitBtn = document.getElementById('inv-drawer-submit');
+    var deleteBtn = document.getElementById('inv-drawer-delete');
+
+    var fields = {
+      name: document.getElementById('inv-f-name'),
+      group: document.getElementById('inv-f-group'),
+      category: document.getElementById('inv-f-category'),
+      location: document.getElementById('inv-f-location'),
+      stockCurrent: document.getElementById('inv-f-stock-current'),
+      stockMin: document.getElementById('inv-f-stock-min'),
+      stockCritical: document.getElementById('inv-f-stock-critical'),
+      unit: document.getElementById('inv-f-unit'),
+      unitPlural: document.getElementById('inv-f-unit-plural'),
+      packUnit: document.getElementById('inv-f-pack-unit'),
+      packSize: document.getElementById('inv-f-pack-size'),
+      reorderUrl: document.getElementById('inv-f-reorder-url'),
+    };
+
+    function openDrawer() {
+      overlay.classList.remove('hidden');
+      drawer.classList.remove('translate-x-full');
+    }
+
+    function closeDrawer() {
+      overlay.classList.add('hidden');
+      drawer.classList.add('translate-x-full');
+    }
+
+    function openCreate() {
+      form.reset();
+      form.action = '/admin/inventory';
+      title.textContent = 'Neuer Artikel';
+      submitBtn.textContent = 'Artikel anlegen';
+      if (deleteBtn) deleteBtn.classList.add('hidden');
+      fields.stockCurrent.value = 0;
+      fields.stockMin.value = 0;
+      openDrawer();
+      fields.name.focus();
+    }
+
+    function openEdit(btn) {
+      var d = btn.dataset;
+      form.action = '/admin/inventory/' + d.id + '/edit';
+      title.textContent = '„' + d.name + '“ bearbeiten';
+      submitBtn.textContent = 'Speichern';
+      fields.name.value = d.name;
+      fields.group.value = d.groupId || '';
+      fields.category.value = d.category || '';
+      fields.location.value = d.location || '';
+      fields.stockCurrent.value = d.stockCurrent;
+      fields.stockMin.value = d.stockMin;
+      fields.stockCritical.value = d.stockCritical || '';
+      fields.unit.value = d.unit || '';
+      fields.unitPlural.value = d.unitPlural || '';
+      fields.packUnit.value = d.packUnit || '';
+      fields.packSize.value = d.packSize || '';
+      fields.reorderUrl.value = d.reorderUrl || '';
+      if (deleteBtn) {
+        deleteBtn.classList.remove('hidden');
+        deleteBtn.setAttribute('formaction', '/admin/inventory/' + d.id + '/delete');
+        deleteBtn.onclick = function () {
+          return confirm('„' + d.name + '“ wirklich löschen?');
+        };
+      }
+      openDrawer();
+      fields.name.focus();
+    }
+
+    var newBtn = document.getElementById('inv-new-btn');
+    if (newBtn) newBtn.addEventListener('click', openCreate);
+
+    document.querySelectorAll('.inv-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openEdit(btn); });
+    });
+
+    document.getElementById('inv-drawer-close').addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !drawer.classList.contains('translate-x-full')) closeDrawer();
+    });
+  })();
+</script>
 
 {% endblock %}

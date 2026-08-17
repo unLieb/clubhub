@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.57.0] - 2026-08-17
+- Verwaltung > Inventar überarbeitet: Anlegen/Bearbeiten läuft jetzt über einen Slide-Over-Drawer statt Inline-Aufklapp-Formularen, gegliedert in Stammdaten / Bestände / Gebinde & Einheiten / Einkauf
+- Artikelliste ist jetzt eine kompakte Tabelle statt einer Akkordeon-Liste
+
 ## [0.56.0] - 2026-08-17
 - Aufgabenverwaltung auf raumzentrierte Logik umgestellt (Kopieren statt Verlinken): Verwaltung > Bereiche zeigt jetzt links eine klickbare Bereichsliste, rechts direkt die eigene Aufgabenliste des ausgewählten Bereichs zum Anlegen/Bearbeiten/Löschen
 - Neue Aufgaben in mehreren Bereichen gleichzeitig erzeugen ab sofort unabhängige, unverknüpfte Kopien statt gemeinsam bearbeitbarer Aufgaben - Bearbeiten und Löschen betreffen immer nur die Aufgabe des jeweiligen Bereichs
