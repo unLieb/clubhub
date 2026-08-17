@@ -1713,6 +1713,15 @@ def _sort_reports(reports):
     return sorted(by_recency, key=lambda r: REPORT_PRIORITY_RANK.get(r.priority, 2))
 
 
+_FEEDBACK_STATUS_RANK = {"open": 0, "in_progress": 1, "done": 2}
+
+
+def _sort_feedback(items):
+    """Offene zuerst, erledigte zuletzt - innerhalb eines Status neueste zuerst."""
+    by_recency = sorted(items, key=lambda f: f.created_at, reverse=True)
+    return sorted(by_recency, key=lambda f: _FEEDBACK_STATUS_RANK.get(f.status, 0))
+
+
 def _aware(ts):
     """SQLite gibt Zeitstempel manchmal ohne tzinfo zurück, obwohl sie in UTC
     gespeichert wurden - hier konsistent nachrüsten, bevor mit ihnen gerechnet wird."""
@@ -1740,6 +1749,84 @@ def compute_report_meta(r, now) -> dict:
         "resolved_rel": format_duration_de(now - resolved_at) if resolved_at else None,
         "last_modified": last_modified,
     }
+
+
+@app.post("/feedback")
+def feedback_create(
+    request: Request,
+    type: str = Form(...),
+    title: str = Form(...),
+    description: str = Form(""),
+    priority: str = Form("medium"),
+    url: str = Form(""),
+    next: str = Form("/"),
+    db: Session = Depends(get_db),
+):
+    """Schwebender Feedback-Button (siehe base.html) - für jeden eingeloggten
+    Nutzer erreichbar, kein Admin-Vorbehalt, damit auch normales Personal
+    Bugs/Wünsche melden kann. URL/Nutzer/Zeitpunkt werden automatisch erfasst
+    (URL kommt als verstecktes Feld von der aufrufenden Seite mit, statt vom
+    Server geraten zu werden - der Referer-Header ist nicht zuverlässig)."""
+    user = require_login(request, db)
+    if type not in ("bug", "feature"):
+        type = "bug"
+    if priority not in ("low", "medium", "high"):
+        priority = "medium"
+    db.add(models.Feedback(
+        type=type, title=title.strip(), description=description.strip() or None,
+        priority=priority, url=url or None, user_id=user.id,
+    ))
+    db.commit()
+    target = next if next.startswith("/") else "/"
+    return RedirectResponse(_with_toast(target, "Danke! Feedback wurde übermittelt."), status_code=302)
+
+
+_FEEDBACK_TYPE_LABEL = {"bug": "Bug/Fehler", "feature": "Funktionswunsch"}
+_FEEDBACK_PRIORITY_LABEL = {"low": "Niedrig", "medium": "Mittel", "high": "Hoch"}
+
+
+def _feedback_prompt(f) -> str:
+    """Formatiert ein Feedback-Ticket als fertigen Claude-Prompt zum Beheben/
+    Umsetzen - für den "Als Claude-Prompt kopieren"-Button in admin_feedback.html."""
+    kind = _FEEDBACK_TYPE_LABEL.get(f.type, f.type)
+    action = "behebe folgenden gemeldeten Bug" if f.type == "bug" else "setze folgenden Funktionswunsch um"
+    reporter = f.user.name if f.user else "unbekannt"
+    when = _to_local(f.created_at).strftime("%d.%m.%Y %H:%M") if f.created_at else "unbekannt"
+    return (
+        f"Bitte {action} in ClubHUB:\n\n"
+        f"Typ: {kind}\n"
+        f"Titel: {f.title}\n\n"
+        f"Beschreibung:\n{f.description or '(keine Beschreibung angegeben)'}\n\n"
+        f"Priorität: {_FEEDBACK_PRIORITY_LABEL.get(f.priority, f.priority)}\n"
+        f"Gemeldet von: {reporter} am {when}\n"
+        f"Betroffene Seite: {f.url or 'nicht angegeben'}"
+    )
+
+
+@app.get("/admin/feedback")
+def admin_feedback_page(request: Request, db: Session = Depends(get_db)):
+    admin = require_staff_or_developer(request, db)
+    items = _sort_feedback(db.query(models.Feedback).all())
+    prompts = {f.id: _feedback_prompt(f) for f in items}
+    return templates.TemplateResponse("admin_feedback.html", {
+        "request": request,
+        "user": admin,
+        "items": items,
+        "prompts": prompts,
+    })
+
+
+@app.post("/admin/feedback/{feedback_id}/status")
+def admin_feedback_set_status(
+    feedback_id: int, request: Request, status: str = Form(...), db: Session = Depends(get_db)
+):
+    require_staff_or_developer(request, db)
+    if status in ("open", "in_progress", "done"):
+        item = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+        if item:
+            item.status = status
+            db.commit()
+    return RedirectResponse("/admin/feedback", status_code=302)
 
 
 @app.get("/reports")
@@ -2450,6 +2537,8 @@ def admin_home(request: Request, db: Session = Depends(get_db)):
         "open_time_entries_count": db.query(models.TimeEntry).filter(models.TimeEntry.clock_out.is_(None)).count(),
         "nfc_tags_count": db.query(models.NfcTag).count(),
         "nfc_tags_unscanned_count": db.query(models.NfcTag).filter(models.NfcTag.uid.is_(None)).count(),
+        "feedback_count": db.query(models.Feedback).count(),
+        "feedback_open_count": db.query(models.Feedback).filter(models.Feedback.status != "done").count(),
         "ntp_status": ntptime.status(),
     })
 

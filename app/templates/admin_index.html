@@ -72,6 +72,21 @@
     </span>
   </a>
 
+  <a href="/admin/feedback" class="flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-warn/15 text-warn flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Feedback</div>
+      <div class="text-warn text-sm mt-0.5">{% if feedback_open_count %}{{ feedback_open_count }} offen{% else %}Alles bearbeitet{% endif %}{% if feedback_count %} &middot; {{ feedback_count }} insgesamt{% endif %}</div>
+      <div class="text-xs text-slate-500 mt-0.5">Gemeldete Bugs und Funktionswünsche einsehen und bearbeiten.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-warn text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+
   {% if user.is_admin %}
   <a href="/admin/timeclock" class="flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
     <div class="w-12 h-12 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">

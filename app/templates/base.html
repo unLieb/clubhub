@@ -49,6 +49,58 @@
   </div>
 </div>
 
+{% if user %}
+<!-- Schwebender Feedback-Button + Modal: fuer jeden eingeloggten Nutzer,
+     nicht nur Admins - soll ein niedrigschwelliger Sammelpunkt fuer Bugs und
+     Wuensche aus dem taeglichen Betrieb sein. Auf dem Handy oberhalb der
+     Bottom-Navigation positioniert, damit sich nichts ueberlappt. -->
+<button type="button" id="feedback-open-btn"
+  class="fixed z-30 bottom-20 right-4 lg:bottom-6 lg:right-6 flex items-center gap-1.5 pl-3 pr-3.5 py-2.5 rounded-full bg-panel/95 backdrop-blur border border-line text-slate-300 hover:text-slate-100 hover:border-go/50 shadow-lg text-xs font-medium">
+  <span>💬</span>
+  <span>Feedback / Bug melden</span>
+</button>
+
+<div id="feedback-overlay" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+<div id="feedback-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-xl border border-line bg-panel shadow-xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-4 py-3.5 border-b border-line sticky top-0 bg-panel">
+      <h2 class="font-display font-medium">Feedback / Bug melden</h2>
+      <button type="button" id="feedback-close" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="post" action="/feedback" class="p-4 space-y-3">
+      <input type="hidden" name="url" id="feedback-f-url">
+      <input type="hidden" name="next" id="feedback-f-next">
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Typ</label>
+        <select name="type" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <option value="bug">🐛 Bug / Fehler</option>
+          <option value="feature">💡 Funktionswunsch</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Titel</label>
+        <input name="title" required placeholder="Kurz zusammengefasst" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Beschreibung</label>
+        <textarea name="description" rows="4" placeholder="Was ist passiert, bzw. was fehlt dir?" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Priorität</label>
+        <select name="priority" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <option value="low">Niedrig</option>
+          <option value="medium" selected>Mittel</option>
+          <option value="high">Hoch</option>
+        </select>
+      </div>
+      <button type="submit" class="w-full px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Absenden</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 <!-- Theme-Umschalter, oben rechts (ab lg) -->
 <div class="hidden lg:flex fixed top-4 right-4 z-50 items-center gap-2">
   {% if user %}
@@ -349,6 +401,35 @@
   setTimeout(function () {
     toast.classList.add('hidden');
   }, 4000);
+})();
+
+// Feedback-Modal: oeffnen/schliessen + aktuelle Seite als verstecktes Feld
+// mitgeben (URL/Nutzer/Zeitpunkt werden serverseitig in main.py erfasst).
+(function () {
+  var openBtn = document.getElementById('feedback-open-btn');
+  if (!openBtn) return;
+  var overlay = document.getElementById('feedback-overlay');
+  var modal = document.getElementById('feedback-modal');
+  var closeBtn = document.getElementById('feedback-close');
+  var urlField = document.getElementById('feedback-f-url');
+  var nextField = document.getElementById('feedback-f-next');
+
+  function openModal() {
+    urlField.value = window.location.pathname;
+    nextField.value = window.location.pathname + window.location.search;
+    overlay.classList.remove('hidden');
+    modal.classList.remove('hidden');
+  }
+  function closeModal() {
+    overlay.classList.add('hidden');
+    modal.classList.add('hidden');
+  }
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', closeModal);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+  });
 })();
 
 // Service Worker: immer registrieren, unabhängig von Login/Push - Grundlage

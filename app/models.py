@@ -518,3 +518,24 @@ class Vacation(Base):
 
     user = relationship("User", foreign_keys=[user_id])
     created_by = relationship("User", foreign_keys=[created_by_id])
+
+
+class Feedback(Base):
+    """Internes Bug-/Wunsch-Ticket, über den schwebenden Feedback-Button
+    (siehe base.html) von jedem eingeloggten Nutzer meldbar. Bewusst simpel
+    gehalten (kein Kommentar-Verlauf, keine Zuweisung an eine Person) - Ziel
+    ist ein schneller Sammelpunkt für Admins, nicht ein vollwertiges
+    Ticketsystem."""
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True)
+    type = Column(String, nullable=False)          # "bug" | "feature"
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    priority = Column(String, default="medium")     # "low" | "medium" | "high"
+    status = Column(String, default="open")         # "open" | "in_progress" | "done"
+    url = Column(String, nullable=True)             # Seite, auf der gemeldet wurde
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship("User")

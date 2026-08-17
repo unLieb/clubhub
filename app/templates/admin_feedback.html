@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Feedback – Verwaltung{% endblock %}
+{% block content %}
+{% import "_report_macros.html" as rm %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-1">Feedback</h1>
+<p class="text-slate-400 text-sm mb-6">Bugs und Funktionswünsche, gemeldet über den schwebenden Feedback-Button.</p>
+
+<div class="rounded-xl border border-line bg-panel p-4">
+  {% if items %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-[11px] text-slate-500 border-b border-line">
+          <th class="py-2 pr-2 font-medium">Typ</th>
+          <th class="py-2 pr-2 font-medium">Titel</th>
+          <th class="py-2 pr-2 font-medium">Priorität</th>
+          <th class="py-2 pr-2 font-medium">Von</th>
+          <th class="py-2 pr-2 font-medium">Wann</th>
+          <th class="py-2 pr-2 font-medium">Status</th>
+          <th class="py-2 pl-2 font-medium text-right">Aktion</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in items %}
+        <tr class="border-b border-line/50 last:border-0 align-top hover:bg-panel2/50">
+          <td class="py-2.5 pr-2 whitespace-nowrap">
+            {% if f.type == 'bug' %}
+            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium">🐛 Bug</span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent font-medium">💡 Wunsch</span>
+            {% endif %}
+          </td>
+          <td class="py-2.5 pr-2 max-w-xs">
+            <div class="text-slate-200 font-medium">{{ f.title }}</div>
+            {% if f.description %}<div class="text-xs text-slate-400 mt-0.5 line-clamp-2">{{ f.description }}</div>{% endif %}
+            {% if f.url %}<div class="text-[11px] text-slate-500 mt-0.5">{{ f.url }}</div>{% endif %}
+          </td>
+          <td class="py-2.5 pr-2 whitespace-nowrap">
+            {% if f.priority == 'high' %}<span class="text-orange text-xs font-medium">Hoch</span>
+            {% elif f.priority == 'low' %}<span class="text-slate-400 text-xs">Niedrig</span>
+            {% else %}<span class="text-warn text-xs font-medium">Mittel</span>
+            {% endif %}
+          </td>
+          <td class="py-2.5 pr-2 text-slate-400 text-xs whitespace-nowrap">{{ f.user.name if f.user else "–" }}</td>
+          <td class="py-2.5 pr-2 text-slate-400 text-xs whitespace-nowrap">{{ (f.created_at|localtime).strftime('%d.%m.%Y %H:%M') if f.created_at else "–" }}</td>
+          <td class="py-2.5 pr-2">
+            <form method="post" action="/admin/feedback/{{ f.id }}/status">
+              <select name="status" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2 py-1 text-xs">
+                <option value="open" {% if f.status == 'open' %}selected{% endif %}>Offen</option>
+                <option value="in_progress" {% if f.status == 'in_progress' %}selected{% endif %}>In Bearbeitung</option>
+                <option value="done" {% if f.status == 'done' %}selected{% endif %}>Erledigt</option>
+              </select>
+            </form>
+          </td>
+          <td class="py-2.5 pl-2 text-right">
+            <button type="button" class="feedback-copy-btn text-xs px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-slate-100 whitespace-nowrap"
+              data-prompt="{{ prompts[f.id] }}">
+              Als Claude-Prompt kopieren
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch kein Feedback eingegangen.
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  document.querySelectorAll('.feedback-copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var original = btn.textContent;
+      navigator.clipboard.writeText(btn.dataset.prompt).then(function () {
+        btn.textContent = 'Kopiert ✓';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      }).catch(function () {
+        btn.textContent = 'Kopieren fehlgeschlagen';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      });
+    });
+  });
+</script>
+
+{% endblock %}
