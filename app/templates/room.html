@@ -2,8 +2,19 @@
 {% block title %}{{ room.name }} – ClubHUB{% endblock %}
 {% block content %}
 
+{% set can_manage_tasks = user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
+{% set can_delete_tasks = user and (user.is_admin or user.is_developer) %}
+
 <a href="/rooms" class="text-sm text-slate-400 hover:text-slate-100">&larr; Bereiche</a>
-<h1 class="font-display text-2xl font-semibold mt-2 mb-1">{{ room.name }}</h1>
+<div class="flex items-start justify-between gap-3 mt-2 mb-1">
+  <h1 class="font-display text-2xl font-semibold">{{ room.name }}</h1>
+  {% if can_manage_tasks %}
+  <button type="button" id="task-new-btn" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Aufgabe hinzufügen
+  </button>
+  {% endif %}
+</div>
 <p class="text-slate-400 text-sm mb-6">{{ room.groups | map(attribute="name") | join(", ") }}</p>
 
 {% macro task_row(task, s) %}
@@ -42,14 +53,29 @@
     </ul>
     {% endif %}
   </div>
-  {% if user %}
-  <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete"
-        onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Wird gespeichert…';">
-    <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap disabled:opacity-60">
-      Erledigt
+  <div class="flex items-center gap-2 shrink-0">
+    {% if can_manage_tasks %}
+    <button type="button" class="task-edit-btn p-2 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="„{{ task.name }}“ bearbeiten"
+      data-id="{{ task.id }}"
+      data-name="{{ task.name }}"
+      data-interval-hours="{{ task.interval_hours }}"
+      data-warn-hours="{{ task.warn_hours }}"
+      data-note="{{ task.note or '' }}"
+      data-active-weekdays="{{ task.active_weekdays or '' }}"
+      data-group-ids="{{ task.groups|map(attribute='id')|join(',') }}"
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
     </button>
-  </form>
-  {% endif %}
+    {% endif %}
+    {% if user %}
+    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete"
+          onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Wird gespeichert…';">
+      <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap disabled:opacity-60">
+        Erledigt
+      </button>
+    </form>
+    {% endif %}
+  </div>
 </div>
 {% endmacro %}
 
@@ -219,5 +245,201 @@
   <p class="text-slate-500 italic text-sm">Noch keine Aufbauten hinterlegt.</p>
   {% endif %}
 </div>
+
+{% if can_manage_tasks %}
+<!-- Slide-Over Drawer: gemeinsames Formular fuer Anlegen und Bearbeiten von
+     Aufgaben dieses Bereichs, nur fuer Admins/Schichtleiter/Entwickler. -->
+<div id="task-drawer-overlay" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+<div id="task-drawer" class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-panel border-l border-line z-50 translate-x-full transition-transform duration-200 overflow-y-auto">
+  <div class="flex items-center justify-between px-4 py-3.5 border-b border-line sticky top-0 bg-panel z-10">
+    <h2 id="task-drawer-title" class="font-display font-medium">Aufgabe hinzufügen</h2>
+    <button type="button" id="task-drawer-close" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <form id="task-drawer-form" method="post" action="/admin/tasks" class="p-4 space-y-4">
+    <input type="hidden" name="room_ids" value="{{ room.id }}">
+
+    <input name="name" id="task-f-name" placeholder="Aufgabe, z.B. Mülleimer leeren" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+
+    {% if groups %}
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Zuständige Gruppen (optional)</label>
+      <div id="task-f-groups" class="flex flex-wrap gap-1.5">
+        {% for g in groups %}
+        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+          <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only">{{ g.name }}
+        </label>
+        {% endfor %}
+      </div>
+      <p class="text-[11px] text-slate-500 mt-1">Keine Auswahl = automatisch alle Gruppen, die dem Bereich zugeordnet sind.</p>
+    </div>
+    {% endif %}
+
+    <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
+      <div class="flex-1">
+        <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
+        <select name="interval_hours" id="task-f-interval" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <option value="24" data-warn="5">Täglich</option>
+          <option value="168" data-warn="24">Wöchentlich</option>
+          <option value="336" data-warn="48">Alle 2 Wochen</option>
+          <option value="720" data-warn="72">Monatlich</option>
+          <option value="2160" data-warn="216">Quartalsweise</option>
+          <option value="0">Nach Bedarf</option>
+        </select>
+      </div>
+      <div class="flex-1 warn-hours-field">
+        <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
+        <input name="warn_hours" id="task-f-warn" type="number" step="0.5" min="0.5" value="5"
+               class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Aktive Wochentage</label>
+      <div id="task-f-weekdays" class="flex flex-wrap gap-1.5">
+        {% for wd, wlabel in [(0,'Mo'),(1,'Di'),(2,'Mi'),(3,'Do'),(4,'Fr'),(5,'Sa'),(6,'So')] %}
+        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+          <input type="checkbox" name="active_weekdays" value="{{ wd }}" checked class="sr-only">{{ wlabel }}
+        </label>
+        {% endfor %}
+      </div>
+      <p class="text-[11px] text-slate-500 mt-1">Alle angehakt (Standard) = Aufgabe zählt an jedem Tag.</p>
+    </div>
+
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
+      <textarea name="note" id="task-f-note" rows="2" placeholder="Zusätzliche Hinweise zur Ausführung" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+    </div>
+
+    <div id="task-f-last-completed-field">
+      <label class="block text-[11px] text-slate-400 mb-1">Zuletzt erledigt am (optional)</label>
+      <input name="last_completed" id="task-f-last-completed" type="datetime-local" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <p class="text-[11px] text-slate-500 mt-1">Falls schon vor dem Anlegen erledigt wurde - sonst startet der Turnus erst ab jetzt.</p>
+    </div>
+
+    <div class="flex gap-2 pt-2 border-t border-line">
+      <button type="submit" id="task-drawer-submit" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Aufgabe anlegen</button>
+      {% if can_delete_tasks %}
+      <button type="submit" id="task-drawer-delete" formnovalidate class="hidden px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    var overlay = document.getElementById('task-drawer-overlay');
+    var drawer = document.getElementById('task-drawer');
+    var form = document.getElementById('task-drawer-form');
+    var title = document.getElementById('task-drawer-title');
+    var submitBtn = document.getElementById('task-drawer-submit');
+    var deleteBtn = document.getElementById('task-drawer-delete');
+    var lastCompletedField = document.getElementById('task-f-last-completed-field');
+
+    var fields = {
+      name: document.getElementById('task-f-name'),
+      interval: document.getElementById('task-f-interval'),
+      warn: document.getElementById('task-f-warn'),
+      note: document.getElementById('task-f-note'),
+      lastCompleted: document.getElementById('task-f-last-completed'),
+    };
+    var groupCheckboxes = document.querySelectorAll('#task-f-groups input[type="checkbox"]');
+    var weekdayCheckboxes = document.querySelectorAll('#task-f-weekdays input[type="checkbox"]');
+
+    function setWeekdays(csv) {
+      var days = csv ? csv.split(',') : ['0', '1', '2', '3', '4', '5', '6'];
+      weekdayCheckboxes.forEach(function (cb) { cb.checked = days.indexOf(cb.value) !== -1; });
+    }
+
+    function setGroups(csv) {
+      var ids = csv ? csv.split(',') : [];
+      groupCheckboxes.forEach(function (cb) { cb.checked = ids.indexOf(cb.value) !== -1; });
+    }
+
+    function updateWarnField() {
+      var opt = fields.interval.options[fields.interval.selectedIndex];
+      form.querySelector('.warn-hours-field').classList.toggle('hidden', fields.interval.value === '0');
+      var hint = form.querySelector('.warn-days-hint');
+      var h = parseFloat(fields.warn.value);
+      hint.textContent = (h > 0) ? ('≈ ' + (Math.round(h / 24 * 10) / 10) + ' Tage') : '';
+    }
+
+    function openDrawer() {
+      overlay.classList.remove('hidden');
+      drawer.classList.remove('translate-x-full');
+    }
+
+    function closeDrawer() {
+      overlay.classList.add('hidden');
+      drawer.classList.add('translate-x-full');
+    }
+
+    function openCreate() {
+      form.reset();
+      form.action = '/admin/tasks';
+      title.textContent = 'Aufgabe hinzufügen';
+      submitBtn.textContent = 'Aufgabe anlegen';
+      if (deleteBtn) deleteBtn.classList.add('hidden');
+      lastCompletedField.classList.remove('hidden');
+      setWeekdays(null);
+      setGroups(null);
+      updateWarnField();
+      openDrawer();
+      fields.name.focus();
+    }
+
+    function openEdit(btn) {
+      var d = btn.dataset;
+      form.action = '/admin/tasks/' + d.id + '/edit';
+      title.textContent = '„' + d.name + '“ bearbeiten';
+      submitBtn.textContent = 'Speichern';
+      fields.name.value = d.name;
+      // interval_hours ist in der DB ein Float ("24.0") - die <option>-Werte
+      // sind aber ganzzahlig ("24"); ueber parseFloat+String normalisiert,
+      // sonst matcht select.value nicht und die Auswahl bleibt leer.
+      fields.interval.value = String(parseFloat(d.intervalHours));
+      fields.warn.value = d.warnHours;
+      fields.note.value = d.note || '';
+      fields.lastCompleted.value = '';
+      lastCompletedField.classList.add('hidden');
+      setWeekdays(d.activeWeekdays);
+      setGroups(d.groupIds);
+      updateWarnField();
+      if (deleteBtn) {
+        deleteBtn.classList.remove('hidden');
+        deleteBtn.setAttribute('formaction', '/admin/tasks/' + d.id + '/delete');
+        deleteBtn.onclick = function () {
+          return confirm('„' + d.name + '“ wirklich löschen?');
+        };
+      }
+      openDrawer();
+      fields.name.focus();
+    }
+
+    var newBtn = document.getElementById('task-new-btn');
+    if (newBtn) newBtn.addEventListener('click', openCreate);
+
+    document.querySelectorAll('.task-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openEdit(btn); });
+    });
+
+    fields.interval.addEventListener('change', function () {
+      var opt = fields.interval.options[fields.interval.selectedIndex];
+      if (opt.dataset.warn) fields.warn.value = opt.dataset.warn;
+      updateWarnField();
+    });
+    fields.warn.addEventListener('input', updateWarnField);
+
+    document.getElementById('task-drawer-close').addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !drawer.classList.contains('translate-x-full')) closeDrawer();
+    });
+  })();
+</script>
+{% endif %}
 
 {% endblock %}

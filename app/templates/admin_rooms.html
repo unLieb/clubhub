@@ -3,8 +3,7 @@
 {% block content %}
 
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
-<h1 class="font-display text-2xl font-semibold mt-2 mb-1">Bereiche</h1>
-<p class="text-slate-400 text-sm mb-6">Jeder Bereich hat seine eigene, unabhängige Aufgabenliste - eine Aufgabe in mehreren Bereichen anzulegen erzeugt unabhängige Kopien, kein gemeinsames Bearbeiten mehr.</p>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-6">Bereiche</h1>
 
 <details class="rounded-xl border border-line bg-panel mb-6 group">
   <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
@@ -32,333 +31,48 @@
   </div>
 </details>
 
-{% macro turnus_label(hours) -%}
-  {%- if hours == 24 -%}Täglich
-  {%- elif hours == 168 -%}Wöchentlich
-  {%- elif hours == 336 -%}Alle 2 Wochen
-  {%- elif hours == 720 -%}Monatlich
-  {%- elif hours == 2160 -%}Quartalsweise
-  {%- elif hours == 0 -%}Nach Bedarf
-  {%- else -%}alle {{ hours|int }}h
-  {%- endif -%}
-{%- endmacro %}
-
-{% if not rooms %}
-<div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
-  Noch keine Bereiche angelegt.
-</div>
-{% else %}
-<div class="grid lg:grid-cols-[280px_1fr] gap-4 items-start">
-
-  <!-- Links: klickbare Bereichsliste -->
-  <div class="rounded-xl border border-line bg-panel overflow-hidden lg:sticky lg:top-4">
-    <div class="divide-y divide-line">
-      {% for room in rooms %}
-      <button type="button" class="room-select-btn w-full text-left px-4 py-3 hover:bg-panel2 flex items-center justify-between gap-2 {% if loop.first %}bg-panel2{% endif %}" data-room-id="{{ room.id }}">
-        <div class="min-w-0">
-          <div class="text-sm font-medium truncate">{{ room.name }}</div>
-          <div class="text-xs text-slate-500 truncate">{{ room.groups | map(attribute="name") | join(", ") or "keine Gruppen" }}</div>
-        </div>
-        <span class="text-xs text-slate-500 shrink-0">{{ tasks_by_room[room.id]|length }}</span>
-      </button>
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- Rechts: Details + Aufgaben des ausgewählten Bereichs -->
-  <div>
-    {% for room in rooms %}
-    <div class="room-panel {% if not loop.first %}hidden{% endif %} space-y-4" data-room-panel="{{ room.id }}">
-
-      <details class="rounded-xl border border-line bg-panel group">
-        <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
-          <span class="font-display font-medium">{{ room.name }} bearbeiten</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-        </summary>
-        <div class="px-4 pb-4 pt-1 border-t border-line">
-          <form method="post" action="/admin/rooms/{{ room.id }}/edit" class="mt-3 space-y-2 max-w-2xl">
-            <input name="name" value="{{ room.name }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            {% if groups %}
-            <div class="flex flex-wrap gap-2">
-              {% for g in groups %}
-              <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line text-xs cursor-pointer has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-                <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only" {% if g in room.groups %}checked{% endif %}>
-                {{ g.name }}
-              </label>
-              {% endfor %}
-            </div>
-            {% else %}
-            <p class="text-slate-500 text-xs italic">Noch keine Gruppen angelegt.</p>
-            {% endif %}
-            <div class="flex gap-2">
-              <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
-              {% if user.is_admin or user.is_developer %}
-              <button type="submit" formaction="/admin/rooms/{{ room.id }}/delete" formnovalidate onclick="return confirm('„{{ room.name }}“ inkl. aller Aufgaben und ihrer Historie wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
-              {% endif %}
-            </div>
-          </form>
-        </div>
-      </details>
-
-      <details class="rounded-xl border border-line bg-panel group">
-        <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
-          <span class="font-display font-medium flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Neue Aufgabe für {{ room.name }}
+<div class="rounded-xl border border-line bg-panel p-4">
+  <ul class="space-y-1 text-sm">
+    {% for r in rooms %}
+    <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
+      <details class="group">
+        <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
+          <span>{{ r.name }}</span>
+          <span class="flex items-center gap-2 shrink-0">
+            <span class="text-slate-500 text-xs">{{ r.groups | map(attribute="name") | join(", ") or "keine Gruppen" }}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
-        <div class="px-4 pb-4 pt-1 border-t border-line">
-          <form method="post" action="/admin/tasks" class="space-y-2 mt-3 max-w-2xl">
-            <div>
-              <label class="block text-[11px] text-slate-400 mb-1">Bereiche</label>
-              <div class="flex flex-wrap gap-1.5">
-                {% for r in rooms %}
-                <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-                  <input type="checkbox" name="room_ids" value="{{ r.id }}" class="sr-only" {% if r.id == room.id %}checked{% endif %}>{{ r.name }}
-                </label>
-                {% endfor %}
-              </div>
-              <p class="text-[11px] text-slate-500 mt-1">
-                {{ room.name }} ist vorausgewählt. Weitere Bereiche zusätzlich anhaken, um dieselbe Aufgabe dort
-                als eigene, unabhängige Kopie mit anzulegen (keine Verknüpfung - jede Kopie lässt sich danach
-                einzeln bearbeiten und löschen).
-              </p>
-            </div>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input name="name" placeholder="Aufgabe" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            </div>
-            {% if groups %}
-            <div>
-              <label class="block text-[11px] text-slate-400 mb-1">Zuständige Gruppen (optional)</label>
-              <div class="flex flex-wrap gap-1.5">
-                {% for g in groups %}
-                <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-                  <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only">{{ g.name }}
-                </label>
-                {% endfor %}
-              </div>
-              <p class="text-[11px] text-slate-500 mt-1">
-                Keine Auswahl = automatisch alle Gruppen zuständig, die dem Bereich zugeordnet sind.
-              </p>
-            </div>
-            {% endif %}
-            <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
-              <div class="flex-1">
-                <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
-                <select name="interval_hours" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-                  <option value="24" data-warn="5">Täglich</option>
-                  <option value="168" data-warn="24">Wöchentlich</option>
-                  <option value="336" data-warn="48">Alle 2 Wochen</option>
-                  <option value="720" data-warn="72">Monatlich</option>
-                  <option value="2160" data-warn="216">Quartalsweise</option>
-                  <option value="0">Nach Bedarf</option>
-                </select>
-              </div>
-              <div class="flex-1 warn-hours-field">
-                <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
-                <input name="warn_hours" type="number" step="0.5" min="0.5" value="5"
-                       class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-                <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
-              </div>
-            </div>
-            <div>
-              <label class="block text-[11px] text-slate-400 mb-1">Aktive Wochentage</label>
-              <div class="flex flex-wrap gap-1.5">
-                {% for wd, wlabel in [(0,'Mo'),(1,'Di'),(2,'Mi'),(3,'Do'),(4,'Fr'),(5,'Sa'),(6,'So')] %}
-                <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-                  <input type="checkbox" name="active_weekdays" value="{{ wd }}" checked class="sr-only">{{ wlabel }}
-                </label>
-                {% endfor %}
-              </div>
-              <p class="text-[11px] text-slate-500 mt-1">Alle angehakt (Standard) = Aufgabe zählt an jedem Tag.</p>
-            </div>
-            <div>
-              <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
-              <textarea name="note" rows="2" placeholder="Zusätzliche Hinweise zur Ausführung" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
-            </div>
-            <div>
-              <label class="block text-[11px] text-slate-400 mb-1">Zuletzt erledigt am (optional)</label>
-              <input name="last_completed" type="datetime-local" class="w-full sm:w-64 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            </div>
-            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Aufgabe anlegen</button>
-          </form>
-        </div>
-      </details>
-
-      <div class="rounded-xl border border-line bg-panel overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="text-left text-[11px] text-slate-500 border-b border-line">
-                <th class="py-2 pl-4 pr-2 font-medium w-3"></th>
-                <th class="py-2 pr-2 font-medium">Aufgabe</th>
-                <th class="py-2 pr-2 font-medium">Turnus</th>
-                <th class="py-2 pr-2 font-medium">Gruppen</th>
-                <th class="py-2 pr-2 font-medium">Zuletzt erledigt</th>
-                <th class="py-2 pr-4 font-medium text-right">Bearbeiten</th>
-              </tr>
-            </thead>
-            {% for t in tasks_by_room[room.id] %}
-            {% set s = statuses[t.id] %}
-            {% set eff_groups = effective_groups.get(t.id, []) %}
-            <tbody>
-              <tr class="border-b border-line/50 hover:bg-panel2/50">
-                <td class="py-2 pl-4 pr-2">
-                  <span class="inline-block w-2.5 h-2.5 rounded-full {% if s.on_demand %}bg-slate-500{% elif s.status == 'green' %}bg-go{% elif s.status == 'yellow' %}bg-warn{% else %}bg-late{% endif %}"></span>
-                </td>
-                <td class="py-2 pr-2 text-slate-200">{{ t.name }}</td>
-                <td class="py-2 pr-2 text-slate-300">
-                  {{ turnus_label(t.interval_hours) }}
-                  {% if t.active_weekdays|weekday_label %}<span class="text-[11px] text-slate-500">({{ t.active_weekdays|weekday_label }})</span>{% endif %}
-                </td>
-                <td class="py-2 pr-2 text-slate-400 text-xs">
-                  {% if eff_groups %}{{ eff_groups|map(attribute='name')|join(', ') }}{% if not t.groups %}<span class="text-slate-500"> (Bereich-Standard)</span>{% endif %}
-                  {% else %}–{% endif %}
-                </td>
-                <td class="py-2 pr-2 text-slate-400">{{ last_completed_text[t.id] }}</td>
-                <td class="py-2 pr-4 text-right">
-                  <button type="button" class="task-edit-toggle p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Bearbeiten">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                  </button>
-                </td>
-              </tr>
-              <tr class="task-edit-row hidden border-b border-line/50 bg-ink/30">
-                <td></td>
-                <td colspan="5" class="py-3 pr-4">
-                  <form method="post" action="/admin/tasks/{{ t.id }}/edit" class="space-y-2 max-w-2xl">
-                    <input name="name" value="{{ t.name }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-                    {% if groups %}
-                    {% set task_group_ids = t.groups|map(attribute='id')|list %}
-                    <div>
-                      <label class="block text-[11px] text-slate-400 mb-1">Zuständige Gruppen (optional)</label>
-                      <div class="flex flex-wrap gap-1.5">
-                        {% for g in groups %}
-                        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-                          <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only" {% if g.id in task_group_ids %}checked{% endif %}>{{ g.name }}
-                        </label>
-                        {% endfor %}
-                      </div>
-                      <p class="text-[11px] text-slate-500 mt-1">
-                        Keine Auswahl = automatisch alle Gruppen des Bereichs ({{ room.groups|map(attribute='name')|join(', ') if room.groups else 'keine zugeordnet' }}).
-                      </p>
-                    </div>
-                    {% endif %}
-                    <div class="flex flex-col sm:flex-row gap-2 sm:items-start">
-                      <div class="flex-1">
-                        <label class="block text-[11px] text-slate-400 mb-1">Turnus</label>
-                        <select name="interval_hours" required class="interval-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-                          <option value="24" data-warn="5" {% if t.interval_hours == 24 %}selected{% endif %}>Täglich</option>
-                          <option value="168" data-warn="24" {% if t.interval_hours == 168 %}selected{% endif %}>Wöchentlich</option>
-                          <option value="336" data-warn="48" {% if t.interval_hours == 336 %}selected{% endif %}>Alle 2 Wochen</option>
-                          <option value="720" data-warn="72" {% if t.interval_hours == 720 %}selected{% endif %}>Monatlich</option>
-                          <option value="2160" data-warn="216" {% if t.interval_hours == 2160 %}selected{% endif %}>Quartalsweise</option>
-                          <option value="0" {% if t.interval_hours == 0 %}selected{% endif %}>Nach Bedarf</option>
-                        </select>
-                      </div>
-                      <div class="flex-1 warn-hours-field">
-                        <label class="block text-[11px] text-slate-400 mb-1">Warnung vorher (Stunden)</label>
-                        <input name="warn_hours" type="number" step="0.5" min="0.5" value="{{ t.warn_hours }}"
-                               class="warn-hours-input w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-                        <p class="warn-days-hint text-[11px] text-slate-500 mt-1"></p>
-                      </div>
-                    </div>
-                    {% set active_set = t.active_weekdays.split(',')|map('int')|list if t.active_weekdays else range(7)|list %}
-                    <div>
-                      <label class="block text-[11px] text-slate-400 mb-1">Aktive Wochentage</label>
-                      <div class="flex flex-wrap gap-1.5">
-                        {% for wd, wlabel in [(0,'Mo'),(1,'Di'),(2,'Mi'),(3,'Do'),(4,'Fr'),(5,'Sa'),(6,'So')] %}
-                        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-                          <input type="checkbox" name="active_weekdays" value="{{ wd }}" {% if wd in active_set %}checked{% endif %} class="sr-only">{{ wlabel }}
-                        </label>
-                        {% endfor %}
-                      </div>
-                      <p class="text-[11px] text-slate-500 mt-1">Alle angehakt = Aufgabe zählt an jedem Tag.</p>
-                    </div>
-                    <div>
-                      <label class="block text-[11px] text-slate-400 mb-1">Notiz (optional) – ein Stichpunkt pro Zeile</label>
-                      <textarea name="note" rows="2" placeholder="Zusätzliche Hinweise zur Ausführung" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">{{ t.note or '' }}</textarea>
-                    </div>
-                    <div class="flex gap-2">
-                      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
-                      {% if user.is_admin or user.is_developer %}
-                      <button type="submit" formaction="/admin/tasks/{{ t.id }}/delete" formnovalidate onclick="return confirm('„{{ t.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
-                      {% endif %}
-                    </div>
-                  </form>
-                </td>
-              </tr>
-            </tbody>
-            {% else %}
-            <tbody>
-              <tr><td colspan="6" class="py-8 text-center text-slate-500 text-sm">Noch keine Aufgaben für {{ room.name }} angelegt.</td></tr>
-            </tbody>
+        <form method="post" action="/admin/rooms/{{ r.id }}/edit" class="mt-2 space-y-2 max-w-2xl">
+          <input name="name" value="{{ r.name }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          {% if groups %}
+          <div class="flex flex-wrap gap-2">
+            {% for g in groups %}
+            <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line text-xs cursor-pointer has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+              <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only" {% if g in r.groups %}checked{% endif %}>
+              {{ g.name }}
+            </label>
             {% endfor %}
-          </table>
-        </div>
-      </div>
-
-    </div>
+          </div>
+          {% else %}
+          <p class="text-slate-500 text-xs italic">Noch keine Gruppen angelegt.</p>
+          {% endif %}
+          <div class="flex gap-2">
+            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+            {% if user.is_admin or user.is_developer %}
+            <button type="submit" formaction="/admin/rooms/{{ r.id }}/delete" formnovalidate onclick="return confirm('„{{ r.name }}“ inkl. aller Aufgaben und ihrer Historie wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
+            {% endif %}
+          </div>
+        </form>
+      </details>
+    </li>
     {% endfor %}
-  </div>
+  </ul>
 </div>
-{% endif %}
 
-<script>
-  document.querySelectorAll('.interval-select').forEach(function (select) {
-    var form = select.closest('form');
-    var hoursInput = form.querySelector('.warn-hours-input');
-    var daysHint = form.querySelector('.warn-days-hint');
-    var warnField = form.querySelector('.warn-hours-field');
-    function updateHint() {
-      var h = parseFloat(hoursInput.value);
-      daysHint.textContent = (h > 0) ? ('≈ ' + (Math.round(h / 24 * 10) / 10) + ' Tage') : '';
-    }
-    function updateVisibility() {
-      warnField.classList.toggle('hidden', select.value === '0');
-    }
-    select.addEventListener('change', function () {
-      var opt = select.options[select.selectedIndex];
-      if (opt.dataset.warn) {
-        hoursInput.value = opt.dataset.warn;
-        updateHint();
-      }
-      updateVisibility();
-    });
-    hoursInput.addEventListener('input', updateHint);
-    updateHint();
-    updateVisibility();
-  });
-
-  document.querySelectorAll('.task-edit-toggle').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var row = btn.closest('tbody').querySelector('.task-edit-row');
-      row.classList.toggle('hidden');
-    });
-  });
-
-  (function () {
-    var buttons = document.querySelectorAll('.room-select-btn');
-    var panels = document.querySelectorAll('.room-panel');
-    if (!buttons.length) return;
-
-    function selectRoom(id) {
-      buttons.forEach(function (b) { b.classList.toggle('bg-panel2', b.dataset.roomId === String(id)); });
-      panels.forEach(function (p) { p.classList.toggle('hidden', p.dataset.roomPanel !== String(id)); });
-    }
-
-    buttons.forEach(function (btn) {
-      btn.addEventListener('click', function () { selectRoom(btn.dataset.roomId); });
-    });
-
-    // Nach Anlegen/Bearbeiten/Löschen einer Aufgabe hängt main.py ein
-    // "?room=<id>" an den Redirect an, damit der richtige Bereich direkt
-    // wieder ausgewählt ist, statt immer auf den ersten zurückzufallen.
-    var wanted = new URLSearchParams(window.location.search).get('room');
-    if (wanted && document.querySelector('.room-panel[data-room-panel="' + wanted + '"]')) {
-      selectRoom(wanted);
-    }
-  })();
-</script>
+<p class="text-xs text-slate-500 mt-4">
+  Aufgaben werden direkt auf der jeweiligen <a href="/rooms" class="underline hover:text-slate-300">Bereichs-Detailseite</a> verwaltet
+  (dort für Admins/Schichtleiter/Entwickler sichtbar), nicht mehr hier.
+</p>
 
 {% endblock %}

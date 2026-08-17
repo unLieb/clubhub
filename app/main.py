@@ -847,6 +847,9 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
         "setups": setups,
         "attachable_events": attachable_events,
         "just_done_task_name": just_done_task_name,
+        # Für die Inline-Aufgabenverwaltung (Anlegen/Bearbeiten-Drawer),
+        # sichtbar nur für Admins/Schichtleiter/Entwickler (siehe room.html).
+        "groups": db.query(models.Group).order_by(models.Group.name).all(),
     })
 
 
@@ -2476,36 +2479,14 @@ def admin_groups_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/admin/rooms")
 def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
     admin = require_staff_or_developer(request, db)
-    rooms = db.query(models.Room).order_by(models.Room.name).all()
-    # Aufgabenverwaltung ist raumzentriert (siehe admin_rooms.html): pro
-    # Bereich seine eigene, unabhängige Aufgabenliste inkl. Status - kein
-    # bereichsübergreifendes group_key/"auch in"-Konzept mehr.
-    now = ntptime.now_utc()
-    tasks_by_room = {}
-    statuses = {}
-    last_completed_text = {}
-    effective_groups = {}
-    for room in rooms:
-        room_tasks = sorted(room.tasks, key=lambda t: t.name.lower())
-        tasks_by_room[room.id] = room_tasks
-        for t in room_tasks:
-            s = task_status(t, now)
-            statuses[t.id] = s
-            last_completed_text[t.id] = (
-                f"vor {format_duration_de(now - s['last_completed'])}" if s["last_completed"] else "Noch nie"
-            )
-            # Gruppen-Zuständigkeit: explizit gesetzte Gruppen, sonst geerbt
-            # vom Bereich (siehe Task.groups-Kommentar in models.py).
-            effective_groups[t.id] = t.groups if t.groups else t.room.groups
+    # Bewusst schlank: nur Bereiche anlegen/löschen + Gruppenzuweisung. Die
+    # Aufgabenverwaltung läuft direkt auf der jeweiligen Bereichs-Detailseite
+    # (/room/{id}), sichtbar für Admins/Schichtleiter/Entwickler.
     return templates.TemplateResponse("admin_rooms.html", {
         "request": request,
         "user": admin,
-        "rooms": rooms,
+        "rooms": db.query(models.Room).order_by(models.Room.name).all(),
         "groups": db.query(models.Group).order_by(models.Group.name).all(),
-        "tasks_by_room": tasks_by_room,
-        "statuses": statuses,
-        "last_completed_text": last_completed_text,
-        "effective_groups": effective_groups,
     })
 
 
@@ -3274,7 +3255,9 @@ def admin_add_task(
             task.completions.append(models.Completion(user_id=actor.id, timestamp=completed_at))
         db.add(task)
     db.commit()
-    return RedirectResponse(f"/admin/rooms?room={room_ids[0]}", status_code=302)
+    # Zurück zur Bereichs-Detailseite (dort lebt die Inline-Aufgabenverwaltung
+    # jetzt, siehe room.html) statt zur schlanken Verwaltung > Bereiche.
+    return RedirectResponse(f"/room/{room_ids[0]}", status_code=302)
 
 
 @app.post("/admin/tasks/{task_id}/edit")
@@ -3292,7 +3275,7 @@ def admin_edit_task(
     require_staff_or_developer(request, db)
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
-        return RedirectResponse("/admin/rooms", status_code=302)
+        return RedirectResponse("/rooms", status_code=302)
 
     # Explizite Gruppen-Zuständigkeit optional - leer bedeutet automatisch
     # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
@@ -3307,7 +3290,7 @@ def admin_edit_task(
     task.groups = list(selected_groups)
     task.active_weekdays = _normalize_active_weekdays(active_weekdays)
     db.commit()
-    return RedirectResponse(f"/admin/rooms?room={task.room_id}", status_code=302)
+    return RedirectResponse(f"/room/{task.room_id}", status_code=302)
 
 
 @app.post("/admin/tasks/{task_id}/delete")
@@ -3318,7 +3301,7 @@ def admin_delete_task(task_id: int, request: Request, db: Session = Depends(get_
     if task:
         db.delete(task)
         db.commit()
-    return RedirectResponse(f"/admin/rooms?room={room_id}" if room_id else "/admin/rooms", status_code=302)
+    return RedirectResponse(f"/room/{room_id}" if room_id else "/rooms", status_code=302)
 
 
 @app.post("/admin/inventory")

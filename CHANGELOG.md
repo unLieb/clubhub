@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.58.0] - 2026-08-17
+- Bereichs-Detailseite (/room/{id}): Admins/Schichtleiter/Entwickler sehen dort jetzt "Aufgabe hinzufügen" sowie Bearbeiten-Icons je Aufgabe, Verwaltung läuft über einen Slide-Over-Drawer direkt auf der Seite - kein Wechsel mehr in die Verwaltung nötig
+- Verwaltung > Bereiche wieder schlank: nur noch Bereiche anlegen/löschen und Gruppenzuweisung, keine Aufgabenverwaltung mehr dort
+
 ## [0.57.0] - 2026-08-17
 - Verwaltung > Inventar überarbeitet: Anlegen/Bearbeiten läuft jetzt über einen Slide-Over-Drawer statt Inline-Aufklapp-Formularen, gegliedert in Stammdaten / Bestände / Gebinde & Einheiten / Einkauf
 - Artikelliste ist jetzt eine kompakte Tabelle statt einer Akkordeon-Liste
