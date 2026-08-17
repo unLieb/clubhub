@@ -276,6 +276,19 @@ def _migrate_task_active_weekdays(db: Session):
     _ensure_column(db, "tasks", "active_weekdays", "TEXT")
 
 
+def _migrate_detach_task_groups(db: Session):
+    """Einmalige Migration: Aufgabenverwaltung ist jetzt raumzentriert
+    (Kopieren statt Verlinken, siehe admin_rooms.html) statt über verlinkte
+    baugleiche Aufgaben mehrerer Bereiche. Die einzelnen Bereichs-Instanzen
+    waren schon vorher eigenständige Task-Zeilen mit eigener Erledigungs-
+    Historie (group_key hat nie Zeilen zusammengelegt, nur die gemeinsame
+    Bearbeitung gesteuert) - hier wird nur noch diese Verknüpfung gelöst,
+    damit Bearbeiten/Löschen ab sofort ausschließlich die jeweilige
+    Bereichs-Instanz betrifft. Kein Datenverlust, keine neuen Zeilen nötig."""
+    db.query(models.Task).filter(models.Task.group_key.isnot(None)).update({"group_key": None})
+    db.commit()
+
+
 def _migrate_room_setup_events(db: Session):
     """Führt bestehende Aufbauten (früher: eigener Name direkt am RoomSetup,
     fest an genau einen Bereich gebunden) ins EventSetup-Modell über - ein
@@ -401,6 +414,7 @@ def _startup():
         _migrate_task_note(db)
         _migrate_task_group_key(db)
         _migrate_task_active_weekdays(db)
+        _migrate_detach_task_groups(db)
     finally:
         db.close()
 
@@ -2426,7 +2440,6 @@ def admin_home(request: Request, db: Session = Depends(get_db)):
         "groups_count": db.query(models.Group).count(),
         "groups_with_hours_count": db.query(models.Group).filter(models.Group.work_start_hour.isnot(None)).count(),
         "rooms_count": db.query(models.Room).count(),
-        "tasks_count": db.query(models.Task).count(),
         "inventory_count": db.query(models.InventoryItem).count(),
         "low_stock_count": db.query(models.InventoryItem)
             .filter(models.InventoryItem.stock_current < models.InventoryItem.stock_min).count(),
@@ -2463,56 +2476,33 @@ def admin_groups_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/admin/rooms")
 def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
     admin = require_staff_or_developer(request, db)
+    rooms = db.query(models.Room).order_by(models.Room.name).all()
+    # Aufgabenverwaltung ist raumzentriert (siehe admin_rooms.html): pro
+    # Bereich seine eigene, unabhängige Aufgabenliste inkl. Status - kein
+    # bereichsübergreifendes group_key/"auch in"-Konzept mehr.
+    now = ntptime.now_utc()
+    tasks_by_room = {}
+    statuses = {}
+    last_completed_text = {}
+    effective_groups = {}
+    for room in rooms:
+        room_tasks = sorted(room.tasks, key=lambda t: t.name.lower())
+        tasks_by_room[room.id] = room_tasks
+        for t in room_tasks:
+            s = task_status(t, now)
+            statuses[t.id] = s
+            last_completed_text[t.id] = (
+                f"vor {format_duration_de(now - s['last_completed'])}" if s["last_completed"] else "Noch nie"
+            )
+            # Gruppen-Zuständigkeit: explizit gesetzte Gruppen, sonst geerbt
+            # vom Bereich (siehe Task.groups-Kommentar in models.py).
+            effective_groups[t.id] = t.groups if t.groups else t.room.groups
     return templates.TemplateResponse("admin_rooms.html", {
         "request": request,
         "user": admin,
-        "rooms": db.query(models.Room).order_by(models.Room.name).all(),
+        "rooms": rooms,
         "groups": db.query(models.Group).order_by(models.Group.name).all(),
-    })
-
-
-@app.get("/admin/tasks")
-def admin_tasks_page(request: Request, db: Session = Depends(get_db)):
-    admin = require_staff_or_developer(request, db)
-    tasks = db.query(models.Task).join(models.Room).order_by(models.Room.name, models.Task.name).all()
-    # Für den "auch in: ..."-Hinweis sowie die "weitere Bereiche hinzufügen"-Auswahl
-    # bei baugleichen Aufgaben in mehreren Bereichen.
-    sibling_rooms = {}
-    sibling_room_ids = {}
-    group_keys = {t.group_key for t in tasks if t.group_key}
-    if group_keys:
-        grouped = db.query(models.Task).filter(models.Task.group_key.in_(group_keys)).all()
-        by_key = {}
-        for t in grouped:
-            by_key.setdefault(t.group_key, []).append(t)
-        for t in tasks:
-            if t.group_key:
-                sibling_rooms[t.id] = [s.room.name for s in by_key[t.group_key] if s.id != t.id]
-                sibling_room_ids[t.id] = [s.room_id for s in by_key[t.group_key] if s.id != t.id]
-    # Status (Farbe/zuletzt erledigt) je Aufgabe für die kompakte Tabelle -
-    # gleiches Prinzip wie in room_view().
-    now = ntptime.now_utc()
-    statuses = {}
-    last_completed_text = {}
-    for t in tasks:
-        s = task_status(t, now)
-        statuses[t.id] = s
-        last_completed_text[t.id] = (
-            f"vor {format_duration_de(now - s['last_completed'])}" if s["last_completed"] else "Noch nie"
-        )
-    # Gruppen-Zuständigkeit: explizit gesetzte Gruppen, sonst geerbt vom
-    # Bereich (siehe Task.groups-Kommentar in models.py und check_tasks_job()).
-    effective_groups = {}
-    for t in tasks:
-        effective_groups[t.id] = t.groups if t.groups else t.room.groups
-    return templates.TemplateResponse("admin_tasks.html", {
-        "request": request,
-        "user": admin,
-        "tasks": tasks,
-        "rooms": db.query(models.Room).order_by(models.Room.name).all(),
-        "groups": db.query(models.Group).order_by(models.Group.name).all(),
-        "sibling_room_ids": sibling_room_ids,
-        "sibling_rooms": sibling_rooms,
+        "tasks_by_room": tasks_by_room,
         "statuses": statuses,
         "last_completed_text": last_completed_text,
         "effective_groups": effective_groups,
@@ -3270,119 +3260,65 @@ def admin_add_task(
     # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
     selected_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all() if group_ids else []
     awd = _normalize_active_weekdays(active_weekdays)
-    # Mehrere Bereiche zugleich -> baugleiche Aufgabe pro Bereich mit eigener
-    # Erledigungs-Historie, aber gemeinsamem group_key fürs Zusammen-Bearbeiten.
-    group_key = uuid.uuid4().hex if len(room_ids) > 1 else None
+    # Raumzentrierte Logik (Kopieren statt Verlinken): jeder ausgewählte
+    # Bereich bekommt eine eigene, unabhängige Aufgabe mit eigener
+    # Erledigungs-Historie - kein group_key, kein Zusammenhang zwischen den
+    # Instanzen. Bearbeiten/Löschen betrifft danach ausschließlich die
+    # jeweilige Bereichs-Instanz.
     for rid in room_ids:
         task = models.Task(
             room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
-            note=note.strip() or None, group_key=group_key, groups=list(selected_groups),
-            active_weekdays=awd,
+            note=note.strip() or None, groups=list(selected_groups), active_weekdays=awd,
         )
         if completed_at:
             task.completions.append(models.Completion(user_id=actor.id, timestamp=completed_at))
         db.add(task)
     db.commit()
-    return RedirectResponse("/admin/tasks", status_code=302)
+    return RedirectResponse(f"/admin/rooms?room={room_ids[0]}", status_code=302)
 
 
 @app.post("/admin/tasks/{task_id}/edit")
 def admin_edit_task(
     task_id: int,
     request: Request,
-    room_ids: list[int] = Form([]),
     name: str = Form(...),
     interval_hours: float = Form(...),
     warn_hours: float = Form(5.0),
     note: str = Form(""),
     group_ids: list[int] = Form([]),
     active_weekdays: list[int] = Form([]),
-    detach_group: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     require_staff_or_developer(request, db)
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
-        return RedirectResponse("/admin/tasks", status_code=302)
+        return RedirectResponse("/admin/rooms", status_code=302)
 
     # Explizite Gruppen-Zuständigkeit optional - leer bedeutet automatisch
     # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
     selected_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all() if group_ids else []
-    awd = _normalize_active_weekdays(active_weekdays)
-
-    # Nur diese eine Instanz aus der Gruppe lösen: wird ab sofort unabhängig
-    # bearbeitbar (z.B. abweichender Turnus für einen Bereich), ohne die
-    # anderen Bereiche der bisherigen Gruppe zu berühren oder die
-    # Erledigungs-Historie dieser Instanz zu verlieren. Bereichs-Auswahl
-    # wird dabei bewusst ignoriert - der Bereich bleibt unverändert.
-    if detach_group and task.group_key:
-        task.group_key = None
-        task.name = name
-        task.interval_hours = interval_hours
-        task.warn_hours = warn_hours
-        task.note = note.strip() or None
-        task.groups = list(selected_groups)
-        task.active_weekdays = awd
-        db.commit()
-        return RedirectResponse("/admin/tasks", status_code=302)
-
-    if not room_ids:
-        # Mindestens ein Bereich muss übrig bleiben - ohne Angabe lieber
-        # nichts ändern, statt versehentlich alle Instanzen zu löschen.
-        return RedirectResponse("/admin/tasks", status_code=302)
-
-    group_key = task.group_key
-    group_tasks = (
-        db.query(models.Task).filter(models.Task.group_key == group_key).all()
-        if group_key else [task]
-    )
-    by_room = {t.room_id: t for t in group_tasks}
-    new_ids = set(room_ids)
-    old_ids = set(by_room.keys())
-
-    # Abgewählte Bereiche: Aufgabe (inkl. Erledigungs-Historie) dort löschen.
-    for rid in old_ids - new_ids:
-        db.delete(by_room[rid])
-
-    # Weiterhin ausgewählte Bereiche: gemeinsame Angaben aktualisieren.
-    for rid in old_ids & new_ids:
-        t = by_room[rid]
-        t.name = name
-        t.interval_hours = interval_hours
-        t.warn_hours = warn_hours
-        t.note = note.strip() or None
-        t.groups = list(selected_groups)
-        t.active_weekdays = awd
-
-    # Neu hinzugekommene Bereiche: baugleiche Aufgabe dort neu anlegen.
-    added_ids = new_ids - old_ids
-    if added_ids and not group_key:
-        group_key = uuid.uuid4().hex
-        task.group_key = group_key
-    for rid in added_ids:
-        db.add(models.Task(
-            room_id=rid, name=name, interval_hours=interval_hours, warn_hours=warn_hours,
-            note=note.strip() or None, group_key=group_key, groups=list(selected_groups),
-            active_weekdays=awd,
-        ))
-
-    # Bleibt nur noch ein Bereich übrig, braucht es keinen Gruppen-Schlüssel mehr.
-    if group_key and len(new_ids) <= 1:
-        for t in db.query(models.Task).filter(models.Task.group_key == group_key).all():
-            t.group_key = None
-
+    # Bearbeiten betrifft ausschließlich diese eine Aufgabe des aktuellen
+    # Bereichs (raumzentrierte Logik, kein bereichsübergreifendes Verlinken
+    # mehr) - der Bereich selbst ist dabei nicht änderbar.
+    task.name = name
+    task.interval_hours = interval_hours
+    task.warn_hours = warn_hours
+    task.note = note.strip() or None
+    task.groups = list(selected_groups)
+    task.active_weekdays = _normalize_active_weekdays(active_weekdays)
     db.commit()
-    return RedirectResponse("/admin/tasks", status_code=302)
+    return RedirectResponse(f"/admin/rooms?room={task.room_id}", status_code=302)
 
 
 @app.post("/admin/tasks/{task_id}/delete")
 def admin_delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin_or_developer(request, db)
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    room_id = task.room_id if task else None
     if task:
         db.delete(task)
         db.commit()
-    return RedirectResponse("/admin/tasks", status_code=302)
+    return RedirectResponse(f"/admin/rooms?room={room_id}" if room_id else "/admin/rooms", status_code=302)
 
 
 @app.post("/admin/inventory")

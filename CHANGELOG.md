@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.56.0] - 2026-08-17
+- Aufgabenverwaltung auf raumzentrierte Logik umgestellt (Kopieren statt Verlinken): Verwaltung > Bereiche zeigt jetzt links eine klickbare Bereichsliste, rechts direkt die eigene Aufgabenliste des ausgewählten Bereichs zum Anlegen/Bearbeiten/Löschen
+- Neue Aufgaben in mehreren Bereichen gleichzeitig erzeugen ab sofort unabhängige, unverknüpfte Kopien statt gemeinsam bearbeitbarer Aufgaben - Bearbeiten und Löschen betreffen immer nur die Aufgabe des jeweiligen Bereichs
+- Einmalige Migration löst bestehende bereichsübergreifende Verknüpfungen auf (keine Datenänderung, nur Entkopplung)
+- Alte globale Aufgaben-Seite samt Kachel in der Verwaltungsübersicht entfernt
+
 ## [0.55.1] - 2026-08-17
 - Fix: Sammel-Buttons ("Tägliche erledigen" / "Tägliche abhaken") erledigen jetzt nur noch Aufgaben mit Turnus "Täglich" statt aller fälligen/überfälligen Aufgaben unabhängig vom Turnus - wöchentliche/monatliche Aufgaben wurden dabei bisher versehentlich mit abgehakt
 

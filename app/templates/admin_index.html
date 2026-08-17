@@ -49,24 +49,9 @@
     <div class="flex-1 min-w-0">
       <div class="font-medium">Bereiche</div>
       <div class="text-orange text-sm mt-0.5">{{ rooms_count }} {{ "Bereich" if rooms_count == 1 else "Bereiche" }} eingerichtet</div>
-      <div class="text-xs text-slate-500 mt-0.5">Verwalte alle Bereiche und Räume deines Betriebs.</div>
+      <div class="text-xs text-slate-500 mt-0.5">Bereiche verwalten und je Bereich Aufgaben/Reinigungsintervalle festlegen.</div>
     </div>
     <span class="hidden sm:flex items-center gap-1 text-orange text-sm font-medium shrink-0">
-      Verwalten
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-    </span>
-  </a>
-
-  <a href="/admin/tasks" class="flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
-    <div class="w-12 h-12 rounded-full bg-warn/15 text-warn flex items-center justify-center shrink-0">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 7-7"/><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="font-medium">Aufgaben</div>
-      <div class="text-warn text-sm mt-0.5">{{ tasks_count }} {{ "Aufgabe" if tasks_count == 1 else "Aufgaben" }}</div>
-      <div class="text-xs text-slate-500 mt-0.5">Lege wiederkehrende Aufgaben und Reinigungsintervalle fest.</div>
-    </div>
-    <span class="hidden sm:flex items-center gap-1 text-warn text-sm font-medium shrink-0">
       Verwalten
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
     </span>
