@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.64.1] - 2026-08-17
+- Fix: Umami-Tracking läuft nicht mehr auf localhost/bei rohen Datei-Vorschauen mit (verfälschte sonst die echte Statistik)
+
 ## [0.64.0] - 2026-08-17
 - Umami-Analytics-Tracking eingebunden (self-hosted auf stats.nifflheim.de)
 
