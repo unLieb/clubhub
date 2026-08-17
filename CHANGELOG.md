@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.60.1] - 2026-08-17
+- Zeiterfassung skaliert jetzt für viele Mitarbeiter: Einzelkacheln pro Person oben ersetzt durch 3 kompakte Monats-KPIs (Gesamtstunden, Buchungen, aktive Mitarbeiter); die Monatsstunden je Person stehen stattdessen direkt im "Alle Mitarbeiter"-Dropdown (z.B. "Sebastian (16 Std. 42 Min.)")
+- Alle Arbeitszeiten (Tabelle, KPIs, Dropdown) als "X Std. Y Min." statt Dezimalwert
+- Tabellenspalte "Datum" zeigt jetzt den Wochentag (z.B. "Do, 23.07.2026")
+- PDF-Export folgt jetzt der Mitarbeiter-Auswahl im Filter-Dropdown
+
 ## [0.60.0] - 2026-08-17
 - Verwaltung > Zeiterfassung neu strukturiert für bessere Skalierbarkeit: Monatsfilter (Standard aktueller Monat, mit Vor/Zurück-Navigation) ersetzt die per-Nutzer-Akkordeons durch eine zentrale, nach Mitarbeiter filterbare Tabelle aller Buchungen des gewählten Monats
 - Neue Übersicht der Monats-Gesamtstunden pro Mitarbeiter oben auf der Seite

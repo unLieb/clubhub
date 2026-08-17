@@ -2769,28 +2769,34 @@ def admin_timeclock_page(request: Request, month: str = "", db: Session = Depend
 
     rows = []
     hours_by_user = {u.id: 0.0 for u in users}
+    active_user_ids = set()
     for e in month_entries:
         u = users_by_id.get(e.user_id)
         hours = _entry_hours(e, now)
         hours_by_user[e.user_id] = hours_by_user.get(e.user_id, 0.0) + hours
+        active_user_ids.add(e.user_id)
         clock_in_local = _aware(e.clock_in).astimezone(APP_TIMEZONE)
         clock_out_local = _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None
         rows.append({
             "id": e.id,
             "user_id": e.user_id,
             "user_name": u.name if u else "?",
+            # Kurzes Wochentagskuerzel vor dem Datum (z.B. "Do, 23.07.2026") -
+            # bei 50+ Mitarbeitern/vielen Buchungen erleichtert das, Wochenend-
+            # oder Wochentags-Muster auf einen Blick zu erkennen.
+            "date_label": f"{_WEEKDAY_ABBR_DE[clock_in_local.weekday()]}, {clock_in_local.strftime('%d.%m.%Y')}",
             "clock_in_local": clock_in_local,
             "clock_out_local": clock_out_local,
             "open": e.clock_out is None,
             "hours": hours,
         })
 
-    # Zusammenfassung: alle Nutzer, auch ohne Buchungen in diesem Monat (damit
-    # fehlende Buchungen auffallen), sortiert nach Name wie die Nutzerliste.
-    summary = [
-        {"user": u, "hours": hours_by_user.get(u.id, 0.0)}
-        for u in users
-    ]
+    # Monats-KPIs statt Einzelkacheln pro Mitarbeiter - skaliert auch bei
+    # vielen Mitarbeitern (die einzelnen Monatsstunden je Person stehen
+    # stattdessen im "Alle Mitarbeiter"-Dropdown, siehe Template).
+    total_month_hours = sum(hours_by_user.values())
+    total_bookings = len(rows)
+    active_employee_count = len(active_user_ids)
 
     device = get_authorized_device(db)
 
@@ -2823,7 +2829,10 @@ def admin_timeclock_page(request: Request, month: str = "", db: Session = Depend
         "user": admin,
         "users": users,
         "rows": rows,
-        "summary": summary,
+        "hours_by_user": hours_by_user,
+        "total_month_hours": total_month_hours,
+        "total_bookings": total_bookings,
+        "active_employee_count": active_employee_count,
         "month_value": month_value,
         "prev_month_value": prev_month_value,
         "next_month_value": next_month_value,
