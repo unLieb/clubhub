@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.66.0] - 2026-08-18
+- Schwebender Feedback-Button verkleinert: statt einer Pille mit Dauertext jetzt ein kompaktes rundes 💬-Icon unten rechts, der Text "Feedback / Bug melden" erscheint nur noch als Tooltip-Label beim Hover - verdeckt dadurch keine Tabellen-Paginierung oder andere Interaktionselemente mehr
+
 ## [0.65.0] - 2026-08-18
 - Kebab-Menü (⋮) als einheitlicher Standard für Bearbeiten/Löschen in der ganzen App etabliert: Bereiche, Nutzer, Gruppen, Benachrichtigungen, Inventar, Zeiterfassung (Verwaltung + Selbstbedienung), Urlaub und Termine zeigen jetzt statt direkter Stift-/Mülleimer-Icons ein dezentes Menü mit "Bearbeiten" (Stift-Icon) und "Löschen" (rot, Mülleimer-Icon)
 - Menü bleibt weiterhin nur für Nutzer mit den jeweils passenden Bearbeitungs-/Admin-Rechten sichtbar, unverändert gegenüber der bisherigen Berechtigungslogik je Seite
