@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.66.1] - 2026-08-18
+- Fix: Kebab-Menü bei Urlaub und Terminen war oben statt vertikal mittig ausgerichtet, wenn die Karte durch Datum/Status-Badges zweizeilig wurde
+
 ## [0.66.0] - 2026-08-18
 - Schwebender Feedback-Button verkleinert: statt einer Pille mit Dauertext jetzt ein kompaktes rundes 💬-Icon unten rechts, der Text "Feedback / Bug melden" erscheint nur noch als Tooltip-Label beim Hover - verdeckt dadurch keine Tabellen-Paginierung oder andere Interaktionselemente mehr
 

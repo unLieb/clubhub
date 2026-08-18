@@ -47,7 +47,7 @@
   {% for e in entries %}
   {% set v = e.obj %}
   <div class="rounded-xl border border-line border-l-4 {% if e.state == 'past' %}border-l-line opacity-60{% elif e.state == 'current' %}border-l-go{% else %}border-l-accent{% endif %} bg-panel p-4">
-    <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
       <div class="min-w-0 flex items-center gap-3">
         <div class="w-9 h-9 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-sm shrink-0">
           {% if v.user.avatar_url %}<img src="{{ v.user.avatar_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ v.user.name[0]|upper }}{% endif %}
