@@ -831,8 +831,15 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     # Erledigte (grüne) Aufgaben aus der Hauptliste ausblenden, damit man beim
     # Abarbeiten nicht an bereits Erledigtem vorbeischeitzen muss - sie tauchen
     # erst beim nächsten Turnus-Alarm (gelb/rot) wieder auf. "Nach Bedarf"-
-    # Aufgaben haben keinen Alarm und bleiben deshalb immer sichtbar.
-    pending_tasks = [t for t in room.tasks if statuses[t.id]["on_demand"] or statuses[t.id]["status"] != "green"]
+    # Aufgaben haben keinen Alarm und blieben früher deshalb immer sichtbar -
+    # das wirkte nach dem Abhaken wie ein kaputter Button (siehe on_demand_done_today
+    # in status.py). Sie verschwinden jetzt fuer den Rest des Tages ebenfalls
+    # aus der Liste und tauchen am naechsten Tag automatisch wieder auf.
+    pending_tasks = [
+        t for t in room.tasks
+        if (statuses[t.id]["on_demand"] and not statuses[t.id]["on_demand_done_today"])
+        or (not statuses[t.id]["on_demand"] and statuses[t.id]["status"] != "green")
+    ]
     pending_task_ids = {t.id for t in pending_tasks}
     done_tasks = [t for t in room.tasks if t.id not in pending_task_ids]
     setups = (
@@ -896,20 +903,62 @@ def _complete_tasks(db: Session, tasks: list, user_id: int):
 
 @app.post("/room/{room_id}/task/{task_id}/complete")
 def complete_task(room_id: int, task_id: int, request: Request, db: Session = Depends(get_db)):
+    """Fuer JS-Clients (siehe room.html, fetch mit X-Requested-With: fetch)
+    antwortet die Route mit JSON statt einem Redirect, damit der "Erledigt"-
+    Button ohne Full-Page-Reload optimistisch reagieren kann (Karte animiert
+    ausblenden, Toast mit "Rückgängig" - siehe undo_complete_task unten).
+    Ohne diesen Header (klassischer Formular-POST, z.B. ohne JS) bleibt das
+    bisherige Redirect-Verhalten unveraendert als Fallback erhalten."""
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.room_id == room_id).first()
-    if task:
-        completion = models.Completion(task_id=task.id, user_id=user.id)
-        db.add(completion)
-        db.query(models.TaskGroupNotice).filter(models.TaskGroupNotice.task_id == task.id).update(
-            {"last_status": "green"}
-        )
-        db.commit()
+    if not task:
+        if is_fetch:
+            raise HTTPException(status_code=404, detail="Aufgabe nicht gefunden")
+        return RedirectResponse(f"/room/{room_id}?done={task_id}", status_code=302)
+    completion = models.Completion(task_id=task.id, user_id=user.id)
+    db.add(completion)
+    db.query(models.TaskGroupNotice).filter(models.TaskGroupNotice.task_id == task.id).update(
+        {"last_status": "green"}
+    )
+    db.commit()
+    if is_fetch:
+        db.refresh(completion)
+        return {"ok": True, "completion_id": completion.id, "task_id": task.id}
     # done=<task_id> im Redirect, damit die Seite die gerade erledigte Aufgabe
     # kurz sichtbar hervorheben kann - sonst ist die einzige Rückmeldung eine
     # kleine Textzeile, die leicht übersehen wird (siehe Nutzer-Feedback: ohne
     # sichtbare Bestätigung wurde "Erledigt" mehrfach hintereinander gedrückt).
     return RedirectResponse(f"/room/{room_id}?done={task_id}", status_code=302)
+
+
+@app.post("/room/{room_id}/task/{task_id}/complete/{completion_id}/undo")
+def undo_complete_task(room_id: int, task_id: int, completion_id: int, request: Request, db: Session = Depends(get_db)):
+    """Ruecknahme direkt nach dem Abhaken (siehe "Rückgängig" im Toast in
+    room.html) - bewusst NICHT ueber die admin-only /history/{id}/delete-
+    Route, da hier jeder Nutzer seine eigene, gerade erst gesetzte Buchung
+    selbst zurueckziehen koennen soll (typischer Anwendungsfall: versehentlicher
+    Doppelklick). Eng eingegrenzt: nur die eigene Buchung, nur fuer die
+    passende Aufgabe/den passenden Bereich, und nur innerhalb eines kurzen
+    Zeitfensters - kein genereller Freibrief zum nachtraeglichen Loeschen
+    beliebiger eigener Buchungen."""
+    user = require_login(request, db)
+    completion = (
+        db.query(models.Completion)
+        .filter(
+            models.Completion.id == completion_id,
+            models.Completion.task_id == task_id,
+            models.Completion.user_id == user.id,
+        )
+        .first()
+    )
+    if not completion or not completion.task or completion.task.room_id != room_id:
+        raise HTTPException(status_code=404, detail="Buchung nicht gefunden")
+    if ntptime.now_utc() - _aware(completion.timestamp) > timedelta(minutes=5):
+        raise HTTPException(status_code=400, detail="Rückgängig ist nur kurz nach dem Abhaken möglich")
+    db.delete(completion)
+    db.commit()
+    return {"ok": True}
 
 
 @app.post("/room/{room_id}/complete-due")

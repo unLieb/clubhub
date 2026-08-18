@@ -6,6 +6,17 @@
 {% set can_manage_tasks = user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
 {% set can_delete_tasks = user and (user.is_admin or user.is_developer) %}
 
+<!-- Toast fuer das asynchrone Abhaken von Aufgaben (siehe .task-complete-form
+     weiter unten) - eigener, von base.html's #bulk-toast unabhaengiger
+     Container, da hier zusaetzlich ein "Rückgängig"-Button noetig ist. -->
+<div id="task-toast" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100%-2rem)]">
+  <div id="task-toast-box" class="flex items-center gap-3 rounded-lg border border-go/40 bg-go text-oncolor text-sm font-medium px-4 py-2.5 shadow-lg">
+    <span id="task-toast-icon" class="shrink-0"></span>
+    <span id="task-toast-text"></span>
+    <button type="button" id="task-toast-undo" class="hidden shrink-0 underline decoration-2 underline-offset-2 hover:no-underline font-semibold whitespace-nowrap">Rückgängig</button>
+  </div>
+</div>
+
 <a href="/rooms" class="text-sm text-slate-400 hover:text-slate-100">&larr; Bereiche</a>
 <div class="flex items-start justify-between gap-3 mt-2 mb-1">
   <h1 class="font-display text-2xl font-semibold">{{ room.name }}</h1>
@@ -56,10 +67,10 @@
   </div>
   <div class="flex items-center gap-2 shrink-0">
     {% if user %}
-    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete"
-          onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Wird gespeichert…';">
-      <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap disabled:opacity-60">
-        Erledigt
+    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/complete" class="task-complete-form"
+          data-task-id="{{ task.id }}" data-room-id="{{ room.id }}" data-task-name="{{ task.name }}">
+      <button type="submit" class="task-complete-btn px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap disabled:opacity-60">
+        <span class="task-complete-btn-text">Erledigt</span>
       </button>
     </form>
     {% endif %}
@@ -135,6 +146,146 @@
     {% endfor %}
   </div>
 </details>
+{% endif %}
+
+{% if user %}
+<script>
+  // Asynchrones Abhaken ohne Full-Page-Reload: fetch() statt echtem Formular-
+  // POST, optimistische Karte-verschwindet-Animation + Toast mit "Rückgängig"
+  // (siehe complete_task/undo_complete_task in main.py). Bewusst NICHT im
+  // can_manage_tasks-Block weiter unten, da jeder eingeloggte Nutzer Aufgaben
+  // abhaken darf, nicht nur Admin/Schichtleiter/Entwickler.
+  (function () {
+    var toast = document.getElementById('task-toast');
+    var toastBox = document.getElementById('task-toast-box');
+    var toastIcon = document.getElementById('task-toast-icon');
+    var toastText = document.getElementById('task-toast-text');
+    var toastUndoBtn = document.getElementById('task-toast-undo');
+    var toastTimer = null;
+    var ICON_OK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    var ICON_ERR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>';
+
+    function hideToast() {
+      toast.classList.add('hidden');
+      if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+      toastUndoBtn.onclick = null;
+    }
+
+    function showToast(message, kind, onUndo) {
+      hideToast();
+      var isError = kind === 'error';
+      toastBox.classList.toggle('border-go/40', !isError);
+      toastBox.classList.toggle('bg-go', !isError);
+      toastBox.classList.toggle('border-late/40', isError);
+      toastBox.classList.toggle('bg-late', isError);
+      toastIcon.innerHTML = isError ? ICON_ERR : ICON_OK;
+      toastText.textContent = message;
+      if (onUndo) {
+        toastUndoBtn.classList.remove('hidden');
+        toastUndoBtn.onclick = function () {
+          hideToast();
+          onUndo();
+        };
+      } else {
+        toastUndoBtn.classList.add('hidden');
+        toastUndoBtn.onclick = null;
+      }
+      toast.classList.remove('hidden');
+      toastTimer = setTimeout(hideToast, isError ? 4000 : 6000);
+    }
+
+    // Animierte Hoehe/Deckkraft statt display:none direkt - sonst "springt"
+    // das Layout hart. Das Element bleibt im DOM (nur versteckt), damit
+    // "Rückgängig" es ohne Neuladen der Seite wiederherstellen kann.
+    function collapseCard(card) {
+      var startHeight = card.getBoundingClientRect().height;
+      card.style.maxHeight = startHeight + 'px';
+      card.style.overflow = 'hidden';
+      card.style.transition = 'max-height 300ms ease, opacity 250ms ease, margin 300ms ease, padding 300ms ease, border-width 300ms ease';
+      void card.offsetHeight;
+      card.style.opacity = '0';
+      card.style.maxHeight = '0px';
+      card.style.marginTop = '0px';
+      card.style.marginBottom = '0px';
+      card.style.paddingTop = '0px';
+      card.style.paddingBottom = '0px';
+      card.style.borderTopWidth = '0px';
+      card.style.borderBottomWidth = '0px';
+      setTimeout(function () { card.style.display = 'none'; }, 320);
+    }
+
+    function restoreCard(card) {
+      card.style.display = '';
+      card.style.maxHeight = '';
+      card.style.overflow = '';
+      card.style.marginTop = '';
+      card.style.marginBottom = '';
+      card.style.paddingTop = '';
+      card.style.paddingBottom = '';
+      card.style.borderTopWidth = '';
+      card.style.borderBottomWidth = '';
+      card.style.opacity = '0';
+      card.style.transition = 'opacity 250ms ease';
+      void card.offsetHeight;
+      card.style.opacity = '1';
+      setTimeout(function () { card.style.transition = ''; }, 300);
+    }
+
+    document.querySelectorAll('.task-complete-form').forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('.task-complete-btn');
+        var textEl = form.querySelector('.task-complete-btn-text');
+        if (btn.disabled) return;
+        var taskId = form.dataset.taskId;
+        var roomId = form.dataset.roomId;
+        var taskName = form.dataset.taskName;
+        var card = document.getElementById('task-' + taskId);
+        var originalText = textEl.textContent;
+
+        // Sofortiges Feedback: Button deaktivieren, Haken-Icon zeigen, Karte
+        // kurz gruen umranden - erst danach (leicht verzoegert) ausblenden,
+        // damit man das Abhaken noch bewusst wahrnimmt.
+        btn.disabled = true;
+        textEl.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+        if (card) card.classList.add('ring-2', 'ring-go');
+
+        fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'fetch' } })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('http ' + resp.status);
+            return resp.json();
+          })
+          .then(function (data) {
+            setTimeout(function () {
+              if (card) collapseCard(card);
+              showToast('„' + taskName + '“ als erledigt markiert.', 'success', function () {
+                fetch('/room/' + roomId + '/task/' + taskId + '/complete/' + data.completion_id + '/undo', {
+                  method: 'POST',
+                  headers: { 'X-Requested-With': 'fetch' },
+                })
+                  .then(function (r) {
+                    if (!r.ok) throw new Error('http ' + r.status);
+                    if (card) restoreCard(card);
+                    btn.disabled = false;
+                    textEl.textContent = originalText;
+                    if (card) card.classList.remove('ring-2', 'ring-go');
+                  })
+                  .catch(function () {
+                    showToast('Rückgängig machen fehlgeschlagen.', 'error');
+                  });
+              });
+            }, 350);
+          })
+          .catch(function () {
+            btn.disabled = false;
+            textEl.textContent = originalText;
+            if (card) card.classList.remove('ring-2', 'ring-go');
+            showToast('„' + taskName + '“ konnte nicht als erledigt markiert werden.', 'error');
+          });
+      });
+    });
+  })();
+</script>
 {% endif %}
 
 <div class="mt-8">

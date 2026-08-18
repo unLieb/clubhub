@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.74.0] - 2026-08-18
+- Aufgaben abhaken (Bereichsansicht) läuft jetzt ohne Full-Page-Reload: "Erledigt" sendet per fetch() an den Server, die Karte zeigt sofort ein Haken-Icon + grüne Hervorhebung und blendet danach sanft aus (Höhe/Deckkraft-Animation, kein Layout-Sprung).
+- Neuer Toast am unteren Bildschirmrand bestätigt "„Aufgabe“ als erledigt markiert" mit "Rückgängig"-Option (macht die Buchung serverseitig innerhalb weniger Minuten wieder rückgängig); bei einem Fehler erscheint die Karte automatisch wieder und ein roter Fehler-Toast informiert.
+- Fix: "Nach Bedarf"-Aufgaben verschwinden nach dem Abhaken jetzt ebenfalls aus der offenen Liste (vorher blieben sie stehen, was wie ein kaputter Button wirkte) und tauchen automatisch am nächsten Tag wieder auf.
+
 ## [0.73.1] - 2026-08-18
 - Fix: Aufgaben-Karten auf der Bereichs-Detailseite liefen auf schmalen Bildschirmen über den rechten Rand hinaus, sobald zusätzlich zum Aufgabennamen ein "Nach Bedarf"- oder Wochentags-Badge angezeigt wurde – dabei wurden "Erledigt"-Button und Kebab-Menü teilweise oder komplett aus dem sichtbaren Bereich gedrängt. Die Titelzeile bricht jetzt sauber um.
 

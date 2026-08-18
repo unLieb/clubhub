@@ -54,12 +54,20 @@ def task_status(task, now=None):
     if task.interval_hours == 0:
         if last is not None and last.tzinfo is None:
             last = last.replace(tzinfo=timezone.utc)
+        # Nach-Bedarf-Aufgaben sollen nach dem Abhaken trotzdem aus der
+        # "Offen"-Liste verschwinden (sonst wirkt der Button kaputt, weil er
+        # anders als bei Intervall-Aufgaben nicht automatisch aus der Liste
+        # faellt) - aber eben nur fuer den restlichen Tag, danach wieder
+        # normal verwendbar. Lokaler Kalendertag statt rollierender 24h,
+        # konsistent mit dem Rest der App (z.B. done_today im Dashboard).
+        done_today = last is not None and last.astimezone(_APP_TZ).date() == now.astimezone(_APP_TZ).date()
         return {
             "status": "green",
             "last_completed": last,
             "due_at": None,
             "warn_at": None,
             "on_demand": True,
+            "on_demand_done_today": done_today,
         }
 
     if last is None:
@@ -86,6 +94,7 @@ def task_status(task, now=None):
         "due_at": due_at,
         "warn_at": warn_at,
         "on_demand": False,
+        "on_demand_done_today": False,
     }
 
 
