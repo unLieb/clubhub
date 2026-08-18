@@ -2888,7 +2888,15 @@ def admin_timeclock_page(request: Request, month: str = "", db: Session = Depend
     # berechneten Verdienst eines Nutzers aus (dieselbe Einschränkung wie
     # beim Stundensatz/Sollzeit selbst).
     admin = require_admin(request, db)
-    return templates.TemplateResponse("admin_timeclock.html", _build_timeclock_context(request, admin, month, db))
+    context = _build_timeclock_context(request, admin, month, db)
+    # Monatswechsel per Klick/Auswahl läuft clientseitig über fetch() statt
+    # einer echten Navigation (siehe admin_timeclock.html) - der Header
+    # markiert diese Anfragen, damit wir nur das Tabellen-Fragment statt der
+    # kompletten Seite zurückschicken (kein Full-Page-Reload, keine doppelte
+    # Navigation/Header/Footer-Übertragung).
+    if request.headers.get("X-Requested-With") == "fetch":
+        return templates.TemplateResponse("_timeclock_fragment.html", context)
+    return templates.TemplateResponse("admin_timeclock.html", context)
 
 
 @app.get("/admin/timeclock/{user_id}/export.pdf")

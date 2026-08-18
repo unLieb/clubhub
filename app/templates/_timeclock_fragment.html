@@ -1,0 +1,129 @@
+{# Monats-/Buchungs-Fragment von admin_timeclock.html - separat renderbar,
+   damit GET /admin/timeclock bei fetch()-Anfragen (Monatswechsel ohne
+   Full-Page-Reload) nur dieses Stueck HTML statt der kompletten Seite
+   zurueckgibt. Wird fuer den normalen Seitenaufruf per {% include %} in
+   admin_timeclock.html eingebunden (siehe dort #tc-fragment). #}
+<!-- Monatsfilter -->
+<div class="rounded-xl border border-line bg-panel p-4 mb-4">
+  <div class="flex flex-wrap items-center gap-2">
+    <a href="/admin/timeclock?month={{ prev_month_value }}" class="tc-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Vorheriger Monat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </a>
+    <input type="month" value="{{ month_value }}" class="tc-month-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <a href="/admin/timeclock?month={{ next_month_value }}" class="tc-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Nächster Monat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </a>
+    <a href="/admin/timeclock" class="tc-month-nav text-xs text-slate-500 hover:text-slate-300 ml-1">Aktueller Monat</a>
+  </div>
+
+  <!-- Monats-KPIs statt Einzelkacheln pro Mitarbeiter - skaliert auch bei
+       50+ Mitarbeitern. Die einzelne Monatsstunden je Person stehen
+       stattdessen im "Alle Mitarbeiter"-Dropdown unten. -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+    <div class="rounded-lg border border-line bg-panel2 p-3">
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Gesamtstunden Monat</div>
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ format_hours_de(total_month_hours) }}</div>
+    </div>
+    <div class="rounded-lg border border-line bg-panel2 p-3">
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Erfasste Buchungen</div>
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ total_bookings }}</div>
+    </div>
+    <div class="rounded-lg border border-line bg-panel2 p-3">
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Aktive Mitarbeiter</div>
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ active_employee_count }}<span class="text-sm text-slate-500 font-normal"> / {{ users|length }}</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Zentrale Buchungs-Tabelle -->
+<div class="rounded-xl border border-line bg-panel p-4 mb-4">
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    <select id="tc-user-filter" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <option value="">Alle Mitarbeiter</option>
+      {% for u in users %}<option value="{{ u.id }}">{{ u.name }} ({{ format_hours_de(hours_by_user.get(u.id, 0.0)) }})</option>{% endfor %}
+    </select>
+    <span class="text-xs text-slate-500 whitespace-nowrap">{{ rows|length }} Buchung{{ "en" if rows|length != 1 else "" }}</span>
+
+    <div class="ml-auto flex items-center gap-2">
+      <div class="relative tc-data-menu-wrap">
+        <button type="button" id="tc-data-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium" aria-haspopup="true" aria-expanded="false">
+          Daten
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div id="tc-data-menu" class="hidden absolute right-0 top-full mt-1 w-56 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-sm">
+          <button type="button" id="tc-import-btn" class="w-full flex items-center gap-2 text-left px-3 py-2 text-slate-200 hover:bg-panel2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+            Importieren (.txt / .csv)
+          </button>
+          <a id="tc-csv-link" href="/admin/timeclock/export.csv?month={{ month_value }}" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg>
+            Exportieren (.txt / .csv)
+          </a>
+          <a id="tc-pdf-link" href="#" class="hidden items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+            Als PDF exportieren
+          </a>
+        </div>
+      </div>
+      <button type="button" id="tc-new-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Buchung hinzufügen
+      </button>
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm" id="tc-table">
+      <thead>
+        <tr class="text-left text-[11px] text-slate-500 border-b border-line">
+          <th class="py-2 pr-2 font-medium">Mitarbeiter</th>
+          <th class="py-2 pr-2 font-medium">Datum</th>
+          <th class="py-2 pr-2 font-medium">Kommen</th>
+          <th class="py-2 pr-2 font-medium">Gehen</th>
+          <th class="py-2 pr-2 font-medium">Dauer</th>
+          <th class="py-2 pl-2 font-medium text-right">Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr data-user-id="{{ r.user_id }}" class="border-b border-line/50 last:border-0 hover:bg-panel2/50">
+          <td class="py-2 pr-2 text-slate-200 whitespace-nowrap">{{ r.user_name }}</td>
+          <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ r.date_label }}</td>
+          <td class="py-2 pr-2 text-slate-300 whitespace-nowrap">{{ r.clock_in_local.strftime('%H:%M') }}</td>
+          <td class="py-2 pr-2 whitespace-nowrap {% if r.open %}text-go font-medium{% else %}text-slate-300{% endif %}">
+            {% if r.open %}läuft noch{% else %}{{ r.clock_out_local.strftime('%H:%M') }}{% endif %}
+          </td>
+          <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ format_hours_de(r.hours) }}</td>
+          <td class="py-2 pl-2 text-right">
+            <div class="relative tc-kebab-wrap inline-block">
+              <button type="button" class="tc-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für Buchung von {{ r.user_name }}" aria-haspopup="true" aria-expanded="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
+              </button>
+              <div class="tc-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-left">
+                <button type="button" class="tc-edit-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" aria-label="Buchung von {{ r.user_name }} bearbeiten"
+                  data-id="{{ r.id }}"
+                  data-user-name="{{ r.user_name }}"
+                  data-clock-in="{{ r.clock_in_local.strftime('%Y-%m-%dT%H:%M') }}"
+                  data-clock-out="{{ r.clock_out_local.strftime('%Y-%m-%dT%H:%M') if r.clock_out_local else '' }}"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  Bearbeiten
+                </button>
+                <form method="post" action="/admin/timeclock/{{ r.id }}/delete" onsubmit="return confirm('Buchung von {{ r.user_name }} wirklich löschen?');">
+                  <input type="hidden" name="month" value="{{ month_value }}">
+                  <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    Löschen
+                  </button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="py-8 text-center text-slate-500 text-sm">Keine Buchungen in diesem Monat.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p id="tc-empty" class="hidden py-8 text-center text-slate-500 text-sm">Keine Buchungen für diesen Mitarbeiter in diesem Monat.</p>
+  </div>
+</div>

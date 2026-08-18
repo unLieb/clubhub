@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.72.0] - 2026-08-18
+- Zeiterfassung (Verwaltung): Monatswechsel (Pfeile, Monats-Picker, "Aktueller Monat") läuft jetzt ohne Full-Page-Reload – die Tabelle samt KPIs wird per fetch() nachgeladen, während des Ladens dezent abgedunkelt (opacity-50, kein Layout-Sprung), die URL wird dabei lautlos per history.replaceState synchron gehalten (Link bleibt teilbar). Pilot-Umsetzung für ein Muster, das bei Bedarf auf weitere Seiten (Historie, Inventar, Bereiche) übertragen werden kann.
+
 ## [0.71.2] - 2026-08-18
 - "Daten"-Dropdown (Zeiterfassung): Beschriftungen vereinheitlicht ("Importieren (.txt / .csv)" / "Exportieren (.txt / .csv)")
 - CSV-Export ist jetzt strukturgleich mit dem Import und direkt re-importierbar: Kopfzeile beginnt mit "#" und benennt die Zeit-Spalten CHECKIN/CHECKOUT statt Kommen/Gehen, damit der Import-Parser die exportierte Datei unverändert wieder einlesen kann

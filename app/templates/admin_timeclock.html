@@ -7,130 +7,8 @@
 <h1 class="font-display text-2xl font-semibold mt-2 mb-1">Zeiterfassung</h1>
 <p class="text-slate-400 text-sm mb-6">Buchungen nachträglich korrigieren – z.B. bei vergessenem Ein- oder Ausstempeln.</p>
 
-<!-- Monatsfilter -->
-<div class="rounded-xl border border-line bg-panel p-4 mb-4">
-  <div class="flex flex-wrap items-center gap-2">
-    <a href="/admin/timeclock?month={{ prev_month_value }}" class="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Vorheriger Monat">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-    </a>
-    <input type="month" value="{{ month_value }}" onchange="location.href = '/admin/timeclock?month=' + this.value"
-           class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-    <a href="/admin/timeclock?month={{ next_month_value }}" class="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Nächster Monat">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-    </a>
-    <a href="/admin/timeclock" class="text-xs text-slate-500 hover:text-slate-300 ml-1">Aktueller Monat</a>
-  </div>
-
-  <!-- Monats-KPIs statt Einzelkacheln pro Mitarbeiter - skaliert auch bei
-       50+ Mitarbeitern. Die einzelne Monatsstunden je Person stehen
-       stattdessen im "Alle Mitarbeiter"-Dropdown unten. -->
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
-    <div class="rounded-lg border border-line bg-panel2 p-3">
-      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Gesamtstunden Monat</div>
-      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ format_hours_de(total_month_hours) }}</div>
-    </div>
-    <div class="rounded-lg border border-line bg-panel2 p-3">
-      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Erfasste Buchungen</div>
-      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ total_bookings }}</div>
-    </div>
-    <div class="rounded-lg border border-line bg-panel2 p-3">
-      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Aktive Mitarbeiter</div>
-      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ active_employee_count }}<span class="text-sm text-slate-500 font-normal"> / {{ users|length }}</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- Zentrale Buchungs-Tabelle -->
-<div class="rounded-xl border border-line bg-panel p-4 mb-4">
-  <div class="flex flex-wrap items-center gap-2 mb-3">
-    <select id="tc-user-filter" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      <option value="">Alle Mitarbeiter</option>
-      {% for u in users %}<option value="{{ u.id }}">{{ u.name }} ({{ format_hours_de(hours_by_user.get(u.id, 0.0)) }})</option>{% endfor %}
-    </select>
-    <span class="text-xs text-slate-500 whitespace-nowrap">{{ rows|length }} Buchung{{ "en" if rows|length != 1 else "" }}</span>
-
-    <div class="ml-auto flex items-center gap-2">
-      <div class="relative tc-data-menu-wrap">
-        <button type="button" id="tc-data-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium" aria-haspopup="true" aria-expanded="false">
-          Daten
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div id="tc-data-menu" class="hidden absolute right-0 top-full mt-1 w-56 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-sm">
-          <button type="button" id="tc-import-btn" class="w-full flex items-center gap-2 text-left px-3 py-2 text-slate-200 hover:bg-panel2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
-            Importieren (.txt / .csv)
-          </button>
-          <a id="tc-csv-link" href="/admin/timeclock/export.csv?month={{ month_value }}" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg>
-            Exportieren (.txt / .csv)
-          </a>
-          <a id="tc-pdf-link" href="#" class="hidden items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-            Als PDF exportieren
-          </a>
-        </div>
-      </div>
-      <button type="button" id="tc-new-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Buchung hinzufügen
-      </button>
-    </div>
-  </div>
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm" id="tc-table">
-      <thead>
-        <tr class="text-left text-[11px] text-slate-500 border-b border-line">
-          <th class="py-2 pr-2 font-medium">Mitarbeiter</th>
-          <th class="py-2 pr-2 font-medium">Datum</th>
-          <th class="py-2 pr-2 font-medium">Kommen</th>
-          <th class="py-2 pr-2 font-medium">Gehen</th>
-          <th class="py-2 pr-2 font-medium">Dauer</th>
-          <th class="py-2 pl-2 font-medium text-right">Aktionen</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in rows %}
-        <tr data-user-id="{{ r.user_id }}" class="border-b border-line/50 last:border-0 hover:bg-panel2/50">
-          <td class="py-2 pr-2 text-slate-200 whitespace-nowrap">{{ r.user_name }}</td>
-          <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ r.date_label }}</td>
-          <td class="py-2 pr-2 text-slate-300 whitespace-nowrap">{{ r.clock_in_local.strftime('%H:%M') }}</td>
-          <td class="py-2 pr-2 whitespace-nowrap {% if r.open %}text-go font-medium{% else %}text-slate-300{% endif %}">
-            {% if r.open %}läuft noch{% else %}{{ r.clock_out_local.strftime('%H:%M') }}{% endif %}
-          </td>
-          <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ format_hours_de(r.hours) }}</td>
-          <td class="py-2 pl-2 text-right">
-            <div class="relative tc-kebab-wrap inline-block">
-              <button type="button" class="tc-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für Buchung von {{ r.user_name }}" aria-haspopup="true" aria-expanded="false">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
-              </button>
-              <div class="tc-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-left">
-                <button type="button" class="tc-edit-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" aria-label="Buchung von {{ r.user_name }} bearbeiten"
-                  data-id="{{ r.id }}"
-                  data-user-name="{{ r.user_name }}"
-                  data-clock-in="{{ r.clock_in_local.strftime('%Y-%m-%dT%H:%M') }}"
-                  data-clock-out="{{ r.clock_out_local.strftime('%Y-%m-%dT%H:%M') if r.clock_out_local else '' }}"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                  Bearbeiten
-                </button>
-                <form method="post" action="/admin/timeclock/{{ r.id }}/delete" onsubmit="return confirm('Buchung von {{ r.user_name }} wirklich löschen?');">
-                  <input type="hidden" name="month" value="{{ month_value }}">
-                  <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                    Löschen
-                  </button>
-                </form>
-              </div>
-            </div>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="6" class="py-8 text-center text-slate-500 text-sm">Keine Buchungen in diesem Monat.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <p id="tc-empty" class="hidden py-8 text-center text-slate-500 text-sm">Keine Buchungen für diesen Mitarbeiter in diesem Monat.</p>
-  </div>
+<div id="tc-fragment" class="transition-opacity duration-150">
+  {% include "_timeclock_fragment.html" %}
 </div>
 
 <!-- Import-Modal: Export-Datei aus "Zeiterfassung Pro" (DynamicG) einem
@@ -267,6 +145,10 @@
 
 <script>
   (function () {
+    var fragment = document.getElementById('tc-fragment');
+
+    // ---- Drawer (Anlegen/Bearbeiten) - liegt ausserhalb des AJAX-Fragments
+    // (siehe #tc-fragment unten) und wird deshalb nur einmal verdrahtet. ----
     var overlay = document.getElementById('tc-drawer-overlay');
     var drawer = document.getElementById('tc-drawer');
     var form = document.getElementById('tc-drawer-form');
@@ -279,7 +161,6 @@
     var userNameText = document.getElementById('tc-f-user-name-text');
     var clockIn = document.getElementById('tc-f-clock-in');
     var clockOut = document.getElementById('tc-f-clock-out');
-    var userFilter = document.getElementById('tc-user-filter');
 
     function openDrawer() {
       overlay.classList.remove('hidden');
@@ -299,7 +180,10 @@
       clockIn.value = '';
       clockOut.value = '';
       // Bereits gefilterten Mitarbeiter vorauswaehlen, falls einer aktiv ist.
-      if (userFilter.value) userSelect.value = userFilter.value;
+      // Frisch abgefragt statt gecacht, da das Filter-Element nach jedem
+      // Monatswechsel per fetch() neu im DOM steht (siehe bindFragment).
+      var userFilter = document.getElementById('tc-user-filter');
+      if (userFilter && userFilter.value) userSelect.value = userFilter.value;
       form.action = '/admin/timeclock/' + userSelect.value + '/add';
       openDrawer();
       clockIn.focus();
@@ -330,49 +214,92 @@
       form.action = '/admin/timeclock/' + userSelect.value + '/add';
     });
 
-    var newBtn = document.getElementById('tc-new-btn');
-    if (newBtn) newBtn.addEventListener('click', openCreate);
+    document.getElementById('tc-drawer-close').addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
 
-    // Kebab-Menü je Buchungs-Zeile (Bearbeiten/Löschen) statt direktem
-    // Stift-Icon - einheitliches Muster mit den anderen Verwaltungsseiten.
+    // ---- Kebab-/Daten-Menue schliessen: rein klassenbasiert (kein Element-
+    // Caching), funktioniert dadurch nach jedem Fragment-Tausch automatisch
+    // weiter, ohne neu gebunden werden zu muessen. ----
     function closeAllKebabMenus() {
       document.querySelectorAll('.tc-kebab-menu').forEach(function (menu) { menu.classList.add('hidden'); });
       document.querySelectorAll('.tc-kebab-btn').forEach(function (btn) { btn.setAttribute('aria-expanded', 'false'); });
     }
-    document.querySelectorAll('.tc-kebab-wrap').forEach(function (wrap) {
-      var btn = wrap.querySelector('.tc-kebab-btn');
-      var menu = wrap.querySelector('.tc-kebab-menu');
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var wasOpen = !menu.classList.contains('hidden');
-        closeAllKebabMenus();
-        if (!wasOpen) {
-          menu.classList.remove('hidden');
-          btn.setAttribute('aria-expanded', 'true');
-        }
+    function closeDataMenu() {
+      var dataMenu = document.getElementById('tc-data-menu');
+      var dataBtn = document.getElementById('tc-data-btn');
+      if (dataMenu) dataMenu.classList.add('hidden');
+      if (dataBtn) dataBtn.setAttribute('aria-expanded', 'false');
+    }
+    document.addEventListener('click', function () {
+      closeAllKebabMenus();
+      closeDataMenu();
+    });
+
+    // ---- Import-Modal - liegt ausserhalb des Fragments, einmalig verdrahtet.
+    // Formular selbst ist ein ganz normaler Multipart-POST (kein fetch), der
+    // Server antwortet per Redirect + Toast, was die Seite normal neu laedt. ----
+    var importOverlay = document.getElementById('tc-import-overlay');
+    var importModal = document.getElementById('tc-import-modal');
+    var importCloseBtn = document.getElementById('tc-import-close');
+    function openImportModal() {
+      importOverlay.classList.remove('hidden');
+      importModal.classList.remove('hidden');
+    }
+    function closeImportModal() {
+      importOverlay.classList.add('hidden');
+      importModal.classList.add('hidden');
+    }
+    if (importCloseBtn) {
+      importCloseBtn.addEventListener('click', closeImportModal);
+      importOverlay.addEventListener('click', closeImportModal);
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      closeAllKebabMenus();
+      closeDataMenu();
+      if (!drawer.classList.contains('translate-x-full')) closeDrawer();
+      if (importModal && !importModal.classList.contains('hidden')) closeImportModal();
+    });
+
+    // ---- Konflikt-Modal (siehe Block "import_conflicts" weiter unten): wird
+    // nur bei echten Konflikten server-seitig mitgerendert (echter Vollseiten-
+    // Reload nach Formular-POST, kein fetch) - "Abbrechen" schliesst es nur
+    // optisch, gespeichert ist zu diesem Zeitpunkt noch nichts. ----
+    (function () {
+      var closeBtn = document.getElementById('tc-conflict-close');
+      if (!closeBtn) return;
+      var conflictOverlay = document.getElementById('tc-conflict-overlay');
+      var conflictModal = document.getElementById('tc-conflict-modal');
+      closeBtn.addEventListener('click', function () {
+        conflictOverlay.classList.add('hidden');
+        conflictModal.classList.add('hidden');
       });
-    });
-    document.addEventListener('click', closeAllKebabMenus);
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeAllKebabMenus();
-    });
+      document.querySelectorAll('.tc-conflict-bulk').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('.tc-conflict-select').forEach(function (sel) {
+            sel.value = btn.dataset.value;
+          });
+        });
+      });
+    })();
 
-    document.querySelectorAll('.tc-edit-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () { closeAllKebabMenus(); openEdit(btn); });
-    });
+    // ---- AJAX-Fragment: Monats-/Mitarbeiterfilter ohne Full-Page-Reload.
+    // #tc-fragment wird bei jedem Monatswechsel per fetch() komplett neu vom
+    // Server befuellt (siehe GET /admin/timeclock mit X-Requested-With) -
+    // dabei gehen alle direkt daran gebundenen Listener verloren, deshalb
+    // bindFragment() nach jedem Tausch erneut aufrufen. ----
+    function bindFragment() {
+      var userFilter = document.getElementById('tc-user-filter');
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#tc-table tbody tr[data-user-id]'));
+      var emptyMsg = document.getElementById('tc-empty');
+      var tableWrap = document.getElementById('tc-table');
+      var monthInput = fragment.querySelector('.tc-month-input');
+      var csvLink = document.getElementById('tc-csv-link');
+      var pdfLink = document.getElementById('tc-pdf-link');
 
-    document.getElementById('tc-drawer-close').addEventListener('click', closeDrawer);
-    overlay.addEventListener('click', closeDrawer);
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !drawer.classList.contains('translate-x-full')) closeDrawer();
-    });
-
-    // Mitarbeiter-Filter fuer die Tabelle (rein clientseitig, kein Reload).
-    var rows = Array.prototype.slice.call(document.querySelectorAll('#tc-table tbody tr[data-user-id]'));
-    var emptyMsg = document.getElementById('tc-empty');
-    var tableWrap = document.getElementById('tc-table');
-    if (rows.length) {
-      userFilter.addEventListener('change', function () {
+      function applyUserFilter() {
+        if (!userFilter || !rows.length) return;
         var val = userFilter.value;
         var visibleCount = 0;
         rows.forEach(function (row) {
@@ -380,116 +307,133 @@
           row.classList.toggle('hidden', !match);
           if (match) visibleCount++;
         });
-        emptyMsg.classList.toggle('hidden', visibleCount !== 0);
-        tableWrap.classList.toggle('hidden', visibleCount === 0);
-      });
-    }
-
-    // PDF-Export folgt der Mitarbeiter-Auswahl - nur bei einer konkreten
-    // Person sinnvoll (PDF-Export ist immer pro Person, siehe Route).
-    var pdfLink = document.getElementById('tc-pdf-link');
-    userFilter.addEventListener('change', function () {
-      if (userFilter.value) {
-        pdfLink.href = '/admin/timeclock/' + userFilter.value + '/export.pdf';
-        pdfLink.classList.remove('hidden');
-        pdfLink.classList.add('flex');
-      } else {
-        pdfLink.classList.add('hidden');
-        pdfLink.classList.remove('flex');
+        if (emptyMsg) emptyMsg.classList.toggle('hidden', visibleCount !== 0);
+        if (tableWrap) tableWrap.classList.toggle('hidden', visibleCount === 0);
       }
-    });
 
-    // CSV-Export folgt Monat (immer) + Mitarbeiter-Filter (optional) - anders
-    // als der PDF-Export bleibt er auch bei "Alle Mitarbeiter" sichtbar.
-    var csvLink = document.getElementById('tc-csv-link');
-    function updateCsvLink() {
-      var base = '/admin/timeclock/export.csv?month={{ month_value }}';
-      csvLink.href = userFilter.value ? base + '&user_id=' + userFilter.value : base;
-    }
-    userFilter.addEventListener('change', updateCsvLink);
-  })();
-
-  // "Daten"-Dropdown (Importieren/CSV/PDF) - einheitliches Kebab-Menue-Muster
-  // wie an anderen Stellen der App, nur mit Text-Button statt ⋮-Icon.
-  (function () {
-    var dataBtn = document.getElementById('tc-data-btn');
-    var dataMenu = document.getElementById('tc-data-menu');
-    if (!dataBtn || !dataMenu) return;
-
-    function closeMenu() {
-      dataMenu.classList.add('hidden');
-      dataBtn.setAttribute('aria-expanded', 'false');
-    }
-    dataBtn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var wasOpen = !dataMenu.classList.contains('hidden');
-      closeMenu();
-      if (!wasOpen) {
-        dataMenu.classList.remove('hidden');
-        dataBtn.setAttribute('aria-expanded', 'true');
+      function updateExportLinks() {
+        if (!userFilter) return;
+        // PDF-Export folgt der Mitarbeiter-Auswahl - nur bei einer konkreten
+        // Person sinnvoll (PDF-Export ist immer pro Person, siehe Route).
+        if (pdfLink) {
+          if (userFilter.value) {
+            pdfLink.href = '/admin/timeclock/' + userFilter.value + '/export.pdf';
+            pdfLink.classList.remove('hidden');
+            pdfLink.classList.add('flex');
+          } else {
+            pdfLink.classList.add('hidden');
+            pdfLink.classList.remove('flex');
+          }
+        }
+        // CSV-Export folgt Monat (immer) + Mitarbeiter-Filter (optional) -
+        // anders als der PDF-Export bleibt er auch bei "Alle Mitarbeiter" sichtbar.
+        if (csvLink && monthInput) {
+          var base = '/admin/timeclock/export.csv?month=' + monthInput.value;
+          csvLink.href = userFilter.value ? base + '&user_id=' + userFilter.value : base;
+        }
       }
-    });
-    document.addEventListener('click', closeMenu);
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeMenu();
-    });
-    // Menue soll sich auch schliessen, wenn "Importieren" den Modal-Dialog
-    // oeffnet (dessen eigener Klick-Handler ist separat, siehe unten).
-    var importBtn = document.getElementById('tc-import-btn');
-    if (importBtn) importBtn.addEventListener('click', closeMenu);
-  })();
 
-  // Import-Modal: einfaches oeffnen/schliessen, das Formular selbst ist ein
-  // ganz normaler Multipart-POST (kein fetch/AJAX) - der Server schickt nach
-  // dem Import per Redirect + Toast zurueck, was die Tabelle automatisch neu laedt.
-  (function () {
-    var importBtn = document.getElementById('tc-import-btn');
-    if (!importBtn) return;
-    var overlay = document.getElementById('tc-import-overlay');
-    var modal = document.getElementById('tc-import-modal');
-    var closeBtn = document.getElementById('tc-import-close');
+      if (userFilter) {
+        userFilter.addEventListener('change', function () {
+          applyUserFilter();
+          updateExportLinks();
+        });
+      }
+      updateExportLinks();
 
-    function openModal() {
-      overlay.classList.remove('hidden');
-      modal.classList.remove('hidden');
-    }
-    function closeModal() {
-      overlay.classList.add('hidden');
-      modal.classList.add('hidden');
-    }
+      var dataBtn = document.getElementById('tc-data-btn');
+      var dataMenu = document.getElementById('tc-data-menu');
+      if (dataBtn && dataMenu) {
+        dataBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var wasOpen = !dataMenu.classList.contains('hidden');
+          closeAllKebabMenus();
+          closeDataMenu();
+          if (!wasOpen) {
+            dataMenu.classList.remove('hidden');
+            dataBtn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      }
+      var importBtn = document.getElementById('tc-import-btn');
+      if (importBtn) {
+        importBtn.addEventListener('click', function () {
+          closeDataMenu();
+          openImportModal();
+        });
+      }
+      var newBtn = document.getElementById('tc-new-btn');
+      if (newBtn) newBtn.addEventListener('click', openCreate);
 
-    importBtn.addEventListener('click', openModal);
-    closeBtn.addEventListener('click', closeModal);
-    overlay.addEventListener('click', closeModal);
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
-    });
-  })();
-
-  // Konflikt-Modal (siehe admin_timeclock.html-Block "import_conflicts"):
-  // wird nur bei tatsaechlichen Konflikten server-seitig mitgerendert, ist
-  // dann sofort sichtbar - kein Oeffnen per Klick noetig. "Abbrechen"
-  // schliesst es nur optisch (der Server hat bei Konflikten noch nichts
-  // gespeichert, ein erneuter Import-Versuch startet einfach neu).
-  (function () {
-    var closeBtn = document.getElementById('tc-conflict-close');
-    if (!closeBtn) return;
-    var overlay = document.getElementById('tc-conflict-overlay');
-    var modal = document.getElementById('tc-conflict-modal');
-
-    function closeModal() {
-      overlay.classList.add('hidden');
-      modal.classList.add('hidden');
-    }
-    closeBtn.addEventListener('click', closeModal);
-
-    document.querySelectorAll('.tc-conflict-bulk').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.tc-conflict-select').forEach(function (sel) {
-          sel.value = btn.dataset.value;
+      // Kebab-Menü je Buchungs-Zeile (Bearbeiten/Löschen) statt direktem
+      // Stift-Icon - einheitliches Muster mit den anderen Verwaltungsseiten.
+      fragment.querySelectorAll('.tc-kebab-wrap').forEach(function (wrap) {
+        var btn = wrap.querySelector('.tc-kebab-btn');
+        var menu = wrap.querySelector('.tc-kebab-menu');
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var wasOpen = !menu.classList.contains('hidden');
+          closeAllKebabMenus();
+          closeDataMenu();
+          if (!wasOpen) {
+            menu.classList.remove('hidden');
+            btn.setAttribute('aria-expanded', 'true');
+          }
         });
       });
-    });
+      fragment.querySelectorAll('.tc-edit-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { closeAllKebabMenus(); openEdit(btn); });
+      });
+
+      // Monatsnavigation (< / > / "Aktueller Monat" / Monats-Picker) loest
+      // einen fetch() statt einer echten Seiten-Navigation aus.
+      fragment.querySelectorAll('.tc-month-nav').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          loadMonth(a.getAttribute('href'));
+        });
+      });
+      if (monthInput) {
+        monthInput.addEventListener('change', function () {
+          loadMonth('/admin/timeclock?month=' + monthInput.value);
+        });
+      }
+    }
+
+    // Holt das Monats-Fragment per fetch() nach, ersetzt #tc-fragment und
+    // synchronisiert die URL lautlos per history.replaceState (kein neuer
+    // Verlaufseintrag pro Monatsklick, aber Links bleiben teilbar). Ein
+    // dezentes opacity-50 waehrend des Ladens gibt sofortiges Feedback, ohne
+    // dass das Layout springt (Tabellenhoehe bleibt bis zum Tausch gleich).
+    function loadMonth(url) {
+      var prevFilter = document.getElementById('tc-user-filter');
+      var selectedUser = prevFilter ? prevFilter.value : '';
+      fragment.classList.add('opacity-50', 'pointer-events-none');
+      fetch(url, { headers: { 'X-Requested-With': 'fetch' } })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          return resp.text();
+        })
+        .then(function (html) {
+          fragment.innerHTML = html;
+          fragment.classList.remove('opacity-50', 'pointer-events-none');
+          var target = new URL(url, window.location.origin);
+          history.replaceState(null, '', target.pathname + target.search);
+          bindFragment();
+          var newFilter = document.getElementById('tc-user-filter');
+          if (newFilter && selectedUser && newFilter.querySelector('option[value="' + selectedUser + '"]')) {
+            newFilter.value = selectedUser;
+            newFilter.dispatchEvent(new Event('change'));
+          }
+        })
+        .catch(function () {
+          // Fallback bei Netzwerkfehler/Serverausfall: normale Navigation,
+          // damit die Seite in jedem Fall bedienbar bleibt.
+          window.location.href = url;
+        });
+    }
+
+    bindFragment();
   })();
 </script>
 
