@@ -92,7 +92,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <form method="post" action="/feedback" class="p-4 space-y-3">
+    <form method="post" action="/feedback" enctype="multipart/form-data" class="p-4 space-y-3">
       <input type="hidden" name="url" id="feedback-f-url">
       <input type="hidden" name="next" id="feedback-f-next">
       <div>
@@ -117,6 +117,10 @@
           <option value="medium" selected>Mittel</option>
           <option value="high">Hoch</option>
         </select>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Screenshot (optional)</label>
+        <input type="file" name="photos" accept="image/*" multiple class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
       </div>
       <button type="submit" class="w-full px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Absenden</button>
     </form>

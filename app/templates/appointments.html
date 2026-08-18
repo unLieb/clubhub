@@ -76,7 +76,7 @@
       </div>
       {% if user and (user.id == a.user_id or user.is_admin or user.is_shift_lead or user.is_developer) %}
       <div class="relative appt-kebab-wrap shrink-0">
-        <button type="button" class="appt-kebab-btn w-7 h-7 rounded-md border border-line flex items-center justify-center text-slate-500 hover:text-slate-100" aria-label="Optionen für „{{ a.name }}“" aria-haspopup="true" aria-expanded="false">
+        <button type="button" class="appt-kebab-btn w-7 h-7 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für „{{ a.name }}“" aria-haspopup="true" aria-expanded="false">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
         </button>
         <div class="appt-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-left">

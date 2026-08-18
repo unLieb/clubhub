@@ -539,3 +539,16 @@ class Feedback(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User")
+    photos = relationship(
+        "FeedbackPhoto", back_populates="feedback", cascade="all, delete-orphan", order_by="FeedbackPhoto.id"
+    )
+
+
+class FeedbackPhoto(Base):
+    __tablename__ = "feedback_photos"
+
+    id = Column(Integer, primary_key=True)
+    feedback_id = Column(Integer, ForeignKey("feedback.id"), nullable=False)
+    filename = Column(String, nullable=False)           # relativ zu uploads/feedback/
+
+    feedback = relationship("Feedback", back_populates="photos")

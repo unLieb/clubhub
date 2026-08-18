@@ -64,6 +64,8 @@ AVATAR_IMAGES_DIR = os.path.join(UPLOADS_DIR, "avatars")
 os.makedirs(AVATAR_IMAGES_DIR, exist_ok=True)
 SETUP_PHOTOS_DIR = os.path.join(UPLOADS_DIR, "setups")
 os.makedirs(SETUP_PHOTOS_DIR, exist_ok=True)
+FEEDBACK_PHOTOS_DIR = os.path.join(UPLOADS_DIR, "feedback")
+os.makedirs(FEEDBACK_PHOTOS_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -1758,7 +1760,7 @@ def compute_report_meta(r, now) -> dict:
 
 
 @app.post("/feedback")
-def feedback_create(
+async def feedback_create(
     request: Request,
     type: str = Form(...),
     title: str = Form(...),
@@ -1766,22 +1768,37 @@ def feedback_create(
     priority: str = Form("medium"),
     url: str = Form(""),
     next: str = Form("/"),
+    photos: list[UploadFile] = File([]),
     db: Session = Depends(get_db),
 ):
     """Schwebender Feedback-Button (siehe base.html) - für jeden eingeloggten
     Nutzer erreichbar, kein Admin-Vorbehalt, damit auch normales Personal
     Bugs/Wünsche melden kann. URL/Nutzer/Zeitpunkt werden automatisch erfasst
     (URL kommt als verstecktes Feld von der aufrufenden Seite mit, statt vom
-    Server geraten zu werden - der Referer-Header ist nicht zuverlässig)."""
+    Server geraten zu werden - der Referer-Header ist nicht zuverlässig).
+    Screenshots optional, gleiches Speichermuster wie bei Meldungs-Fotos
+    (siehe REPORT_PHOTOS_DIR)."""
     user = require_login(request, db)
     if type not in ("bug", "feature"):
         type = "bug"
     if priority not in ("low", "medium", "high"):
         priority = "medium"
-    db.add(models.Feedback(
+    feedback = models.Feedback(
         type=type, title=title.strip(), description=description.strip() or None,
         priority=priority, url=url or None, user_id=user.id,
-    ))
+    )
+    db.add(feedback)
+    db.flush()
+    for photo in photos:
+        if not photo or not photo.filename:
+            continue
+        data = await photo.read()
+        if data and (photo.content_type or "").startswith("image/"):
+            ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
+            filename = f"{uuid.uuid4().hex}{ext}"
+            with open(os.path.join(FEEDBACK_PHOTOS_DIR, filename), "wb") as f:
+                f.write(data)
+            db.add(models.FeedbackPhoto(feedback_id=feedback.id, filename=filename))
     db.commit()
     target = next if next.startswith("/") else "/"
     return RedirectResponse(_with_toast(target, "Danke! Feedback wurde übermittelt."), status_code=302)
@@ -1798,6 +1815,9 @@ def _feedback_prompt(f) -> str:
     action = "behebe folgenden gemeldeten Bug" if f.type == "bug" else "setze folgenden Funktionswunsch um"
     reporter = f.user.name if f.user else "unbekannt"
     when = _to_local(f.created_at).strftime("%d.%m.%Y %H:%M") if f.created_at else "unbekannt"
+    screenshots = (
+        f"\nScreenshots: {len(f.photos)} angehängt (siehe Verwaltung > Feedback)" if f.photos else ""
+    )
     return (
         f"Bitte {action} in ClubHUB:\n\n"
         f"Typ: {kind}\n"
@@ -1806,6 +1826,7 @@ def _feedback_prompt(f) -> str:
         f"Priorität: {_FEEDBACK_PRIORITY_LABEL.get(f.priority, f.priority)}\n"
         f"Gemeldet von: {reporter} am {when}\n"
         f"Betroffene Seite: {f.url or 'nicht angegeben'}"
+        f"{screenshots}"
     )
 
 
@@ -3164,7 +3185,7 @@ def admin_resync_ntp(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/system/backup")
 def admin_download_backup(request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     data = backup.create_backup_bytes()
     return Response(
         content=data,
@@ -3175,7 +3196,7 @@ def admin_download_backup(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/system/scheduled-backup/{filename}/download")
 def admin_download_scheduled_backup(filename: str, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     path = backup.scheduled_backup_path(filename)
     if not path:
         raise HTTPException(status_code=404)
@@ -3190,7 +3211,7 @@ def admin_download_scheduled_backup(filename: str, request: Request, db: Session
 
 @app.get("/admin/system/export-data")
 def admin_export_data(request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    require_admin_or_developer(request, db)
     data = data_export.export_data_json(db)
     filename = f"clubhub-daten-{ntptime.now_utc().strftime('%Y%m%d-%H%M%S')}.json"
     return Response(
@@ -3207,7 +3228,7 @@ async def admin_import_data(
     categories: list[str] = Form([]),
     db: Session = Depends(get_db),
 ):
-    admin = require_admin(request, db)
+    admin = require_admin_or_developer(request, db)
     raw = await file.read()
     try:
         data = json.loads(raw)
@@ -3249,7 +3270,7 @@ async def admin_restore_backup(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    admin = require_admin(request, db)
+    admin = require_admin_or_developer(request, db)
     data = await file.read()
     error = backup.restore_from_bytes(data)
     if error:
@@ -3262,7 +3283,7 @@ async def admin_restore_backup(
 def admin_restore_scheduled_backup(
     filename: str, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
 ):
-    admin = require_admin(request, db)
+    admin = require_admin_or_developer(request, db)
     path = backup.scheduled_backup_path(filename)
     if not path:
         raise HTTPException(status_code=404)

@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.67.0] - 2026-08-18
+- Feedback-/Bug-Modal: Screenshots lassen sich jetzt optional anhängen (mehrere möglich), erscheinen als Thumbnails in Verwaltung > Feedback und werden im "Als Claude-Prompt kopieren"-Text erwähnt
+- Entwickler sehen jetzt wie Admins die komplette Backup/Wiederherstellung-Sektion unter Verwaltung > System (automatische Sicherungen, manuelles Backup, Struktur-Export/-Import) inkl. aller zugehörigen Aktionen - Schichtleiter weiterhin ausgeschlossen
+- Fix: Kebab-Button bei Urlaub/Terminen hatte einen dauerhaft sichtbaren Rahmen statt wie überall sonst nur beim Hover farblich hervorzutreten
+
 ## [0.66.1] - 2026-08-18
 - Fix: Kebab-Menü bei Urlaub und Terminen war oben statt vertikal mittig ausgerichtet, wenn die Karte durch Datum/Status-Badges zweizeilig wurde
 

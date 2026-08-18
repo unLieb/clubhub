@@ -43,7 +43,7 @@
     </p>
   </section>
 
-  {% if user.is_admin %}
+  {% if user.is_admin or user.is_developer %}
   <section class="rounded-xl border border-line bg-panel p-4 mt-4">
     <h2 class="font-display font-medium mb-3">Automatische Sicherungen</h2>
     <ul class="text-sm space-y-1.5 max-w-2xl">
@@ -188,7 +188,7 @@
     </div>
   </section>
   {% else %}
-  <p class="text-[11px] text-slate-500 mt-4">Backup &amp; Wiederherstellung sind nur für Admins sichtbar.</p>
+  <p class="text-[11px] text-slate-500 mt-4">Backup &amp; Wiederherstellung sind nur für Admins/Entwickler sichtbar.</p>
   {% endif %}
 </div>
 
