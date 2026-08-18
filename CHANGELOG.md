@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.75.0] - 2026-08-18
+- Inventar-Verwaltung (`/admin/inventory`): Anlegen, Bearbeiten und Löschen von Artikeln laufen jetzt per fetch() ohne Full-Page-Reload – nur die Tabelle wird aktualisiert, die aktuell gewählte Sortierung bleibt dabei erhalten (auch der Sortierungs-Wechsel selbst läuft jetzt ohne Reload). Bei einem fehlgeschlagenen Speichern bleibt der Bearbeiten-Drawer offen und zeigt eine Fehlermeldung statt Datenverlust.
+- Fix: Das ⋮-Kebab-Menü einer Artikelzeile klappt jetzt automatisch nach oben auf (`bottom-full`), wenn am Tabellenende nicht mehr genug Platz nach unten ist – vorher wurde es vom horizontal scrollbaren Tabellen-Wrapper abgeschnitten.
+
 ## [0.74.1] - 2026-08-18
 - Termine ohne Gruppe ("– nur ich –") sind jetzt privat: sichtbar nur für den/die Ersteller:in selbst und Admins, nicht mehr für andere Kolleg:innen oder Schichtleiter – weder unter `/appointments` noch im Dashboard. Termine mit Gruppe bleiben wie bisher für alle sichtbar.
 

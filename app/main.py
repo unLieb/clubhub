@@ -2685,11 +2685,12 @@ def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
 _INVENTORY_STATUS_ORDER = {"empty": 0, "critical": 1, "low": 2, "ok": 3}
 
 
-@app.get("/admin/inventory")
-def admin_inventory_page(
-    request: Request, img_fetch_failed: str = "", sort: str = "status", db: Session = Depends(get_db)
-):
-    admin = require_staff_or_developer(request, db)
+def _build_admin_inventory_context(request: Request, admin, sort: str, db: Session, img_fetch_failed: bool = False) -> dict:
+    """Kontext fuer admin_inventory.html - ausgelagert aus der GET-Route,
+    damit die create/edit/delete-Routen bei fetch()-Anfragen (siehe
+    X-Requested-With: fetch) direkt das aktualisierte Tabellen-Fragment
+    (_inventory_content.html) zurueckgeben koennen, ohne Full-Page-Reload
+    und ohne die aktuell gewaehlte Sortierung zu verlieren."""
     items = filter_inventory_for_user(db.query(models.InventoryItem).all(), admin)
     if sort == "name":
         items.sort(key=lambda i: i.name.lower())
@@ -2698,7 +2699,7 @@ def admin_inventory_page(
     else:
         sort = "status"
         items.sort(key=lambda i: (_INVENTORY_STATUS_ORDER[compute_inventory_status(i)["status"]], i.name.lower()))
-    return templates.TemplateResponse("admin_inventory.html", {
+    return {
         "request": request,
         "user": admin,
         "inventory_items": items,
@@ -2708,8 +2709,18 @@ def admin_inventory_page(
         "locations": sorted({i.location for i in items if i.location}),
         "units": sorted({i.unit for i in items if i.unit}),
         "pack_units": sorted({i.pack_unit for i in items if i.pack_unit}),
-        "img_fetch_failed": bool(img_fetch_failed),
-    })
+        "img_fetch_failed": img_fetch_failed,
+    }
+
+
+@app.get("/admin/inventory")
+def admin_inventory_page(
+    request: Request, img_fetch_failed: str = "", sort: str = "status", db: Session = Depends(get_db)
+):
+    admin = require_staff_or_developer(request, db)
+    return templates.TemplateResponse(
+        "admin_inventory.html", _build_admin_inventory_context(request, admin, sort, db, bool(img_fetch_failed))
+    )
 
 
 def _parse_local_dt(value: str):
@@ -3972,9 +3983,10 @@ def admin_add_inventory_item(
     reorder_url: str = Form(""),
     group_id: str = Form(""),
     next: str = Form("/admin/inventory"),
+    sort: str = "status",
     db: Session = Depends(get_db),
 ):
-    require_staff_or_developer(request, db)
+    admin = require_staff_or_developer(request, db)
     reorder_url = reorder_url or None
     # Kauflink direkt beim Anlegen gesetzt -> automatisch das Produktbild
     # der verlinkten Seite als Artikelbild übernehmen, falls auffindbar.
@@ -3996,6 +4008,10 @@ def admin_add_inventory_item(
         group_id=int(group_id) if group_id else None,
     ))
     db.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return templates.TemplateResponse(
+            "_inventory_content.html", _build_admin_inventory_context(request, admin, sort, db, image_fetch_failed)
+        )
     return RedirectResponse(_with_img_fetch_hint(next, image_fetch_failed), status_code=302)
 
 
@@ -4016,6 +4032,7 @@ def admin_edit_inventory_item(
     reorder_url: str = Form(""),
     group_id: str = Form(""),
     next: str = Form("/admin/inventory"),
+    sort: str = "status",
     db: Session = Depends(get_db),
 ):
     actor = require_staff_or_developer(request, db)
@@ -4048,15 +4065,25 @@ def admin_edit_inventory_item(
         if item.stock_current >= item.stock_min:
             item.notified = False
         db.commit()
+        if request.headers.get("X-Requested-With") == "fetch":
+            return templates.TemplateResponse(
+                "_inventory_content.html", _build_admin_inventory_context(request, actor, sort, db, image_fetch_failed)
+            )
         return RedirectResponse(_with_img_fetch_hint(next, image_fetch_failed), status_code=302)
+    if request.headers.get("X-Requested-With") == "fetch":
+        raise HTTPException(status_code=404, detail="Artikel nicht gefunden")
     return RedirectResponse(next if next.startswith("/") else "/admin/inventory", status_code=302)
 
 
 @app.post("/admin/inventory/{item_id}/delete")
-def admin_delete_inventory_item(item_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin_or_developer(request, db)
+def admin_delete_inventory_item(item_id: int, request: Request, sort: str = "status", db: Session = Depends(get_db)):
+    admin = require_admin_or_developer(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
     if item:
         db.delete(item)
         db.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return templates.TemplateResponse(
+            "_inventory_content.html", _build_admin_inventory_context(request, admin, sort, db)
+        )
     return RedirectResponse("/admin/inventory", status_code=302)
