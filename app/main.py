@@ -712,7 +712,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     now_local_date = now.astimezone(APP_TIMEZONE).date()
     all_upcoming_appointments = [
         a for a in db.query(models.Appointment).order_by(models.Appointment.date.asc()).all()
-        if _aware(a.date).astimezone(APP_TIMEZONE).date() >= now_local_date
+        if _aware(a.date).astimezone(APP_TIMEZONE).date() >= now_local_date and _is_appointment_visible(a, user)
     ]
     upcoming_appointments = all_upcoming_appointments[:5]
     # Fuer den mobilen "Heute anstehend"-Block (siehe dashboard.html) getrennt
@@ -2150,6 +2150,19 @@ async def reports_add_photos(
 APPOINTMENT_RECURRENCE_LABELS = {7: "Wöchentlich", 14: "Alle 2 Wochen", 30: "Monatlich"}
 
 
+def _is_appointment_visible(appointment, user) -> bool:
+    """Ein Termin ohne Gruppe ('– nur ich –' im Formular) ist reine
+    Privatsache - sichtbar nur fuer den Ersteller selbst und Admins, nicht
+    fuer andere Kolleg:innen/Schichtleiter. Mit Gruppe bleibt er wie bisher
+    fuer alle sichtbar (die Gruppe steuert dort schon, wer benachrichtigt
+    wird - das ist bereits eine bewusste Freigabe an mehrere Personen)."""
+    if appointment.group_id is not None:
+        return True
+    if not user:
+        return False
+    return user.id == appointment.user_id or user.is_admin
+
+
 @app.get("/appointments")
 def appointments_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -2159,6 +2172,8 @@ def appointments_page(request: Request, db: Session = Depends(get_db)):
 
     entries = []
     for a in db.query(models.Appointment).order_by(models.Appointment.date.asc()).all():
+        if not _is_appointment_visible(a, user):
+            continue
         date_local = _aware(a.date).astimezone(APP_TIMEZONE).date()
         days_until = (date_local - today).days
         if days_until == 0:

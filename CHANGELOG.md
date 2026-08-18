@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.74.1] - 2026-08-18
+- Termine ohne Gruppe ("– nur ich –") sind jetzt privat: sichtbar nur für den/die Ersteller:in selbst und Admins, nicht mehr für andere Kolleg:innen oder Schichtleiter – weder unter `/appointments` noch im Dashboard. Termine mit Gruppe bleiben wie bisher für alle sichtbar.
+
 ## [0.74.0] - 2026-08-18
 - Aufgaben abhaken (Bereichsansicht) läuft jetzt ohne Full-Page-Reload: "Erledigt" sendet per fetch() an den Server, die Karte zeigt sofort ein Haken-Icon + grüne Hervorhebung und blendet danach sanft aus (Höhe/Deckkraft-Animation, kein Layout-Sprung).
 - Neuer Toast am unteren Bildschirmrand bestätigt "„Aufgabe“ als erledigt markiert" mit "Rückgängig"-Option (macht die Buchung serverseitig innerhalb weniger Minuten wieder rückgängig); bei einem Fehler erscheint die Karte automatisch wieder und ein roter Fehler-Toast informiert.
