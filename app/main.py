@@ -2900,6 +2900,74 @@ def admin_timeclock_export_pdf(user_id: int, request: Request, db: Session = Dep
     return _timeentry_pdf_response(target, _timeentry_pdf_rows(db, target.id))
 
 
+@app.get("/admin/timeclock/export.csv")
+def admin_timeclock_export_csv(request: Request, month: str = "", user_id: int = 0, db: Session = Depends(get_db)):
+    """CSV-Export im selben Pipe-getrennten Format wie der App-Import (siehe
+    _parse_timeclock_import), erweitert um Dauer/Notizen-Spalten - respektiert
+    den gerade angezeigten Monat sowie den optionalen Mitarbeiter-Filter der
+    Tabelle (siehe admin_timeclock.html, folgt per JS demselben Dropdown wie
+    der PDF-Export). "Notizen" ist aktuell immer leer, da TimeEntry (noch)
+    kein Notiz-Feld hat - Spalte bleibt trotzdem stehen, wie angefordert."""
+    require_admin(request, db)
+    now = ntptime.now_utc()
+    local_now = now.astimezone(APP_TIMEZONE)
+    month_start, next_month_start = _parse_month_param(month, local_now)
+    month_value = f"{month_start.year:04d}-{month_start.month:02d}"
+    range_start_utc = datetime(month_start.year, month_start.month, month_start.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+    range_end_utc = datetime(next_month_start.year, next_month_start.month, next_month_start.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+
+    query = db.query(models.TimeEntry).filter(
+        models.TimeEntry.clock_in >= range_start_utc, models.TimeEntry.clock_in < range_end_utc,
+    )
+    target_user = None
+    if user_id:
+        target_user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not target_user:
+            raise HTTPException(status_code=404)
+        query = query.filter(models.TimeEntry.user_id == user_id)
+    entries = query.order_by(models.TimeEntry.clock_in).all()
+
+    users_by_id = {u.id: u for u in db.query(models.User).all()}
+
+    def esc(value: str) -> str:
+        # Pipe im Namen/Notiz waere sonst faelschlich ein Spaltentrenner.
+        return (value or "").replace("|", "/")
+
+    lines = ["Datum|Mitarbeiter|Kommen|Gehen|Dauer_Minuten|Dauer_Formatiert|Notizen"]
+    for e in entries:
+        clock_in_local = _aware(e.clock_in).astimezone(APP_TIMEZONE)
+        clock_out_local = _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None
+        u = users_by_id.get(e.user_id)
+        hours = _entry_hours(e, now)
+        lines.append("|".join([
+            clock_in_local.strftime("%d.%m.%Y"),
+            esc(u.name if u else "?"),
+            clock_in_local.strftime(_TIMECLOCK_IMPORT_DT_FORMAT),
+            clock_out_local.strftime(_TIMECLOCK_IMPORT_DT_FORMAT) if clock_out_local else "",
+            str(round(hours * 60)),
+            format_hours_de(hours),
+            "",
+        ]))
+    csv_content = "\n".join(lines) + "\n"
+
+    # Content-Disposition-Header muss ASCII-sicher sein (rohe Umlaute in
+    # Response-Headern sind kein gueltiges HTTP) - deshalb hier transliterieren,
+    # unabhaengig vom CSV-Inhalt selbst, der korrekt UTF-8 bleibt.
+    ascii_name = (
+        target_user.name.translate(str.maketrans("äöüÄÖÜß", "aouAOUs")) if target_user else "alle"
+    )
+    name_part = re.sub(r"[^A-Za-z0-9_-]+", "-", ascii_name).strip("-") or "mitarbeiter"
+    filename = f"zeiterfassung-{month_value}-{name_part}.csv"
+    return Response(
+        # utf-8-sig (BOM) statt reinem UTF-8, damit Excel unter Windows die
+        # Datei beim Doppelklick zuverlaessig als UTF-8 statt der System-
+        # Codepage erkennt - sonst werden Umlaute dort falsch dargestellt.
+        content=csv_content.encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.post("/admin/timeclock/verify-chain")
 def admin_timeclock_verify_chain(request: Request, db: Session = Depends(get_db)):
     require_admin(request, db)

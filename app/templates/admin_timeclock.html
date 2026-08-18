@@ -63,6 +63,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
       Als PDF exportieren
     </a>
+    <a id="tc-csv-link" href="/admin/timeclock/export.csv?month={{ month_value }}" class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-slate-100 whitespace-nowrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Als CSV exportieren
+    </a>
     <span class="text-xs text-slate-500 ml-auto whitespace-nowrap">{{ rows|length }} Buchung{{ "en" if rows|length != 1 else "" }}</span>
   </div>
   <div class="overflow-x-auto">
@@ -387,6 +391,15 @@
         pdfLink.classList.remove('flex');
       }
     });
+
+    // CSV-Export folgt Monat (immer) + Mitarbeiter-Filter (optional) - anders
+    // als der PDF-Export bleibt er auch bei "Alle Mitarbeiter" sichtbar.
+    var csvLink = document.getElementById('tc-csv-link');
+    function updateCsvLink() {
+      var base = '/admin/timeclock/export.csv?month={{ month_value }}';
+      csvLink.href = userFilter.value ? base + '&user_id=' + userFilter.value : base;
+    }
+    userFilter.addEventListener('change', updateCsvLink);
   })();
 
   // Import-Modal: einfaches oeffnen/schliessen, das Formular selbst ist ein

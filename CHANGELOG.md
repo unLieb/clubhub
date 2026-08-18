@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.70.0] - 2026-08-18
+- Neu: CSV-Export unter Verwaltung > Zeiterfassung, im selben Pipe-getrennten Format wie der App-Import (Spalten: Datum|Mitarbeiter|Kommen|Gehen|Dauer_Minuten|Dauer_Formatiert|Notizen), respektiert den gewählten Monat und optional den Mitarbeiter-Filter, UTF-8 mit BOM für saubere Umlaut-Darstellung in Excel
+
 ## [0.69.0] - 2026-08-18
 - Zeiterfassungs-Import um intelligente Duplikat-Erkennung und Konflikt-Lösung erweitert: 100% identische Zeilen werden automatisch übersprungen, neue Tage automatisch übernommen; bei abweichenden Zeiten am selben Tag öffnet sich vor dem Speichern ein Konflikt-Modal mit Gegenüberstellung (Bestehend vs. Import), Einzelentscheidung (Bestehenden behalten / Durch Import ersetzen / Beide behalten) und globalen Sammel-Aktionen für alle Konflikte
 - Nichts wird gespeichert, solange ungelöste Konflikte offen sind - erst nach der Entscheidung landet der komplette Import (inkl. eindeutig neuer Zeilen) gesammelt in der Datenbank
