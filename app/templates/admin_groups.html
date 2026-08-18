@@ -47,15 +47,33 @@
   <ul class="space-y-1 text-sm">
     {% for g in groups %}
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
-      <details class="group">
-        <summary class="flex justify-between items-center cursor-pointer list-none gap-2">
-          <span>{{ g.name }} <span class="text-slate-500 text-xs font-normal">&middot; {{ g.users|length }} Nutzer, {{ g.rooms|length }} {{ "Bereich" if g.rooms|length == 1 else "Bereiche" }}{% if g.work_start_hour is not none and g.work_end_hour is not none %} &middot; {{ "%02d"|format(g.work_start_hour) }}–{{ "%02d"|format(g.work_end_hour) }} Uhr{% endif %}</span></span>
-          <span class="flex items-center gap-2 shrink-0">
-            <span class="text-slate-500 text-xs">{{ g.channels | map(attribute="name") | join(", ") or "keine Kanäle" }}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-100 shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </span>
-        </summary>
-        <form method="post" action="/admin/groups/{{ g.id }}/edit" class="mt-2 space-y-2 max-w-2xl">
+      <div class="flex justify-between items-center gap-2">
+        <span>{{ g.name }} <span class="text-slate-500 text-xs font-normal">&middot; {{ g.users|length }} Nutzer, {{ g.rooms|length }} {{ "Bereich" if g.rooms|length == 1 else "Bereiche" }}{% if g.work_start_hour is not none and g.work_end_hour is not none %} &middot; {{ "%02d"|format(g.work_start_hour) }}–{{ "%02d"|format(g.work_end_hour) }} Uhr{% endif %}</span></span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="text-slate-500 text-xs">{{ g.channels | map(attribute="name") | join(", ") or "keine Kanäle" }}</span>
+          <div class="relative group-kebab-wrap">
+            <button type="button" class="group-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für „{{ g.name }}“" aria-haspopup="true" aria-expanded="false">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
+            </button>
+            <div class="group-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-left">
+              <button type="button" class="group-edit-toggle-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" data-target="group-edit-{{ g.id }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                Bearbeiten
+              </button>
+              {% if user.is_admin or user.is_developer %}
+              <form method="post" action="/admin/groups/{{ g.id }}/delete" onsubmit="return confirm('„{{ g.name }}“ wirklich löschen?')">
+                <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  Löschen
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+        </span>
+      </div>
+      <div id="group-edit-{{ g.id }}" class="hidden mt-2">
+        <form method="post" action="/admin/groups/{{ g.id }}/edit" class="space-y-2 max-w-2xl">
           <input name="name" value="{{ g.name }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           <div>
             <label class="block text-[11px] text-slate-400 mb-1">Arbeitszeit (Stunde, leer = immer aktiv)</label>
@@ -81,17 +99,49 @@
           {% else %}
           <p class="text-slate-500 text-xs italic">Noch keine Benachrichtigungskanäle angelegt.</p>
           {% endif %}
-          <div class="flex gap-2">
-            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
-            {% if user.is_admin or user.is_developer %}
-            <button type="submit" formaction="/admin/groups/{{ g.id }}/delete" formnovalidate onclick="return confirm('„{{ g.name }}“ wirklich löschen?')" class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Löschen</button>
-            {% endif %}
-          </div>
+          <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
         </form>
-      </details>
+      </div>
     </li>
     {% endfor %}
   </ul>
 </div>
+
+<script>
+  (function () {
+    // Kebab-Menü je Gruppen-Zeile (Bearbeiten/Löschen) statt Stift-in-
+    // Aufklapp-Zeile - einheitliches Muster mit den anderen Verwaltungs-
+    // seiten. "Bearbeiten" blendet das dazugehörige Inline-Formular ein.
+    function closeAllKebabMenus() {
+      document.querySelectorAll('.group-kebab-menu').forEach(function (menu) { menu.classList.add('hidden'); });
+      document.querySelectorAll('.group-kebab-btn').forEach(function (btn) { btn.setAttribute('aria-expanded', 'false'); });
+    }
+    document.querySelectorAll('.group-kebab-wrap').forEach(function (wrap) {
+      var btn = wrap.querySelector('.group-kebab-btn');
+      var menu = wrap.querySelector('.group-kebab-menu');
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var wasOpen = !menu.classList.contains('hidden');
+        closeAllKebabMenus();
+        if (!wasOpen) {
+          menu.classList.remove('hidden');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+    document.addEventListener('click', closeAllKebabMenus);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAllKebabMenus();
+    });
+
+    document.querySelectorAll('.group-edit-toggle-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        closeAllKebabMenus();
+        var panel = document.getElementById(btn.dataset.target);
+        if (panel) panel.classList.toggle('hidden');
+      });
+    });
+  })();
+</script>
 
 {% endblock %}

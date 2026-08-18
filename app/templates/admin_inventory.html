@@ -65,23 +65,39 @@
           <td class="py-2 pr-2 text-slate-400">{{ i.location or "–" }}</td>
           <td class="py-2 pr-2 text-slate-400">{{ i.group.name if i.group else "–" }}</td>
           <td class="py-2 pl-2 text-right">
-            <button type="button" class="inv-edit-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="„{{ i.name }}“ bearbeiten"
-              data-id="{{ i.id }}"
-              data-name="{{ i.name }}"
-              data-group-id="{{ i.group_id or '' }}"
-              data-category="{{ i.category or '' }}"
-              data-location="{{ i.location or '' }}"
-              data-stock-current="{{ i.stock_current }}"
-              data-stock-min="{{ i.stock_min }}"
-              data-stock-critical="{{ i.stock_critical if i.stock_critical is not none else '' }}"
-              data-unit="{{ i.unit or '' }}"
-              data-unit-plural="{{ i.unit_plural or '' }}"
-              data-pack-unit="{{ i.pack_unit or '' }}"
-              data-pack-size="{{ i.pack_size if i.pack_size is not none else '' }}"
-              data-reorder-url="{{ i.reorder_url or '' }}"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-            </button>
+            <div class="relative inv-kebab-wrap inline-block">
+              <button type="button" class="inv-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für „{{ i.name }}“" aria-haspopup="true" aria-expanded="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
+              </button>
+              <div class="inv-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-left">
+                <button type="button" class="inv-edit-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" aria-label="„{{ i.name }}“ bearbeiten"
+                  data-id="{{ i.id }}"
+                  data-name="{{ i.name }}"
+                  data-group-id="{{ i.group_id or '' }}"
+                  data-category="{{ i.category or '' }}"
+                  data-location="{{ i.location or '' }}"
+                  data-stock-current="{{ i.stock_current }}"
+                  data-stock-min="{{ i.stock_min }}"
+                  data-stock-critical="{{ i.stock_critical if i.stock_critical is not none else '' }}"
+                  data-unit="{{ i.unit or '' }}"
+                  data-unit-plural="{{ i.unit_plural or '' }}"
+                  data-pack-unit="{{ i.pack_unit or '' }}"
+                  data-pack-size="{{ i.pack_size if i.pack_size is not none else '' }}"
+                  data-reorder-url="{{ i.reorder_url or '' }}"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  Bearbeiten
+                </button>
+                {% if user.is_admin or user.is_developer %}
+                <form method="post" action="/admin/inventory/{{ i.id }}/delete" onsubmit="return confirm('„{{ i.name }}“ wirklich löschen?');">
+                  <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    Löschen
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -260,8 +276,32 @@
     var newBtn = document.getElementById('inv-new-btn');
     if (newBtn) newBtn.addEventListener('click', openCreate);
 
+    // Kebab-Menü je Artikel-Zeile (Bearbeiten/Löschen) statt direktem
+    // Stift-Icon - einheitliches Muster mit den anderen Verwaltungsseiten.
+    function closeAllKebabMenus() {
+      document.querySelectorAll('.inv-kebab-menu').forEach(function (menu) { menu.classList.add('hidden'); });
+      document.querySelectorAll('.inv-kebab-btn').forEach(function (btn) { btn.setAttribute('aria-expanded', 'false'); });
+    }
+    document.querySelectorAll('.inv-kebab-wrap').forEach(function (wrap) {
+      var btn = wrap.querySelector('.inv-kebab-btn');
+      var menu = wrap.querySelector('.inv-kebab-menu');
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var wasOpen = !menu.classList.contains('hidden');
+        closeAllKebabMenus();
+        if (!wasOpen) {
+          menu.classList.remove('hidden');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+    document.addEventListener('click', closeAllKebabMenus);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAllKebabMenus();
+    });
+
     document.querySelectorAll('.inv-edit-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () { openEdit(btn); });
+      btn.addEventListener('click', function () { closeAllKebabMenus(); openEdit(btn); });
     });
 
     document.getElementById('inv-drawer-close').addEventListener('click', closeDrawer);

@@ -87,14 +87,29 @@
           </td>
           <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ format_hours_de(r.hours) }}</td>
           <td class="py-2 pl-2 text-right">
-            <button type="button" class="tc-edit-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Buchung von {{ r.user_name }} bearbeiten"
-              data-id="{{ r.id }}"
-              data-user-name="{{ r.user_name }}"
-              data-clock-in="{{ r.clock_in_local.strftime('%Y-%m-%dT%H:%M') }}"
-              data-clock-out="{{ r.clock_out_local.strftime('%Y-%m-%dT%H:%M') if r.clock_out_local else '' }}"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-            </button>
+            <div class="relative tc-kebab-wrap inline-block">
+              <button type="button" class="tc-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für Buchung von {{ r.user_name }}" aria-haspopup="true" aria-expanded="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
+              </button>
+              <div class="tc-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-left">
+                <button type="button" class="tc-edit-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" aria-label="Buchung von {{ r.user_name }} bearbeiten"
+                  data-id="{{ r.id }}"
+                  data-user-name="{{ r.user_name }}"
+                  data-clock-in="{{ r.clock_in_local.strftime('%Y-%m-%dT%H:%M') }}"
+                  data-clock-out="{{ r.clock_out_local.strftime('%Y-%m-%dT%H:%M') if r.clock_out_local else '' }}"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  Bearbeiten
+                </button>
+                <form method="post" action="/admin/timeclock/{{ r.id }}/delete" onsubmit="return confirm('Buchung von {{ r.user_name }} wirklich löschen?');">
+                  <input type="hidden" name="month" value="{{ month_value }}">
+                  <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    Löschen
+                  </button>
+                </form>
+              </div>
+            </div>
           </td>
         </tr>
         {% else %}
@@ -248,8 +263,32 @@
     var newBtn = document.getElementById('tc-new-btn');
     if (newBtn) newBtn.addEventListener('click', openCreate);
 
+    // Kebab-Menü je Buchungs-Zeile (Bearbeiten/Löschen) statt direktem
+    // Stift-Icon - einheitliches Muster mit den anderen Verwaltungsseiten.
+    function closeAllKebabMenus() {
+      document.querySelectorAll('.tc-kebab-menu').forEach(function (menu) { menu.classList.add('hidden'); });
+      document.querySelectorAll('.tc-kebab-btn').forEach(function (btn) { btn.setAttribute('aria-expanded', 'false'); });
+    }
+    document.querySelectorAll('.tc-kebab-wrap').forEach(function (wrap) {
+      var btn = wrap.querySelector('.tc-kebab-btn');
+      var menu = wrap.querySelector('.tc-kebab-menu');
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var wasOpen = !menu.classList.contains('hidden');
+        closeAllKebabMenus();
+        if (!wasOpen) {
+          menu.classList.remove('hidden');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+    document.addEventListener('click', closeAllKebabMenus);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAllKebabMenus();
+    });
+
     document.querySelectorAll('.tc-edit-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () { openEdit(btn); });
+      btn.addEventListener('click', function () { closeAllKebabMenus(); openEdit(btn); });
     });
 
     document.getElementById('tc-drawer-close').addEventListener('click', closeDrawer);

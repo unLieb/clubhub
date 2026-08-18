@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.65.0] - 2026-08-18
+- Kebab-Menü (⋮) als einheitlicher Standard für Bearbeiten/Löschen in der ganzen App etabliert: Bereiche, Nutzer, Gruppen, Benachrichtigungen, Inventar, Zeiterfassung (Verwaltung + Selbstbedienung), Urlaub und Termine zeigen jetzt statt direkter Stift-/Mülleimer-Icons ein dezentes Menü mit "Bearbeiten" (Stift-Icon) und "Löschen" (rot, Mülleimer-Icon)
+- Menü bleibt weiterhin nur für Nutzer mit den jeweils passenden Bearbeitungs-/Admin-Rechten sichtbar, unverändert gegenüber der bisherigen Berechtigungslogik je Seite
+- Bereichs-Detailseite (Aufgaben): Kebab-Einträge um dieselben Icons ergänzt für volle Konsistenz mit den anderen Seiten
+
 ## [0.64.1] - 2026-08-17
 - Fix: Umami-Tracking läuft nicht mehr auf localhost/bei rohen Datei-Vorschauen mit (verfälschte sonst die echte Statistik)
 
