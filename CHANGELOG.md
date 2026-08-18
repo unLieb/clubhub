@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.71.0] - 2026-08-18
+- Steuerungselemente unter Verwaltung > Zeiterfassung aufgeräumt: "App-Import" und "Buchung hinzufügen" aus dem Seiten-Header entfernt, alle Aktionen jetzt in einer gemeinsamen Leiste direkt über der Tabelle (Mitarbeiter-Filter links, Dropdown "Daten" mit Importieren/CSV-Export/PDF-Export sowie der grüne "Buchung hinzufügen"-Button rechts)
+
 ## [0.70.0] - 2026-08-18
 - Neu: CSV-Export unter Verwaltung > Zeiterfassung, im selben Pipe-getrennten Format wie der App-Import (Spalten: Datum|Mitarbeiter|Kommen|Gehen|Dauer_Minuten|Dauer_Formatiert|Notizen), respektiert den gewählten Monat und optional den Mitarbeiter-Filter, UTF-8 mit BOM für saubere Umlaut-Darstellung in Excel
 

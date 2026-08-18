@@ -4,19 +4,7 @@
 {% import "_dropzone_macros.html" as dz %}
 
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
-<div class="flex items-start justify-between gap-3 mt-2 mb-1">
-  <h1 class="font-display text-2xl font-semibold">Zeiterfassung</h1>
-  <div class="flex items-center gap-2 shrink-0">
-    <button type="button" id="tc-import-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      App-Import (.txt/.csv)
-    </button>
-    <button type="button" id="tc-new-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Buchung hinzufügen
-    </button>
-  </div>
-</div>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-1">Zeiterfassung</h1>
 <p class="text-slate-400 text-sm mb-6">Buchungen nachträglich korrigieren – z.B. bei vergessenem Ein- oder Ausstempeln.</p>
 
 <!-- Monatsfilter -->
@@ -59,15 +47,31 @@
       <option value="">Alle Mitarbeiter</option>
       {% for u in users %}<option value="{{ u.id }}">{{ u.name }} ({{ format_hours_de(hours_by_user.get(u.id, 0.0)) }})</option>{% endfor %}
     </select>
-    <a id="tc-pdf-link" href="#" class="hidden items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-slate-100 whitespace-nowrap">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-      Als PDF exportieren
-    </a>
-    <a id="tc-csv-link" href="/admin/timeclock/export.csv?month={{ month_value }}" class="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-slate-100 whitespace-nowrap">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Als CSV exportieren
-    </a>
-    <span class="text-xs text-slate-500 ml-auto whitespace-nowrap">{{ rows|length }} Buchung{{ "en" if rows|length != 1 else "" }}</span>
+    <span class="text-xs text-slate-500 whitespace-nowrap">{{ rows|length }} Buchung{{ "en" if rows|length != 1 else "" }}</span>
+
+    <div class="ml-auto flex items-center gap-2">
+      <div class="relative tc-data-menu-wrap">
+        <button type="button" id="tc-data-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium" aria-haspopup="true" aria-expanded="false">
+          Daten
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div id="tc-data-menu" class="hidden absolute right-0 top-full mt-1 w-56 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-sm">
+          <button type="button" id="tc-import-btn" class="w-full flex items-center gap-2 text-left px-3 py-2 text-slate-200 hover:bg-panel2">
+            <span aria-hidden="true">📥</span> Importieren (.txt/.csv)
+          </button>
+          <a id="tc-csv-link" href="/admin/timeclock/export.csv?month={{ month_value }}" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
+            <span aria-hidden="true">📤</span> Als CSV exportieren
+          </a>
+          <a id="tc-pdf-link" href="#" class="hidden items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
+            <span aria-hidden="true">📄</span> Als PDF exportieren
+          </a>
+        </div>
+      </div>
+      <button type="button" id="tc-new-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Buchung hinzufügen
+      </button>
+    </div>
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-sm" id="tc-table">
@@ -400,6 +404,36 @@
       csvLink.href = userFilter.value ? base + '&user_id=' + userFilter.value : base;
     }
     userFilter.addEventListener('change', updateCsvLink);
+  })();
+
+  // "Daten"-Dropdown (Importieren/CSV/PDF) - einheitliches Kebab-Menue-Muster
+  // wie an anderen Stellen der App, nur mit Text-Button statt ⋮-Icon.
+  (function () {
+    var dataBtn = document.getElementById('tc-data-btn');
+    var dataMenu = document.getElementById('tc-data-menu');
+    if (!dataBtn || !dataMenu) return;
+
+    function closeMenu() {
+      dataMenu.classList.add('hidden');
+      dataBtn.setAttribute('aria-expanded', 'false');
+    }
+    dataBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var wasOpen = !dataMenu.classList.contains('hidden');
+      closeMenu();
+      if (!wasOpen) {
+        dataMenu.classList.remove('hidden');
+        dataBtn.setAttribute('aria-expanded', 'true');
+      }
+    });
+    document.addEventListener('click', closeMenu);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeMenu();
+    });
+    // Menue soll sich auch schliessen, wenn "Importieren" den Modal-Dialog
+    // oeffnet (dessen eigener Klick-Handler ist separat, siehe unten).
+    var importBtn = document.getElementById('tc-import-btn');
+    if (importBtn) importBtn.addEventListener('click', closeMenu);
   })();
 
   // Import-Modal: einfaches oeffnen/schliessen, das Formular selbst ist ein
