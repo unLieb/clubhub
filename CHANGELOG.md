@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.69.0] - 2026-08-18
+- Zeiterfassungs-Import um intelligente Duplikat-Erkennung und Konflikt-Lösung erweitert: 100% identische Zeilen werden automatisch übersprungen, neue Tage automatisch übernommen; bei abweichenden Zeiten am selben Tag öffnet sich vor dem Speichern ein Konflikt-Modal mit Gegenüberstellung (Bestehend vs. Import), Einzelentscheidung (Bestehenden behalten / Durch Import ersetzen / Beide behalten) und globalen Sammel-Aktionen für alle Konflikte
+- Nichts wird gespeichert, solange ungelöste Konflikte offen sind - erst nach der Entscheidung landet der komplette Import (inkl. eindeutig neuer Zeilen) gesammelt in der Datenbank
+- Abschluss-Toast fasst jetzt auch gelöste Konflikte mit auf (z.B. "1 Konflikt gelöst (1 ersetzt)")
+
 ## [0.68.0] - 2026-08-18
 - Neue einheitliche Dropzone-Upload-Komponente (gestrichelter Rahmen, Drag & Drop, Screenshot-Einfügen per Strg+V, Miniaturvorschau mit Dateiname/Größe, ✕ zum Entfernen) app-weit auf allen Datei-Uploads eingeführt: Feedback-/Bug-Modal, Artikelbild-Upload (Inventar), Aufbau-Fotos (Bereichs-Detailseite) und Zeiterfassungs-Import
 

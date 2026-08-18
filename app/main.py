@@ -2763,12 +2763,11 @@ def _parse_month_param(month: str, local_now):
     return month_start, next_month_start
 
 
-@app.get("/admin/timeclock")
-def admin_timeclock_page(request: Request, month: str = "", db: Session = Depends(get_db)):
-    # Nur Admin, nicht Schichtleiter: Korrekturen wirken sich direkt auf den
-    # berechneten Verdienst eines Nutzers aus (dieselbe Einschränkung wie
-    # beim Stundensatz/Sollzeit selbst).
-    admin = require_admin(request, db)
+def _build_timeclock_context(request: Request, admin, month: str, db: Session, **extra) -> dict:
+    """Baut den vollen Kontext fuer admin_timeclock.html - ausgelagert aus der
+    GET-Route, damit die Import-Analyse-Route bei gefundenen Konflikten
+    dieselbe Seite (samt Konflikt-Modal, siehe **extra) direkt zurueckgeben
+    kann, statt auf eine leere Seite umzuleiten."""
     now = ntptime.now_utc()
     local_now = now.astimezone(APP_TIMEZONE)
     month_start, next_month_start = _parse_month_param(month, local_now)
@@ -2854,7 +2853,7 @@ def admin_timeclock_page(request: Request, month: str = "", db: Session = Depend
     elif "chain_broken_at" in request.query_params:
         chain_result = {"ok": False, "broken_at_id": request.query_params["chain_broken_at"]}
 
-    return templates.TemplateResponse("admin_timeclock.html", {
+    context = {
         "request": request,
         "user": admin,
         "users": users,
@@ -2872,7 +2871,24 @@ def admin_timeclock_page(request: Request, month: str = "", db: Session = Depend
         "timeclock_user_mode": get_app_settings(db).timeclock_user_mode,
         "audit_entries": audit_entries,
         "chain_result": chain_result,
-    })
+        "import_conflicts": None,
+        "import_payload": None,
+        "import_user_name": None,
+        "import_new_count": None,
+        "import_duplicate_count": None,
+        "import_invalid_count": None,
+    }
+    context.update(extra)
+    return context
+
+
+@app.get("/admin/timeclock")
+def admin_timeclock_page(request: Request, month: str = "", db: Session = Depends(get_db)):
+    # Nur Admin, nicht Schichtleiter: Korrekturen wirken sich direkt auf den
+    # berechneten Verdienst eines Nutzers aus (dieselbe Einschränkung wie
+    # beim Stundensatz/Sollzeit selbst).
+    admin = require_admin(request, db)
+    return templates.TemplateResponse("admin_timeclock.html", _build_timeclock_context(request, admin, month, db))
 
 
 @app.get("/admin/timeclock/{user_id}/export.pdf")
@@ -3005,14 +3021,109 @@ def _parse_timeclock_import(text: str):
     return rows, skipped_invalid, None
 
 
-@app.post("/admin/timeclock/import")
-async def admin_timeclock_import(
+def _analyze_timeclock_import(db: Session, user_id: int, parsed_rows: list) -> dict:
+    """Vergleicht geparste Import-Zeilen mit den bestehenden Buchungen des
+    Mitarbeiters - gruppiert dafuer nach lokalem Kalendertag (nicht mehr nur
+    nach exakter Kommen-Zeit wie zuvor), da ein Konflikt laut Anforderung
+    genau dann vorliegt, wenn fuer denselben Tag schon eine Buchung existiert,
+    deren Zeiten aber abweichen. Vereinfachung bei mehreren bestehenden
+    Buchungen an einem Tag (Splitschicht o.ae., in der Praxis selten): die
+    zeitlich erste davon dient als Vergleichspartner fuer einen Konflikt.
+    Gibt {"new": [(clock_in_iso, clock_out_iso|None), ...], "duplicate_count": int,
+    "conflicts": [...]} zurueck - noch ohne jede DB-Aenderung."""
+    existing = db.query(models.TimeEntry).filter(models.TimeEntry.user_id == user_id).all()
+    existing_by_date: dict = {}
+    for e in existing:
+        local_date = _aware(e.clock_in).astimezone(APP_TIMEZONE).date()
+        existing_by_date.setdefault(local_date, []).append(e)
+    for day_entries in existing_by_date.values():
+        day_entries.sort(key=lambda e: e.clock_in)
+
+    new_rows = []
+    conflicts = []
+    duplicate_count = 0
+    for clock_in_naive, clock_out_naive in parsed_rows:
+        clock_in_utc = clock_in_naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+        clock_out_utc = (
+            clock_out_naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc) if clock_out_naive else None
+        )
+        local_date = clock_in_naive.date()
+        same_day = existing_by_date.get(local_date, [])
+
+        if not same_day:
+            new_rows.append((clock_in_utc.isoformat(), clock_out_utc.isoformat() if clock_out_utc else None))
+            continue
+
+        exact_match = next(
+            (e for e in same_day if _aware(e.clock_in) == clock_in_utc and _aware(e.clock_out) == clock_out_utc),
+            None,
+        )
+        if exact_match:
+            duplicate_count += 1
+            continue
+
+        existing_entry = same_day[0]
+        existing_clock_out_local = (
+            _aware(existing_entry.clock_out).astimezone(APP_TIMEZONE).strftime("%H:%M")
+            if existing_entry.clock_out else "läuft noch"
+        )
+        conflicts.append({
+            "existing_id": existing_entry.id,
+            "date_label": f"{_WEEKDAY_ABBR_DE[clock_in_naive.weekday()]}, {clock_in_naive.strftime('%d.%m.%Y')}",
+            "existing_clock_in_local": _aware(existing_entry.clock_in).astimezone(APP_TIMEZONE).strftime("%H:%M"),
+            "existing_clock_out_local": existing_clock_out_local,
+            "new_clock_in_local": clock_in_naive.strftime("%H:%M"),
+            "new_clock_out_local": clock_out_naive.strftime("%H:%M") if clock_out_naive else "läuft noch",
+            "new_clock_in_utc": clock_in_utc.isoformat(),
+            "new_clock_out_utc": clock_out_utc.isoformat() if clock_out_utc else None,
+        })
+    return {"new": new_rows, "duplicate_count": duplicate_count, "conflicts": conflicts}
+
+
+def _apply_timeclock_import_new_rows(db: Session, admin, user_id: int, new_rows: list) -> int:
+    """Fuegt bereits als eindeutig 'neu' analysierte Zeilen ein (siehe
+    _analyze_timeclock_import) - new_rows sind (clock_in_iso, clock_out_iso|None)."""
+    imported = 0
+    for clock_in_iso, clock_out_iso in new_rows:
+        entry = models.TimeEntry(
+            user_id=user_id,
+            clock_in=datetime.fromisoformat(clock_in_iso),
+            clock_out=datetime.fromisoformat(clock_out_iso) if clock_out_iso else None,
+        )
+        db.add(entry)
+        db.flush()  # damit entry.id für das Protokoll existiert
+        _log_timeclock_change(db, entry, "added", admin.id)
+        imported += 1
+    return imported
+
+
+def _timeclock_import_summary_message(
+    user_name: str, imported: int, duplicate_count: int, invalid_count: int, conflict_summary: str | None = None,
+) -> str:
+    parts = [f"{imported} {'Buchung' if imported == 1 else 'Buchungen'} für {user_name} importiert"]
+    if duplicate_count:
+        parts.append(f"{duplicate_count} Duplikat{'e' if duplicate_count != 1 else ''} übersprungen")
+    if conflict_summary:
+        parts.append(conflict_summary)
+    if invalid_count:
+        parts.append(f"{invalid_count} ungültige Zeile{'n' if invalid_count != 1 else ''} ignoriert")
+    return ", ".join(parts) + "."
+
+
+@app.post("/admin/timeclock/import/analyze")
+async def admin_timeclock_import_analyze(
     request: Request,
     user_id: int = Form(...),
     file: UploadFile = File(...),
     month: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    """Erster Schritt des Imports: liest die Datei ein und vergleicht sie mit
+    dem Bestand, schreibt aber noch nichts in die DB. Ohne Konflikte wird
+    sofort wie gehabt fertig importiert (Redirect + Toast); mit Konflikten
+    wird stattdessen dieselbe Seite mit dem Konflikt-Lösungs-Modal
+    zurückgegeben (siehe admin_timeclock.html) - der eigentliche Import
+    passiert dann erst über /admin/timeclock/import/resolve."""
     admin = require_admin(request, db)
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
@@ -3028,37 +3139,113 @@ async def admin_timeclock_import(
     if error:
         return RedirectResponse(_timeclock_redirect(month, error, "error"), status_code=302)
 
-    # Duplikat-Schutz: gleicher Mitarbeiter + exakt dieselbe Kommen-Zeit gilt
-    # als bereits erfasst (siehe Anforderung) - einmal vorab laden statt pro
-    # Zeile einzeln zu fragen, da Dateien durchaus hundert+ Zeilen haben können.
-    existing_clock_ins = {
-        _aware(ts) for (ts,) in db.query(models.TimeEntry.clock_in).filter(models.TimeEntry.user_id == user_id).all()
-    }
+    analysis = _analyze_timeclock_import(db, user_id, parsed_rows)
 
-    imported = 0
-    skipped_duplicate = 0
-    for clock_in_naive, clock_out_naive in parsed_rows:
-        clock_in_utc = clock_in_naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
-        if clock_in_utc in existing_clock_ins:
-            skipped_duplicate += 1
-            continue
-        clock_out_utc = (
-            clock_out_naive.replace(tzinfo=APP_TIMEZONE).astimezone(timezone.utc) if clock_out_naive else None
+    if not analysis["conflicts"]:
+        imported = _apply_timeclock_import_new_rows(db, admin, user_id, analysis["new"])
+        db.commit()
+        message = _timeclock_import_summary_message(
+            user.name, imported, analysis["duplicate_count"], skipped_invalid,
         )
-        entry = models.TimeEntry(user_id=user_id, clock_in=clock_in_utc, clock_out=clock_out_utc)
-        db.add(entry)
-        db.flush()  # damit entry.id für das Protokoll existiert
-        _log_timeclock_change(db, entry, "added", admin.id)
-        existing_clock_ins.add(clock_in_utc)
-        imported += 1
+        return RedirectResponse(_timeclock_redirect(month, message), status_code=302)
+
+    payload = json.dumps({
+        "user_id": user_id,
+        "month": month,
+        "new": analysis["new"],
+        "duplicate_count": analysis["duplicate_count"],
+        "invalid_count": skipped_invalid,
+        "conflicts": [
+            {
+                "existing_id": c["existing_id"],
+                "new_clock_in_utc": c["new_clock_in_utc"],
+                "new_clock_out_utc": c["new_clock_out_utc"],
+            }
+            for c in analysis["conflicts"]
+        ],
+    })
+    context = _build_timeclock_context(
+        request, admin, month, db,
+        import_conflicts=analysis["conflicts"],
+        import_payload=payload,
+        import_user_name=user.name,
+        import_new_count=len(analysis["new"]),
+        import_duplicate_count=analysis["duplicate_count"],
+        import_invalid_count=skipped_invalid,
+    )
+    return templates.TemplateResponse("admin_timeclock.html", context)
+
+
+@app.post("/admin/timeclock/import/resolve")
+def admin_timeclock_import_resolve(
+    request: Request,
+    payload: str = Form(...),
+    resolution: list[str] = Form([]),
+    db: Session = Depends(get_db),
+):
+    """Zweiter Schritt: wendet die im Konflikt-Modal getroffenen
+    Entscheidungen an (siehe admin_timeclock.html) und schreibt jetzt
+    tatsächlich in die DB - payload enthält die bei der Analyse bereits
+    klassifizierten Zeilen (siehe admin_timeclock_import_analyze), resolution
+    ist parallel zu payload["conflicts"] indiziert (eine <select>-Auswahl pro
+    Konflikt-Zeile im Formular, in derselben Reihenfolge gerendert)."""
+    admin = require_admin(request, db)
+    try:
+        data = json.loads(payload)
+    except (json.JSONDecodeError, TypeError, KeyError):
+        return RedirectResponse(_timeclock_redirect("", "Ungültige Import-Daten - bitte Datei erneut hochladen.", "error"), status_code=302)
+
+    user_id = data.get("user_id")
+    month = data.get("month", "")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return RedirectResponse(_timeclock_redirect(month, "Unbekannter Mitarbeiter.", "error"), status_code=302)
+
+    imported = _apply_timeclock_import_new_rows(db, admin, user_id, data.get("new", []))
+
+    conflicts = data.get("conflicts", [])
+    kept_existing = replaced = kept_both = 0
+    for i, conflict in enumerate(conflicts):
+        action = resolution[i] if i < len(resolution) else "keep_existing"
+        entry = db.query(models.TimeEntry).filter(models.TimeEntry.id == conflict["existing_id"]).first()
+        if action == "replace" and entry:
+            old_clock_in, old_clock_out = entry.clock_in, entry.clock_out
+            entry.clock_in = datetime.fromisoformat(conflict["new_clock_in_utc"])
+            entry.clock_out = (
+                datetime.fromisoformat(conflict["new_clock_out_utc"]) if conflict.get("new_clock_out_utc") else None
+            )
+            _log_timeclock_change(db, entry, "edited", admin.id, old_clock_in, old_clock_out)
+            replaced += 1
+        elif action == "keep_both":
+            new_entry = models.TimeEntry(
+                user_id=user_id,
+                clock_in=datetime.fromisoformat(conflict["new_clock_in_utc"]),
+                clock_out=(
+                    datetime.fromisoformat(conflict["new_clock_out_utc"]) if conflict.get("new_clock_out_utc") else None
+                ),
+            )
+            db.add(new_entry)
+            db.flush()
+            _log_timeclock_change(db, new_entry, "added", admin.id)
+            kept_both += 1
+        else:
+            kept_existing += 1
     db.commit()
 
-    parts = [f"{imported} {'Buchung' if imported == 1 else 'Buchungen'} für {user.name} importiert"]
-    if skipped_duplicate:
-        parts.append(f"{skipped_duplicate} Duplikat{'e' if skipped_duplicate != 1 else ''} übersprungen")
-    if skipped_invalid:
-        parts.append(f"{skipped_invalid} ungültige Zeile{'n' if skipped_invalid != 1 else ''} ignoriert")
-    message = ", ".join(parts) + "."
+    conflict_summary = None
+    if conflicts:
+        detail_parts = []
+        if replaced:
+            detail_parts.append(f"{replaced} ersetzt")
+        if kept_both:
+            detail_parts.append(f"{kept_both} beide behalten")
+        if kept_existing:
+            detail_parts.append(f"{kept_existing} bestehend behalten")
+        conflict_summary = f"{len(conflicts)} Konflikt{'e' if len(conflicts) != 1 else ''} gelöst ({', '.join(detail_parts)})"
+
+    message = _timeclock_import_summary_message(
+        user.name, imported, data.get("duplicate_count", 0), data.get("invalid_count", 0), conflict_summary,
+    )
     return RedirectResponse(_timeclock_redirect(month, message), status_code=302)
 
 

@@ -133,7 +133,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <form method="post" action="/admin/timeclock/import" enctype="multipart/form-data" class="p-4 space-y-3">
+    <form method="post" action="/admin/timeclock/import/analyze" enctype="multipart/form-data" class="p-4 space-y-3">
       <input type="hidden" name="month" value="{{ month_value }}">
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Mitarbeiter</label>
@@ -147,13 +147,71 @@
         {{ dz.dropzone("file", "tc-import-file", accept=".txt,.csv", required=True, label="Datei hierher ziehen, durchsuchen oder mit Strg+V einfügen") }}
         <p class="text-[11px] text-slate-500 mt-1">
           Export aus „Zeiterfassung Pro“ (DynamicG), z.B. <code class="bg-ink border border-line rounded px-1">timerec-workunits-pro.txt</code>.
-          Bereits vorhandene Buchungen (gleicher Mitarbeiter + exakt gleiche Kommen-Zeit) werden automatisch übersprungen.
+          Bereits vorhandene Buchungen (gleicher Mitarbeiter + exakt gleiche Zeiten) werden automatisch übersprungen,
+          bei abweichenden Zeiten am selben Tag fragen wir vor dem Speichern nach.
         </p>
       </div>
-      <button type="submit" class="w-full px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Importieren</button>
+      <button type="submit" class="w-full px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Weiter</button>
     </form>
   </div>
 </div>
+
+{% if import_conflicts %}
+<!-- Konflikt-Modal: Ergebnis von POST /admin/timeclock/import/analyze, wenn
+     fuer denselben Tag bereits eine Buchung mit abweichenden Zeiten existiert.
+     Neue/Duplikat-Zeilen sind zu diesem Zeitpunkt noch NICHT gespeichert -
+     das passiert erst gesammelt beim Absenden dieses Formulars (siehe
+     POST /admin/timeclock/import/resolve). -->
+<div id="tc-conflict-overlay" class="fixed inset-0 bg-black/50 z-40"></div>
+<div id="tc-conflict-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="w-full max-w-2xl rounded-xl border border-line bg-panel shadow-xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-4 py-3.5 border-b border-line sticky top-0 bg-panel">
+      <h2 class="font-display font-medium">Import-Konflikte für {{ import_user_name }}</h2>
+      <button type="button" id="tc-conflict-close" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Import abbrechen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form method="post" action="/admin/timeclock/import/resolve" class="p-4 space-y-3">
+      <input type="hidden" name="payload" value="{{ import_payload }}">
+      <p class="text-[11px] text-slate-500">
+        {{ import_new_count }} neue Buchung{{ "en" if import_new_count != 1 else "" }} werden automatisch übernommen,
+        {{ import_duplicate_count }} Duplikat{{ "e" if import_duplicate_count != 1 else "" }} automatisch übersprungen{% if import_invalid_count %},
+        {{ import_invalid_count }} ungültige Zeile{{ "n" if import_invalid_count != 1 else "" }} ignoriert{% endif %}.
+        Für {{ import_conflicts|length }} Tag{{ "e" if import_conflicts|length != 1 else "" }} bitte einzeln entscheiden:
+      </p>
+      <div class="flex items-center gap-2 flex-wrap pb-3 border-b border-line">
+        <span class="text-[11px] text-slate-500 shrink-0">Für alle:</span>
+        <button type="button" class="tc-conflict-bulk px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-xs font-medium" data-value="keep_existing">Alle bestehenden behalten</button>
+        <button type="button" class="tc-conflict-bulk px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-xs font-medium" data-value="replace">Alle durch Import überschreiben</button>
+        <button type="button" class="tc-conflict-bulk px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-xs font-medium" data-value="keep_both">Alle beide behalten</button>
+      </div>
+      <div class="space-y-2">
+        {% for c in import_conflicts %}
+        <div class="rounded-lg border border-line p-3">
+          <div class="text-sm font-medium mb-2">{{ c.date_label }}</div>
+          <div class="grid grid-cols-2 gap-3 text-sm mb-2.5">
+            <div class="rounded-md bg-ink/40 border border-line px-2.5 py-2">
+              <div class="text-[11px] text-slate-500 mb-0.5">Bestehender Eintrag</div>
+              <div class="text-slate-200">{{ c.existing_clock_in_local }}–{{ c.existing_clock_out_local }} Uhr</div>
+            </div>
+            <div class="rounded-md bg-ink/40 border border-line px-2.5 py-2">
+              <div class="text-[11px] text-slate-500 mb-0.5">Neuer Import-Eintrag</div>
+              <div class="text-slate-200">{{ c.new_clock_in_local }}–{{ c.new_clock_out_local }} Uhr</div>
+            </div>
+          </div>
+          <select name="resolution" class="tc-conflict-select w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="keep_existing" selected>Bestehenden behalten</option>
+            <option value="replace">Durch Import ersetzen</option>
+            <option value="keep_both">Beide behalten</option>
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="submit" class="w-full px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Übernehmen</button>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 <!-- Slide-Over Drawer: gemeinsames Formular fuer Anlegen und Bearbeiten -->
 <div id="tc-drawer-overlay" class="hidden fixed inset-0 bg-black/50 z-40"></div>
@@ -355,6 +413,32 @@
     overlay.addEventListener('click', closeModal);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+  })();
+
+  // Konflikt-Modal (siehe admin_timeclock.html-Block "import_conflicts"):
+  // wird nur bei tatsaechlichen Konflikten server-seitig mitgerendert, ist
+  // dann sofort sichtbar - kein Oeffnen per Klick noetig. "Abbrechen"
+  // schliesst es nur optisch (der Server hat bei Konflikten noch nichts
+  // gespeichert, ein erneuter Import-Versuch startet einfach neu).
+  (function () {
+    var closeBtn = document.getElementById('tc-conflict-close');
+    if (!closeBtn) return;
+    var overlay = document.getElementById('tc-conflict-overlay');
+    var modal = document.getElementById('tc-conflict-modal');
+
+    function closeModal() {
+      overlay.classList.add('hidden');
+      modal.classList.add('hidden');
+    }
+    closeBtn.addEventListener('click', closeModal);
+
+    document.querySelectorAll('.tc-conflict-bulk').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.tc-conflict-select').forEach(function (sel) {
+          sel.value = btn.dataset.value;
+        });
+      });
     });
   })();
 </script>
