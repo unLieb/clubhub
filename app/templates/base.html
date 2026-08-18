@@ -15,6 +15,7 @@
 <title>{% block title %}ClubHUB{% endblock %}</title>
 <link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/static/style.css?v={{ app_build_hash }}">
+<script src="/static/dropzone.js?v={{ app_build_hash }}" defer></script>
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#12161f">
 <!-- iOS unterstützt den Web-App-Manifest-Standard nur teilweise - diese
@@ -52,6 +53,13 @@
     background-color: color-mix(in oklab, var(--color-go) 15%, transparent);
     border-color: color-mix(in oklab, var(--color-go) 50%, transparent);
   }
+  /* Dropzone-Komponente (siehe _dropzone_macros.html + static/dropzone.js):
+     Drag-Over-Status per eigener Klasse statt dynamisch getoggelter
+     Tailwind-Utilities, aus demselben Grund wie .push-toggle-btn oben. */
+  .dropzone-area.dropzone-drag-over {
+    border-color: var(--color-go);
+    background-color: color-mix(in oklab, var(--color-go) 8%, transparent);
+  }
 </style>
 </head>
 <body class="bg-bg text-slate-100 font-body min-h-screen" data-vapid-key="{{ vapid_public_key() if user else '' }}">
@@ -65,6 +73,7 @@
   </div>
 </div>
 
+{% import "_dropzone_macros.html" as dz %}
 {% if user %}
 <!-- Schwebender Feedback-Button + Modal: fuer jeden eingeloggten Nutzer,
      nicht nur Admins - soll ein niedrigschwelliger Sammelpunkt fuer Bugs und
@@ -120,7 +129,7 @@
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Screenshot (optional)</label>
-        <input type="file" name="photos" accept="image/*" multiple class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+        {{ dz.dropzone("photos", "feedback-photos", accept="image/*", multiple=True, label="Screenshot hierher ziehen, durchsuchen oder mit Strg+V einfügen") }}
       </div>
       <button type="submit" class="w-full px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Absenden</button>
     </form>

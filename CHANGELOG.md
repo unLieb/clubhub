@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.68.0] - 2026-08-18
+- Neue einheitliche Dropzone-Upload-Komponente (gestrichelter Rahmen, Drag & Drop, Screenshot-Einfügen per Strg+V, Miniaturvorschau mit Dateiname/Größe, ✕ zum Entfernen) app-weit auf allen Datei-Uploads eingeführt: Feedback-/Bug-Modal, Artikelbild-Upload (Inventar), Aufbau-Fotos (Bereichs-Detailseite) und Zeiterfassungs-Import
+
 ## [0.67.0] - 2026-08-18
 - Feedback-/Bug-Modal: Screenshots lassen sich jetzt optional anhängen (mehrere möglich), erscheinen als Thumbnails in Verwaltung > Feedback und werden im "Als Claude-Prompt kopieren"-Text erwähnt
 - Entwickler sehen jetzt wie Admins die komplette Backup/Wiederherstellung-Sektion unter Verwaltung > System (automatische Sicherungen, manuelles Backup, Struktur-Export/-Import) inkl. aller zugehörigen Aktionen - Schichtleiter weiterhin ausgeschlossen

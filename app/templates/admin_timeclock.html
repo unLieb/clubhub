@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Zeiterfassung – Verwaltung{% endblock %}
 {% block content %}
+{% import "_dropzone_macros.html" as dz %}
 
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <div class="flex items-start justify-between gap-3 mt-2 mb-1">
@@ -143,7 +144,7 @@
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Export-Datei</label>
-        <input type="file" name="file" accept=".txt,.csv" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+        {{ dz.dropzone("file", "tc-import-file", accept=".txt,.csv", required=True, label="Datei hierher ziehen, durchsuchen oder mit Strg+V einfügen") }}
         <p class="text-[11px] text-slate-500 mt-1">
           Export aus „Zeiterfassung Pro“ (DynamicG), z.B. <code class="bg-ink border border-line rounded px-1">timerec-workunits-pro.txt</code>.
           Bereits vorhandene Buchungen (gleicher Mitarbeiter + exakt gleiche Kommen-Zeit) werden automatisch übersprungen.

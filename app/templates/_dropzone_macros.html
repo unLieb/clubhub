@@ -1,0 +1,33 @@
+{#
+  Einheitliche Dropzone-Upload-Komponente. Zugehöriges JS: app/static/
+  dropzone.js (in base.html eingebunden, initialisiert sich selbst für
+  jedes ".dropzone"-Element im DOM). Zugehöriges CSS für den Drag-Over-
+  Status: base.html <style>-Block (".dropzone-drag-over").
+
+  Parameter:
+    name      - name-Attribut des <input type="file">
+    id        - eindeutiges Präfix für IDs/aria-label auf dieser Seite
+    accept    - z.B. "image/*" oder ".txt,.csv" (optional)
+    multiple  - mehrere Dateien erlauben (Standard: false)
+    label     - Haupttext im Dropzone-Bereich (optional, hat Standardtext)
+    hint      - kleinerer Zusatztext darunter (optional)
+    required  - input als Pflichtfeld markieren (Standard: false)
+#}
+{% macro dropzone(name, id, accept='', multiple=False, label=None, hint=None, required=False) %}
+<div class="dropzone">
+  <input type="file" name="{{ name }}" id="{{ id }}-input"
+    {% if accept %}accept="{{ accept }}"{% endif %}
+    {% if multiple %}multiple{% endif %}
+    {% if required %}required{% endif %}
+    class="hidden">
+  <div class="dropzone-area cursor-pointer rounded-lg border-2 border-dashed border-line hover:border-go/50 bg-panel2/30 px-4 py-6 text-center transition-colors focus:outline-none focus:border-go/60"
+    tabindex="0" role="button" aria-label="{{ label or 'Datei hochladen' }}">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-slate-500">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <p class="text-sm text-slate-300">{{ label or "Datei hierher ziehen, durchsuchen oder mit Strg+V einfügen" }}</p>
+    {% if hint %}<p class="text-[11px] text-slate-500 mt-1">{{ hint }}</p>{% endif %}
+  </div>
+  <div class="dropzone-previews hidden mt-2 space-y-1.5"></div>
+</div>
+{% endmacro %}

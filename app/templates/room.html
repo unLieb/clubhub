@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ room.name }} – ClubHUB{% endblock %}
 {% block content %}
+{% import "_dropzone_macros.html" as dz %}
 
 {% set can_manage_tasks = user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
 {% set can_delete_tasks = user and (user.is_admin or user.is_developer) %}
@@ -155,7 +156,7 @@
         <textarea name="note" placeholder="Notiz (optional) – ein Stichpunkt pro Zeile, z.B.&#10;24 Tische à 8 Personen&#10;Bühne links&#10;Garderobe im Flur" rows="3" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
         <div>
           <label class="block text-[11px] text-slate-400 mb-1">Bilder (optional, mehrere möglich)</label>
-          <input type="file" name="photos" accept="image/*" multiple class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+          {{ dz.dropzone("photos", "setup-new-photos", accept="image/*", multiple=True) }}
         </div>
         <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Aufbau anlegen</button>
       </form>
@@ -183,7 +184,7 @@
         <textarea name="note" placeholder="Notiz für diesen Bereich (optional) – ein Stichpunkt pro Zeile" rows="3" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
         <div>
           <label class="block text-[11px] text-slate-400 mb-1">Bilder für diesen Bereich (optional, mehrere möglich)</label>
-          <input type="file" name="photos" accept="image/*" multiple class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+          {{ dz.dropzone("photos", "setup-attach-photos", accept="image/*", multiple=True) }}
         </div>
         <button class="px-3 py-1.5 rounded-md bg-accent/90 hover:bg-accent text-oncolor text-sm font-medium">Diesem Bereich hinzufügen</button>
       </form>

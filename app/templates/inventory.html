@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Inventar – ClubHUB{% endblock %}
 {% block content %}
+{% import "_dropzone_macros.html" as dz %}
 
 {% macro status_label(s) -%}
   {%- if s == 'empty' -%}Bestand leer
@@ -200,7 +201,7 @@
           <form method="post" action="/inventory/{{ item.id }}/image" enctype="multipart/form-data" class="space-y-2">
             <div>
               <label class="block text-[11px] text-slate-400 mb-1">Bild hochladen</label>
-              <input type="file" name="image_file" accept="image/*" class="w-full text-xs text-slate-300">
+              {{ dz.dropzone("image_file", "inv-image-" ~ item.id, accept="image/*", label="Bild ziehen, wählen oder einfügen (Strg+V)") }}
             </div>
             <div class="text-center text-[10px] text-slate-500">oder</div>
             <div>
