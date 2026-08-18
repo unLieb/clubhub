@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.73.1] - 2026-08-18
+- Fix: Aufgaben-Karten auf der Bereichs-Detailseite liefen auf schmalen Bildschirmen über den rechten Rand hinaus, sobald zusätzlich zum Aufgabennamen ein "Nach Bedarf"- oder Wochentags-Badge angezeigt wurde – dabei wurden "Erledigt"-Button und Kebab-Menü teilweise oder komplett aus dem sichtbaren Bereich gedrängt. Die Titelzeile bricht jetzt sauber um.
+
 ## [0.73.0] - 2026-08-18
 - Mobiles Dashboard neu priorisiert: ganz oben direkt unter dem Header steht jetzt ein "Heute anstehend"-Block mit Terminen für heute und überfälligen Reinigungen, danach folgen die KPI-Kacheln (2x2), Bereiche-Schnellzugriff, eine Termine-Vorschau samt offenen Meldungen und ganz unten die letzten Reinigungen. Desktop-Ansicht unverändert.
 - Sidebar: Versionsnummer (`v{{ app_version }}`) steht jetzt als kleiner, dezenter Subtext direkt unter dem "ClubHUB"-Schriftzug statt rechts daneben.
