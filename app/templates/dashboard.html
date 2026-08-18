@@ -13,6 +13,46 @@
   <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
 </div>
 
+{% if user %}
+<!-- "Heute anstehend": auf dem Handy ganz oben direkt unter dem Header -
+     Termine heute/binnen 24h + überfällige Reinigungen sind unmittelbar
+     handlungsrelevant, alles andere folgt weiter unten (siehe Reihenfolge
+     der übrigen lg:hidden-/hidden lg:block-Bloecke in dieser Datei). -->
+{% if todays_appointments or overdue_tasks %}
+<div class="lg:hidden rounded-xl border border-line bg-panel p-3 mb-6 space-y-3">
+  <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Heute anstehend</div>
+
+  {% if todays_appointments %}
+  <div class="space-y-1.5">
+    {% for a in todays_appointments %}
+    <div class="flex items-center gap-2 bg-accent/10 border border-accent/30 rounded-lg px-3 py-2">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="text-sm text-slate-200 truncate">{{ a.name }}</span>
+      <span class="ml-auto text-[11px] text-accent font-medium whitespace-nowrap">Heute</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if overdue_tasks %}
+  <div class="space-y-1.5">
+    {% for entry in overdue_tasks %}
+    {% set t = entry.task %}
+    <a href="/room/{{ t.room.id }}" class="flex items-center justify-between bg-late/10 border border-late/30 rounded-lg px-3 py-2 active:bg-late/20">
+      <div class="min-w-0">
+        <div class="text-sm text-slate-200 truncate">{{ t.room.name }}</div>
+        <div class="text-xs text-slate-500 truncate">{{ t.name }}</div>
+        <div class="text-xs text-late truncate">{{ entry.duration_text }}</div>
+      </div>
+      <span class="shrink-0 text-xs px-3 py-1.5 rounded-md bg-late/90 text-white font-medium">Reinigen</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
 {% if user and (device_authorized or timeclock_user_mode) %}
 <!-- Ein-/Ausstempeln: im Terminal-Modus nur auf dem autorisierten Gerät,
      im Nutzer-Modus auf jedem eigenen, eingeloggten Gerät sichtbar -->
@@ -142,7 +182,11 @@
 {% endif %}
 
 {% if upcoming_appointments %}
-<div class="rounded-xl border border-line bg-panel p-4 mb-6">
+<!-- Auf dem Handy ersetzt durch die kompakte "Termine (Vorschau)"-Karte
+     weiter unten (nur zukünftige, nicht-heutige Termine - "heute" steht
+     bereits ganz oben im "Heute anstehend"-Block) sowie den Eintrag im
+     "Heute anstehend"-Block selbst. -->
+<div class="hidden lg:block rounded-xl border border-line bg-panel p-4 mb-6">
   <div class="flex items-center justify-between mb-3">
     <h3 class="font-display font-medium flex items-center gap-2">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -161,24 +205,23 @@
 </div>
 {% endif %}
 
-<!-- Überfällig + offene Meldungen: auf dem Handy weit oben, weil direkt handlungsrelevant -->
-{% if overdue_tasks %}
-<div class="lg:hidden rounded-xl border border-late/40 bg-late/10 p-3 mb-6 space-y-2">
-  <div class="flex items-center gap-1.5 text-late text-sm font-medium">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
-    Überfällig
+<!-- Termine (Vorschau) + offene Meldungen: auf dem Handy direkt vor der
+     Bereiche-/Meldungen-Uebersicht, wie im "Heute anstehend"-Block oben
+     bereits die dringendsten Punkte vorweggenommen wurden. -->
+{% if future_appointments %}
+<div class="lg:hidden rounded-xl border border-line bg-panel p-3 mb-6">
+  <div class="flex items-center justify-between mb-2">
+    <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Termine (Vorschau)</div>
+    <a href="/appointments" class="text-xs text-slate-400 hover:text-slate-100">Alle &rarr;</a>
   </div>
-  {% for entry in overdue_tasks %}
-  {% set t = entry.task %}
-  <a href="/room/{{ t.room.id }}" class="flex items-center justify-between bg-panel rounded-lg px-3 py-2.5 active:bg-panel2">
-    <div class="min-w-0">
-      <div class="text-sm truncate">{{ t.room.name }}</div>
-      <div class="text-xs text-slate-500 truncate">{{ t.name }}</div>
-      <div class="text-xs text-late truncate">{{ entry.duration_text }}</div>
-    </div>
-    <span class="shrink-0 text-xs px-3 py-1.5 rounded-md bg-late/90 text-white font-medium">Reinigen</span>
-  </a>
-  {% endfor %}
+  <ul class="space-y-1.5 text-sm">
+    {% for a in future_appointments %}
+    <li class="flex items-center justify-between gap-3">
+      <span class="text-slate-300 truncate">{{ a.name }}</span>
+      <span class="text-slate-500 text-xs whitespace-nowrap">{{ (a.date|localtime).strftime("%d.%m.%Y") }}</span>
+    </li>
+    {% endfor %}
+  </ul>
 </div>
 {% endif %}
 

@@ -710,9 +710,19 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
     now_local_date = now.astimezone(APP_TIMEZONE).date()
-    upcoming_appointments = [
+    all_upcoming_appointments = [
         a for a in db.query(models.Appointment).order_by(models.Appointment.date.asc()).all()
         if _aware(a.date).astimezone(APP_TIMEZONE).date() >= now_local_date
+    ]
+    upcoming_appointments = all_upcoming_appointments[:5]
+    # Fuer den mobilen "Heute anstehend"-Block (siehe dashboard.html) getrennt
+    # nach heute (alle) und rein zukuenftig (Vorschau, gedeckelt) - vermeidet
+    # doppelte Anzeige desselben Termins in beiden Bloecken.
+    todays_appointments = [
+        a for a in all_upcoming_appointments if _aware(a.date).astimezone(APP_TIMEZONE).date() == now_local_date
+    ]
+    future_appointments = [
+        a for a in all_upcoming_appointments if _aware(a.date).astimezone(APP_TIMEZONE).date() != now_local_date
     ][:5]
 
     on_vacation_now = [
@@ -755,6 +765,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         },
         "recent_reports": open_reports[:5],
         "upcoming_appointments": upcoming_appointments,
+        "todays_appointments": todays_appointments,
+        "future_appointments": future_appointments,
         "on_vacation_now": on_vacation_now,
         "greeting": greeting_for_now(now),
         "pending_tasks_count": due_soon_count + overdue_count,

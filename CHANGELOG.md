@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.73.0] - 2026-08-18
+- Mobiles Dashboard neu priorisiert: ganz oben direkt unter dem Header steht jetzt ein "Heute anstehend"-Block mit Terminen für heute und überfälligen Reinigungen, danach folgen die KPI-Kacheln (2x2), Bereiche-Schnellzugriff, eine Termine-Vorschau samt offenen Meldungen und ganz unten die letzten Reinigungen. Desktop-Ansicht unverändert.
+- Sidebar: Versionsnummer (`v{{ app_version }}`) steht jetzt als kleiner, dezenter Subtext direkt unter dem "ClubHUB"-Schriftzug statt rechts daneben.
+
 ## [0.72.0] - 2026-08-18
 - Zeiterfassung (Verwaltung): Monatswechsel (Pfeile, Monats-Picker, "Aktueller Monat") läuft jetzt ohne Full-Page-Reload – die Tabelle samt KPIs wird per fetch() nachgeladen, während des Ladens dezent abgedunkelt (opacity-50, kein Layout-Sprung), die URL wird dabei lautlos per history.replaceState synchron gehalten (Link bleibt teilbar). Pilot-Umsetzung für ein Muster, das bei Bedarf auf weitere Seiten (Historie, Inventar, Bereiche) übertragen werden kann.
 
