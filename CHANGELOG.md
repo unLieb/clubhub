@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.71.2] - 2026-08-18
+- "Daten"-Dropdown (Zeiterfassung): Beschriftungen vereinheitlicht ("Importieren (.txt / .csv)" / "Exportieren (.txt / .csv)")
+- CSV-Export ist jetzt strukturgleich mit dem Import und direkt re-importierbar: Kopfzeile beginnt mit "#" und benennt die Zeit-Spalten CHECKIN/CHECKOUT statt Kommen/Gehen, damit der Import-Parser die exportierte Datei unverändert wieder einlesen kann
+
 ## [0.71.1] - 2026-08-18
 - Feinschliff am "Daten"-Dropdown (Zeiterfassung): Emoji-Icons durch saubere System-Icons ersetzt (Cloud-Upload, Tabellenblatt, Dokument) und das Menü explizit rechtsbündig unter dem Button ausgerichtet
 

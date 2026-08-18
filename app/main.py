@@ -2907,7 +2907,10 @@ def admin_timeclock_export_csv(request: Request, month: str = "", user_id: int =
     den gerade angezeigten Monat sowie den optionalen Mitarbeiter-Filter der
     Tabelle (siehe admin_timeclock.html, folgt per JS demselben Dropdown wie
     der PDF-Export). "Notizen" ist aktuell immer leer, da TimeEntry (noch)
-    kein Notiz-Feld hat - Spalte bleibt trotzdem stehen, wie angefordert."""
+    kein Notiz-Feld hat - Spalte bleibt trotzdem stehen, wie angefordert.
+    Kopfzeile beginnt mit '#' und nennt die Kommen/Gehen-Spalten CHECKIN/
+    CHECKOUT, damit _parse_timeclock_import die Datei unveraendert wieder
+    einlesen kann (Re-Import-Kompatibilitaet)."""
     require_admin(request, db)
     now = ntptime.now_utc()
     local_now = now.astimezone(APP_TIMEZONE)
@@ -2933,7 +2936,7 @@ def admin_timeclock_export_csv(request: Request, month: str = "", user_id: int =
         # Pipe im Namen/Notiz waere sonst faelschlich ein Spaltentrenner.
         return (value or "").replace("|", "/")
 
-    lines = ["Datum|Mitarbeiter|Kommen|Gehen|Dauer_Minuten|Dauer_Formatiert|Notizen"]
+    lines = ["#Datum|Mitarbeiter|Checkin|Checkout|Dauer_Minuten|Dauer_Formatiert|Notizen"]
     for e in entries:
         clock_in_local = _aware(e.clock_in).astimezone(APP_TIMEZONE)
         clock_out_local = _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None
