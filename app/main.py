@@ -1892,12 +1892,33 @@ def inventory_adjust(
 ):
     user = require_login(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
-    if item and user_can_see_inventory_item(user, item):
-        item.stock_current += delta
-        db.add(models.InventoryMovement(item_id=item.id, user_id=user.id, delta=delta, note=note or None))
-        if item.stock_current >= item.stock_min:
-            item.notified = False
-        db.commit()
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    if not item or not user_can_see_inventory_item(user, item):
+        if is_fetch:
+            raise HTTPException(status_code=404)
+        return RedirectResponse("/inventory", status_code=302)
+
+    item.stock_current += delta
+    db.add(models.InventoryMovement(item_id=item.id, user_id=user.id, delta=delta, note=note or None))
+    if item.stock_current >= item.stock_min:
+        item.notified = False
+    db.commit()
+
+    if is_fetch:
+        # Nur die betroffene Karte als Fragment zurueckgeben (siehe
+        # _inventory_card.html) statt eines Redirects - so bleibt die
+        # Scroll-Position beim Buchen erhalten und nur diese eine Karte wird
+        # im Browser ersetzt, ohne das gesamte Grid neu zu rendern.
+        now = ntptime.now_utc()
+        consumption = compute_inventory_consumption(item, now)
+        return templates.TemplateResponse("_inventory_card.html", {
+            "request": request,
+            "user": user,
+            "item": item,
+            "st": compute_inventory_status(item),
+            "chart": build_consumption_chart(consumption),
+            "consumption": consumption,
+        })
     return RedirectResponse("/inventory", status_code=302)
 
 

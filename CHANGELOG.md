@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.79.1] - 2026-08-19
+- Fix: Das Buchen von Inventar-Bestand (`/inventar`, „Buchen“-Button je Artikel) lief per echtem Formular-POST und sprang danach an den Seitenanfang zurück. Läuft jetzt per fetch() ohne Full-Page-Reload: Scroll-Position bleibt exakt erhalten, nur die betroffene Artikel-Karte (Ist-Bestand, Fortschrittsbalken, Status-Badge „Im Soll“/„Niedriger Bestand“) wird ausgetauscht statt des gesamten Grids – eine aufgeklappte „Details“-Ansicht bleibt dabei offen.
+
 ## [0.79.0] - 2026-08-19
 - Monats-/Freier-Zeitraum-Filter und PDF-Export in der Zeiterfassung sind jetzt in Mitarbeiter- (`/timeclock`) und Admin-Ansicht (`/admin/timeclock`) identisch implementiert (gemeinsame Filterleiste + gemeinsames JS-Modul statt zweier Parallel-Implementierungen).
 - Admin kann jetzt ebenfalls zwischen „Monat“ und „Freier Zeitraum“ (Von/Bis) umschalten, um flexible Abrechnungszeiträume oder Berichte einzusehen – vorher war die Admin-Ansicht fest auf Monate beschränkt.

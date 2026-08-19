@@ -1,0 +1,28 @@
+{# Status-Darstellung fuer Inventar-Karten (siehe status.compute_inventory_status):
+   'low' = Ist-Bestand auf/unter Mindestbestand -> rot, 'ok' = darueber -> gruen.
+   Gemeinsam genutzt von inventory.html (Grid) und _inventory_card.html
+   (Einzel-Karten-Fragment fuer den asynchronen "Buchen"-Update), damit beide
+   garantiert dieselbe Darstellung verwenden. #}
+{% macro status_label(s) -%}
+  {%- if s == 'low' -%}Niedriger Bestand
+  {%- else -%}Im Soll
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro status_classes(s) -%}
+  {%- if s == 'low' -%}bg-late/15 text-late
+  {%- else -%}bg-go/15 text-go
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro bar_classes(s) -%}
+  {%- if s == 'low' -%}bg-late
+  {%- else -%}bg-go
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro border_classes(s) -%}
+  {%- if s == 'low' -%}border-l-late
+  {%- else -%}border-l-go
+  {%- endif -%}
+{%- endmacro %}
