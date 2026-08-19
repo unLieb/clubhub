@@ -41,6 +41,13 @@ task_group = Table(
     Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
 )
 
+appointment_group = Table(
+    "appointment_group",
+    Base.metadata,
+    Column("appointment_id", Integer, ForeignKey("appointments.id"), primary_key=True),
+    Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
+)
+
 # Persönliche Sichtbarkeits-Einstellung (kein Recht, keine Admin-Vergabe):
 # jeder Nutzer kann für sich selbst Gruppen im Inventar ausblenden, die ihn
 # nicht interessieren (z.B. eine Führungskraft, die andere Gruppen verwaltet,
@@ -334,8 +341,14 @@ class Report(Base):
     status = Column(String, default="open")             # "open" | "in_progress" | "done"
     # Zuständige Gruppe für diese konkrete Meldung (z.B. "Technik" bei einem
     # Defekt), unabhängig von den Gruppen des Bereichs - None = wie bisher an
-    # die Bereichsgruppen melden.
+    # die Bereichsgruppen melden ("Automatisch (Bereich)" im Formular).
     assigned_group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    # "Alle (Betriebsweit)" im Formular - explizit an ALLE Gruppen statt nur
+    # an die zuständige/Bereichsgruppe, unabhängig von assigned_group_id (bei
+    # is_company_wide=True bleibt assigned_group_id None). Bewusst ein
+    # eigenes Boolean statt eines Sentinel-Werts in assigned_group_id, da
+    # das eine echte FK auf eine konkrete Gruppe bleiben soll.
+    is_company_wide = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -506,11 +519,22 @@ class Appointment(Base):
     date = Column(DateTime(timezone=True), nullable=False)
     recurrence_days = Column(Integer, nullable=True)   # None = einmalig
     notify_days_before = Column(Float, default=1.0)
+    # Veraltet seit der Mehrfach-Gruppenauswahl (siehe groups/appointment_group
+    # unten) - bleibt nur als Grundlage fuer die einmalige Backfill-Migration
+    # (_migrate_appointment_groups_backfill in main.py) stehen, wird von
+    # neuem Code nie wieder geschrieben oder gelesen.
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    # "Alle (Betriebsweit)" im Formular - wie bei Report.is_company_wide ein
+    # eigenes Boolean statt eines Sentinel-Werts, unabhaengig von groups
+    # (bei is_company_wide=True bleibt groups leer).
+    is_company_wide = Column(Boolean, default=False)
     notified = Column(Boolean, default=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    group = relationship("Group")
+    # Mehrere Gruppen gleichzeitig auswaehlbar (z.B. Gastro + Kueche) - leer
+    # UND is_company_wide=False bedeutet privat (nur Ersteller + Admins,
+    # siehe user_can_see_appointment).
+    groups = relationship("Group", secondary=appointment_group)
     user = relationship("User")
 
 

@@ -7,9 +7,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
-from .models import Task, TaskGroupNotice, InventoryItem, Appointment
+from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group
 from .status import task_status, compute_inventory_status
-from .notifications import notify_group, notify_user
+from .notifications import notify_group, notify_groups, notify_user
 from . import ntptime
 from . import backup
 
@@ -156,7 +156,12 @@ def check_appointments_job():
 
             if appt.notified or days_until > (appt.notify_days_before or 0):
                 continue
-            if appt.group and not _within_working_hours(appt.group, now_local):
+            # Arbeitszeit-Fenster nur bei genau einer Zielgruppe pruefbar - bei
+            # mehreren Gruppen oder "Alle (Betriebsweit)" koennten sich die
+            # Fenster widersprechen, dort wird sofort benachrichtigt statt die
+            # Logik pro Gruppe aufzusplitten (Termin bleibt eine einzelne,
+            # gemeinsame Erinnerung).
+            if len(appt.groups) == 1 and not appt.is_company_wide and not _within_working_hours(appt.groups[0], now_local):
                 continue  # wird beim nächsten Tick nachgeholt, sobald Arbeitszeit beginnt
 
             if days_until == 0:
@@ -167,8 +172,12 @@ def check_appointments_job():
                 when = f"in {days_until} Tagen"
             title = f"Termin: {appt.name}"
             msg = f"{when} ({date_local.strftime('%d.%m.%Y')})"
-            if appt.group:
-                notify_group(appt.group, title, msg, url="/appointments")
+            if appt.is_company_wide:
+                all_groups = db.query(Group).all()
+                if all_groups:
+                    notify_groups(all_groups, title, msg, url="/appointments")
+            elif appt.groups:
+                notify_groups(appt.groups, title, msg, url="/appointments")
             else:
                 notify_user(appt.user, title, msg, url="/appointments")
             appt.notified = True

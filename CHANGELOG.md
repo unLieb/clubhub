@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.81.0] - 2026-08-19
+- Gruppen-Auswahl bei Meldungen und Terminen vereinheitlicht: Auswahlfeld heißt jetzt in beiden Modulen "Gruppe", beide bieten neu "Alle (Betriebsweit)" für eine bewusste betriebsweite Freigabe (bei Meldungen zusätzlich zu "Automatisch (Bereich)" und einer einzelnen Gruppe).
+- Termine erlauben jetzt die Auswahl mehrerer Gruppen gleichzeitig (z.B. Gastro + Küche) statt nur einer einzigen - "- Nur ich (Privat) -" und "Alle (Betriebsweit)" bleiben als eigene, sich gegenseitig ausschließende Optionen erhalten.
+- Neu: Gruppenbasierte Sichtbarkeit für Bereiche, Meldungen und Termine (analog zum bereits bestehenden Verhalten im Inventar) - Schichtleiter/Mitarbeiter ohne Admin-Rechte sehen nur noch Bereiche/Meldungen/Termine ihrer eigenen Gruppe(n) sowie ungruppierte bzw. "Alle (Betriebsweit)"-Einträge; eigene private Termine bleiben wie bisher nur für sich selbst sichtbar. Admins behalten uneingeschränkten Zugriff auf alle Module und Gruppen.
+- Technisch: neue m:n-Tabelle für Termin-Gruppen (Altdaten aus der bisherigen Einzel-Gruppe automatisch übernommen), Gruppen-Benachrichtigungen bei mehreren Zielgruppen bzw. "Alle (Betriebsweit)" jetzt dedupliziert (kein doppelter Push mehr, wenn jemand in mehreren Zielgruppen ist oder ein Kanal mehrfach betroffen wäre).
+
 ## [0.80.1] - 2026-08-19
 - Die "±X gegenüber gestern"-Anzeige bei der Dashboard-Kachel „Erledigt heute“ entfernt: Bei „Nach Bedarf“-Aufgaben (an einem Tag nötig, am nächsten nicht) erweckte der Vergleich fälschlich den Eindruck, es sei weniger gearbeitet worden.
 

@@ -100,7 +100,8 @@ def export_data_json(db: Session) -> dict:
                 "date": _aware(a.date).isoformat(),
                 "recurrence_days": a.recurrence_days,
                 "notify_days_before": a.notify_days_before,
-                "group": a.group.name if a.group else None,
+                "groups": [g.name for g in a.groups],
+                "company_wide": a.is_company_wide,
                 "created_by": a.user.name if a.user else None,
             }
             for a in db.query(models.Appointment).all()
@@ -239,13 +240,19 @@ def import_data_json(db: Session, data: dict, selected: set, importing_user) -> 
             if (row["name"], date) in existing_appts:
                 summary["appointments"]["matched"] += 1
                 continue
-            group = group_by_name.get(row.get("group"))
+            # "groups" (Liste, Mehrfachauswahl) ist das aktuelle Format - "group"
+            # (Einzelwert) als Fallback fuer aeltere Export-Dateien von vor der
+            # Mehrfach-Gruppenauswahl.
+            group_names = row.get("groups") or ([row["group"]] if row.get("group") else [])
+            groups = [group_by_name[n] for n in group_names if n in group_by_name]
             creator = user_by_name.get(row.get("created_by")) or importing_user
-            db.add(models.Appointment(
+            appt = models.Appointment(
                 name=row["name"], date=date, recurrence_days=row.get("recurrence_days"),
                 notify_days_before=row.get("notify_days_before", 1.0),
-                group_id=group.id if group else None, user_id=creator.id,
-            ))
+                is_company_wide=row.get("company_wide", False), user_id=creator.id,
+            )
+            appt.groups = groups
+            db.add(appt)
             existing_appts.add((row["name"], date))
             summary["appointments"]["created"] += 1
 

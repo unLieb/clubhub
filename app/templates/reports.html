@@ -25,8 +25,13 @@
           {{ r.room.name }}
         </span>
         {% endif %}
-        {% if r.assigned_group %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange/15 text-orange" title="Zuständigkeit">
+        {% if r.is_company_wide %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent" title="Gruppe">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>
+          Alle (Betriebsweit)
+        </span>
+        {% elif r.assigned_group %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange/15 text-orange" title="Gruppe">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
           {{ r.assigned_group.name }}
         </span>
@@ -115,20 +120,21 @@
               {% endif %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Gemeldet von</span><span class="text-slate-300">{{ r.user.name }}</span></li>
               <li class="flex justify-between items-center gap-4">
-                <span class="text-slate-500">Zuständigkeit</span>
+                <span class="text-slate-500">Gruppe</span>
                 {% if user %}
                 <form method="post" action="/reports/{{ r.id }}/assign" class="contents">
                   <select name="assigned_group_id" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2 py-1 text-xs text-slate-300">
                     {% if r.room %}
-                    <option value="" {% if not r.assigned_group_id %}selected{% endif %}>– automatisch (Bereich) –</option>
+                    <option value="" {% if not r.assigned_group_id and not r.is_company_wide %}selected{% endif %}>– automatisch (Bereich) –</option>
                     {% endif %}
+                    <option value="all" {% if r.is_company_wide %}selected{% endif %}>Alle (Betriebsweit)</option>
                     {% for g in groups %}
                     <option value="{{ g.id }}" {% if r.assigned_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
                     {% endfor %}
                   </select>
                 </form>
                 {% else %}
-                <span class="text-slate-300">{{ r.assigned_group.name if r.assigned_group else "–" }}</span>
+                <span class="text-slate-300">{{ "Alle (Betriebsweit)" if r.is_company_wide else (r.assigned_group.name if r.assigned_group else "–") }}</span>
                 {% endif %}
               </li>
               {% if r.room and r.room.groups %}
@@ -244,9 +250,10 @@
           </select>
         </div>
         <div>
-          <label class="block text-[11px] text-slate-400 mb-1">Zuständigkeit<span id="report-f-group-hint" class="hidden text-late"> * (Pflicht bei Anschaffung)</span></label>
+          <label class="block text-[11px] text-slate-400 mb-1">Gruppe<span id="report-f-group-hint" class="hidden text-late"> * (Pflicht bei Anschaffung)</span></label>
           <select name="assigned_group_id" id="report-f-group" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             <option value="" id="report-f-group-auto">– automatisch (Bereich) –</option>
+            <option value="all">Alle (Betriebsweit)</option>
             {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
           </select>
         </div>

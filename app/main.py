@@ -34,7 +34,7 @@ from .auth import (
 )
 from .status import task_status, compute_inventory_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
-from .notifications import notify_group, notify_user
+from .notifications import notify_group, notify_groups, notify_user
 
 Base.metadata.create_all(bind=engine)
 
@@ -224,6 +224,43 @@ def _migrate_report_room_optional(db: Session):
         f"INSERT INTO reports ({column_names}) SELECT {column_names} FROM reports_pre_optional_room"
     ))
     db.execute(text("DROP TABLE reports_pre_optional_room"))
+    db.commit()
+
+
+def _migrate_report_company_wide(db: Session):
+    """Neue Option "Alle (Betriebsweit)" fuer die Meldungs-Zustaendigkeit
+    (kein Altdaten-Bezug, Standard: False - bestehende Meldungen bleiben wie
+    bisher automatisch/Bereichs- bzw. Gruppen-zugeordnet)."""
+    _ensure_column(db, "reports", "is_company_wide", "INTEGER DEFAULT 0")
+
+
+def _migrate_appointment_company_wide(db: Session):
+    """Neue Option "Alle (Betriebsweit)" fuer Termine (kein Altdaten-Bezug,
+    Standard: False)."""
+    _ensure_column(db, "appointments", "is_company_wide", "INTEGER DEFAULT 0")
+
+
+def _migrate_appointment_groups_backfill(db: Session):
+    """Uebertraegt die alte Einzel-Gruppe (appointments.group_id) einmalig in
+    die neue appointment_group-Verknuepfungstabelle (Mehrfachauswahl, siehe
+    models.Appointment.groups). Die appointment_group-Tabelle selbst legt
+    bereits create_all() an (neue m:n-Tabelle, kein ALTER TABLE noetig) -
+    hier wird nur ihr Inhalt einmalig aus group_id befuellt.
+    Idempotenz global statt pro Zeile geprueft (Tabelle noch leer?), nicht
+    pro Termin (sonst wuerde ein spaeter bewusst auf privat/betriebsweit
+    umgestelltes Alt-Termin bei jedem Neustart faelschlich wieder seine
+    alte Gruppe zurueckbekommen, siehe group_id-Kommentar in models.py -
+    group_id wird von neuem Code nie wieder geschrieben, bleibt also nach
+    dem ersten Lauf fuer immer korrekt "erledigt")."""
+    already_migrated = db.execute(text("SELECT COUNT(*) FROM appointment_group")).scalar()
+    if already_migrated:
+        return
+    rows = db.execute(text("SELECT id, group_id FROM appointments WHERE group_id IS NOT NULL")).fetchall()
+    for appointment_id, group_id in rows:
+        db.execute(
+            text("INSERT INTO appointment_group (appointment_id, group_id) VALUES (:aid, :gid)"),
+            {"aid": appointment_id, "gid": group_id},
+        )
     db.commit()
 
 
@@ -424,6 +461,9 @@ def _startup():
         _migrate_report_priority_category(db)
         _migrate_report_assigned_group(db)
         _migrate_report_room_optional(db)
+        _migrate_report_company_wide(db)
+        _migrate_appointment_company_wide(db)
+        _migrate_appointment_groups_backfill(db)
         _migrate_report_photos(db)
         _migrate_inventory_extras(db)
         _migrate_inventory_pack_size(db)
@@ -616,6 +656,25 @@ def greeting_for_now(now) -> str:
     return "Guten Abend"
 
 
+def user_can_see_room(user, room) -> bool:
+    """Nur Admin sieht alle Bereiche; alle anderen (auch Schichtleiter) nur
+    Bereiche ohne Gruppe (gemeinsam genutzt) sowie Bereiche der eigenen
+    Gruppe(n) - analog zu user_can_see_inventory_item, dasselbe Muster fuer
+    Bereiche statt Inventar-Artikel."""
+    if user and user.is_admin:
+        return True
+    if not room.groups:
+        return True
+    if not user:
+        return False
+    room_group_ids = {g.id for g in room.groups}
+    return any(g.id in room_group_ids for g in user.groups)
+
+
+def filter_rooms_for_user(rooms, user):
+    return [r for r in rooms if user_can_see_room(user, r)]
+
+
 def compute_room_statuses(rooms, now):
     """Berechnet Ampel-Status pro Bereich sowie global überfällige/bald fällige
     Aufgaben. Von Dashboard und Bereiche-Übersicht gemeinsam genutzt."""
@@ -689,9 +748,10 @@ def compute_room_statuses(rooms, now):
 
 @app.get("/")
 def dashboard(request: Request, db: Session = Depends(get_db)):
-    rooms = db.query(models.Room).all()
     now = ntptime.now_utc()
     user = get_current_user(request, db)
+    rooms = filter_rooms_for_user(db.query(models.Room).all(), user)
+    visible_room_ids = {r.id for r in rooms}
 
     timeclock_open_entry = None
     if user:
@@ -722,16 +782,29 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     today = now.date()
     today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
-    done_today = db.query(models.Completion).filter(models.Completion.timestamp >= today_start).count()
+    # Auf sichtbare Bereiche eingeschraenkt (siehe filter_rooms_for_user oben) -
+    # sonst wuerden diese Kennzahlen/der Verlauf gruppenfremde Bereiche
+    # mitzaehlen bzw. anzeigen, obwohl die Bereiche selbst schon gefiltert sind.
+    done_today = (
+        db.query(models.Completion)
+        .join(models.Task, models.Completion.task_id == models.Task.id)
+        .filter(models.Completion.timestamp >= today_start, models.Task.room_id.in_(visible_room_ids))
+        .count()
+    )
 
     recent_completions = (
-        db.query(models.Completion).order_by(models.Completion.timestamp.desc()).limit(8).all()
+        db.query(models.Completion)
+        .join(models.Task, models.Completion.task_id == models.Task.id)
+        .filter(models.Task.room_id.in_(visible_room_ids))
+        .order_by(models.Completion.timestamp.desc())
+        .limit(8)
+        .all()
     )
 
     now_local_date = now.astimezone(APP_TIMEZONE).date()
     all_upcoming_appointments = [
         a for a in db.query(models.Appointment).order_by(models.Appointment.date.asc()).all()
-        if _aware(a.date).astimezone(APP_TIMEZONE).date() >= now_local_date and _is_appointment_visible(a, user)
+        if _aware(a.date).astimezone(APP_TIMEZONE).date() >= now_local_date and user_can_see_appointment(user, a)
     ]
     upcoming_appointments = all_upcoming_appointments[:5]
     # Fuer den mobilen "Heute anstehend"-Block (siehe dashboard.html) getrennt
@@ -750,7 +823,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         <= _aware(v.end_date).astimezone(APP_TIMEZONE).date()
     ]
 
-    all_reports = db.query(models.Report).all()
+    all_reports = [r for r in db.query(models.Report).all() if user_can_see_report(user, r)]
     open_reports = _sort_reports([r for r in all_reports if r.status != "done"])
     open_count = sum(1 for r in all_reports if r.status == "open")
     in_progress_count = sum(1 for r in all_reports if r.status == "in_progress")
@@ -803,7 +876,7 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
     user, redirect = require_login_page(request, db)
     if redirect:
         return redirect
-    rooms = db.query(models.Room).all()
+    rooms = filter_rooms_for_user(db.query(models.Room).all(), user)
     now = ntptime.now_utc()
     room_status, _, _, _, daily_due_room_ids, _ = compute_room_statuses(rooms, now)
     if sort == "name":
@@ -831,7 +904,7 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     if redirect:
         return redirect
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
-    if not room:
+    if not room or not user_can_see_room(user, room):
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
     statuses = {}
@@ -1967,6 +2040,28 @@ def _sort_reports(reports):
     return sorted(by_recency, key=lambda r: REPORT_PRIORITY_RANK.get(r.priority, 2))
 
 
+def user_can_see_report(user, report) -> bool:
+    """Nur Admin sieht alle Meldungen; alle anderen (auch Schichtleiter) nur
+    Meldungen mit "Alle (Betriebsweit)" sowie Meldungen der eigenen
+    Gruppe(n) - entweder explizit zugewiesen (assigned_group) oder über die
+    Bereichsgruppen abgeleitet (Bereich ohne Gruppe = gemeinsam genutzt,
+    analog zu user_can_see_room/user_can_see_inventory_item)."""
+    if user and user.is_admin:
+        return True
+    if report.is_company_wide:
+        return True
+    if not user:
+        return False
+    if report.assigned_group_id is not None:
+        return any(g.id == report.assigned_group_id for g in user.groups)
+    if report.room:
+        if not report.room.groups:
+            return True
+        room_group_ids = {g.id for g in report.room.groups}
+        return any(g.id in room_group_ids for g in user.groups)
+    return False
+
+
 _FEEDBACK_STATUS_RANK = {"open": 0, "in_progress": 1, "done": 2}
 
 
@@ -2107,18 +2202,19 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
     if redirect:
         return redirect
-    reports = db.query(models.Report).all()
+    reports = [r for r in db.query(models.Report).all() if user_can_see_report(user, r)]
     now = ntptime.now_utc()
     open_reports = _sort_reports([r for r in reports if r.status != "done"])
     done_reports = _sort_reports([r for r in reports if r.status == "done"])
     report_meta = {r.id: compute_report_meta(r, now) for r in reports}
+    visible_rooms = filter_rooms_for_user(db.query(models.Room).order_by(models.Room.name).all(), user)
     return templates.TemplateResponse("reports.html", {
         "request": request,
         "user": user,
         "open_reports": open_reports,
         "done_reports": done_reports,
         "report_meta": report_meta,
-        "rooms": db.query(models.Room).order_by(models.Room.name).all(),
+        "rooms": visible_rooms,
         "groups": db.query(models.Group).all(),
     })
 
@@ -2140,7 +2236,11 @@ async def reports_create(
     if category not in REPORT_CATEGORIES:
         category = "sonstiges"
     roomless = category in REPORT_ROOMLESS_CATEGORIES
-    assigned_group_id = int(assigned_group_id) if assigned_group_id.strip() else None
+    # Gruppen-Auswahl kennt drei Zustaende: "" = automatisch (Bereich, nur
+    # bei nicht-roomless moeglich), "all" = Alle (Betriebsweit), sonst eine
+    # konkrete Gruppen-ID (siehe Report.is_company_wide in models.py).
+    is_company_wide = assigned_group_id == "all"
+    assigned_group_id = int(assigned_group_id) if assigned_group_id.strip() and not is_company_wide else None
     room_id_int = int(room_id) if room_id.strip() else None
 
     # "Anschaffung" hängt an keinem Bereich, sondern an einer zuständigen
@@ -2150,7 +2250,7 @@ async def reports_create(
     if roomless:
         priority = None
         room_id_int = None
-        if not assigned_group_id:
+        if not assigned_group_id and not is_company_wide:
             return RedirectResponse(
                 _with_toast("/reports", "Für „Anschaffung“ bitte eine zuständige Gruppe auswählen.", "error"),
                 status_code=302,
@@ -2162,10 +2262,17 @@ async def reports_create(
             return RedirectResponse(
                 _with_toast("/reports", "Bitte einen Bereich auswählen.", "error"), status_code=302,
             )
+        # Serverseitig durchgesetzt, nicht nur im "Bereich"-Dropdown verborgen -
+        # sonst liesse sich die Gruppen-Sichtbarkeit per direktem POST umgehen.
+        room_for_check = db.query(models.Room).filter(models.Room.id == room_id_int).first()
+        if not room_for_check or not user_can_see_room(user, room_for_check):
+            return RedirectResponse(
+                _with_toast("/reports", "Bereich nicht gefunden oder keine Berechtigung.", "error"), status_code=302,
+            )
 
     report = models.Report(
         room_id=room_id_int, user_id=user.id, comment=comment, priority=priority, category=category,
-        assigned_group_id=assigned_group_id,
+        assigned_group_id=assigned_group_id, is_company_wide=is_company_wide,
     )
     db.add(report)
     db.commit()
@@ -2191,16 +2298,22 @@ async def reports_create(
         joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
     )
     msg = comment if len(comment) <= 200 else comment[:197] + "…"
+    focus_url = f"/reports?focus=report-{report.id}"
     if roomless:
-        # Kein Bereich -> immer genau die (Pflicht-)Zuständigkeitsgruppe
-        # benachrichtigen, keine Bereichsgruppen-Ableitung möglich.
-        assigned_group = (
-            db.query(models.Group).options(*group_loaders).filter(models.Group.id == assigned_group_id).first()
-        )
-        if assigned_group:
-            background_tasks.add_task(
-                notify_group, assigned_group, "Neuer Materialwunsch", msg, "default", f"/reports?focus=report-{report.id}"
+        if is_company_wide:
+            all_groups = db.query(models.Group).options(*group_loaders).all()
+            if all_groups:
+                background_tasks.add_task(notify_groups, all_groups, "Neuer Materialwunsch", msg, "default", focus_url)
+        else:
+            # Kein Bereich -> immer genau die (Pflicht-)Zuständigkeitsgruppe
+            # benachrichtigen, keine Bereichsgruppen-Ableitung möglich.
+            assigned_group = (
+                db.query(models.Group).options(*group_loaders).filter(models.Group.id == assigned_group_id).first()
             )
+            if assigned_group:
+                background_tasks.add_task(
+                    notify_group, assigned_group, "Neuer Materialwunsch", msg, "default", focus_url
+                )
     else:
         room = (
             db.query(models.Room)
@@ -2210,7 +2323,11 @@ async def reports_create(
         )
         if room:
             title = f"Neue Meldung: {room.name}"
-            if assigned_group_id:
+            if is_company_wide:
+                all_groups = db.query(models.Group).options(*group_loaders).all()
+                if all_groups:
+                    background_tasks.add_task(notify_groups, all_groups, title, msg, "default", focus_url)
+            elif assigned_group_id:
                 # Explizite Zuständigkeit gewählt (z.B. "Technik") - nur diese
                 # Gruppe benachrichtigen, unabhängig davon, welche Gruppen dem
                 # Bereich zugeordnet sind.
@@ -2221,10 +2338,10 @@ async def reports_create(
                     .first()
                 )
                 if assigned_group:
-                    background_tasks.add_task(notify_group, assigned_group, title, msg, "default", f"/reports?focus=report-{report.id}")
+                    background_tasks.add_task(notify_group, assigned_group, title, msg, "default", focus_url)
             else:
                 for group in room.groups:
-                    background_tasks.add_task(notify_group, group, title, msg, "default", f"/reports?focus=report-{report.id}")
+                    background_tasks.add_task(notify_group, group, title, msg, "default", focus_url)
 
     return RedirectResponse("/reports", status_code=302)
 
@@ -2286,10 +2403,15 @@ def reports_set_status(
         title = f"{STATUS_CHANGE_TITLES[status]}: {report.room.name if report.room else 'Materialwunsch'}"
         comment_preview = report.comment if len(report.comment) <= 120 else report.comment[:117] + "…"
         msg = f"{user.name}: „{comment_preview}“"
-        target_groups = [report.assigned_group] if report.assigned_group else (list(report.room.groups) if report.room else [])
+        if report.is_company_wide:
+            target_groups = db.query(models.Group).options(*group_loaders).all()
+        elif report.assigned_group:
+            target_groups = [report.assigned_group]
+        else:
+            target_groups = list(report.room.groups) if report.room else []
         focus_url = f"/reports?focus=report-{report.id}"
-        for group in target_groups:
-            background_tasks.add_task(notify_group, group, title, msg, "default", focus_url)
+        if target_groups:
+            background_tasks.add_task(notify_groups, target_groups, title, msg, "default", focus_url)
         already_reached = any(report.user.id == member.id for group in target_groups for member in group.users)
         if report.user.id != user.id and not already_reached:
             background_tasks.add_task(notify_user, report.user, title, msg, focus_url)
@@ -2332,13 +2454,16 @@ def reports_assign(
     require_login(request, db)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report:
-        new_group_id = int(assigned_group_id) if assigned_group_id.strip() else None
+        is_company_wide = assigned_group_id == "all"
+        new_group_id = int(assigned_group_id) if assigned_group_id.strip() and not is_company_wide else None
         # Ohne Bereich (Anschaffung) gibt es keine Bereichsgruppen-Ableitung
         # als Rückfallebene - eine leere Zuständigkeit würde die Meldung ohne
-        # jeden Benachrichtigungsweg zurücklassen, daher hier nicht zulassen.
-        if report.room_id is None and new_group_id is None:
+        # jeden Benachrichtigungsweg zurücklassen, daher hier nicht zulassen
+        # (Alle (Betriebsweit) zaehlt als gueltiger Benachrichtigungsweg).
+        if report.room_id is None and new_group_id is None and not is_company_wide:
             return RedirectResponse("/reports", status_code=302)
         report.assigned_group_id = new_group_id
+        report.is_company_wide = is_company_wide
         db.commit()
     return RedirectResponse("/reports", status_code=302)
 
@@ -2372,17 +2497,26 @@ async def reports_add_photos(
 APPOINTMENT_RECURRENCE_LABELS = {7: "Wöchentlich", 14: "Alle 2 Wochen", 30: "Monatlich"}
 
 
-def _is_appointment_visible(appointment, user) -> bool:
-    """Ein Termin ohne Gruppe ('– nur ich –' im Formular) ist reine
-    Privatsache - sichtbar nur fuer den Ersteller selbst und Admins, nicht
-    fuer andere Kolleg:innen/Schichtleiter. Mit Gruppe bleibt er wie bisher
-    fuer alle sichtbar (die Gruppe steuert dort schon, wer benachrichtigt
-    wird - das ist bereits eine bewusste Freigabe an mehrere Personen)."""
-    if appointment.group_id is not None:
+def user_can_see_appointment(user, appointment) -> bool:
+    """Nur Admin sieht alle Termine. "Alle (Betriebsweit)" ist fuer jeden
+    sichtbar. Mit einer oder mehreren ausgewaehlten Gruppen ("Gastro +
+    Küche" etc.) sichtbar nur fuer Mitglieder einer dieser Gruppen (auch
+    Schichtleiter, analog zu user_can_see_room/user_can_see_report) - anders
+    als frueher (jede Gruppen-Zuweisung war fuer alle sichtbar) steuert die
+    Gruppe jetzt tatsaechlich die Sichtbarkeit, nicht nur die Erinnerung.
+    Ganz ohne Gruppe und ohne "Alle" ('- Nur ich (Privat) -' im Formular)
+    ist der Termin reine Privatsache - sichtbar nur fuer den Ersteller
+    selbst (und Admins, siehe oben)."""
+    if user and user.is_admin:
         return True
-    if not user:
-        return False
-    return user.id == appointment.user_id or user.is_admin
+    if appointment.is_company_wide:
+        return True
+    if appointment.groups:
+        if not user:
+            return False
+        appt_group_ids = {g.id for g in appointment.groups}
+        return any(g.id in appt_group_ids for g in user.groups)
+    return bool(user) and user.id == appointment.user_id
 
 
 @app.get("/appointments")
@@ -2394,7 +2528,7 @@ def appointments_page(request: Request, db: Session = Depends(get_db)):
 
     entries = []
     for a in db.query(models.Appointment).order_by(models.Appointment.date.asc()).all():
-        if not _is_appointment_visible(a, user):
+        if not user_can_see_appointment(user, a):
             continue
         date_local = _aware(a.date).astimezone(APP_TIMEZONE).date()
         days_until = (date_local - today).days
@@ -2426,6 +2560,21 @@ def appointments_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+def _parse_appointment_group_selection(db: Session, group_ids: list[str]):
+    """Parst die Mehrfachauswahl aus dem "Gruppe"-Feld (siehe appointments.html -
+    Werte "private"/"all" oder echte Gruppen-IDs, gegenseitig exklusiv per JS
+    durchgesetzt, hier serverseitig nochmal abgesichert statt blind zu
+    vertrauen). Gibt (groups, is_company_wide) zurueck - "private", eine
+    leere Auswahl oder nur ungueltige Werte ergeben alle drei leere groups +
+    is_company_wide=False (= "- Nur ich (Privat) -")."""
+    if "all" in group_ids:
+        return [], True
+    real_ids = [int(v) for v in group_ids if v.isdigit()]
+    if not real_ids:
+        return [], False
+    return db.query(models.Group).filter(models.Group.id.in_(real_ids)).all(), False
+
+
 @app.post("/appointments")
 def appointments_create(
     request: Request,
@@ -2433,20 +2582,23 @@ def appointments_create(
     date: str = Form(...),
     recurrence_days: str = Form(""),
     notify_days_before: float = Form(1.0),
-    group_id: str = Form(""),
+    group_ids: list[str] = Form([]),
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
     parsed_date = _parse_local_date(date)
     if parsed_date:
-        db.add(models.Appointment(
+        groups, is_company_wide = _parse_appointment_group_selection(db, group_ids)
+        appt = models.Appointment(
             name=name,
             date=parsed_date,
             recurrence_days=int(recurrence_days) if recurrence_days else None,
             notify_days_before=notify_days_before,
-            group_id=int(group_id) if group_id else None,
+            is_company_wide=is_company_wide,
             user_id=user.id,
-        ))
+        )
+        appt.groups = groups
+        db.add(appt)
         db.commit()
     return RedirectResponse("/appointments", status_code=302)
 
@@ -2459,7 +2611,7 @@ def appointments_edit(
     date: str = Form(...),
     recurrence_days: str = Form(""),
     notify_days_before: float = Form(1.0),
-    group_id: str = Form(""),
+    group_ids: list[str] = Form([]),
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
@@ -2471,7 +2623,9 @@ def appointments_edit(
         appt.name = name
         appt.recurrence_days = int(recurrence_days) if recurrence_days else None
         appt.notify_days_before = notify_days_before
-        appt.group_id = int(group_id) if group_id else None
+        groups, is_company_wide = _parse_appointment_group_selection(db, group_ids)
+        appt.groups = groups
+        appt.is_company_wide = is_company_wide
         # Nach jeder Änderung neu erinnern lassen, statt evtl. für immer still
         # zu bleiben, weil der alte Termin schon als benachrichtigt galt.
         appt.notified = False

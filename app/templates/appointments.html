@@ -37,18 +37,27 @@
           <label class="block text-[11px] text-slate-400 mb-1">Erinnerung (Tage vorher)</label>
           <input name="notify_days_before" type="number" step="0.5" min="0" value="1" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
         </div>
-        <div class="flex-1">
-          <label class="block text-[11px] text-slate-400 mb-1">Gruppe (optional)</label>
-          <select name="group_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <option value="">– nur ich –</option>
-            {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
-          </select>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Gruppe</label>
+        <div class="flex flex-wrap gap-1.5 appt-group-picker">
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-panel2 has-checked:border-slate-400 has-checked:text-slate-100">
+            <input type="checkbox" name="group_ids" value="private" class="sr-only appt-scope-special" checked>– Nur ich (Privat) –
+          </label>
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-accent/15 has-checked:border-accent has-checked:text-accent">
+            <input type="checkbox" name="group_ids" value="all" class="sr-only appt-scope-special">Alle (Betriebsweit)
+          </label>
+          {% for g in groups %}
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-violet/15 has-checked:border-violet has-checked:text-violet">
+            <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only appt-group-checkbox">{{ g.name }}
+          </label>
+          {% endfor %}
         </div>
       </div>
       <p class="text-[11px] text-slate-500 leading-relaxed">
-        Ohne Gruppe ist der Termin privat – nur du selbst und Admins sehen ihn, nur du bekommst die Erinnerung.
-        Mit Gruppe ist er für alle sichtbar und alle Mitglieder bekommen die Erinnerung
-        (respektiert deren Arbeitszeit-Fenster, falls gesetzt).
+        „Nur ich (Privat)“ – nur du selbst und Admins sehen den Termin, nur du bekommst die Erinnerung.
+        Mit einer oder mehreren Gruppen ist er nur für deren Mitglieder sichtbar, die auch die Erinnerung bekommen
+        (respektiert deren Arbeitszeit-Fenster, falls gesetzt). „Alle (Betriebsweit)“ ist für alle sichtbar und alle bekommen die Erinnerung.
       </p>
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Termin anlegen</button>
     </form>
@@ -70,8 +79,10 @@
           {% if e.recurrence_label %}
           <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-accent/15 text-accent">{{ e.recurrence_label }}</span>
           {% endif %}
-          {% if a.group %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-violet/15 text-violet">{{ a.group.name }}</span>
+          {% if a.is_company_wide %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-accent/15 text-accent">Alle (Betriebsweit)</span>
+          {% elif a.groups %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-violet/15 text-violet">{{ a.groups | map(attribute="name") | join(", ") }}</span>
           {% endif %}
         </div>
       </div>
@@ -110,10 +121,22 @@
             <option value="30" {% if a.recurrence_days == 30 %}selected{% endif %}>Monatlich</option>
           </select>
           <input name="notify_days_before" type="number" step="0.5" min="0" value="{{ a.notify_days_before }}" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <select name="group_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <option value="">– nur ich –</option>
-            {% for g in groups %}<option value="{{ g.id }}" {% if a.group_id == g.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
-          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Gruppe</label>
+          <div class="flex flex-wrap gap-1.5 appt-group-picker">
+            <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-panel2 has-checked:border-slate-400 has-checked:text-slate-100">
+              <input type="checkbox" name="group_ids" value="private" class="sr-only appt-scope-special" {% if not a.groups and not a.is_company_wide %}checked{% endif %}>– Nur ich (Privat) –
+            </label>
+            <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-accent/15 has-checked:border-accent has-checked:text-accent">
+              <input type="checkbox" name="group_ids" value="all" class="sr-only appt-scope-special" {% if a.is_company_wide %}checked{% endif %}>Alle (Betriebsweit)
+            </label>
+            {% for g in groups %}
+            <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-violet/15 has-checked:border-violet has-checked:text-violet">
+              <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only appt-group-checkbox" {% if g in a.groups %}checked{% endif %}>{{ g.name }}
+            </label>
+            {% endfor %}
+          </div>
         </div>
         <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium">Speichern</button>
       </form>
@@ -157,6 +180,33 @@
         closeAllKebabMenus();
         var panel = document.getElementById(btn.dataset.target);
         if (panel) panel.classList.toggle('hidden');
+      });
+    });
+
+    // "Gruppe"-Auswahl (Checkbox-Pillen statt <select multiple>, gleiches
+    // Muster wie "Sichtbarkeit anpassen" im Inventar): "- Nur ich (Privat) -"
+    // und "Alle (Betriebsweit)" schliessen sich gegenseitig und mit echten
+    // Gruppen aus, mehrere echte Gruppen lassen sich dagegen frei kombinieren
+    // (z.B. Gastro + Küche). Ohne jede Auswahl faellt es sicherheitshalber
+    // auf "Nur ich (Privat)" zurueck, statt einen leeren/mehrdeutigen Zustand
+    // abzuschicken.
+    document.querySelectorAll('.appt-group-picker').forEach(function (picker) {
+      var specials = picker.querySelectorAll('.appt-scope-special');
+      var reals = picker.querySelectorAll('.appt-group-checkbox');
+      picker.addEventListener('change', function (e) {
+        if (e.target.classList.contains('appt-scope-special')) {
+          if (e.target.checked) {
+            specials.forEach(function (s) { if (s !== e.target) s.checked = false; });
+            reals.forEach(function (r) { r.checked = false; });
+          }
+        } else if (e.target.classList.contains('appt-group-checkbox') && e.target.checked) {
+          specials.forEach(function (s) { s.checked = false; });
+        }
+        var anyChecked = picker.querySelectorAll('input[name="group_ids"]:checked').length > 0;
+        if (!anyChecked) {
+          var privateBox = picker.querySelector('.appt-scope-special[value="private"]');
+          if (privateBox) privateBox.checked = true;
+        }
       });
     });
   })();

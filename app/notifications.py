@@ -82,6 +82,39 @@ def notify_group(group, title: str, message: str, priority: str = "default", url
             cleanup_db.close()
 
 
+def notify_groups(groups, title: str, message: str, priority: str = "default", url: str = "/"):
+    """Wie notify_group, aber fuer mehrere Gruppen gleichzeitig (z.B. ein
+    Termin mit mehreren ausgewaehlten Gruppen oder "Alle (Betriebsweit)") -
+    dedupliziert Kanaele und Mitglieder ueber alle Gruppen hinweg, damit
+    jemand, der in mehreren Zielgruppen ist (oder ein geteilter Kanal),
+    nicht mehrfach dieselbe Nachricht bekommt."""
+    seen_channel_ids = set()
+    deduped_channels = []
+    seen_user_ids = set()
+    deduped_users = []
+    for group in groups:
+        for channel in group.channels:
+            if channel.id in seen_channel_ids:
+                continue
+            seen_channel_ids.add(channel.id)
+            deduped_channels.append(channel)
+        for member in group.users:
+            if member.id in seen_user_ids:
+                continue
+            seen_user_ids.add(member.id)
+            deduped_users.append(member)
+
+    # Platzhalter-Objekt mit den deduplizierten Kanaelen/Mitgliedern, das
+    # notify_group unveraendert entgegennehmen kann (kennt nur "seine
+    # eigene" group.channels/group.users-Liste).
+    class _MergedGroup:
+        pass
+    merged = _MergedGroup()
+    merged.channels = deduped_channels
+    merged.users = deduped_users
+    notify_group(merged, title, message, priority, url)
+
+
 def notify_user(user, title: str, message: str, url: str = "/"):
     """Schickt eine Browser-Push-Nachricht an genau eine Person (z.B. den
     Melder einer Meldung, wenn sich deren Status ändert) - unabhängig von
