@@ -723,12 +723,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     today = now.date()
     today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
     done_today = db.query(models.Completion).filter(models.Completion.timestamp >= today_start).count()
-    yesterday_start = today_start - timedelta(days=1)
-    done_yesterday = (
-        db.query(models.Completion)
-        .filter(models.Completion.timestamp >= yesterday_start, models.Completion.timestamp < today_start)
-        .count()
-    )
 
     recent_completions = (
         db.query(models.Completion).order_by(models.Completion.timestamp.desc()).limit(8).all()
@@ -775,7 +769,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "daily_overdue_count": daily_overdue_count,
         "stats": {
             "done_today": done_today,
-            "done_today_delta": done_today - done_yesterday,
             "due_soon": due_soon_count,
             "overdue": overdue_count,
             "group_count": db.query(models.Group).count(),

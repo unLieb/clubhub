@@ -87,9 +87,6 @@
     <div>
       <div class="font-display text-2xl font-semibold leading-none">{{ stats.done_today }}</div>
       <div class="text-xs text-slate-400 mt-1">Erledigt heute</div>
-      {% if stats.done_today_delta != 0 %}
-      <div class="text-[11px] {{ 'text-go' if stats.done_today_delta > 0 else 'text-slate-500' }} mt-0.5">{{ "%+d"|format(stats.done_today_delta) }} gegenüber gestern</div>
-      {% endif %}
     </div>
   </div>
   <div class="rounded-xl border border-line bg-panel p-4 flex items-center gap-3.5">

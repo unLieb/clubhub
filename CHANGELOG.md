@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.80.1] - 2026-08-19
+- Die "±X gegenüber gestern"-Anzeige bei der Dashboard-Kachel „Erledigt heute“ entfernt: Bei „Nach Bedarf“-Aufgaben (an einem Tag nötig, am nächsten nicht) erweckte der Vergleich fälschlich den Eindruck, es sei weniger gearbeitet worden.
+
 ## [0.80.0] - 2026-08-19
 - Aufgaben-Sortierung in der Bereichsansicht (`/room/{id}`) an die praktische Arbeitsweise angepasst: Turnus kurz vor lang (Täglich/Wöchentlich zuerst, Monatlich/Quartalsweise darunter), „Nach Bedarf“-Aufgaben jetzt bewusst am Ende statt am ursprünglichen Anlage-Zeitpunkt. Innerhalb desselben Turnus alphabetisch nach Name, damit die Liste eine feste Reihenfolge behält statt bei jedem Aufruf in Anlage-Reihenfolge zu erscheinen. Bereits erledigte Aufgaben bleiben wie bisher vollständig ausgeblendet, bis sie erneut fällig werden.
 
