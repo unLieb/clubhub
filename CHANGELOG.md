@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.78.0] - 2026-08-19
+- Neue Meldungs-Kategorie „Materialwunsch / Anschaffung“ unter `/reports`: für einmalige Anschaffungen, die an keinen Bereich gebunden sind (z.B. "neue Kaffeemaschine fürs Personal"), sondern nur an eine zuständige Gruppe – man bestellt für seine Gruppe, nicht für einen Raum. Beim Erstellen werden Bereich und Priorität automatisch ausgeblendet/nicht verlangt, die zuständige Gruppe wird stattdessen zur Pflichtangabe.
+- Kennzeichnung mit blauem "Anschaffung"-Badge; über den Status-Regler wie jede andere Meldung auf "Erledigt" setzbar – wandert dann ins bestehende Archiv ("Erledigte Meldungen"), ohne das Inventar zu berühren.
+- Technisch: `reports.room_id` ist jetzt nullable (SQLite-Tabellen-Rebuild-Migration beim Start, Altdaten bleiben unverändert erhalten); alle Anzeigen mit Bereichs-/Prioritätsbezug (Meldungskarten, Dashboard, Benachrichtigungen) sind entsprechend gegen einen fehlenden Bereich abgesichert.
+
 ## [0.77.0] - 2026-08-19
 - Mitarbeiter-Zeiterfassung (`/timeclock`) auf das UI-Muster der Admin-Zeiterfassung umgestellt: gleiche Whitecard mit Monats-Pfeilen `<`/`>` und Datepicker, jetzt zusätzlich umschaltbar auf einen freien Von/Bis-Zeitraum. KPI-Kacheln ("Heute verdient", "Verdient im Monat/Zeitraum", "Überstunden" bzw. "Erfasste Buchungen" im freien Zeitraum) sitzen wie im Admin-Bereich direkt in der Whitecard.
 - Verlauf ist jetzt eine Tabelle (Datum/Kommen/Gehen/Dauer/Aktionen) statt einer Liste, zeigt den kompletten gewählten Zeitraum statt nur der letzten 20 Buchungen, kein Mitarbeiter-Dropdown (nur eigene Daten). "Als PDF exportieren" sitzt oben rechts in der Tabellenleiste, an der Position des "Daten"-Buttons im Admin-Bereich.

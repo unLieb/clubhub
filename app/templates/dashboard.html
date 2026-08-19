@@ -304,9 +304,9 @@
           <a href="/reports" class="block py-2 hover:text-slate-100">
             <div class="flex items-center justify-between gap-2">
               <span class="truncate text-slate-300">{{ r.comment }}</span>
-              {{ rb.priority_badge(r.priority) }}
+              {% if r.priority %}{{ rb.priority_badge(r.priority) }}{% endif %}
             </div>
-            <div class="text-xs text-slate-500 truncate mt-0.5">{{ r.room.name }} &middot; {{ rb.category_label(r.category) }}</div>
+            <div class="text-xs text-slate-500 truncate mt-0.5">{% if r.room %}{{ r.room.name }} &middot; {% endif %}{{ rb.category_label(r.category) }}</div>
           </a>
         </li>
         {% endfor %}

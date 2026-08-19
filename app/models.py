@@ -311,15 +311,26 @@ class Report(Base):
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True)
-    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
+    # Nullable seit der Kategorie "anschaffung" (Materialwunsch/Anschaffung) -
+    # die ist an keinen Bereich gebunden, sondern nur an eine zustaendige
+    # Gruppe (siehe assigned_group_id). Alle anderen Kategorien brauchen
+    # weiterhin zwingend einen Bereich (siehe Validierung in reports_create).
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     comment = Column(String, nullable=False)
     # Veraltet (einzelnes Foto) - bleibt für Altdaten stehen, siehe ReportPhoto.
     # create_all() legt nur fehlende Tabellen an und ändert bestehende nicht,
     # daher wird diese Spalte nie entfernt, nur nicht mehr neu befüllt.
     photo_filename = Column(String, nullable=True)
-    priority = Column(String, default="normal")         # "critical" | "high" | "normal" | "low"
-    category = Column(String, default="sonstiges")      # "defekt" | "material" | "reinigung" | "sonstiges"
+    # Kein Column(default=...) hier (bewusst anders als category/status unten):
+    # reports_create() setzt priority für die Kategorie "anschaffung" gezielt
+    # auf None (keine Priorität) - ein Column-Default würde SQLAlchemy beim
+    # Insert trotzdem greifen lassen, da es jeden None-Wert (auch explizit
+    # gesetzte) durch den Default ersetzt, nicht nur unbelegte. Der "normal"-
+    # Fallback für alle anderen Kategorien passiert deshalb weiterhin explizit
+    # in reports_create() selbst.
+    priority = Column(String)                            # "critical" | "high" | "normal" | "low" | None
+    category = Column(String, default="sonstiges")      # "defekt" | "material" | "reinigung" | "anschaffung" | "sonstiges"
     status = Column(String, default="open")             # "open" | "in_progress" | "done"
     # Zuständige Gruppe für diese konkrete Meldung (z.B. "Technik" bei einem
     # Defekt), unabhängig von den Gruppen des Bereichs - None = wie bisher an

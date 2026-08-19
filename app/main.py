@@ -203,6 +203,30 @@ def _migrate_report_assigned_group(db: Session):
     _ensure_column(db, "reports", "assigned_group_id", "INTEGER")
 
 
+def _migrate_report_room_optional(db: Session):
+    """Macht reports.room_id nullable (fuer die Kategorie "anschaffung" -
+    Materialwunsch/Anschaffung, an keinen Bereich gebunden, siehe
+    models.Report). SQLite kann eine NOT-NULL-Einschränkung nicht per
+    ALTER TABLE entfernen, deshalb per Standard-SQLite-Rebuild: Tabelle
+    umbenennen, anhand der (jetzt nullable) SQLAlchemy-Metadata neu anlegen,
+    Daten 1:1 kopieren, alte Tabelle verwerfen. Greift nur, wenn die
+    bestehende Spalte tatsächlich noch NOT NULL ist - bei einer frischen
+    Installation legt create_all() die Tabelle bereits korrekt an."""
+    cols = db.execute(text("PRAGMA table_info(reports)")).fetchall()
+    room_col = next((c for c in cols if c[1] == "room_id"), None)
+    if room_col is None or room_col[3] == 0:
+        return
+    db.execute(text("ALTER TABLE reports RENAME TO reports_pre_optional_room"))
+    db.commit()
+    models.Report.__table__.create(bind=engine)
+    column_names = ", ".join(c.name for c in models.Report.__table__.columns)
+    db.execute(text(
+        f"INSERT INTO reports ({column_names}) SELECT {column_names} FROM reports_pre_optional_room"
+    ))
+    db.execute(text("DROP TABLE reports_pre_optional_room"))
+    db.commit()
+
+
 def _migrate_inventory_extras(db: Session):
     """Neue, frei vergebbare Kategorie/Lagerort- sowie Nachbestell-URL-Spalte
     pro Inventarartikel (kein Altdaten-Bezug)."""
@@ -399,6 +423,7 @@ def _startup():
         _migrate_user_shift_lead(db)
         _migrate_report_priority_category(db)
         _migrate_report_assigned_group(db)
+        _migrate_report_room_optional(db)
         _migrate_report_photos(db)
         _migrate_inventory_extras(db)
         _migrate_inventory_pack_size(db)
@@ -1890,7 +1915,13 @@ async def inventory_set_image(
 
 REPORT_PRIORITIES = ("critical", "high", "normal", "low")
 REPORT_PRIORITY_RANK = {p: i for i, p in enumerate(REPORT_PRIORITIES)}
-REPORT_CATEGORIES = ("defekt", "material", "reinigung", "sonstiges")
+REPORT_CATEGORIES = ("defekt", "material", "reinigung", "anschaffung", "sonstiges")
+# Materialwunsch/Anschaffung ist an keinen Bereich gebunden (siehe
+# models.Report.room_id) - man bestellt fuer die eigene Gruppe, nicht für
+# einen Raum, daher braucht diese Kategorie zwingend eine zustaendige Gruppe
+# statt eines Bereichs, und keine Priorität (die ist ein Dringlichkeits-Maß
+# für Defekte, passt hier nicht).
+REPORT_ROOMLESS_CATEGORIES = ("anschaffung",)
 REPORT_STATUSES = ("open", "in_progress", "done")
 
 
@@ -2061,7 +2092,7 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
 async def reports_create(
     request: Request,
     background_tasks: BackgroundTasks,
-    room_id: int = Form(...),
+    room_id: str = Form(""),
     comment: str = Form(...),
     priority: str = Form("normal"),
     category: str = Form("sonstiges"),
@@ -2071,14 +2102,34 @@ async def reports_create(
 ):
     user = require_login(request, db)
 
-    if priority not in REPORT_PRIORITIES:
-        priority = "normal"
     if category not in REPORT_CATEGORIES:
         category = "sonstiges"
+    roomless = category in REPORT_ROOMLESS_CATEGORIES
     assigned_group_id = int(assigned_group_id) if assigned_group_id.strip() else None
+    room_id_int = int(room_id) if room_id.strip() else None
+
+    # "Anschaffung" hängt an keinem Bereich, sondern an einer zuständigen
+    # Gruppe (man bestellt für die eigene Gruppe, nicht für einen Raum) - und
+    # hat keine Priorität, die ist ein Dringlichkeits-Maß für Defekte. Bei
+    # allen anderen Kategorien bleibt der Bereich wie bisher Pflicht.
+    if roomless:
+        priority = None
+        room_id_int = None
+        if not assigned_group_id:
+            return RedirectResponse(
+                _with_toast("/reports", "Für „Anschaffung“ bitte eine zuständige Gruppe auswählen.", "error"),
+                status_code=302,
+            )
+    else:
+        if priority not in REPORT_PRIORITIES:
+            priority = "normal"
+        if not room_id_int:
+            return RedirectResponse(
+                _with_toast("/reports", "Bitte einen Bereich auswählen.", "error"), status_code=302,
+            )
 
     report = models.Report(
-        room_id=room_id, user_id=user.id, comment=comment, priority=priority, category=category,
+        room_id=room_id_int, user_id=user.id, comment=comment, priority=priority, category=category,
         assigned_group_id=assigned_group_id,
     )
     db.add(report)
@@ -2104,30 +2155,41 @@ async def reports_create(
         joinedload(models.Group.channels),
         joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
     )
-    room = (
-        db.query(models.Room)
-        .options(joinedload(models.Room.groups).options(*group_loaders))
-        .filter(models.Room.id == room_id)
-        .first()
-    )
-    if room:
-        title = f"Neue Meldung: {room.name}"
-        msg = comment if len(comment) <= 200 else comment[:197] + "…"
-        if assigned_group_id:
-            # Explizite Zuständigkeit gewählt (z.B. "Technik") - nur diese
-            # Gruppe benachrichtigen, unabhängig davon, welche Gruppen dem
-            # Bereich zugeordnet sind.
-            assigned_group = (
-                db.query(models.Group)
-                .options(*group_loaders)
-                .filter(models.Group.id == assigned_group_id)
-                .first()
+    msg = comment if len(comment) <= 200 else comment[:197] + "…"
+    if roomless:
+        # Kein Bereich -> immer genau die (Pflicht-)Zuständigkeitsgruppe
+        # benachrichtigen, keine Bereichsgruppen-Ableitung möglich.
+        assigned_group = (
+            db.query(models.Group).options(*group_loaders).filter(models.Group.id == assigned_group_id).first()
+        )
+        if assigned_group:
+            background_tasks.add_task(
+                notify_group, assigned_group, "Neuer Materialwunsch", msg, "default", f"/reports?focus=report-{report.id}"
             )
-            if assigned_group:
-                background_tasks.add_task(notify_group, assigned_group, title, msg, "default", f"/reports?focus=report-{report.id}")
-        else:
-            for group in room.groups:
-                background_tasks.add_task(notify_group, group, title, msg, "default", f"/reports?focus=report-{report.id}")
+    else:
+        room = (
+            db.query(models.Room)
+            .options(joinedload(models.Room.groups).options(*group_loaders))
+            .filter(models.Room.id == room_id_int)
+            .first()
+        )
+        if room:
+            title = f"Neue Meldung: {room.name}"
+            if assigned_group_id:
+                # Explizite Zuständigkeit gewählt (z.B. "Technik") - nur diese
+                # Gruppe benachrichtigen, unabhängig davon, welche Gruppen dem
+                # Bereich zugeordnet sind.
+                assigned_group = (
+                    db.query(models.Group)
+                    .options(*group_loaders)
+                    .filter(models.Group.id == assigned_group_id)
+                    .first()
+                )
+                if assigned_group:
+                    background_tasks.add_task(notify_group, assigned_group, title, msg, "default", f"/reports?focus=report-{report.id}")
+            else:
+                for group in room.groups:
+                    background_tasks.add_task(notify_group, group, title, msg, "default", f"/reports?focus=report-{report.id}")
 
     return RedirectResponse("/reports", status_code=302)
 
@@ -2186,10 +2248,10 @@ def reports_set_status(
         # kümmert, ohne dass es doppelt gemacht wird. Anders als bei einer
         # neuen Meldung bewusst ohne Arbeitszeit-Fenster: bleibt konsistent
         # mit dem Verhalten der ursprünglichen Meldungs-Benachrichtigung.
-        title = f"{STATUS_CHANGE_TITLES[status]}: {report.room.name}"
+        title = f"{STATUS_CHANGE_TITLES[status]}: {report.room.name if report.room else 'Materialwunsch'}"
         comment_preview = report.comment if len(report.comment) <= 120 else report.comment[:117] + "…"
         msg = f"{user.name}: „{comment_preview}“"
-        target_groups = [report.assigned_group] if report.assigned_group else list(report.room.groups)
+        target_groups = [report.assigned_group] if report.assigned_group else (list(report.room.groups) if report.room else [])
         focus_url = f"/reports?focus=report-{report.id}"
         for group in target_groups:
             background_tasks.add_task(notify_group, group, title, msg, "default", focus_url)
@@ -2235,7 +2297,13 @@ def reports_assign(
     require_login(request, db)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report:
-        report.assigned_group_id = int(assigned_group_id) if assigned_group_id.strip() else None
+        new_group_id = int(assigned_group_id) if assigned_group_id.strip() else None
+        # Ohne Bereich (Anschaffung) gibt es keine Bereichsgruppen-Ableitung
+        # als Rückfallebene - eine leere Zuständigkeit würde die Meldung ohne
+        # jeden Benachrichtigungsweg zurücklassen, daher hier nicht zulassen.
+        if report.room_id is None and new_group_id is None:
+            return RedirectResponse("/reports", status_code=302)
+        report.assigned_group_id = new_group_id
         db.commit()
     return RedirectResponse("/reports", status_code=302)
 

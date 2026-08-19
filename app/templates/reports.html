@@ -16,19 +16,21 @@
       {% endif %}
     </div>
     <div class="min-w-0 flex-1 basis-52">
-      <div class="flex items-center gap-2 flex-wrap mb-1">{{ rb.priority_badge(r.priority) }}{{ rb.category_badge(r.category) }}</div>
+      <div class="flex items-center gap-2 flex-wrap mb-1">{% if r.priority %}{{ rb.priority_badge(r.priority) }}{% endif %}{{ rb.category_badge(r.category) }}</div>
       <p class="font-medium line-clamp-2">{{ r.comment }}</p>
       <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
+        {% if r.room %}
         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
           {{ r.room.name }}
         </span>
+        {% endif %}
         {% if r.assigned_group %}
         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange/15 text-orange" title="Zuständigkeit">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
           {{ r.assigned_group.name }}
         </span>
-        {% elif r.room.groups %}
+        {% elif r.room and r.room.groups %}
         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet/15 text-violet">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           {{ r.room.groups | map(attribute="name") | join(", ") }}
@@ -104,16 +106,22 @@
           </div>
           <div class="rounded-lg border border-line bg-ink/40 p-3">
             <ul class="text-sm space-y-1.5">
+              {% if r.room %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Bereich</span><span class="text-slate-300">{{ r.room.name }}</span></li>
+              {% endif %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Kategorie</span><span class="text-slate-300">{{ rb.category_label(r.category) }}</span></li>
+              {% if r.priority %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Priorität</span>{{ rb.priority_badge(r.priority) }}</li>
+              {% endif %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Gemeldet von</span><span class="text-slate-300">{{ r.user.name }}</span></li>
               <li class="flex justify-between items-center gap-4">
                 <span class="text-slate-500">Zuständigkeit</span>
                 {% if user %}
                 <form method="post" action="/reports/{{ r.id }}/assign" class="contents">
                   <select name="assigned_group_id" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2 py-1 text-xs text-slate-300">
+                    {% if r.room %}
                     <option value="" {% if not r.assigned_group_id %}selected{% endif %}>– automatisch (Bereich) –</option>
+                    {% endif %}
                     {% for g in groups %}
                     <option value="{{ g.id }}" {% if r.assigned_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
                     {% endfor %}
@@ -123,7 +131,7 @@
                 <span class="text-slate-300">{{ r.assigned_group.name if r.assigned_group else "–" }}</span>
                 {% endif %}
               </li>
-              {% if r.room.groups %}
+              {% if r.room and r.room.groups %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Bereichsgruppe</span><span class="text-slate-300">{{ r.room.groups | map(attribute="name") | join(", ") }}</span></li>
               {% endif %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Erstellt am</span><span class="text-slate-300">{{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>
@@ -195,7 +203,7 @@
 <a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
 <div class="mb-6 mt-2">
   <h1 class="font-display text-2xl font-semibold">Meldungen</h1>
-  <p class="text-slate-400 text-sm mt-1">Defekte, fehlende Dinge oder sonstige Hinweise zu einem Bereich.</p>
+  <p class="text-slate-400 text-sm mt-1">Defekte, fehlende Dinge oder sonstige Hinweise zu einem Bereich – oder ein Anschaffungswunsch für deine Gruppe.</p>
 </div>
 
 {% if user %}
@@ -210,24 +218,25 @@
   <div class="px-4 pb-4 pt-1 border-t border-line">
     <form method="post" action="/reports" enctype="multipart/form-data" class="space-y-2 mt-3">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        <div>
+        <div id="report-f-room-field">
           <label class="block text-[11px] text-slate-400 mb-1">Bereich</label>
-          <select name="room_id" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <select name="room_id" id="report-f-room" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
           </select>
         </div>
         <div>
           <label class="block text-[11px] text-slate-400 mb-1">Kategorie</label>
-          <select name="category" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <select name="category" id="report-f-category" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             <option value="defekt">Defekt</option>
             <option value="material">Material fehlt</option>
             <option value="reinigung">Reinigung</option>
+            <option value="anschaffung">Materialwunsch / Anschaffung</option>
             <option value="sonstiges" selected>Sonstiges</option>
           </select>
         </div>
-        <div>
+        <div id="report-f-priority-field">
           <label class="block text-[11px] text-slate-400 mb-1">Priorität</label>
-          <select name="priority" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <select name="priority" id="report-f-priority" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             <option value="critical">Kritisch</option>
             <option value="high">Hoch</option>
             <option value="normal" selected>Normal</option>
@@ -235,9 +244,9 @@
           </select>
         </div>
         <div>
-          <label class="block text-[11px] text-slate-400 mb-1">Zuständigkeit</label>
-          <select name="assigned_group_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <option value="">– automatisch (Bereich) –</option>
+          <label class="block text-[11px] text-slate-400 mb-1">Zuständigkeit<span id="report-f-group-hint" class="hidden text-late"> * (Pflicht bei Anschaffung)</span></label>
+          <select name="assigned_group_id" id="report-f-group" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="" id="report-f-group-auto">– automatisch (Bereich) –</option>
             {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
           </select>
         </div>
@@ -290,6 +299,36 @@
 </div>
 
 <script>
+  // Materialwunsch/Anschaffung braucht keinen Bereich und keine Priorität
+  // (siehe REPORT_ROOMLESS_CATEGORIES in main.py), dafür zwingend eine
+  // zuständige Gruppe statt der sonst möglichen "automatisch (Bereich)"-
+  // Ableitung - Felder entsprechend aus-/einblenden und (nicht) verlangen.
+  (function () {
+    var categorySelect = document.getElementById('report-f-category');
+    if (!categorySelect) return;
+    var roomField = document.getElementById('report-f-room-field');
+    var roomSelect = document.getElementById('report-f-room');
+    var priorityField = document.getElementById('report-f-priority-field');
+    var groupSelect = document.getElementById('report-f-group');
+    var groupAutoOption = document.getElementById('report-f-group-auto');
+    var groupHint = document.getElementById('report-f-group-hint');
+
+    function applyCategoryMode() {
+      var isAnschaffung = categorySelect.value === 'anschaffung';
+      roomField.classList.toggle('hidden', isAnschaffung);
+      roomSelect.required = !isAnschaffung;
+      priorityField.classList.toggle('hidden', isAnschaffung);
+      groupAutoOption.classList.toggle('hidden', isAnschaffung);
+      groupSelect.required = isAnschaffung;
+      groupHint.classList.toggle('hidden', !isAnschaffung);
+      if (isAnschaffung && groupSelect.value === '' && groupSelect.options.length > 1) {
+        groupSelect.selectedIndex = 1;
+      }
+    }
+    categorySelect.addEventListener('change', applyCategoryMode);
+    applyCategoryMode();
+  })();
+
   document.querySelectorAll('.report-tabs').forEach(function (wrap) {
     var buttons = wrap.querySelectorAll('.tab-btn');
     var panels = wrap.querySelectorAll('.tab-panel');
