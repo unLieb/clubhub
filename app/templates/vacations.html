@@ -32,7 +32,7 @@
         <div class="flex-1">
           <label class="block text-[11px] text-slate-400 mb-1">Für wen</label>
           <select name="user_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            {% for u in users %}<option value="{{ u.id }}" {% if u.id == user.id %}selected{% endif %}>{{ u.name }}</option>{% endfor %}
+            {% for u in active_users %}<option value="{{ u.id }}" {% if u.id == user.id %}selected{% endif %}>{{ u.name }}</option>{% endfor %}
           </select>
         </div>
         {% endif %}

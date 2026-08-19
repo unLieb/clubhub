@@ -124,7 +124,9 @@
 {% if not user %}
 <div class="rounded-xl border border-line bg-panel p-4 mb-6">
   <div class="text-sm text-slate-300 mb-3">Für Bereiche, Inventar, Meldungen und mehr bitte anmelden.</div>
-  {% if login_error %}
+  {% if login_error == 'inactive' %}
+  <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">Dieses Konto wurde deaktiviert. Bitte an die Verwaltung wenden.</div>
+  {% elif login_error %}
   <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">Benutzername/Personalnummer oder Passwort ist falsch.</div>
   {% endif %}
   <form method="post" action="/login" class="flex flex-col sm:flex-row gap-2">

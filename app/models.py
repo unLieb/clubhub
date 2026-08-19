@@ -133,6 +133,14 @@ class User(Base):
     # jeweils aktuelle Änderung sofort).
     target_hours_per_month = Column(Float, nullable=True)   # für Überstunden-Berechnung
     avatar_url = Column(String, nullable=True)
+    # Soft-Delete statt echtem Löschen (siehe admin_toggle_user_active in
+    # main.py): ein deaktiviertes Konto kann sich nicht mehr einloggen/
+    # einstempeln (siehe get_current_user, login_submit, timeclock_kiosk_punch)
+    # und taucht nicht mehr in "aktive Auswahl"-Dropdowns auf (z.B. Urlaub für
+    # jemand anderen eintragen) - bleibt aber mit vollem Namen in Historie und
+    # Zeiterfassung erhalten (kein cascade delete wie bei einem echten
+    # User-Loeschen).
+    is_active = Column(Boolean, default=True)
 
     groups = relationship("Group", secondary=user_group, back_populates="users")
     hidden_inventory_groups = relationship("Group", secondary=user_hidden_inventory_group)

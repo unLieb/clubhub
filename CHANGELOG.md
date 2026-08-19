@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.85.0] - 2026-08-19
+- Neu: Nutzer deaktivieren statt löschen (Soft-Delete). Der "Löschen"-Button in der Nutzerverwaltung ist jetzt ein "Deaktivieren"/"Aktivieren"-Umschalter – deaktivierte Konten können sich nicht mehr einloggen oder einstempeln (auch eine bereits offene Sitzung wird sofort beendet), tauchen aber weiterhin mit vollem Namen und Gruppen-Badge in Historie und Zeiterfassung auf sowie in der "Urlaub für jemand anderen eintragen"-Auswahl bereits bestehender Einträge. Neu angelegt werden können sie dort nicht mehr, bis das Konto reaktiviert wird.
+- Der letzte verbleibende aktive Admin sowie das eigene Konto lassen sich nicht deaktivieren, damit niemand versehentlich alle aussperrt.
+
 ## [0.84.0] - 2026-08-19
 - Meldungen (`/reports`, Kategorie „Materialwunsch / Anschaffung"): neues optionales Feld „Produkt-Link / Shop-URL". Sobald eine gültige URL eingefügt wird, ruft die App im Hintergrund die Open-Graph-Daten der Seite ab und befüllt die Beschreibung automatisch mit Titel/Beschreibung (nur falls das Feld noch leer ist) sowie das Produktbild als Vorschau, das beim Absenden automatisch als Foto an die Meldung angehängt wird.
 

@@ -412,6 +412,12 @@ def _migrate_user_flat_rate(db: Session):
     _ensure_column(db, "users", "is_flat_rate", "INTEGER DEFAULT 0")
 
 
+def _migrate_user_active(db: Session):
+    """Neues Aktiv/Deaktiviert-Flag fuer Soft-Delete (siehe User.is_active) -
+    bestehende Nutzer gelten per DEFAULT 1 weiterhin als aktiv."""
+    _ensure_column(db, "users", "is_active", "INTEGER DEFAULT 1")
+
+
 def _migrate_time_entry_audit_hash(db: Session):
     """Neue Hash-Kette-Spalte auf dem Änderungsprotokoll (kein Altdaten-Bezug,
     bestehende Einträge ohne Hash werden von verify_audit_chain() einfach als
@@ -514,6 +520,7 @@ def _startup():
         _migrate_time_entry_audit_hash(db)
         _migrate_user_developer_role(db)
         _migrate_user_flat_rate(db)
+        _migrate_user_active(db)
         _migrate_room_setup_events(db)
         _migrate_task_note(db)
         _migrate_task_group_key(db)
@@ -904,7 +911,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "timeclock_user_mode": get_app_settings(db).timeclock_user_mode,
         "timeclock_open_entry": timeclock_open_entry,
         "currently_clocked_in": currently_clocked_in,
-        "login_error": bool(request.query_params.get("login_error")),
+        "login_error": request.query_params.get("login_error", ""),
     })
 
 
@@ -1629,6 +1636,11 @@ def timeclock_kiosk_punch(
         return templates.TemplateResponse("timeclock_kiosk.html", {
             "request": request, "user": None, "authorized": True,
             "error": "Benutzername/Personalnummer oder Passwort ist falsch.", "result": None,
+        })
+    if not target_user.is_active:
+        return templates.TemplateResponse("timeclock_kiosk.html", {
+            "request": request, "user": None, "authorized": True,
+            "error": "Dieses Konto wurde deaktiviert. Bitte an die Verwaltung wenden.", "result": None,
         })
 
     open_entry = (
@@ -2798,7 +2810,14 @@ def vacations_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
     today = now_local.date()
+    # "active_users" nur fuers "Urlaub für jemand anderen eintragen"-Dropdown
+    # (neuer Eintrag) - deaktivierte Konten sollen dort nicht neu auswaehlbar
+    # sein. Das Bearbeiten-Formular je bestehendem Eintrag nutzt bewusst die
+    # ungefilterte "users"-Liste, sonst wuerde der aktuelle Inhaber aus dem
+    # Dropdown verschwinden, sobald er deaktiviert wird, und ein Speichern
+    # wuerde den Eintrag versehentlich einer anderen Person zuordnen.
     users = db.query(models.User).order_by(models.User.name).all()
+    active_users = [u for u in users if u.is_active]
 
     entries = []
     for v in db.query(models.Vacation).order_by(models.Vacation.start_date.asc()).all():
@@ -2822,6 +2841,7 @@ def vacations_page(request: Request, db: Session = Depends(get_db)):
         "user": user,
         "entries": entries,
         "users": users,
+        "active_users": active_users,
     })
 
 
@@ -3065,6 +3085,17 @@ def login_submit(
         return templates.TemplateResponse("login.html", {
             "request": request, "user": None, "next": next,
             "error": "Benutzername/Personalnummer oder Passwort ist falsch.",
+        })
+    if not user.is_active:
+        # Passwort war korrekt, Konto ist aber deaktiviert (Soft-Delete, siehe
+        # User.is_active) - eigene Meldung statt der generischen "falsch"-
+        # Meldung, damit klar ist, dass es an der Verwaltung liegt, nicht an
+        # einem Tippfehler.
+        if next in ("", "/"):
+            return RedirectResponse("/?login_error=inactive", status_code=302)
+        return templates.TemplateResponse("login.html", {
+            "request": request, "user": None, "next": next,
+            "error": "Dieses Konto wurde deaktiviert. Bitte an die Verwaltung wenden.",
         })
     request.session["user_id"] = user.id
     return RedirectResponse(next or "/", status_code=302)
@@ -4426,14 +4457,27 @@ def admin_edit_user(
     return RedirectResponse("/admin/users", status_code=302)
 
 
-@app.post("/admin/users/{user_id}/delete")
-def admin_delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+@app.post("/admin/users/{user_id}/toggle-active")
+def admin_toggle_user_active(user_id: int, request: Request, db: Session = Depends(get_db)):
+    """Deaktivieren/Reaktivieren statt echtem Löschen (Soft-Delete, siehe
+    User.is_active) - Historie und Zeiterfassung der Person bleiben dadurch
+    vollständig erhalten, nur Login/Einstempeln und "aktive" Auswahllisten
+    (z.B. Urlaub für jemand anderen eintragen) sind betroffen."""
     admin = require_admin(request, db)
     target = db.query(models.User).filter(models.User.id == user_id).first()
     if target and target.id != admin.id:
-        other_admins = db.query(models.User).filter(models.User.is_admin == True, models.User.id != user_id).count()
-        if not target.is_admin or other_admins > 0:
-            db.delete(target)
+        if target.is_active:
+            # Nicht den letzten noch aktiven Admin deaktivieren können, sonst
+            # kommt niemand mehr in die Nutzerverwaltung, um das rückgängig
+            # zu machen.
+            other_active_admins = db.query(models.User).filter(
+                models.User.is_admin == True, models.User.is_active == True, models.User.id != user_id,
+            ).count()
+            if not target.is_admin or other_active_admins > 0:
+                target.is_active = False
+                db.commit()
+        else:
+            target.is_active = True
             db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 

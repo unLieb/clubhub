@@ -33,7 +33,14 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     user_id = request.session.get("user_id")
     if not user_id:
         return None
-    return db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id).first()
+    # Ein waehrend einer laufenden Session deaktiviertes Konto gilt sofort als
+    # ausgeloggt, nicht erst beim naechsten Login-Versuch - sonst koennte ein
+    # bereits eingeloggter, gerade deaktivierter Nutzer im offenen Tab
+    # ungehindert weiterarbeiten.
+    if user and not user.is_active:
+        return None
+    return user
 
 
 def require_login(request: Request, db: Session = Depends(get_db)) -> User:
