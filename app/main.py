@@ -7,7 +7,7 @@ import secrets
 import signal
 import uuid
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urljoin, urlparse, quote
+from urllib.parse import urljoin, urlparse, quote, urlencode
 
 import httpx
 from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks, HTTPException
@@ -1154,49 +1154,64 @@ def _entry_hours(entry, now) -> float:
     return max(0.0, (_aware(end) - _aware(entry.clock_in)).total_seconds() / 3600.0)
 
 
-def compute_time_stats(user, db: Session, now) -> dict:
-    """Aggregiert die Zeiterfassung eines Nutzers für heute und den laufenden
-    Kalendermonat, jeweils inklusive einer eventuell noch offenen (laufenden)
-    Buchung bis 'now'. Die Zuordnung zu Tag/Monat erfolgt über das lokale Datum
-    von clock_in - Schichten über Mitternacht werden bewusst nicht aufgeteilt,
-    das wäre für den gewünschten schlanken Umfang nicht nötig. Zeiten werden
-    hier schon nach lokaler Zeit umgerechnet, damit das Template sie direkt
-    anzeigen kann, ohne selbst mit tz-naiven SQLite-Werten hantieren zu müssen."""
+def compute_time_stats(user, db: Session, now, range_start_utc, range_end_utc, include_overtime: bool) -> dict:
+    """Aggregiert die Zeiterfassung eines Nutzers für heute (immer der echte
+    aktuelle Kalendertag, unabhängig vom gewählten Zeitraum) sowie für den
+    per range_start_utc/range_end_utc (exklusiv) übergebenen Zeitraum -
+    Monat oder freier Von/Bis-Bereich, siehe _resolve_timeclock_self_period.
+    include_overtime unterdrückt den Sollzeit-Vergleich außerhalb des
+    Monats-Modus, da target_hours_per_month sich nur sinnvoll mit einem
+    vollen Kalendermonat vergleichen lässt, nicht mit einem beliebigen
+    Zeitraum. 'history' enthält jetzt den kompletten Zeitraum (nicht mehr
+    nur die letzten 20 Buchungen), analog zur admin-seitigen Monatsliste."""
     local_now = now.astimezone(APP_TIMEZONE)
     today = local_now.date()
-    month_start = today.replace(day=1)
+    today_start_utc = datetime(today.year, today.month, today.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+    today_end_utc = today_start_utc + timedelta(days=1)
 
-    entries = (
+    today_hours = sum(
+        _entry_hours(e, now) for e in
+        db.query(models.TimeEntry).filter(
+            models.TimeEntry.user_id == user.id,
+            models.TimeEntry.clock_in >= today_start_utc, models.TimeEntry.clock_in < today_end_utc,
+        ).all()
+    )
+
+    range_entries = (
         db.query(models.TimeEntry)
-        .filter(models.TimeEntry.user_id == user.id)
+        .filter(
+            models.TimeEntry.user_id == user.id,
+            models.TimeEntry.clock_in >= range_start_utc, models.TimeEntry.clock_in < range_end_utc,
+        )
         .order_by(models.TimeEntry.clock_in.desc())
-        .limit(200)
         .all()
     )
 
-    open_entry = None
-    today_hours = 0.0
-    month_hours = 0.0
+    range_hours = 0.0
     history = []
-    for e in entries:
+    for e in range_entries:
         clock_in_local = _aware(e.clock_in).astimezone(APP_TIMEZONE)
         clock_out_local = _aware(e.clock_out).astimezone(APP_TIMEZONE) if e.clock_out else None
         hours = _entry_hours(e, now)
-        entry_date = clock_in_local.date()
-        if entry_date >= month_start:
-            month_hours += hours
-            if entry_date == today:
-                today_hours += hours
-        if e.clock_out is None:
-            open_entry = {"clock_in": clock_in_local}
-        if len(history) < 20:
-            history.append({
-                "id": e.id,
-                "clock_in": clock_in_local,
-                "clock_out": clock_out_local,
-                "hours": hours,
-                "open": e.clock_out is None,
-            })
+        range_hours += hours
+        history.append({
+            "id": e.id,
+            "date_label": f"{_WEEKDAY_ABBR_DE[clock_in_local.weekday()]}, {clock_in_local.strftime('%d.%m.%Y')}",
+            "clock_in": clock_in_local,
+            "clock_out": clock_out_local,
+            "hours": hours,
+            "open": e.clock_out is None,
+        })
+
+    # Offene Buchung unabhaengig vom gewaehlten Zeitraum ermitteln - man kann
+    # sich z.B. einen vergangenen Monat ansehen, waehrend man gerade jetzt
+    # eingestempelt ist.
+    open_e = (
+        db.query(models.TimeEntry)
+        .filter(models.TimeEntry.user_id == user.id, models.TimeEntry.clock_out.is_(None))
+        .first()
+    )
+    open_entry = {"clock_in": _aware(open_e.clock_in).astimezone(APP_TIMEZONE)} if open_e else None
 
     wage = user.hourly_wage or 0.0
     target = user.target_hours_per_month
@@ -1204,9 +1219,10 @@ def compute_time_stats(user, db: Session, now) -> dict:
         "open_entry": open_entry,
         "today_hours": today_hours,
         "today_earned": today_hours * wage,
-        "month_hours": month_hours,
-        "month_earned": month_hours * wage,
-        "overtime_hours": (month_hours - target) if target is not None else None,
+        "range_hours": range_hours,
+        "range_earned": range_hours * wage,
+        "range_bookings": len(range_entries),
+        "overtime_hours": (range_hours - target) if (include_overtime and target is not None) else None,
         "history": history,
         "has_wage": user.hourly_wage is not None,
         "has_target": target is not None,
@@ -1226,17 +1242,102 @@ def get_app_settings(db: Session) -> models.AppSettings:
     return settings
 
 
-@app.get("/timeclock")
-def timeclock_view(request: Request, db: Session = Depends(get_db)):
-    user = require_login(request, db)
-    stats = compute_time_stats(user, db, ntptime.now_utc())
+def _resolve_timeclock_self_period(mode: str, month: str, date_from: str, date_to: str, local_now) -> dict:
+    """Loest die Zeitraum-Auswahl der Mitarbeiter-Zeiterfassung auf (Monat
+    mit Pfeil-Navigation ODER freier Von/Bis-Zeitraum, siehe timeclock.html)
+    zu UTC-Grenzen fuer die DB-Abfrage - spiegelt _parse_month_param/den
+    Monats-Aufbau von admin_timeclock.html, ergaenzt um den freien Zeitraum.
+    Liefert IMMER beide Wertesaetze (Monat + Von/Bis), damit beim Wechsel
+    zwischen den Modi im Frontend sinnvolle Default-Werte vorausgefuellt
+    werden koennen, auch wenn der jeweils andere Modus gerade aktiv ist."""
+    today = local_now.date()
+    month_start, next_month_start = _parse_month_param(month, local_now)
+    month_value = f"{month_start.year:04d}-{month_start.month:02d}"
+    if month_start.month == 1:
+        prev_month_value = f"{month_start.year - 1:04d}-12"
+    else:
+        prev_month_value = f"{month_start.year:04d}-{month_start.month - 1:02d}"
+    next_month_value = f"{next_month_start.year:04d}-{next_month_start.month:02d}"
+
+    if mode == "range":
+        try:
+            start_date = datetime.strptime(date_from, "%Y-%m-%d").date() if date_from else month_start
+        except ValueError:
+            start_date = month_start
+        try:
+            end_date = datetime.strptime(date_to, "%Y-%m-%d").date() if date_to else today
+        except ValueError:
+            end_date = today
+        if end_date < start_date:
+            start_date, end_date = end_date, start_date
+        range_start_local, range_end_local_exclusive = start_date, end_date + timedelta(days=1)
+        date_from_value, date_to_value = start_date.isoformat(), end_date.isoformat()
+    else:
+        mode = "month"
+        range_start_local, range_end_local_exclusive = month_start, next_month_start
+        # Sinnvolle Default-Vorbelegung fuer die Von/Bis-Felder, falls direkt
+        # danach in den freien Zeitraum umgeschaltet wird, ohne dass vorher
+        # schon eigene Werte gesetzt wurden.
+        date_from_value = month_start.isoformat()
+        date_to_value = min(today, next_month_start - timedelta(days=1)).isoformat()
+
+    range_start_utc = datetime(
+        range_start_local.year, range_start_local.month, range_start_local.day, tzinfo=APP_TIMEZONE
+    ).astimezone(timezone.utc)
+    range_end_utc = datetime(
+        range_end_local_exclusive.year, range_end_local_exclusive.month, range_end_local_exclusive.day, tzinfo=APP_TIMEZONE
+    ).astimezone(timezone.utc)
+
+    return {
+        "mode": mode,
+        "month_value": month_value,
+        "prev_month_value": prev_month_value,
+        "next_month_value": next_month_value,
+        "date_from_value": date_from_value,
+        "date_to_value": date_to_value,
+        "range_start_utc": range_start_utc,
+        "range_end_utc": range_end_utc,
+    }
+
+
+def _build_timeclock_self_context(request: Request, user, db: Session, mode: str, month: str, date_from: str, date_to: str) -> dict:
+    """Kontext fuer timeclock.html - ausgelagert, damit GET /timeclock bei
+    fetch()-Anfragen (Monats-/Zeitraum-/Moduswechsel ohne Full-Page-Reload,
+    siehe timeclock.html) nur das aktualisierte Fragment zurueckgeben kann."""
+    now = ntptime.now_utc()
+    period = _resolve_timeclock_self_period(mode, month, date_from, date_to, now.astimezone(APP_TIMEZONE))
+    stats = compute_time_stats(
+        user, db, now, period["range_start_utc"], period["range_end_utc"], include_overtime=(period["mode"] == "month"),
+    )
     settings = get_app_settings(db)
-    return templates.TemplateResponse("timeclock.html", {
+    return {
         "request": request,
         "user": user,
         "stats": stats,
         "timeclock_user_mode": settings.timeclock_user_mode,
-    })
+        "mode": period["mode"],
+        "month_value": period["month_value"],
+        "prev_month_value": period["prev_month_value"],
+        "next_month_value": period["next_month_value"],
+        "date_from_value": period["date_from_value"],
+        "date_to_value": period["date_to_value"],
+    }
+
+
+@app.get("/timeclock")
+def timeclock_view(
+    request: Request, mode: str = "month", month: str = "", date_from: str = "", date_to: str = "",
+    db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    context = _build_timeclock_self_context(request, user, db, mode, month, date_from, date_to)
+    # Monats-/Zeitraum-/Moduswechsel laeuft clientseitig ueber fetch() statt
+    # einer echten Navigation (siehe timeclock.html, analog zu
+    # admin_timeclock.html) - der Header markiert diese Anfragen, damit wir
+    # nur das Fragment statt der kompletten Seite zurueckschicken.
+    if request.headers.get("X-Requested-With") == "fetch":
+        return templates.TemplateResponse("_timeclock_self_fragment.html", context)
+    return templates.TemplateResponse("timeclock.html", context)
 
 
 def _timeentry_pdf_rows(db: Session, user_id: int) -> list:
@@ -1273,18 +1374,33 @@ def timeclock_export_pdf(request: Request, db: Session = Depends(get_db)):
     return _timeentry_pdf_response(user, _timeentry_pdf_rows(db, user.id))
 
 
+def _timeclock_self_redirect(mode: str, month: str, date_from: str, date_to: str) -> str:
+    """Baut die Rueck-URL nach Bearbeiten/Loeschen einer eigenen Buchung so,
+    dass der gerade betrachtete Monat/Zeitraum erhalten bleibt, statt nach
+    jeder Aktion auf den aktuellen Monat zurueckzuspringen."""
+    params = {"mode": mode}
+    if mode == "range":
+        params["date_from"] = date_from
+        params["date_to"] = date_to
+    else:
+        params["month"] = month
+    return "/timeclock?" + urlencode({k: v for k, v in params.items() if v})
+
+
 @app.post("/timeclock/self/{entry_id}/edit")
 def timeclock_self_edit(
     entry_id: int, request: Request,
     clock_in: str = Form(...), clock_out: str = Form(""),
+    mode: str = Form("month"), month: str = Form(""), date_from: str = Form(""), date_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Selbstbearbeitung der eigenen Buchungen - nur im Nutzer-Modus möglich
     (siehe AppSettings.timeclock_user_mode) und nur für die eigene Buchung,
     im Gegensatz zur Admin-Korrektur unter /admin/timeclock."""
     user = require_login(request, db)
+    target = _timeclock_self_redirect(mode, month, date_from, date_to)
     if not get_app_settings(db).timeclock_user_mode:
-        return RedirectResponse("/timeclock", status_code=302)
+        return RedirectResponse(target, status_code=302)
     entry = db.query(models.TimeEntry).filter(
         models.TimeEntry.id == entry_id, models.TimeEntry.user_id == user.id
     ).first()
@@ -1294,14 +1410,19 @@ def timeclock_self_edit(
         entry.clock_out = _parse_local_dt(clock_out)
         _log_timeclock_change(db, entry, "edited", user.id, old_in, old_out)
         db.commit()
-    return RedirectResponse("/timeclock", status_code=302)
+    return RedirectResponse(target, status_code=302)
 
 
 @app.post("/timeclock/self/{entry_id}/delete")
-def timeclock_self_delete(entry_id: int, request: Request, db: Session = Depends(get_db)):
+def timeclock_self_delete(
+    entry_id: int, request: Request,
+    mode: str = Form("month"), month: str = Form(""), date_from: str = Form(""), date_to: str = Form(""),
+    db: Session = Depends(get_db),
+):
     user = require_login(request, db)
+    target = _timeclock_self_redirect(mode, month, date_from, date_to)
     if not get_app_settings(db).timeclock_user_mode:
-        return RedirectResponse("/timeclock", status_code=302)
+        return RedirectResponse(target, status_code=302)
     entry = db.query(models.TimeEntry).filter(
         models.TimeEntry.id == entry_id, models.TimeEntry.user_id == user.id
     ).first()
@@ -1309,7 +1430,7 @@ def timeclock_self_delete(entry_id: int, request: Request, db: Session = Depends
         _log_timeclock_change(db, entry, "deleted", user.id, entry.clock_in, entry.clock_out)
         db.delete(entry)
         db.commit()
-    return RedirectResponse("/timeclock", status_code=302)
+    return RedirectResponse(target, status_code=302)
 
 
 # ---------- Zeiterfassungs-Terminal (autorisiertes Gerät) ----------

@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.77.0] - 2026-08-19
+- Mitarbeiter-Zeiterfassung (`/timeclock`) auf das UI-Muster der Admin-Zeiterfassung umgestellt: gleiche Whitecard mit Monats-Pfeilen `<`/`>` und Datepicker, jetzt zusätzlich umschaltbar auf einen freien Von/Bis-Zeitraum. KPI-Kacheln ("Heute verdient", "Verdient im Monat/Zeitraum", "Überstunden" bzw. "Erfasste Buchungen" im freien Zeitraum) sitzen wie im Admin-Bereich direkt in der Whitecard.
+- Verlauf ist jetzt eine Tabelle (Datum/Kommen/Gehen/Dauer/Aktionen) statt einer Liste, zeigt den kompletten gewählten Zeitraum statt nur der letzten 20 Buchungen, kein Mitarbeiter-Dropdown (nur eigene Daten). "Als PDF exportieren" sitzt oben rechts in der Tabellenleiste, an der Position des "Daten"-Buttons im Admin-Bereich.
+- Monats-/Zeitraum-/Moduswechsel läuft komplett ohne Full-Page-Reload (fetch()), inkl. URL-Synchronisation; Bearbeiten/Löschen einer eigenen Buchung kehrt danach in den zuvor gewählten Zeitraum zurück statt auf den aktuellen Monat zurückzuspringen.
+
 ## [0.76.1] - 2026-08-19
 - Fix: Der 2-Farben-Inventarstatus aus 0.76.0 verglich den Ist-Bestand fälschlich mit dem Soll-Bestand statt mit dem Mindestbestand – dadurch wurde z.B. „3/3 Kanister“ fälschlich rot als „Niedriger Bestand“ angezeigt. Vergleich läuft jetzt korrekt gegen den Mindestbestand (mit Fallback auf die Hälfte des Soll-Bestands, falls nicht gesetzt); die Detail-Ansicht zeigt Soll-Bestand und Mindestbestand wieder als getrennte Werte.
 

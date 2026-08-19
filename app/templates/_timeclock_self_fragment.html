@@ -1,0 +1,158 @@
+{# Zeitraum-/Buchungs-Fragment von timeclock.html - spiegelt den Aufbau von
+   _timeclock_fragment.html (Admin-Zeiterfassung), nur fuer die eigene
+   Buchungshistorie statt aller Mitarbeiter: Monats-Navigation ODER freier
+   Von/Bis-Zeitraum, KPI-Kacheln, Tabelle statt Liste. Separat renderbar,
+   damit GET /timeclock bei fetch()-Anfragen (Monats-/Zeitraum-/Modus-
+   wechsel ohne Full-Page-Reload) nur dieses Fragment zurueckgibt. #}
+{% set col_count = 5 if timeclock_user_mode else 4 %}
+
+<!-- Zeitraum-Auswahl -->
+<div class="rounded-xl border border-line bg-panel p-4 mb-4">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+      {% if mode == 'range' %}
+      <label class="text-xs text-slate-500">Von</label>
+      <input type="date" id="tce-date-from" value="{{ date_from_value }}" class="tce-range-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <label class="text-xs text-slate-500">Bis</label>
+      <input type="date" id="tce-date-to" value="{{ date_to_value }}" class="tce-range-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      {% else %}
+      <a href="/timeclock?mode=month&month={{ prev_month_value }}" class="tce-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Vorheriger Monat">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </a>
+      <input type="month" value="{{ month_value }}" class="tce-month-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <a href="/timeclock?mode=month&month={{ next_month_value }}" class="tce-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Nächster Monat">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </a>
+      <a href="/timeclock?mode=month" class="tce-month-nav text-xs text-slate-500 hover:text-slate-300 ml-1">Aktueller Monat</a>
+      {% endif %}
+    </div>
+    <div class="flex items-center rounded-md border border-line overflow-hidden text-xs font-medium shrink-0">
+      <button type="button" class="tce-mode-btn px-3 py-1.5 {% if mode == 'month' %}bg-go/90 text-oncolor{% else %}text-slate-300 hover:bg-panel2{% endif %}" data-mode="month">Monat</button>
+      <button type="button" class="tce-mode-btn px-3 py-1.5 {% if mode == 'range' %}bg-go/90 text-oncolor{% else %}text-slate-300 hover:bg-panel2{% endif %}" data-mode="range">Freier Zeitraum</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+    <div class="rounded-lg border border-line bg-panel2 p-3">
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Heute verdient</div>
+      {% if stats.has_wage %}
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ "%.2f"|format(stats.today_earned) }} €</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">{{ format_hours_de(stats.today_hours) }}</div>
+      {% else %}
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ format_hours_de(stats.today_hours) }}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5"><a href="/profile" class="underline hover:text-slate-300">Stundensatz im Profil hinterlegen</a></div>
+      {% endif %}
+    </div>
+    <div class="rounded-lg border border-line bg-panel2 p-3">
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide">{{ "Verdient im Monat" if mode == "month" else "Verdient im Zeitraum" }}</div>
+      {% if stats.has_wage %}
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ "%.2f"|format(stats.range_earned) }} €</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">{{ format_hours_de(stats.range_hours) }}</div>
+      {% else %}
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ format_hours_de(stats.range_hours) }}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5"><a href="/profile" class="underline hover:text-slate-300">Stundensatz im Profil hinterlegen</a></div>
+      {% endif %}
+    </div>
+    <div class="rounded-lg border border-line bg-panel2 p-3">
+      {% if mode == 'month' %}
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Überstunden</div>
+      {% if stats.has_target %}
+      <div class="text-xl font-display font-semibold mt-0.5 {% if stats.overtime_hours < 0 %}text-late{% else %}text-go{% endif %}">
+        {{ "+" if stats.overtime_hours >= 0 else "−" }}{{ format_hours_de(stats.overtime_hours|abs) }}
+      </div>
+      <div class="text-[11px] text-slate-500 mt-0.5">{% if stats.overtime_hours < 0 %}Minusstunden{% else %}über Sollzeit{% endif %}</div>
+      {% else %}
+      <div class="text-xl font-display font-semibold text-slate-500 mt-0.5">–</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">Keine Sollzeit hinterlegt</div>
+      {% endif %}
+      {% else %}
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Erfasste Buchungen</div>
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ stats.range_bookings }}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">kein Sollzeit-Vergleich im freien Zeitraum</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Verlauf -->
+<div class="rounded-xl border border-line bg-panel p-4">
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    <span class="text-xs text-slate-500 whitespace-nowrap">{{ stats.history|length }} Buchung{{ "en" if stats.history|length != 1 else "" }}</span>
+    <div class="ml-auto flex items-center gap-2">
+      <a href="/timeclock/export.pdf" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium whitespace-nowrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        Als PDF exportieren
+      </a>
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm" id="tce-table">
+      <thead>
+        <tr class="text-left text-[11px] text-slate-500 border-b border-line">
+          <th class="py-2 pr-2 font-medium">Datum</th>
+          <th class="py-2 pr-2 font-medium">Kommen</th>
+          <th class="py-2 pr-2 font-medium">Gehen</th>
+          <th class="py-2 pr-2 font-medium">Dauer</th>
+          {% if timeclock_user_mode %}<th class="py-2 pl-2 font-medium text-right">Aktionen</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in stats.history %}
+        <tr class="border-b border-line/50 last:border-0 hover:bg-panel2/50">
+          <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ e.date_label }}</td>
+          <td class="py-2 pr-2 text-slate-300 whitespace-nowrap">{{ e.clock_in.strftime('%H:%M') }}</td>
+          <td class="py-2 pr-2 whitespace-nowrap {% if e.open %}text-go font-medium{% else %}text-slate-300{% endif %}">
+            {% if e.open %}läuft noch{% else %}{{ e.clock_out.strftime('%H:%M') }}{% endif %}
+          </td>
+          <td class="py-2 pr-2 text-slate-400 whitespace-nowrap">{{ format_hours_de(e.hours) }}{% if e.open %} <span class="text-go">(läuft)</span>{% endif %}</td>
+          {% if timeclock_user_mode %}
+          <td class="py-2 pl-2 text-right">
+            <div class="relative tce-kebab-wrap inline-block">
+              <button type="button" class="tce-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für Buchung vom {{ e.clock_in.strftime('%d.%m.%Y') }}" aria-haspopup="true" aria-expanded="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
+              </button>
+              <div class="tce-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-left">
+                <button type="button" class="tce-edit-toggle-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" data-target="tce-edit-row-{{ e.id }}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  Bearbeiten
+                </button>
+                <form method="post" action="/timeclock/self/{{ e.id }}/delete" onsubmit="return confirm('Buchung wirklich löschen?')">
+                  <input type="hidden" name="mode" value="{{ mode }}">
+                  <input type="hidden" name="month" value="{{ month_value }}">
+                  <input type="hidden" name="date_from" value="{{ date_from_value }}">
+                  <input type="hidden" name="date_to" value="{{ date_to_value }}">
+                  <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    Löschen
+                  </button>
+                </form>
+              </div>
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% if timeclock_user_mode %}
+        <tr id="tce-edit-row-{{ e.id }}" class="hidden">
+          <td colspan="{{ col_count }}" class="pb-3 pt-1">
+            <form method="post" action="/timeclock/self/{{ e.id }}/edit" class="flex flex-col sm:flex-row sm:items-center gap-2">
+              <input type="hidden" name="mode" value="{{ mode }}">
+              <input type="hidden" name="month" value="{{ month_value }}">
+              <input type="hidden" name="date_from" value="{{ date_from_value }}">
+              <input type="hidden" name="date_to" value="{{ date_to_value }}">
+              <input type="datetime-local" name="clock_in" required value="{{ e.clock_in.strftime('%Y-%m-%dT%H:%M') }}"
+                     class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <span class="hidden sm:inline text-slate-500">&ndash;</span>
+              <input type="datetime-local" name="clock_out" value="{{ e.clock_out.strftime('%Y-%m-%dT%H:%M') if e.clock_out else '' }}"
+                     placeholder="läuft noch" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <button class="px-2.5 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium shrink-0">Speichern</button>
+            </form>
+          </td>
+        </tr>
+        {% endif %}
+        {% else %}
+        <tr><td colspan="{{ col_count }}" class="py-8 text-center text-slate-500 text-sm">Noch keine Zeiterfassung vorhanden.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -22,109 +22,8 @@
   </div>
 </div>
 
-<!-- Stat-Karten -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-  <div class="rounded-xl border border-line bg-panel p-4">
-    <div class="text-xs text-slate-400 mb-1.5">Heute verdient</div>
-    {% if stats.has_wage %}
-    <div class="font-display text-2xl font-semibold leading-none">{{ "%.2f"|format(stats.today_earned) }} €</div>
-    <div class="text-xs text-slate-500 mt-1.5">{{ format_hours_de(stats.today_hours) }}</div>
-    {% else %}
-    <div class="font-display text-2xl font-semibold leading-none">{{ format_hours_de(stats.today_hours) }}</div>
-    <div class="text-xs text-slate-500 mt-1.5"><a href="/profile" class="underline hover:text-slate-300">Stundensatz im Profil hinterlegen</a></div>
-    {% endif %}
-  </div>
-  <div class="rounded-xl border border-line bg-panel p-4">
-    <div class="text-xs text-slate-400 mb-1.5">Diesen Monat bisher</div>
-    {% if stats.has_wage %}
-    <div class="font-display text-2xl font-semibold leading-none">{{ "%.2f"|format(stats.month_earned) }} €</div>
-    <div class="text-xs text-slate-500 mt-1.5">{{ format_hours_de(stats.month_hours) }}</div>
-    {% else %}
-    <div class="font-display text-2xl font-semibold leading-none">{{ format_hours_de(stats.month_hours) }}</div>
-    <div class="text-xs text-slate-500 mt-1.5"><a href="/profile" class="underline hover:text-slate-300">Stundensatz im Profil hinterlegen</a></div>
-    {% endif %}
-  </div>
-  <div class="rounded-xl border border-line bg-panel p-4">
-    <div class="text-xs text-slate-400 mb-1.5">Überstunden</div>
-    {% if stats.has_target %}
-    <div class="font-display text-2xl font-semibold leading-none {% if stats.overtime_hours < 0 %}text-late{% else %}text-go{% endif %}">
-      {{ "+" if stats.overtime_hours >= 0 else "−" }}{{ format_hours_de(stats.overtime_hours|abs) }}
-    </div>
-    <div class="text-xs text-slate-500 mt-1.5">{% if stats.overtime_hours < 0 %}Minusstunden{% else %}über Sollzeit{% endif %} diesen Monat</div>
-    {% else %}
-    <div class="font-display text-2xl font-semibold leading-none text-slate-500">–</div>
-    <div class="text-xs text-slate-500 mt-1.5">Keine Sollzeit hinterlegt</div>
-    {% endif %}
-  </div>
-</div>
-
-<!-- Verlauf -->
-<div class="rounded-xl border border-line bg-panel p-4">
-  <div class="flex items-center justify-between mb-3">
-    <h2 class="font-display font-medium">Verlauf</h2>
-    <a href="/timeclock/export.pdf" class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-100">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-      Als PDF exportieren
-    </a>
-  </div>
-  {% if stats.history %}
-  <ul class="space-y-1 text-sm">
-    {% for e in stats.history %}
-    <li class="border-b border-line/50 last:border-0 py-2">
-      {% if timeclock_user_mode %}
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2.5">
-          <span class="w-2 h-2 rounded-full shrink-0 {% if e.open %}bg-go{% else %}bg-slate-600{% endif %}"></span>
-          <span class="text-slate-300">{{ e.clock_in.strftime("%d.%m.%Y") }}</span>
-          <span class="text-slate-500">{{ e.clock_in.strftime("%H:%M") }}–{{ e.clock_out.strftime("%H:%M") if e.clock_out else "…" }} Uhr</span>
-        </div>
-        <span class="flex items-center gap-2 shrink-0">
-          <span class="text-slate-400 text-xs whitespace-nowrap">{{ format_hours_de(e.hours) }}{% if e.open %} <span class="text-go">(läuft)</span>{% endif %}</span>
-          <div class="relative tce-kebab-wrap">
-            <button type="button" class="tce-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für Buchung vom {{ e.clock_in.strftime('%d.%m.%Y') }}" aria-haspopup="true" aria-expanded="false">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
-            </button>
-            <div class="tce-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1 text-left">
-              <button type="button" class="tce-edit-toggle-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" data-target="tce-edit-{{ e.id }}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                Bearbeiten
-              </button>
-              <form method="post" action="/timeclock/self/{{ e.id }}/delete" onsubmit="return confirm('Buchung wirklich löschen?')">
-                <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                  Löschen
-                </button>
-              </form>
-            </div>
-          </div>
-        </span>
-      </div>
-      <div id="tce-edit-{{ e.id }}" class="hidden mt-2">
-        <form method="post" action="/timeclock/self/{{ e.id }}/edit" class="flex flex-col sm:flex-row sm:items-center gap-2 max-w-2xl">
-          <input type="datetime-local" name="clock_in" required value="{{ e.clock_in.strftime('%Y-%m-%dT%H:%M') }}"
-                 class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <span class="hidden sm:inline text-slate-500">&ndash;</span>
-          <input type="datetime-local" name="clock_out" value="{{ e.clock_out.strftime('%Y-%m-%dT%H:%M') if e.clock_out else '' }}"
-                 placeholder="läuft noch" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <button class="px-2.5 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium shrink-0">Speichern</button>
-        </form>
-      </div>
-      {% else %}
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2.5">
-          <span class="w-2 h-2 rounded-full shrink-0 {% if e.open %}bg-go{% else %}bg-slate-600{% endif %}"></span>
-          <span class="text-slate-300">{{ e.clock_in.strftime("%d.%m.%Y") }}</span>
-          <span class="text-slate-500">{{ e.clock_in.strftime("%H:%M") }}–{{ e.clock_out.strftime("%H:%M") if e.clock_out else "…" }} Uhr</span>
-        </div>
-        <span class="text-slate-400 text-xs whitespace-nowrap">{{ format_hours_de(e.hours) }}{% if e.open %} <span class="text-go">(läuft)</span>{% endif %}</span>
-      </div>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="text-slate-500 text-sm italic">Noch keine Zeiterfassung vorhanden.</p>
-  {% endif %}
+<div id="tce-fragment" class="transition-opacity duration-150">
+  {% include "_timeclock_self_fragment.html" %}
 </div>
 
 <p class="text-[11px] text-slate-500 mt-4">
@@ -139,43 +38,110 @@
   {% endif %}
 </p>
 
-{% if timeclock_user_mode %}
 <script>
   (function () {
-    // Kebab-Menü je Buchung im Verlauf (Bearbeiten/Löschen) statt Stift-
-    // Icon - einheitliches Muster mit den anderen Seiten. "Bearbeiten"
-    // blendet das dazugehörige Inline-Formular ein.
+    var fragment = document.getElementById('tce-fragment');
+
+    // Kebab-/Bearbeiten-Menues sind rein klassenbasiert (kein Element-
+    // Caching), funktionieren dadurch nach jedem Fragment-Tausch automatisch
+    // weiter, ohne neu gebunden werden zu muessen.
     function closeAllKebabMenus() {
       document.querySelectorAll('.tce-kebab-menu').forEach(function (menu) { menu.classList.add('hidden'); });
       document.querySelectorAll('.tce-kebab-btn').forEach(function (btn) { btn.setAttribute('aria-expanded', 'false'); });
     }
-    document.querySelectorAll('.tce-kebab-wrap').forEach(function (wrap) {
-      var btn = wrap.querySelector('.tce-kebab-btn');
-      var menu = wrap.querySelector('.tce-kebab-menu');
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var wasOpen = !menu.classList.contains('hidden');
-        closeAllKebabMenus();
-        if (!wasOpen) {
-          menu.classList.remove('hidden');
-          btn.setAttribute('aria-expanded', 'true');
-        }
-      });
-    });
     document.addEventListener('click', closeAllKebabMenus);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeAllKebabMenus();
     });
 
-    document.querySelectorAll('.tce-edit-toggle-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        closeAllKebabMenus();
-        var panel = document.getElementById(btn.dataset.target);
-        if (panel) panel.classList.toggle('hidden');
+    // #tce-fragment wird bei jedem Monats-/Zeitraum-/Moduswechsel per
+    // fetch() komplett neu vom Server befuellt (siehe GET /timeclock mit
+    // X-Requested-With) - dabei gehen alle direkt daran gebundenen Listener
+    // verloren, deshalb bindFragment() nach jedem Tausch erneut aufrufen
+    // (identisches Muster zu admin_timeclock.html).
+    function bindFragment() {
+      fragment.querySelectorAll('.tce-kebab-wrap').forEach(function (wrap) {
+        var btn = wrap.querySelector('.tce-kebab-btn');
+        var menu = wrap.querySelector('.tce-kebab-menu');
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var wasOpen = !menu.classList.contains('hidden');
+          closeAllKebabMenus();
+          if (!wasOpen) {
+            menu.classList.remove('hidden');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
       });
-    });
+      fragment.querySelectorAll('.tce-edit-toggle-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          closeAllKebabMenus();
+          var panel = document.getElementById(btn.dataset.target);
+          if (panel) panel.classList.toggle('hidden');
+        });
+      });
+
+      // Monatsnavigation (< / > / "Aktueller Monat" / Monats-Picker) loest
+      // einen fetch() statt einer echten Seiten-Navigation aus.
+      fragment.querySelectorAll('.tce-month-nav').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          loadPeriod(a.getAttribute('href'));
+        });
+      });
+      var monthInput = fragment.querySelector('.tce-month-input');
+      if (monthInput) {
+        monthInput.addEventListener('change', function () {
+          loadPeriod('/timeclock?mode=month&month=' + monthInput.value);
+        });
+      }
+
+      // Freier Zeitraum: Von/Bis loesen jeweils direkt einen Reload aus.
+      var fromInput = document.getElementById('tce-date-from');
+      var toInput = document.getElementById('tce-date-to');
+      if (fromInput && toInput) {
+        var onRangeChange = function () {
+          loadPeriod('/timeclock?mode=range&date_from=' + fromInput.value + '&date_to=' + toInput.value);
+        };
+        fromInput.addEventListener('change', onRangeChange);
+        toInput.addEventListener('change', onRangeChange);
+      }
+
+      // Modus-Umschalter (Monat / Freier Zeitraum) - beim ersten Wechsel in
+      // den freien Zeitraum liefert der Server bereits sinnvolle Von/Bis-
+      // Defaults (siehe date_from_value/date_to_value in main.py).
+      fragment.querySelectorAll('.tce-mode-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          loadPeriod('/timeclock?mode=' + btn.dataset.mode);
+        });
+      });
+    }
+
+    // Ein dezentes opacity-50 waehrend des Ladens gibt sofortiges Feedback,
+    // ohne dass das Layout springt. Bei Netzwerkfehler/Serverausfall faellt
+    // der Code auf eine normale Navigation zurueck, damit die Seite in
+    // jedem Fall bedienbar bleibt.
+    function loadPeriod(url) {
+      fragment.classList.add('opacity-50', 'pointer-events-none');
+      fetch(url, { headers: { 'X-Requested-With': 'fetch' } })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          return resp.text();
+        })
+        .then(function (html) {
+          fragment.innerHTML = html;
+          fragment.classList.remove('opacity-50', 'pointer-events-none');
+          var target = new URL(url, window.location.origin);
+          history.replaceState(null, '', target.pathname + target.search);
+          bindFragment();
+        })
+        .catch(function () {
+          window.location.href = url;
+        });
+    }
+
+    bindFragment();
   })();
 </script>
-{% endif %}
 
 {% endblock %}
