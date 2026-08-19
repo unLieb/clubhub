@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.82.1] - 2026-08-19
+- Historie (`/history`): Der farbige Gruppen-Badge sitzt jetzt in der Spalte „Erledigt von" direkt neben dem Namen des ausführenden Mitarbeiters (z.B. Sebastian `Hausmeister`) statt in der Spalte „Bereich" – zeigt damit die Gruppenzugehörigkeit der Person statt der Bereichsgruppen. Spalte „Datum" unverändert.
+
 ## [0.82.0] - 2026-08-19
 - Nutzer-Verwaltung: Beim Anlegen und Bearbeiten ist jetzt mindestens eine Gruppe Pflicht – ohne Gruppe war ein Nutzer bisher versehentlich von Bereichen/Meldungen/Terminen ausgesperrt, sobald die gruppenbasierte Sichtbarkeit griff.
 - Neu: Gruppenfarben. Jede Gruppe bekommt in der Gruppen-Verwaltung eine eigene Farbe aus einer festen Palette (10 Farben) zugewiesen – bestehende Gruppen automatisch reihum vorbelegt. Namens-Badges nutzen diese Farbe jetzt systemweit: Historie (neu), Termine, Meldungen, Inventar-Artikel sowie die Nutzer-/Bereichsverwaltung zeigen auf einen Blick farblich, zu welcher Gruppe ein Eintrag oder Nutzer gehört.
