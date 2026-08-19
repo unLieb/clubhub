@@ -292,8 +292,12 @@
                 <div class="font-medium">{{ item.stock_current|qty }}{% if item.unit %} {{ item|unit_label(item.stock_current) }}{% endif %}</div>
               </div>
               <div>
-                <div class="text-[11px] text-slate-500">Mindestbestand</div>
+                <div class="text-[11px] text-slate-500">Soll-Bestand</div>
                 <div class="font-medium">{{ item.stock_min|qty }}{% if item.unit %} {{ item|unit_label(item.stock_min) }}{% endif %}</div>
+              </div>
+              <div>
+                <div class="text-[11px] text-slate-500">Mindestbestand</div>
+                <div class="font-medium">{% if st.critical_threshold is not none %}{{ st.critical_threshold|qty }}{% if item.unit %} {{ item|unit_label(st.critical_threshold) }}{% endif %}{% else %}–{% endif %}</div>
               </div>
               <div>
                 <div class="text-[11px] text-slate-500">Lagerort</div>

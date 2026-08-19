@@ -98,16 +98,34 @@ def task_status(task, now=None):
     }
 
 
+def inventory_critical_threshold(item):
+    """Mindestbestand-Schwelle für den 2-Stufen-Status. Nutzt den expliziten
+    Wert (stock_critical), falls gesetzt, sonst die Hälfte des Soll-Bestands
+    (stock_min) als sinnvoller Default ohne Konfigurationsaufwand. Geklemmt
+    auf höchstens stock_min, damit ein versehentlich zu hoch gesetzter Wert
+    nicht größer als der Zielbestand selbst wird."""
+    if not item.stock_min:
+        return None
+    threshold = item.stock_critical if item.stock_critical is not None else item.stock_min / 2
+    return min(threshold, item.stock_min)
+
+
 def compute_inventory_status(item) -> dict:
     """Vereinfachtes 2-Stufen-Ampel-System (kein 'critical'/'empty' mit
     Prozent-Zwischenschwellen mehr): 'ok' (gruen, 'Im Soll') sobald der
-    Ist-Bestand über dem Mindestbestand (stock_min) liegt, sonst 'low' (rot,
-    'Niedriger Bestand') - eine einzige klare Schwelle statt mehrerer
-    Ampelstufen. fill_pct bleibt nur als Füllstand für den Fortschrittsbalken
-    erhalten (rein visuell, keine Status-Entscheidung mehr)."""
-    if item.stock_min and item.stock_current <= item.stock_min:
+    Ist-Bestand über dem Mindestbestand (stock_critical, mit Fallback über
+    inventory_critical_threshold) liegt, sonst 'low' (rot, 'Niedriger
+    Bestand') - eine einzige klare Schwelle statt mehrerer Ampelstufen.
+    WICHTIG: die Schwelle ist der Mindestbestand, NICHT der Soll-Bestand
+    (stock_min) - ein Artikel kann unter Soll aber über Mindestbestand
+    liegen und gilt dann trotzdem als "Im Soll" (siehe Bug-Report: Artikel
+    mit 3 Ist / 4 Soll / 2 Mindestbestand ist gruen, nicht rot). fill_pct
+    bleibt nur als Füllstand für den Fortschrittsbalken erhalten (rein
+    visuell, keine Status-Entscheidung mehr)."""
+    critical_threshold = inventory_critical_threshold(item)
+    if critical_threshold is not None and item.stock_current <= critical_threshold:
         status = "low"
     else:
         status = "ok"
     fill_pct = max(0, min(100, round(item.stock_current / item.stock_min * 100))) if item.stock_min else 100
-    return {"status": status, "fill_pct": fill_pct}
+    return {"status": status, "fill_pct": fill_pct, "critical_threshold": critical_threshold}

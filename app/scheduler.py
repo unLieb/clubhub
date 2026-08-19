@@ -104,8 +104,10 @@ def check_inventory_job():
             if item.notified:
                 continue
             # Vereinfachtes 2-Stufen-System (siehe status.compute_inventory_status):
-            # "low" ist bereits die einzige "braucht Aufmerksamkeit"-Stufe.
-            if compute_inventory_status(item)["status"] != "low":
+            # "low" ist bereits die einzige "braucht Aufmerksamkeit"-Stufe -
+            # die Schwelle dafuer ist der Mindestbestand, nicht der Soll-Bestand.
+            item_status = compute_inventory_status(item)
+            if item_status["status"] != "low":
                 continue
             if not _within_working_hours(item.group, now_local):
                 continue  # wird beim nächsten Tick nachgeholt, sobald Arbeitszeit beginnt
@@ -113,7 +115,7 @@ def check_inventory_job():
                 item.group,
                 f"Niedriger Bestand: {item.name}",
                 f"„{item.name}“ liegt bei {item.stock_current:g}"
-                f"{' ' + item.unit if item.unit else ''} – Mindestbestand ist {item.stock_min:g}.",
+                f"{' ' + item.unit if item.unit else ''} – Mindestbestand ist {item_status['critical_threshold']:g}.",
                 url=f"/inventory?focus=item-{item.id}",
             )
             item.notified = True

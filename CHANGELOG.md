@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.76.1] - 2026-08-19
+- Fix: Der 2-Farben-Inventarstatus aus 0.76.0 verglich den Ist-Bestand fälschlich mit dem Soll-Bestand statt mit dem Mindestbestand – dadurch wurde z.B. „3/3 Kanister“ fälschlich rot als „Niedriger Bestand“ angezeigt. Vergleich läuft jetzt korrekt gegen den Mindestbestand (mit Fallback auf die Hälfte des Soll-Bestands, falls nicht gesetzt); die Detail-Ansicht zeigt Soll-Bestand und Mindestbestand wieder als getrennte Werte.
+
 ## [0.76.0] - 2026-08-19
 - Inventar-Statusanzeige auf klares 2-Farben-System vereinfacht: nur noch grün „Im Soll“ (Bestand über Mindestbestand) oder rot „Niedriger Bestand“ (Bestand auf oder unter Mindestbestand) – die bisherigen Zwischenstufen „Kritisch“ (orange) und „Bestand leer“ sowie die Prozentanzeige im Detailbereich entfallen. Badge, Fortschrittsbalken und „Nachbestellen“-Button sind jetzt einheitlich rot eingefärbt und der Button ist bei „Im Soll“ ausgeblendet.
 - Fix: Die Bestands-Benachrichtigung an Gruppen (vorher an die inzwischen entfernte „Kritisch“-Stufe gekoppelt) löst jetzt korrekt bei „Niedriger Bestand“ aus.
