@@ -262,6 +262,16 @@
           {% endfor %}
         </div>
       </div>
+      <div id="report-f-link-field" class="hidden">
+        <label class="block text-[11px] text-slate-400 mb-1">Produkt-Link / Shop-URL (optional)</label>
+        <input type="url" id="report-f-link" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <p id="report-f-link-status" class="hidden text-[11px] text-slate-500 mt-1"></p>
+        <div id="report-f-link-preview" class="hidden items-center gap-2 mt-2">
+          <img id="report-f-link-preview-img" class="w-12 h-12 rounded-lg object-cover border border-line" alt="">
+          <span class="text-[11px] text-slate-400">Produktbild wird als Foto an die Meldung angehängt.</span>
+        </div>
+        <input type="hidden" name="link_preview_image" id="report-f-link-image-hidden">
+      </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Beschreibung</label>
         <textarea name="comment" id="report-f-comment" required rows="2" placeholder="Was ist los? Z.B. „Seifenspender leer“ oder „Fliese in der Ecke kaputt“…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
@@ -327,6 +337,23 @@
     var commentField = document.getElementById('report-f-comment');
     var PLACEHOLDER_DEFAULT = 'Was ist los? Z.B. „Seifenspender leer“ oder „Fliese in der Ecke kaputt“…';
     var PLACEHOLDER_ANSCHAFFUNG = 'Was wird benötigt? Z.B. Akku-Schrauber für die Werkstatt oder neue Kaffeemaschine…';
+    var linkField = document.getElementById('report-f-link-field');
+    var linkInput = document.getElementById('report-f-link');
+    var linkStatus = document.getElementById('report-f-link-status');
+    var linkPreview = document.getElementById('report-f-link-preview');
+    var linkPreviewImg = document.getElementById('report-f-link-preview-img');
+    var linkImageHidden = document.getElementById('report-f-link-image-hidden');
+
+    function setLinkStatus(text) {
+      linkStatus.textContent = text || '';
+      linkStatus.classList.toggle('hidden', !text);
+    }
+    function resetLinkPreview() {
+      linkPreview.classList.add('hidden');
+      linkPreview.classList.remove('flex');
+      linkPreviewImg.src = '';
+      linkImageHidden.value = '';
+    }
 
     function applyCategoryMode() {
       var isAnschaffung = categorySelect.value === 'anschaffung';
@@ -343,9 +370,69 @@
         groupRadios[1].checked = true;
       }
       commentField.placeholder = isAnschaffung ? PLACEHOLDER_ANSCHAFFUNG : PLACEHOLDER_DEFAULT;
+      linkField.classList.toggle('hidden', !isAnschaffung);
+      if (!isAnschaffung) {
+        // Beim Verlassen der Kategorie zuruecksetzen, damit kein verwaistes
+        // Vorschaubild (versteckt uebermittelt) an eine andersartige Meldung
+        // haengen bleibt, falls die Kategorie hin- und hergeschaltet wird.
+        linkInput.value = '';
+        setLinkStatus('');
+        resetLinkPreview();
+      }
     }
     categorySelect.addEventListener('change', applyCategoryMode);
     applyCategoryMode();
+
+    // "Produkt-Link"-Assistent: sobald eine gueltige http(s)-URL im Feld
+    // steht (bei Verlassen des Felds gepueft, nicht bei jedem Tastendruck),
+    // Open-Graph-Daten der Seite per fetch() abrufen (siehe
+    // GET /reports/link-preview -> fetch_link_preview in main.py) und die
+    // Beschreibung automatisch befuellen - aber nur, wenn dort noch nichts
+    // Eigenes eingetragen wurde, um nie ungefragt Nutzertext zu ueberschreiben.
+    // Ein gefundenes Produktbild wird serverseitig bereits heruntergeladen;
+    // der Dateiname wandert per verstecktem Feld mit und wird beim Absenden
+    // als Foto an die Meldung angehaengt (siehe reports_create).
+    linkInput.addEventListener('change', function () {
+      var value = linkInput.value.trim();
+      resetLinkPreview();
+      setLinkStatus('');
+      if (!value) return;
+      var parsed;
+      try {
+        parsed = new URL(value);
+      } catch (e) {
+        return;
+      }
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+
+      setLinkStatus('Lade Vorschau…');
+      fetch('/reports/link-preview?url=' + encodeURIComponent(value), { headers: { 'X-Requested-With': 'fetch' } })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('http ' + resp.status);
+          return resp.json();
+        })
+        .then(function (data) {
+          if (!data.title && !data.description && !data.image_url) {
+            setLinkStatus('Keine Vorschau gefunden – Beschreibung bitte manuell eintragen.');
+            return;
+          }
+          setLinkStatus('');
+          if (!commentField.value.trim()) {
+            var text = data.title || '';
+            if (data.description) text += (text ? '\n' : '') + data.description;
+            commentField.value = text;
+          }
+          if (data.image_url) {
+            linkPreviewImg.src = data.image_url;
+            linkPreview.classList.remove('hidden');
+            linkPreview.classList.add('flex');
+            linkImageHidden.value = data.image_filename;
+          }
+        })
+        .catch(function () {
+          setLinkStatus('Vorschau konnte nicht geladen werden.');
+        });
+    });
   })();
 
   document.querySelectorAll('.report-tabs').forEach(function (wrap) {

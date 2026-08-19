@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.84.0] - 2026-08-19
+- Meldungen (`/reports`, Kategorie „Materialwunsch / Anschaffung"): neues optionales Feld „Produkt-Link / Shop-URL". Sobald eine gültige URL eingefügt wird, ruft die App im Hintergrund die Open-Graph-Daten der Seite ab und befüllt die Beschreibung automatisch mit Titel/Beschreibung (nur falls das Feld noch leer ist) sowie das Produktbild als Vorschau, das beim Absenden automatisch als Foto an die Meldung angehängt wird.
+
 ## [0.83.2] - 2026-08-19
 - Meldungen (`/reports`, Formular „Neue Meldung"): Der Bild-Upload nutzt jetzt dieselbe Dropzone-Komponente wie an anderen Stellen der App (gestrichelter Rahmen, Icon, „Fotos hierher ziehen oder klicken / antippen", Drag&Drop, Einfügen per Strg+V) statt des nackten Datei-Auswahl-Felds – inklusive Vorschau-Thumbnails mit „✕"-Button zum Entfernen einzelner Fotos vor dem Absenden.
 

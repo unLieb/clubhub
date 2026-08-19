@@ -1,4 +1,5 @@
 import hashlib
+import html
 import json
 import logging
 import os
@@ -1850,6 +1851,83 @@ def fetch_product_image(reorder_url: str) -> str | None:
         return None
 
 
+_LINK_PREVIEW_TITLE_PATTERNS = [
+    re.compile(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']*)["\']', re.I),
+    re.compile(r'<meta[^>]+content=["\']([^"\']*)["\'][^>]+property=["\']og:title["\']', re.I),
+    re.compile(r'<title[^>]*>([^<]*)</title>', re.I),
+]
+_LINK_PREVIEW_DESCRIPTION_PATTERNS = [
+    re.compile(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']*)["\']', re.I),
+    re.compile(r'<meta[^>]+content=["\']([^"\']*)["\'][^>]+property=["\']og:description["\']', re.I),
+    re.compile(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)["\']', re.I),
+    re.compile(r'<meta[^>]+content=["\']([^"\']*)["\'][^>]+name=["\']description["\']', re.I),
+]
+# Format, in dem fetch_link_preview() heruntergeladene Bilder ablegt (siehe
+# dort) - reports_create() prueft eingehende link_preview_image-Werte gegen
+# dieses Muster, bevor daraus ein ReportPhoto angelegt wird (Formularfeld ist
+# clientseitig manipulierbar, daher nicht blind vertrauen).
+LINK_PREVIEW_FILENAME_RE = re.compile(r'^[0-9a-f]{32}\.[A-Za-z0-9]{1,10}$')
+
+
+def _extract_meta_text(html_text: str, patterns: list) -> str | None:
+    for pattern in patterns:
+        match = pattern.search(html_text)
+        if match:
+            text = html.unescape(match.group(1)).strip()
+            if text:
+                return text
+    return None
+
+
+def fetch_link_preview(url: str) -> dict | None:
+    """Best-Effort-Abruf von Titel/Beschreibung/Vorschaubild (Open-Graph/
+    Twitter-Meta bzw. <title>/<meta name="description">) einer Produktseite -
+    fuer den "Produkt-Link"-Assistenten bei Anschaffungs-Meldungen (siehe
+    GET /reports/link-preview). Laedt ein gefundenes Bild direkt in
+    REPORT_PHOTOS_DIR herunter, damit es beim Absenden ohne erneuten Upload
+    per Dateiname als ReportPhoto uebernommen werden kann (siehe
+    reports_create). Gibt bei jedem Fehler None zurueck (kein Treffer,
+    Timeout, Bot-Schutz, ...) - ein fehlgeschlagener Abruf blockiert nie das
+    Erstellen der Meldung, das Feld ist rein optional."""
+    if urlparse(url).scheme not in ("http", "https"):
+        return None
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; ClubHUB/1.0)"}
+        with httpx.Client(timeout=8.0, follow_redirects=True, headers=headers) as client:
+            page = client.get(url)
+            if page.status_code != 200 or "text/html" not in page.headers.get("content-type", ""):
+                return None
+            html_text = page.text[:300_000]  # Meta-Tags stehen im <head>, mehr braucht es nicht
+
+            title = _extract_meta_text(html_text, _LINK_PREVIEW_TITLE_PATTERNS)
+            description = _extract_meta_text(html_text, _LINK_PREVIEW_DESCRIPTION_PATTERNS)
+
+            image_filename = None
+            image_src = None
+            for pattern in _OG_IMAGE_PATTERNS:
+                match = pattern.search(html_text)
+                if match:
+                    image_src = match.group(1)
+                    break
+            if image_src:
+                image_url = urljoin(str(page.url), image_src)
+                if urlparse(image_url).scheme in ("http", "https"):
+                    img = client.get(image_url)
+                    if img.status_code == 200 and img.headers.get("content-type", "").startswith("image/"):
+                        data = img.content
+                        if data and len(data) <= 8 * 1024 * 1024:
+                            ext = os.path.splitext(urlparse(image_url).path)[1][:10] or ".jpg"
+                            image_filename = f"{uuid.uuid4().hex}{ext}"
+                            with open(os.path.join(REPORT_PHOTOS_DIR, image_filename), "wb") as f:
+                                f.write(data)
+
+            if not title and not description and not image_filename:
+                return None
+            return {"title": title, "description": description, "image_filename": image_filename}
+    except Exception:
+        return None
+
+
 def _with_img_fetch_hint(target: str, failed: bool) -> str:
     """Hängt einen Hinweis-Query-Parameter an, wenn der automatische
     Produktbild-Abruf fehlgeschlagen ist (z.B. Bot-Schutz des Shops) -
@@ -2255,6 +2333,29 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@app.get("/reports/link-preview")
+def reports_link_preview(request: Request, url: str = "", db: Session = Depends(get_db)):
+    """Fuer den "Produkt-Link"-Assistenten im "Neue Meldung"-Formular
+    (Kategorie Anschaffung, siehe reports.html) - liefert Titel/Beschreibung/
+    Vorschaubild einer eingefuegten Shop-URL per fetch() ohne Formular-POST,
+    damit Beschreibung und Bild schon vor dem Absenden automatisch befuellt
+    werden koennen. Nur fuer eingeloggte Nutzer (macht sonst einen offenen,
+    beliebig missbrauchbaren URL-Abruf-Proxy aus dem Server)."""
+    require_login(request, db)
+    url = url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="url fehlt")
+    result = fetch_link_preview(url)
+    if not result:
+        return {"title": None, "description": None, "image_url": None, "image_filename": None}
+    return {
+        "title": result["title"],
+        "description": result["description"],
+        "image_url": f"/uploads/reports/{result['image_filename']}" if result["image_filename"] else None,
+        "image_filename": result["image_filename"],
+    }
+
+
 @app.post("/reports")
 async def reports_create(
     request: Request,
@@ -2265,6 +2366,7 @@ async def reports_create(
     category: str = Form("sonstiges"),
     assigned_group_id: str = Form(""),
     photos: list[UploadFile] = File([]),
+    link_preview_image: str = Form(""),
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
@@ -2323,6 +2425,16 @@ async def reports_create(
             with open(os.path.join(REPORT_PHOTOS_DIR, filename), "wb") as f:
                 f.write(data)
             db.add(models.ReportPhoto(report_id=report.id, filename=filename))
+
+    # Bereits per "Produkt-Link"-Assistenten heruntergeladenes Vorschaubild
+    # (siehe reports_link_preview) - Formularfeld ist clientseitig
+    # manipulierbar, daher gegen das erwartete Dateiname-Muster prüfen und
+    # nur übernehmen, wenn die Datei tatsächlich existiert, statt dem Wert
+    # blind zu vertrauen.
+    link_preview_image = link_preview_image.strip()
+    if link_preview_image and LINK_PREVIEW_FILENAME_RE.match(link_preview_image):
+        if os.path.isfile(os.path.join(REPORT_PHOTOS_DIR, link_preview_image)):
+            db.add(models.ReportPhoto(report_id=report.id, filename=link_preview_image))
     db.commit()
 
     # Gruppen inkl. Kanäle + Mitglieder/Push-Abos hier bereits vollständig laden
