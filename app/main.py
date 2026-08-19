@@ -154,6 +154,27 @@ def service_worker():
 templates.env.globals["app_version"] = version.VERSION
 templates.env.globals["app_build_hash"] = version.BUILD_HASH
 
+# Feste Auswahl statt freiem Hex-Eingabefeld (siehe admin_groups.html) - jede
+# Farbe ist auf dunklem wie hellem Panel-Hintergrund gut lesbar und bewusst
+# unterscheidbar von den Ampel-/Status-Farben (go/warn/late), damit eine
+# Gruppen-Farbe nie mit "erledigt"/"fällig bald"/"überfällig" verwechselt wird.
+GROUP_COLOR_PALETTE = [
+    ("#5b8def", "Blau"),
+    ("#a78bfa", "Violett"),
+    ("#ef8a4c", "Orange"),
+    ("#ec4899", "Pink"),
+    ("#2dd4bf", "Türkis"),
+    ("#818cf8", "Indigo"),
+    ("#a8785a", "Braun"),
+    ("#94a3b8", "Grau"),
+    ("#38bdf8", "Cyan"),
+    ("#d946ef", "Magenta"),
+]
+GROUP_COLOR_VALUES = {c for c, _ in GROUP_COLOR_PALETTE}
+GROUP_DEFAULT_COLOR = GROUP_COLOR_PALETTE[0][0]
+templates.env.globals["group_color_palette"] = GROUP_COLOR_PALETTE
+templates.env.globals["group_default_color"] = GROUP_DEFAULT_COLOR
+
 scheduler = None
 
 
@@ -185,6 +206,20 @@ def _migrate_group_work_hours(db: Session):
     """Neue, optionale Arbeitszeit-Spalten pro Gruppe (kein Altdaten-Bezug)."""
     _ensure_column(db, "groups", "work_start_hour", "INTEGER")
     _ensure_column(db, "groups", "work_end_hour", "INTEGER")
+
+
+def _migrate_group_color(db: Session):
+    """Neue Farb-Spalte pro Gruppe fuer Namens-Badges (siehe Group.color).
+    Bestehende Gruppen ohne Farbe bekommen einmalig reihum eine Farbe aus der
+    festen Palette zugewiesen (nach id sortiert), statt alle gleich/neutral
+    zu lassen, bis ein Admin sie manuell setzt."""
+    _ensure_column(db, "groups", "color", "TEXT")
+    groups_without_color = db.execute(text("SELECT id FROM groups WHERE color IS NULL ORDER BY id")).fetchall()
+    for i, (group_id,) in enumerate(groups_without_color):
+        color = GROUP_COLOR_PALETTE[i % len(GROUP_COLOR_PALETTE)][0]
+        db.execute(text("UPDATE groups SET color = :color WHERE id = :id"), {"color": color, "id": group_id})
+    if groups_without_color:
+        db.commit()
 
 
 def _migrate_user_shift_lead(db: Session):
@@ -456,6 +491,7 @@ def _startup():
     try:
         _migrate_task_warn_hours(db)
         _migrate_group_work_hours(db)
+        _migrate_group_color(db)
         _migrate_legacy_group_channels(db)
         _migrate_user_shift_lead(db)
         _migrate_report_priority_category(db)
@@ -4082,6 +4118,7 @@ def admin_add_group(
     channel_ids: list[int] = Form([]),
     work_start_hour: str = Form(""),
     work_end_hour: str = Form(""),
+    color: str = Form(GROUP_DEFAULT_COLOR),
     db: Session = Depends(get_db),
 ):
     require_staff_or_developer(request, db)
@@ -4091,6 +4128,9 @@ def admin_add_group(
         channels=channels,
         work_start_hour=int(work_start_hour) if work_start_hour else None,
         work_end_hour=int(work_end_hour) if work_end_hour else None,
+        # Nur Werte aus der festen Palette akzeptieren (siehe GROUP_COLOR_PALETTE) -
+        # sonst faellt ein manipulierter/unbekannter Wert auf die Standardfarbe zurueck.
+        color=color if color in GROUP_COLOR_VALUES else GROUP_DEFAULT_COLOR,
     ))
     db.commit()
     return RedirectResponse("/admin/groups", status_code=302)
@@ -4104,6 +4144,7 @@ def admin_edit_group(
     channel_ids: list[int] = Form([]),
     work_start_hour: str = Form(""),
     work_end_hour: str = Form(""),
+    color: str = Form(GROUP_DEFAULT_COLOR),
     db: Session = Depends(get_db),
 ):
     require_staff_or_developer(request, db)
@@ -4113,6 +4154,7 @@ def admin_edit_group(
         group.channels = db.query(models.NotificationChannel).filter(models.NotificationChannel.id.in_(channel_ids)).all()
         group.work_start_hour = int(work_start_hour) if work_start_hour else None
         group.work_end_hour = int(work_end_hour) if work_end_hour else None
+        group.color = color if color in GROUP_COLOR_VALUES else GROUP_DEFAULT_COLOR
         db.commit()
     return RedirectResponse("/admin/groups", status_code=302)
 
@@ -4182,11 +4224,17 @@ def admin_add_user(
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
-    groups = []
-    if group_id:
-        group = db.query(models.Group).filter(models.Group.id == int(group_id)).first()
-        if group:
-            groups = [group]
+    # Jeder Nutzer braucht mindestens eine Gruppe (siehe user_can_see_room/
+    # user_can_see_report/user_can_see_appointment) - sonst sieht er nach dem
+    # Anlegen ohne weiteres Zutun ploetzlich gar keine Bereiche/Meldungen/
+    # Termine mehr, was wie ein kaputtes Konto wirkt.
+    group = db.query(models.Group).filter(models.Group.id == int(group_id)).first() if group_id.strip() else None
+    if not group:
+        return RedirectResponse(
+            _with_toast("/admin/users", "Bitte eine Gruppe auswählen – jeder Nutzer braucht mindestens eine Gruppe.", "error"),
+            status_code=302,
+        )
+    groups = [group]
     # Nur Admins dürfen beim Anlegen direkt Admin-/Schichtleiter-/Entwickler-/
     # Pauschalkraft-Rechte vergeben; ein Schichtleiter legt immer nur normale
     # Mitarbeiter-Konten an, auch wenn im Formular (z.B. per direktem POST)
@@ -4231,12 +4279,20 @@ def admin_edit_user(
         if target.is_admin and not actor.is_admin:
             return RedirectResponse("/admin/users", status_code=302)
 
+        # Wie beim Anlegen: mindestens eine Gruppe ist Pflicht, damit ein
+        # Nutzer nicht nachtraeglich "gruppenlos" wird und dadurch ploetzlich
+        # keine Bereiche/Meldungen/Termine mehr sieht.
+        group = db.query(models.Group).filter(models.Group.id == int(group_id)).first() if group_id.strip() else None
+        if not group:
+            return RedirectResponse(
+                _with_toast("/admin/users", "Bitte eine Gruppe auswählen – jeder Nutzer braucht mindestens eine Gruppe.", "error"),
+                status_code=302,
+            )
         target.name = name
         target.personnel_number = personnel_number.strip() or None
         if password:
             target.password_hash = hash_password(password)
-        group = db.query(models.Group).filter(models.Group.id == int(group_id)).first() if group_id else None
-        target.groups = [group] if group else []
+        target.groups = [group]
 
         # Nur ein Admin darf Rollen ändern (Admin/Schichtleiter/Entwickler/
         # Pauschalkraft vergeben oder entziehen); bei einem Schichtleiter als

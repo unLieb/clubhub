@@ -1,0 +1,19 @@
+{# Gemeinsame Gruppen-Namens-Badges, farbig nach Group.color (siehe
+   GROUP_COLOR_PALETTE in main.py) - systemweit genutzt (Historie, Termine,
+   Meldungen, Inventar, Nutzer-/Bereichsverwaltung), damit auf einen Blick
+   erkennbar ist, zu welcher Gruppe ein Eintrag oder Nutzer gehoert.
+   group_default_color (Jinja-Global) greift, falls eine Gruppe noch keine
+   eigene Farbe hat (sollte nach der Migration nicht mehr vorkommen, aber
+   defensiv trotzdem abgesichert). Hex+Alpha-Suffix statt color-mix()/rgba()
+   fuer den transparenten Hintergrund, da die Palette ausschliesslich
+   6-stellige #RRGGBB-Werte enthaelt. #}
+{% macro group_badge(group) -%}
+{%- if group -%}
+{%- set c = group.color or group_default_color -%}
+<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium" style="background-color: {{ c }}26; color: {{ c }};">{{ group.name }}</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro group_badges(groups) -%}
+{%- for g in groups -%}{{ group_badge(g) }}{%- endfor -%}
+{%- endmacro %}

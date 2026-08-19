@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.82.0] - 2026-08-19
+- Nutzer-Verwaltung: Beim Anlegen und Bearbeiten ist jetzt mindestens eine Gruppe Pflicht – ohne Gruppe war ein Nutzer bisher versehentlich von Bereichen/Meldungen/Terminen ausgesperrt, sobald die gruppenbasierte Sichtbarkeit griff.
+- Neu: Gruppenfarben. Jede Gruppe bekommt in der Gruppen-Verwaltung eine eigene Farbe aus einer festen Palette (10 Farben) zugewiesen – bestehende Gruppen automatisch reihum vorbelegt. Namens-Badges nutzen diese Farbe jetzt systemweit: Historie (neu), Termine, Meldungen, Inventar-Artikel sowie die Nutzer-/Bereichsverwaltung zeigen auf einen Blick farblich, zu welcher Gruppe ein Eintrag oder Nutzer gehört.
+
 ## [0.81.0] - 2026-08-19
 - Gruppen-Auswahl bei Meldungen und Terminen vereinheitlicht: Auswahlfeld heißt jetzt in beiden Modulen "Gruppe", beide bieten neu "Alle (Betriebsweit)" für eine bewusste betriebsweite Freigabe (bei Meldungen zusätzlich zu "Automatisch (Bereich)" und einer einzelnen Gruppe).
 - Termine erlauben jetzt die Auswahl mehrerer Gruppen gleichzeitig (z.B. Gastro + Küche) statt nur einer einzigen - "- Nur ich (Privat) -" und "Alle (Betriebsweit)" bleiben als eigene, sich gegenseitig ausschließende Optionen erhalten.

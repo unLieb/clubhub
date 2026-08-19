@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_group_macros.html" as gm %}
 {% block title %}Historie – ClubHUB{% endblock %}
 {% block content %}
 
@@ -43,7 +44,7 @@
         {% for c in completions %}
         <tr>
           <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime)|reldate }}</td>
-          <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
+          <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5 flex-wrap">{{ c.task.room.name }}{{ gm.group_badges(c.task.room.groups) }}</span></td>
           <td class="px-4 py-2.5">{{ c.task.name }}</td>
           <td class="px-4 py-2.5 text-slate-300">{{ c.user.name }}</td>
           {% if user and (user.is_admin or user.is_developer) %}

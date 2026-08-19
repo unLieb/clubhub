@@ -10,6 +10,7 @@
    items-Schleife in inventory.html eingebunden. #}
 {% import "_inventory_macros.html" as im %}
 {% import "_dropzone_macros.html" as dz %}
+{% import "_group_macros.html" as gm %}
 <div id="item-{{ item.id }}" class="inventory-card rounded-xl border border-line border-l-4 {{ im.border_classes(st.status) }} bg-panel p-4"
      data-status="{{ st.status }}"
      data-search="{{ (item.name ~ ' ' ~ (item.category or '') ~ ' ' ~ (item.location or '') ~ ' ' ~ (item.group.name if item.group else ''))|lower }}">
@@ -74,12 +75,7 @@
           {{ item|unit_label(item.stock_current, item.stock_min) }}{% if item.pack_size and item.pack_unit %} à {{ item.pack_size|qty }} {{ item.pack_unit }}{% endif %}
         </span>
         {% endif %}
-        {% if item.group %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet/15 text-violet">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          {{ item.group.name }}
-        </span>
-        {% endif %}
+        {{ gm.group_badge(item.group) }}
       </div>
       {% endif %}
       <div class="mt-2 max-w-sm">

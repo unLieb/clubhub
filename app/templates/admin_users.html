@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_group_macros.html" as gm %}
 {% block title %}Nutzer – Verwaltung{% endblock %}
 {% block content %}
 
@@ -19,14 +20,17 @@
         <input name="name" placeholder="Name" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
         <input name="personnel_number" placeholder="Personalnummer (optional)" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
         {% if groups %}
-        <select name="group_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <option value="">– keine Gruppe –</option>
+        <select name="group_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <option value="" disabled selected>– Gruppe wählen –</option>
           {% for g in groups %}
           <option value="{{ g.id }}">{{ g.name }}</option>
           {% endfor %}
         </select>
         {% endif %}
       </div>
+      {% if not groups %}
+      <p class="text-xs text-late">Bitte zuerst eine <a href="/admin/groups" class="underline">Gruppe anlegen</a> – jeder Nutzer braucht mindestens eine Gruppe.</p>
+      {% endif %}
       <input type="password" name="password" placeholder="Passwort" required class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       {% if user.is_admin %}
       <div>
@@ -45,9 +49,11 @@
         <input type="number" step="0.5" min="0" name="target_hours_per_month" placeholder="z.B. 173" class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       </div>
       {% endif %}
-      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Nutzer anlegen</button>
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium" {% if not groups %}disabled{% endif %}>Nutzer anlegen</button>
     </form>
-    <p class="text-[11px] text-slate-500 mt-2">Weitere Gruppen lassen sich danach über das aufklappbare Menü ergänzen.</p>
+    {% if groups %}
+    <p class="text-[11px] text-slate-500 mt-2">Die Gruppe lässt sich später jederzeit über das Bearbeiten-Menü ändern.</p>
+    {% endif %}
   </div>
 </details>
 
@@ -58,7 +64,7 @@
       <div class="flex justify-between items-center gap-2">
         <span>{{ u.name }}{% if u.is_admin %} <span class="text-go text-xs">(Admin)</span>{% elif u.is_shift_lead %} <span class="text-accent text-xs">(Schichtleiter)</span>{% elif u.is_developer %} <span class="text-violet text-xs">(Entwickler)</span>{% elif u.is_flat_rate %} <span class="text-slate-500 text-xs">(Pauschalkraft)</span>{% endif %}{% if u.personnel_number %} <span class="text-slate-500 text-xs">#{{ u.personnel_number }}</span>{% endif %}</span>
         <span class="flex items-center gap-2 shrink-0">
-          <span class="text-slate-500 text-xs">{{ u.groups | map(attribute="name") | join(", ") or "keine Gruppen" }}</span>
+          <span class="flex items-center gap-1 flex-wrap justify-end">{{ gm.group_badges(u.groups) }}{% if not u.groups %}<span class="text-slate-500 text-xs">keine Gruppen</span>{% endif %}</span>
           <div class="relative user-kebab-wrap">
             <button type="button" class="user-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für „{{ u.name }}“" aria-haspopup="true" aria-expanded="false">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
@@ -101,8 +107,8 @@
             <input name="name" value="{{ u.name }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             <input name="personnel_number" value="{{ u.personnel_number or '' }}" placeholder="Personalnummer (optional)" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             {% if groups %}
-            <select name="group_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-              <option value="">– keine Gruppe –</option>
+            <select name="group_id" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <option value="" disabled {% if not u.groups %}selected{% endif %}>– Gruppe wählen –</option>
               {% for g in groups %}
               <option value="{{ g.id }}" {% if g in u.groups %}selected{% endif %}>{{ g.name }}</option>
               {% endfor %}

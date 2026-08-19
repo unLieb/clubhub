@@ -38,6 +38,16 @@
         </div>
       </div>
       {% endif %}
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Farbe</label>
+        <div class="flex flex-wrap gap-2">
+          {% for hex, label in group_color_palette %}
+          <label class="cursor-pointer w-8 h-8 rounded-full border-2 border-transparent has-checked:border-slate-100 flex items-center justify-center" style="background-color: {{ hex }}" title="{{ label }}">
+            <input type="radio" name="color" value="{{ hex }}" class="sr-only" {% if hex == group_default_color %}checked{% endif %}>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Gruppe anlegen</button>
     </form>
   </div>
@@ -48,7 +58,7 @@
     {% for g in groups %}
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1">
       <div class="flex justify-between items-center gap-2">
-        <span>{{ g.name }} <span class="text-slate-500 text-xs font-normal">&middot; {{ g.users|length }} Nutzer, {{ g.rooms|length }} {{ "Bereich" if g.rooms|length == 1 else "Bereiche" }}{% if g.work_start_hour is not none and g.work_end_hour is not none %} &middot; {{ "%02d"|format(g.work_start_hour) }}–{{ "%02d"|format(g.work_end_hour) }} Uhr{% endif %}</span></span>
+        <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-full shrink-0" style="background-color: {{ g.color or group_default_color }}"></span>{{ g.name }} <span class="text-slate-500 text-xs font-normal">&middot; {{ g.users|length }} Nutzer, {{ g.rooms|length }} {{ "Bereich" if g.rooms|length == 1 else "Bereiche" }}{% if g.work_start_hour is not none and g.work_end_hour is not none %} &middot; {{ "%02d"|format(g.work_start_hour) }}–{{ "%02d"|format(g.work_end_hour) }} Uhr{% endif %}</span></span>
         <span class="flex items-center gap-2 shrink-0">
           <span class="text-slate-500 text-xs">{{ g.channels | map(attribute="name") | join(", ") or "keine Kanäle" }}</span>
           <div class="relative group-kebab-wrap">
@@ -99,6 +109,16 @@
           {% else %}
           <p class="text-slate-500 text-xs italic">Noch keine Benachrichtigungskanäle angelegt.</p>
           {% endif %}
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Farbe</label>
+            <div class="flex flex-wrap gap-2">
+              {% for hex, label in group_color_palette %}
+              <label class="cursor-pointer w-8 h-8 rounded-full border-2 border-transparent has-checked:border-slate-100 flex items-center justify-center" style="background-color: {{ hex }}" title="{{ label }}">
+                <input type="radio" name="color" value="{{ hex }}" class="sr-only" {% if (g.color or group_default_color) == hex %}checked{% endif %}>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
           <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
         </form>
       </div>

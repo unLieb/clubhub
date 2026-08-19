@@ -73,6 +73,14 @@ class Group(Base):
     work_start_hour = Column(Integer, nullable=True)
     work_end_hour = Column(Integer, nullable=True)
 
+    # Hex-Farbcode (z.B. "#5b8def") aus einer festen Palette (siehe
+    # GROUP_COLOR_PALETTE in main.py) fuer Namens-Badges systemweit (Historie,
+    # Termine, Meldungen, Inventar, Nutzer-/Bereichsverwaltung) - so ist auf
+    # einen Blick erkennbar, zu welcher Gruppe ein Eintrag gehoert. Nullable
+    # fuer Altdaten vor Einfuehrung dieses Felds; die Badge-Makros (siehe
+    # _group_macros.html) fallen dann auf eine neutrale Standardfarbe zurueck.
+    color = Column(String, nullable=True)
+
     users = relationship("User", secondary=user_group, back_populates="groups")
     rooms = relationship("Room", secondary=room_group, back_populates="groups")
     channels = relationship("NotificationChannel", secondary=group_channel, back_populates="groups")

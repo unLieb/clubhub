@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_group_macros.html" as gm %}
 {% block title %}Bereiche – Verwaltung{% endblock %}
 {% block content %}
 
@@ -38,7 +39,7 @@
       <div class="flex justify-between items-center gap-2">
         <span>{{ r.name }}</span>
         <span class="flex items-center gap-2 shrink-0">
-          <span class="text-slate-500 text-xs">{{ r.groups | map(attribute="name") | join(", ") or "keine Gruppen" }}</span>
+          <span class="flex items-center gap-1 flex-wrap justify-end">{{ gm.group_badges(r.groups) }}{% if not r.groups %}<span class="text-slate-500 text-xs">keine Gruppen</span>{% endif %}</span>
           <div class="relative room-kebab-wrap">
             <button type="button" class="room-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für „{{ r.name }}“" aria-haspopup="true" aria-expanded="false">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>

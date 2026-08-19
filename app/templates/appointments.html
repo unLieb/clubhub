@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_group_macros.html" as gm %}
 {% block title %}Termine – ClubHUB{% endblock %}
 {% block content %}
 
@@ -82,7 +83,7 @@
           {% if a.is_company_wide %}
           <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-accent/15 text-accent">Alle (Betriebsweit)</span>
           {% elif a.groups %}
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-violet/15 text-violet">{{ a.groups | map(attribute="name") | join(", ") }}</span>
+          {{ gm.group_badges(a.groups) }}
           {% endif %}
         </div>
       </div>
