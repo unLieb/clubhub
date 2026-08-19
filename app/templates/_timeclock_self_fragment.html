@@ -5,32 +5,11 @@
    damit GET /timeclock bei fetch()-Anfragen (Monats-/Zeitraum-/Modus-
    wechsel ohne Full-Page-Reload) nur dieses Fragment zurueckgibt. #}
 {% set col_count = 5 if timeclock_user_mode else 4 %}
+{% import "_timeclock_period_macros.html" as tp %}
 
 <!-- Zeitraum-Auswahl -->
 <div class="rounded-xl border border-line bg-panel p-4 mb-4">
-  <div class="flex flex-wrap items-center justify-between gap-2">
-    <div class="flex flex-wrap items-center gap-2">
-      {% if mode == 'range' %}
-      <label class="text-xs text-slate-500">Von</label>
-      <input type="date" id="tce-date-from" value="{{ date_from_value }}" class="tce-range-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      <label class="text-xs text-slate-500">Bis</label>
-      <input type="date" id="tce-date-to" value="{{ date_to_value }}" class="tce-range-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      {% else %}
-      <a href="/timeclock?mode=month&month={{ prev_month_value }}" class="tce-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Vorheriger Monat">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-      </a>
-      <input type="month" value="{{ month_value }}" class="tce-month-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      <a href="/timeclock?mode=month&month={{ next_month_value }}" class="tce-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Nächster Monat">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-      </a>
-      <a href="/timeclock?mode=month" class="tce-month-nav text-xs text-slate-500 hover:text-slate-300 ml-1">Aktueller Monat</a>
-      {% endif %}
-    </div>
-    <div class="flex items-center rounded-md border border-line overflow-hidden text-xs font-medium shrink-0">
-      <button type="button" class="tce-mode-btn px-3 py-1.5 {% if mode == 'month' %}bg-go/90 text-oncolor{% else %}text-slate-300 hover:bg-panel2{% endif %}" data-mode="month">Monat</button>
-      <button type="button" class="tce-mode-btn px-3 py-1.5 {% if mode == 'range' %}bg-go/90 text-oncolor{% else %}text-slate-300 hover:bg-panel2{% endif %}" data-mode="range">Freier Zeitraum</button>
-    </div>
-  </div>
+  {{ tp.period_controls("/timeclock", mode, month_value, prev_month_value, next_month_value, date_from_value, date_to_value) }}
 
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
     <div class="rounded-lg border border-line bg-panel2 p-3">
@@ -79,7 +58,7 @@
   <div class="flex flex-wrap items-center gap-2 mb-3">
     <span class="text-xs text-slate-500 whitespace-nowrap">{{ stats.history|length }} Buchung{{ "en" if stats.history|length != 1 else "" }}</span>
     <div class="ml-auto flex items-center gap-2">
-      <a href="/timeclock/export.pdf" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium whitespace-nowrap">
+      <a href="/timeclock/export.pdf?mode={{ mode }}&month={{ month_value }}&from={{ date_from_value }}&to={{ date_to_value }}" class="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium whitespace-nowrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
         Als PDF exportieren
       </a>

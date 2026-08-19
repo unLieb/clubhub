@@ -16,6 +16,10 @@
 <link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/static/style.css?v={{ app_build_hash }}">
 <script src="/static/dropzone.js?v={{ app_build_hash }}" defer></script>
+<!-- Kein defer: initTimeclockPeriod() wird synchron aus den Inline-Scripts
+     von timeclock.html/admin_timeclock.html aufgerufen, muss also vor deren
+     Ausführung bereits definiert sein (siehe timeclock_period.js). -->
+<script src="/static/timeclock_period.js?v={{ app_build_hash }}"></script>
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#12161f">
 <!-- iOS unterstützt den Web-App-Manifest-Standard nur teilweise - diese

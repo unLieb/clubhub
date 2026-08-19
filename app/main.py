@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin, urlparse, quote, urlencode
 
 import httpx
-from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks, HTTPException
+from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks, HTTPException, Query
 from fastapi.responses import RedirectResponse, Response, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -1267,14 +1267,16 @@ def get_app_settings(db: Session) -> models.AppSettings:
     return settings
 
 
-def _resolve_timeclock_self_period(mode: str, month: str, date_from: str, date_to: str, local_now) -> dict:
-    """Loest die Zeitraum-Auswahl der Mitarbeiter-Zeiterfassung auf (Monat
-    mit Pfeil-Navigation ODER freier Von/Bis-Zeitraum, siehe timeclock.html)
-    zu UTC-Grenzen fuer die DB-Abfrage - spiegelt _parse_month_param/den
-    Monats-Aufbau von admin_timeclock.html, ergaenzt um den freien Zeitraum.
-    Liefert IMMER beide Wertesaetze (Monat + Von/Bis), damit beim Wechsel
-    zwischen den Modi im Frontend sinnvolle Default-Werte vorausgefuellt
-    werden koennen, auch wenn der jeweils andere Modus gerade aktiv ist."""
+def _resolve_timeclock_period(mode: str, month: str, date_from: str, date_to: str, local_now) -> dict:
+    """Loest die "Monat" (Pfeil-Navigation)/"Freier Zeitraum" (Von/Bis)-Auswahl
+    zu UTC-Grenzen fuer die DB-Abfrage auf - gemeinsam genutzt von der
+    Mitarbeiter- (timeclock.html) UND der Admin-Zeiterfassung
+    (admin_timeclock.html), damit beide Ansichten exakt dieselbe Filter-Logik
+    verwenden (siehe auch app/static/timeclock_period.js fuers Frontend-
+    Gegenstueck). Liefert IMMER beide Wertesaetze (Monat + Von/Bis), damit
+    beim Wechsel zwischen den Modi im Frontend sinnvolle Default-Werte
+    vorausgefuellt werden koennen, auch wenn der jeweils andere Modus gerade
+    aktiv ist."""
     today = local_now.date()
     month_start, next_month_start = _parse_month_param(month, local_now)
     month_value = f"{month_start.year:04d}-{month_start.month:02d}"
@@ -1330,7 +1332,7 @@ def _build_timeclock_self_context(request: Request, user, db: Session, mode: str
     fetch()-Anfragen (Monats-/Zeitraum-/Moduswechsel ohne Full-Page-Reload,
     siehe timeclock.html) nur das aktualisierte Fragment zurueckgeben kann."""
     now = ntptime.now_utc()
-    period = _resolve_timeclock_self_period(mode, month, date_from, date_to, now.astimezone(APP_TIMEZONE))
+    period = _resolve_timeclock_period(mode, month, date_from, date_to, now.astimezone(APP_TIMEZONE))
     stats = compute_time_stats(
         user, db, now, period["range_start_utc"], period["range_end_utc"], include_overtime=(period["mode"] == "month"),
     )
@@ -1351,7 +1353,8 @@ def _build_timeclock_self_context(request: Request, user, db: Session, mode: str
 
 @app.get("/timeclock")
 def timeclock_view(
-    request: Request, mode: str = "month", month: str = "", date_from: str = "", date_to: str = "",
+    request: Request, mode: str = "month", month: str = "",
+    date_from: str = Query("", alias="from"), date_to: str = Query("", alias="to"),
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
@@ -1365,13 +1368,14 @@ def timeclock_view(
     return templates.TemplateResponse("timeclock.html", context)
 
 
-def _timeentry_pdf_rows(db: Session, user_id: int) -> list:
-    entries = (
-        db.query(models.TimeEntry)
-        .filter(models.TimeEntry.user_id == user_id)
-        .order_by(models.TimeEntry.clock_in.asc())
-        .all()
-    )
+def _timeentry_pdf_rows(db: Session, user_id: int, range_start_utc=None, range_end_utc=None) -> list:
+    """range_start_utc/range_end_utc (exklusiv) schraenken auf den aktuell
+    aktiven Monats-/Zeitraum-Filter ein (siehe _resolve_timeclock_period) -
+    None/None exportiert wie bisher die komplette Historie."""
+    query = db.query(models.TimeEntry).filter(models.TimeEntry.user_id == user_id)
+    if range_start_utc is not None:
+        query = query.filter(models.TimeEntry.clock_in >= range_start_utc, models.TimeEntry.clock_in < range_end_utc)
+    entries = query.order_by(models.TimeEntry.clock_in.asc()).all()
     return [
         {
             "clock_in_local": _aware(e.clock_in).astimezone(APP_TIMEZONE),
@@ -1394,9 +1398,20 @@ def _timeentry_pdf_response(target_user, entries_local: list) -> Response:
 
 
 @app.get("/timeclock/export.pdf")
-def timeclock_export_pdf(request: Request, db: Session = Depends(get_db)):
+def timeclock_export_pdf(
+    request: Request, mode: str = "month", month: str = "",
+    date_from: str = Query("", alias="from"), date_to: str = Query("", alias="to"),
+    db: Session = Depends(get_db),
+):
+    """Exportiert strikt den aktuell aktiven Filter (Monat oder freier
+    Zeitraum, siehe _resolve_timeclock_period) statt wie frueher immer die
+    komplette Historie - die Query-Parameter kommen 1:1 vom PDF-Link in
+    timeclock.html mit, der dem aktiven Filter folgt."""
     user = require_login(request, db)
-    return _timeentry_pdf_response(user, _timeentry_pdf_rows(db, user.id))
+    period = _resolve_timeclock_period(mode, month, date_from, date_to, ntptime.now_utc().astimezone(APP_TIMEZONE))
+    return _timeentry_pdf_response(
+        user, _timeentry_pdf_rows(db, user.id, period["range_start_utc"], period["range_end_utc"])
+    )
 
 
 def _timeclock_self_redirect(mode: str, month: str, date_from: str, date_to: str) -> str:
@@ -1405,8 +1420,8 @@ def _timeclock_self_redirect(mode: str, month: str, date_from: str, date_to: str
     jeder Aktion auf den aktuellen Monat zurueckzuspringen."""
     params = {"mode": mode}
     if mode == "range":
-        params["date_from"] = date_from
-        params["date_to"] = date_to
+        params["from"] = date_from
+        params["to"] = date_to
     else:
         params["month"] = month
     return "/timeclock?" + urlencode({k: v for k, v in params.items() if v})
@@ -3037,30 +3052,24 @@ def _parse_month_param(month: str, local_now):
     return month_start, next_month_start
 
 
-def _build_timeclock_context(request: Request, admin, month: str, db: Session, **extra) -> dict:
+def _build_timeclock_context(
+    request: Request, admin, mode: str, month: str, date_from: str, date_to: str, db: Session, **extra
+) -> dict:
     """Baut den vollen Kontext fuer admin_timeclock.html - ausgelagert aus der
     GET-Route, damit die Import-Analyse-Route bei gefundenen Konflikten
     dieselbe Seite (samt Konflikt-Modal, siehe **extra) direkt zurueckgeben
-    kann, statt auf eine leere Seite umzuleiten."""
+    kann, statt auf eine leere Seite umzuleiten. Nutzt _resolve_timeclock_period
+    - dieselbe Monat/Freier-Zeitraum-Filterlogik wie die Mitarbeiter-
+    Zeiterfassung (siehe dort _build_timeclock_self_context)."""
     now = ntptime.now_utc()
     local_now = now.astimezone(APP_TIMEZONE)
-    month_start, next_month_start = _parse_month_param(month, local_now)
-    month_value = f"{month_start.year:04d}-{month_start.month:02d}"
-    if month_start.month == 1:
-        prev_month_value = f"{month_start.year - 1:04d}-12"
-    else:
-        prev_month_value = f"{month_start.year:04d}-{month_start.month - 1:02d}"
-    next_month_value = f"{next_month_start.year:04d}-{next_month_start.month:02d}"
-    # Monatsgrenzen als lokale Mitternacht nach UTC umgerechnet (nicht als
-    # UTC-Mitternacht), damit die Zuordnung zu Tag/Monat konsistent zum
-    # lokalen Datum von clock_in bleibt (siehe compute_time_stats).
-    range_start_utc = datetime(month_start.year, month_start.month, month_start.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
-    range_end_utc = datetime(next_month_start.year, next_month_start.month, next_month_start.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+    period = _resolve_timeclock_period(mode, month, date_from, date_to, local_now)
+    range_start_utc, range_end_utc = period["range_start_utc"], period["range_end_utc"]
 
     users = db.query(models.User).order_by(models.User.name).all()
     users_by_id = {u.id: u for u in users}
 
-    month_entries = (
+    range_entries = (
         db.query(models.TimeEntry)
         .filter(models.TimeEntry.clock_in >= range_start_utc, models.TimeEntry.clock_in < range_end_utc)
         .order_by(models.TimeEntry.clock_in.desc())
@@ -3070,7 +3079,7 @@ def _build_timeclock_context(request: Request, admin, month: str, db: Session, *
     rows = []
     hours_by_user = {u.id: 0.0 for u in users}
     active_user_ids = set()
-    for e in month_entries:
+    for e in range_entries:
         u = users_by_id.get(e.user_id)
         hours = _entry_hours(e, now)
         hours_by_user[e.user_id] = hours_by_user.get(e.user_id, 0.0) + hours
@@ -3091,10 +3100,10 @@ def _build_timeclock_context(request: Request, admin, month: str, db: Session, *
             "hours": hours,
         })
 
-    # Monats-KPIs statt Einzelkacheln pro Mitarbeiter - skaliert auch bei
-    # vielen Mitarbeitern (die einzelnen Monatsstunden je Person stehen
+    # Zeitraum-KPIs statt Einzelkacheln pro Mitarbeiter - skaliert auch bei
+    # vielen Mitarbeitern (die einzelnen Zeitraum-Stunden je Person stehen
     # stattdessen im "Alle Mitarbeiter"-Dropdown, siehe Template).
-    total_month_hours = sum(hours_by_user.values())
+    total_range_hours = sum(hours_by_user.values())
     total_bookings = len(rows)
     active_employee_count = len(active_user_ids)
 
@@ -3133,12 +3142,15 @@ def _build_timeclock_context(request: Request, admin, month: str, db: Session, *
         "users": users,
         "rows": rows,
         "hours_by_user": hours_by_user,
-        "total_month_hours": total_month_hours,
+        "total_range_hours": total_range_hours,
         "total_bookings": total_bookings,
         "active_employee_count": active_employee_count,
-        "month_value": month_value,
-        "prev_month_value": prev_month_value,
-        "next_month_value": next_month_value,
+        "mode": period["mode"],
+        "month_value": period["month_value"],
+        "prev_month_value": period["prev_month_value"],
+        "next_month_value": period["next_month_value"],
+        "date_from_value": period["date_from_value"],
+        "date_to_value": period["date_to_value"],
         "device": device,
         "device_authorized_local": _aware(device.authorized_at).astimezone(APP_TIMEZONE) if device else None,
         "kiosk_url": f"{str(request.base_url).rstrip('/')}/timeclock/kiosk",
@@ -3157,12 +3169,19 @@ def _build_timeclock_context(request: Request, admin, month: str, db: Session, *
 
 
 @app.get("/admin/timeclock")
-def admin_timeclock_page(request: Request, month: str = "", db: Session = Depends(get_db)):
+def admin_timeclock_page(
+    request: Request,
+    mode: str = "month",
+    month: str = "",
+    date_from: str = Query("", alias="from"),
+    date_to: str = Query("", alias="to"),
+    db: Session = Depends(get_db),
+):
     # Nur Admin, nicht Schichtleiter: Korrekturen wirken sich direkt auf den
     # berechneten Verdienst eines Nutzers aus (dieselbe Einschränkung wie
     # beim Stundensatz/Sollzeit selbst).
     admin = require_admin(request, db)
-    context = _build_timeclock_context(request, admin, month, db)
+    context = _build_timeclock_context(request, admin, mode, month, date_from, date_to, db)
     # Monatswechsel per Klick/Auswahl läuft clientseitig über fetch() statt
     # einer echten Navigation (siehe admin_timeclock.html) - der Header
     # markiert diese Anfragen, damit wir nur das Tabellen-Fragment statt der
@@ -3174,19 +3193,37 @@ def admin_timeclock_page(request: Request, month: str = "", db: Session = Depend
 
 
 @app.get("/admin/timeclock/{user_id}/export.pdf")
-def admin_timeclock_export_pdf(user_id: int, request: Request, db: Session = Depends(get_db)):
+def admin_timeclock_export_pdf(
+    user_id: int,
+    request: Request,
+    mode: str = "month",
+    month: str = "",
+    date_from: str = Query("", alias="from"),
+    date_to: str = Query("", alias="to"),
+    db: Session = Depends(get_db),
+):
     require_admin(request, db)
     target = db.query(models.User).filter(models.User.id == user_id).first()
     if not target:
         raise HTTPException(status_code=404)
-    return _timeentry_pdf_response(target, _timeentry_pdf_rows(db, target.id))
+    period = _resolve_timeclock_period(mode, month, date_from, date_to, ntptime.now_utc().astimezone(APP_TIMEZONE))
+    return _timeentry_pdf_response(target, _timeentry_pdf_rows(db, target.id, period["range_start_utc"], period["range_end_utc"]))
 
 
 @app.get("/admin/timeclock/export.csv")
-def admin_timeclock_export_csv(request: Request, month: str = "", user_id: int = 0, db: Session = Depends(get_db)):
+def admin_timeclock_export_csv(
+    request: Request,
+    mode: str = "month",
+    month: str = "",
+    date_from: str = Query("", alias="from"),
+    date_to: str = Query("", alias="to"),
+    user_id: int = 0,
+    db: Session = Depends(get_db),
+):
     """CSV-Export im selben Pipe-getrennten Format wie der App-Import (siehe
     _parse_timeclock_import), erweitert um Dauer/Notizen-Spalten - respektiert
-    den gerade angezeigten Monat sowie den optionalen Mitarbeiter-Filter der
+    den gerade aktiven Filter (Monat oder freier Zeitraum, siehe
+    _resolve_timeclock_period) sowie den optionalen Mitarbeiter-Filter der
     Tabelle (siehe admin_timeclock.html, folgt per JS demselben Dropdown wie
     der PDF-Export). "Notizen" ist aktuell immer leer, da TimeEntry (noch)
     kein Notiz-Feld hat - Spalte bleibt trotzdem stehen, wie angefordert.
@@ -3196,10 +3233,9 @@ def admin_timeclock_export_csv(request: Request, month: str = "", user_id: int =
     require_admin(request, db)
     now = ntptime.now_utc()
     local_now = now.astimezone(APP_TIMEZONE)
-    month_start, next_month_start = _parse_month_param(month, local_now)
-    month_value = f"{month_start.year:04d}-{month_start.month:02d}"
-    range_start_utc = datetime(month_start.year, month_start.month, month_start.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
-    range_end_utc = datetime(next_month_start.year, next_month_start.month, next_month_start.day, tzinfo=APP_TIMEZONE).astimezone(timezone.utc)
+    period = _resolve_timeclock_period(mode, month, date_from, date_to, local_now)
+    range_start_utc, range_end_utc = period["range_start_utc"], period["range_end_utc"]
+    period_label = period["month_value"] if period["mode"] == "month" else f"{period['date_from_value']}_{period['date_to_value']}"
 
     query = db.query(models.TimeEntry).filter(
         models.TimeEntry.clock_in >= range_start_utc, models.TimeEntry.clock_in < range_end_utc,
@@ -3242,7 +3278,7 @@ def admin_timeclock_export_csv(request: Request, month: str = "", user_id: int =
         target_user.name.translate(str.maketrans("äöüÄÖÜß", "aouAOUs")) if target_user else "alle"
     )
     name_part = re.sub(r"[^A-Za-z0-9_-]+", "-", ascii_name).strip("-") or "mitarbeiter"
-    filename = f"zeiterfassung-{month_value}-{name_part}.csv"
+    filename = f"zeiterfassung-{period_label}-{name_part}.csv"
     return Response(
         # utf-8-sig (BOM) statt reinem UTF-8, damit Excel unter Windows die
         # Datei beim Doppelklick zuverlaessig als UTF-8 statt der System-
@@ -3308,11 +3344,21 @@ def admin_revoke_device(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/admin/timeclock", status_code=302)
 
 
-def _timeclock_redirect(month: str, message: str, kind: str = "success") -> str:
+def _timeclock_redirect(
+    mode: str, month: str, date_from: str, date_to: str, message: str, kind: str = "success",
+) -> str:
     """Redirect zurück zur Zeiterfassungs-Tabelle, behält dabei den gerade
-    betrachteten Monat (statt immer auf den aktuellen zurückzuspringen) und
-    zeigt eine kurze Toast-Bestätigung (siehe _with_toast)."""
-    target = f"/admin/timeclock?month={month}" if month else "/admin/timeclock"
+    aktiven Filter (Monat oder freier Zeitraum, siehe _resolve_timeclock_period)
+    statt immer auf den aktuellen Monat zurückzuspringen, und zeigt eine kurze
+    Toast-Bestätigung (siehe _with_toast)."""
+    params = {"mode": mode}
+    if mode == "range":
+        params["from"] = date_from
+        params["to"] = date_to
+    else:
+        params["month"] = month
+    query = urlencode({k: v for k, v in params.items() if v})
+    target = f"/admin/timeclock?{query}" if query else "/admin/timeclock"
     return _with_toast(target, message, kind)
 
 
@@ -3468,7 +3514,10 @@ async def admin_timeclock_import_analyze(
     request: Request,
     user_id: int = Form(...),
     file: UploadFile = File(...),
+    mode: str = Form("month"),
     month: str = Form(""),
+    date_from: str = Form(""),
+    date_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Erster Schritt des Imports: liest die Datei ein und vergleicht sie mit
@@ -3480,7 +3529,7 @@ async def admin_timeclock_import_analyze(
     admin = require_admin(request, db)
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
-        return RedirectResponse(_timeclock_redirect(month, "Unbekannter Mitarbeiter.", "error"), status_code=302)
+        return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, "Unbekannter Mitarbeiter.", "error"), status_code=302)
 
     raw = await file.read()
     try:
@@ -3490,7 +3539,7 @@ async def admin_timeclock_import_analyze(
 
     parsed_rows, skipped_invalid, error = _parse_timeclock_import(text)
     if error:
-        return RedirectResponse(_timeclock_redirect(month, error, "error"), status_code=302)
+        return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, error, "error"), status_code=302)
 
     analysis = _analyze_timeclock_import(db, user_id, parsed_rows)
 
@@ -3500,11 +3549,14 @@ async def admin_timeclock_import_analyze(
         message = _timeclock_import_summary_message(
             user.name, imported, analysis["duplicate_count"], skipped_invalid,
         )
-        return RedirectResponse(_timeclock_redirect(month, message), status_code=302)
+        return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, message), status_code=302)
 
     payload = json.dumps({
         "user_id": user_id,
+        "mode": mode,
         "month": month,
+        "date_from": date_from,
+        "date_to": date_to,
         "new": analysis["new"],
         "duplicate_count": analysis["duplicate_count"],
         "invalid_count": skipped_invalid,
@@ -3518,7 +3570,7 @@ async def admin_timeclock_import_analyze(
         ],
     })
     context = _build_timeclock_context(
-        request, admin, month, db,
+        request, admin, mode, month, date_from, date_to, db,
         import_conflicts=analysis["conflicts"],
         import_payload=payload,
         import_user_name=user.name,
@@ -3546,13 +3598,16 @@ def admin_timeclock_import_resolve(
     try:
         data = json.loads(payload)
     except (json.JSONDecodeError, TypeError, KeyError):
-        return RedirectResponse(_timeclock_redirect("", "Ungültige Import-Daten - bitte Datei erneut hochladen.", "error"), status_code=302)
+        return RedirectResponse(_timeclock_redirect("month", "", "", "", "Ungültige Import-Daten - bitte Datei erneut hochladen.", "error"), status_code=302)
 
     user_id = data.get("user_id")
+    mode = data.get("mode", "month")
     month = data.get("month", "")
+    date_from = data.get("date_from", "")
+    date_to = data.get("date_to", "")
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
-        return RedirectResponse(_timeclock_redirect(month, "Unbekannter Mitarbeiter.", "error"), status_code=302)
+        return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, "Unbekannter Mitarbeiter.", "error"), status_code=302)
 
     imported = _apply_timeclock_import_new_rows(db, admin, user_id, data.get("new", []))
 
@@ -3599,7 +3654,7 @@ def admin_timeclock_import_resolve(
     message = _timeclock_import_summary_message(
         user.name, imported, data.get("duplicate_count", 0), data.get("invalid_count", 0), conflict_summary,
     )
-    return RedirectResponse(_timeclock_redirect(month, message), status_code=302)
+    return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, message), status_code=302)
 
 
 @app.post("/admin/timeclock/{user_id}/add")
@@ -3608,7 +3663,10 @@ def admin_timeclock_add(
     request: Request,
     clock_in: str = Form(...),
     clock_out: str = Form(""),
+    mode: str = Form("month"),
     month: str = Form(""),
+    date_from: str = Form(""),
+    date_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     admin = require_admin(request, db)
@@ -3623,7 +3681,7 @@ def admin_timeclock_add(
         db.flush()  # damit entry.id für das Protokoll existiert
         _log_timeclock_change(db, entry, "added", admin.id)
         db.commit()
-    return RedirectResponse(_timeclock_redirect(month, "Buchung hinzugefügt."), status_code=302)
+    return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, "Buchung hinzugefügt."), status_code=302)
 
 
 @app.post("/admin/timeclock/{entry_id}/edit")
@@ -3632,7 +3690,10 @@ def admin_timeclock_edit(
     request: Request,
     clock_in: str = Form(...),
     clock_out: str = Form(""),
+    mode: str = Form("month"),
     month: str = Form(""),
+    date_from: str = Form(""),
+    date_to: str = Form(""),
     db: Session = Depends(get_db),
 ):
     admin = require_admin(request, db)
@@ -3643,12 +3704,18 @@ def admin_timeclock_edit(
         entry.clock_out = _parse_local_dt(clock_out)
         _log_timeclock_change(db, entry, "edited", admin.id, old_in, old_out)
         db.commit()
-    return RedirectResponse(_timeclock_redirect(month, "Buchung gespeichert."), status_code=302)
+    return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, "Buchung gespeichert."), status_code=302)
 
 
 @app.post("/admin/timeclock/{entry_id}/delete")
 def admin_timeclock_delete(
-    entry_id: int, request: Request, month: str = Form(""), db: Session = Depends(get_db)
+    entry_id: int,
+    request: Request,
+    mode: str = Form("month"),
+    month: str = Form(""),
+    date_from: str = Form(""),
+    date_to: str = Form(""),
+    db: Session = Depends(get_db),
 ):
     admin = require_admin(request, db)
     entry = db.query(models.TimeEntry).filter(models.TimeEntry.id == entry_id).first()
@@ -3656,7 +3723,7 @@ def admin_timeclock_delete(
         _log_timeclock_change(db, entry, "deleted", admin.id, entry.clock_in, entry.clock_out)
         db.delete(entry)
         db.commit()
-    return RedirectResponse(_timeclock_redirect(month, "Buchung gelöscht."), status_code=302)
+    return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, "Buchung gelöscht."), status_code=302)
 
 
 @app.get("/admin/notifications")

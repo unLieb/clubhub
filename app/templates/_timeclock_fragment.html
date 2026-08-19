@@ -1,28 +1,30 @@
-{# Monats-/Buchungs-Fragment von admin_timeclock.html - separat renderbar,
-   damit GET /admin/timeclock bei fetch()-Anfragen (Monatswechsel ohne
-   Full-Page-Reload) nur dieses Stueck HTML statt der kompletten Seite
-   zurueckgibt. Wird fuer den normalen Seitenaufruf per {% include %} in
-   admin_timeclock.html eingebunden (siehe dort #tc-fragment). #}
-<!-- Monatsfilter -->
-<div class="rounded-xl border border-line bg-panel p-4 mb-4">
-  <div class="flex flex-wrap items-center gap-2">
-    <a href="/admin/timeclock?month={{ prev_month_value }}" class="tc-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Vorheriger Monat">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-    </a>
-    <input type="month" value="{{ month_value }}" class="tc-month-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-    <a href="/admin/timeclock?month={{ next_month_value }}" class="tc-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Nächster Monat">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-    </a>
-    <a href="/admin/timeclock" class="tc-month-nav text-xs text-slate-500 hover:text-slate-300 ml-1">Aktueller Monat</a>
-  </div>
+{# Zeitraum-/Buchungs-Fragment von admin_timeclock.html - separat renderbar,
+   damit GET /admin/timeclock bei fetch()-Anfragen (Monats-/Zeitraum-/Modus-
+   wechsel ohne Full-Page-Reload) nur dieses Stueck HTML statt der kompletten
+   Seite zurueckgibt. Wird fuer den normalen Seitenaufruf per {% include %} in
+   admin_timeclock.html eingebunden (siehe dort #tc-fragment). Spiegelt den
+   Aufbau von _timeclock_self_fragment.html (Mitarbeiter-Zeiterfassung). #}
+{% import "_timeclock_period_macros.html" as tp %}
 
-  <!-- Monats-KPIs statt Einzelkacheln pro Mitarbeiter - skaliert auch bei
-       50+ Mitarbeitern. Die einzelne Monatsstunden je Person stehen
+<!-- Marker fuer den aktuell aktiven Filter, damit admin_timeclock.html (das
+     Drawer-/Import-Formular liegt ausserhalb dieses per fetch() getauschten
+     Fragments) seine versteckten Felder nach jedem Wechsel synchron halten
+     kann - sonst wuerde z.B. eine neu angelegte Buchung nach einem
+     Monatswechsel auf den ursprachlich beim Seitenaufruf geladenen Monat
+     zurueckspringen statt in den gerade sichtbaren. -->
+<div id="tc-period-state" class="hidden" data-mode="{{ mode }}" data-month="{{ month_value }}" data-from="{{ date_from_value }}" data-to="{{ date_to_value }}"></div>
+
+<!-- Zeitraum-Auswahl -->
+<div class="rounded-xl border border-line bg-panel p-4 mb-4">
+  {{ tp.period_controls("/admin/timeclock", mode, month_value, prev_month_value, next_month_value, date_from_value, date_to_value) }}
+
+  <!-- Zeitraum-KPIs statt Einzelkacheln pro Mitarbeiter - skaliert auch bei
+       50+ Mitarbeitern. Die einzelnen Zeitraum-Stunden je Person stehen
        stattdessen im "Alle Mitarbeiter"-Dropdown unten. -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
     <div class="rounded-lg border border-line bg-panel2 p-3">
-      <div class="text-[11px] text-slate-500 uppercase tracking-wide">Gesamtstunden Monat</div>
-      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ format_hours_de(total_month_hours) }}</div>
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide">{{ "Gesamtstunden Monat" if mode == "month" else "Gesamtstunden Zeitraum" }}</div>
+      <div class="text-xl font-display font-semibold text-slate-100 mt-0.5">{{ format_hours_de(total_range_hours) }}</div>
     </div>
     <div class="rounded-lg border border-line bg-panel2 p-3">
       <div class="text-[11px] text-slate-500 uppercase tracking-wide">Erfasste Buchungen</div>
@@ -55,7 +57,8 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
             Importieren (.txt / .csv)
           </button>
-          <a id="tc-csv-link" href="/admin/timeclock/export.csv?month={{ month_value }}" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
+          {% set csv_base = '/admin/timeclock/export.csv?mode=' + mode + (('&month=' + month_value) if mode == 'month' else ('&from=' + date_from_value + '&to=' + date_to_value)) %}
+          <a id="tc-csv-link" href="{{ csv_base }}" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg>
             Exportieren (.txt / .csv)
           </a>
@@ -109,7 +112,10 @@
                   Bearbeiten
                 </button>
                 <form method="post" action="/admin/timeclock/{{ r.id }}/delete" onsubmit="return confirm('Buchung von {{ r.user_name }} wirklich löschen?');">
+                  <input type="hidden" name="mode" value="{{ mode }}">
                   <input type="hidden" name="month" value="{{ month_value }}">
+                  <input type="hidden" name="date_from" value="{{ date_from_value }}">
+                  <input type="hidden" name="date_to" value="{{ date_to_value }}">
                   <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                     Löschen
@@ -120,10 +126,10 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="py-8 text-center text-slate-500 text-sm">Keine Buchungen in diesem Monat.</td></tr>
+        <tr><td colspan="6" class="py-8 text-center text-slate-500 text-sm">{{ "Keine Buchungen in diesem Monat." if mode == "month" else "Keine Buchungen in diesem Zeitraum." }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
-    <p id="tc-empty" class="hidden py-8 text-center text-slate-500 text-sm">Keine Buchungen für diesen Mitarbeiter in diesem Monat.</p>
+    <p id="tc-empty" class="hidden py-8 text-center text-slate-500 text-sm">{{ "Keine Buchungen für diesen Mitarbeiter in diesem Monat." if mode == "month" else "Keine Buchungen für diesen Mitarbeiter in diesem Zeitraum." }}</p>
   </div>
 </div>

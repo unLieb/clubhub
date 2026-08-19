@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.79.0] - 2026-08-19
+- Monats-/Freier-Zeitraum-Filter und PDF-Export in der Zeiterfassung sind jetzt in Mitarbeiter- (`/timeclock`) und Admin-Ansicht (`/admin/timeclock`) identisch implementiert (gemeinsame Filterleiste + gemeinsames JS-Modul statt zweier Parallel-Implementierungen).
+- Admin kann jetzt ebenfalls zwischen „Monat“ und „Freier Zeitraum“ (Von/Bis) umschalten, um flexible Abrechnungszeiträume oder Berichte einzusehen – vorher war die Admin-Ansicht fest auf Monate beschränkt.
+- PDF-Export (Mitarbeiter & Admin) und der neue CSV-Export der Admin-Ansicht folgen jetzt strikt dem gerade aktiven Filter (Monat oder Von/Bis) statt PDF immer die komplette Historie bzw. CSV immer nur den Monat zu exportieren.
+- Buchung hinzufügen/bearbeiten/löschen sowie der App-Import kehren in der Admin-Ansicht jetzt ebenfalls in den zuvor gewählten Zeitraum zurück (Monat oder Von/Bis) statt immer auf den aktuellen Monat zurückzuspringen.
+
 ## [0.78.0] - 2026-08-19
 - Neue Meldungs-Kategorie „Materialwunsch / Anschaffung“ unter `/reports`: für einmalige Anschaffungen, die an keinen Bereich gebunden sind (z.B. "neue Kaffeemaschine fürs Personal"), sondern nur an eine zuständige Gruppe – man bestellt für seine Gruppe, nicht für einen Raum. Beim Erstellen werden Bereich und Priorität automatisch ausgeblendet/nicht verlangt, die zuständige Gruppe wird stattdessen zur Pflichtangabe.
 - Kennzeichnung mit blauem "Anschaffung"-Badge; über den Status-Regler wie jede andere Meldung auf "Erledigt" setzbar – wandert dann ins bestehende Archiv ("Erledigte Meldungen"), ohne das Inventar zu berühren.

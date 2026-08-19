@@ -54,12 +54,12 @@
       if (e.key === 'Escape') closeAllKebabMenus();
     });
 
-    // #tce-fragment wird bei jedem Monats-/Zeitraum-/Moduswechsel per
-    // fetch() komplett neu vom Server befuellt (siehe GET /timeclock mit
-    // X-Requested-With) - dabei gehen alle direkt daran gebundenen Listener
-    // verloren, deshalb bindFragment() nach jedem Tausch erneut aufrufen
-    // (identisches Muster zu admin_timeclock.html).
-    function bindFragment() {
+    // Monat/Freier-Zeitraum-Filter (Umschalter, Navigation, fetch()-Reload)
+    // ist ausgelagert in app/static/timeclock_period.js - identisch zur
+    // Admin-Zeiterfassung (siehe admin_timeclock.html). Alles Seiten-
+    // spezifische (Kebab-Menues, Bearbeiten-Formulare) wird per onBind-
+    // Callback nach jedem Fragment-Tausch neu gebunden.
+    initTimeclockPeriod(fragment, '/timeclock', function () {
       fragment.querySelectorAll('.tce-kebab-wrap').forEach(function (wrap) {
         var btn = wrap.querySelector('.tce-kebab-btn');
         var menu = wrap.querySelector('.tce-kebab-menu');
@@ -80,67 +80,7 @@
           if (panel) panel.classList.toggle('hidden');
         });
       });
-
-      // Monatsnavigation (< / > / "Aktueller Monat" / Monats-Picker) loest
-      // einen fetch() statt einer echten Seiten-Navigation aus.
-      fragment.querySelectorAll('.tce-month-nav').forEach(function (a) {
-        a.addEventListener('click', function (e) {
-          e.preventDefault();
-          loadPeriod(a.getAttribute('href'));
-        });
-      });
-      var monthInput = fragment.querySelector('.tce-month-input');
-      if (monthInput) {
-        monthInput.addEventListener('change', function () {
-          loadPeriod('/timeclock?mode=month&month=' + monthInput.value);
-        });
-      }
-
-      // Freier Zeitraum: Von/Bis loesen jeweils direkt einen Reload aus.
-      var fromInput = document.getElementById('tce-date-from');
-      var toInput = document.getElementById('tce-date-to');
-      if (fromInput && toInput) {
-        var onRangeChange = function () {
-          loadPeriod('/timeclock?mode=range&date_from=' + fromInput.value + '&date_to=' + toInput.value);
-        };
-        fromInput.addEventListener('change', onRangeChange);
-        toInput.addEventListener('change', onRangeChange);
-      }
-
-      // Modus-Umschalter (Monat / Freier Zeitraum) - beim ersten Wechsel in
-      // den freien Zeitraum liefert der Server bereits sinnvolle Von/Bis-
-      // Defaults (siehe date_from_value/date_to_value in main.py).
-      fragment.querySelectorAll('.tce-mode-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          loadPeriod('/timeclock?mode=' + btn.dataset.mode);
-        });
-      });
-    }
-
-    // Ein dezentes opacity-50 waehrend des Ladens gibt sofortiges Feedback,
-    // ohne dass das Layout springt. Bei Netzwerkfehler/Serverausfall faellt
-    // der Code auf eine normale Navigation zurueck, damit die Seite in
-    // jedem Fall bedienbar bleibt.
-    function loadPeriod(url) {
-      fragment.classList.add('opacity-50', 'pointer-events-none');
-      fetch(url, { headers: { 'X-Requested-With': 'fetch' } })
-        .then(function (resp) {
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
-          return resp.text();
-        })
-        .then(function (html) {
-          fragment.innerHTML = html;
-          fragment.classList.remove('opacity-50', 'pointer-events-none');
-          var target = new URL(url, window.location.origin);
-          history.replaceState(null, '', target.pathname + target.search);
-          bindFragment();
-        })
-        .catch(function () {
-          window.location.href = url;
-        });
-    }
-
-    bindFragment();
+    });
   })();
 </script>
 

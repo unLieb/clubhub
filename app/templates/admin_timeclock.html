@@ -23,7 +23,10 @@
       </button>
     </div>
     <form method="post" action="/admin/timeclock/import/analyze" enctype="multipart/form-data" class="p-4 space-y-3">
-      <input type="hidden" name="month" value="{{ month_value }}">
+      <input type="hidden" id="tc-import-mode" name="mode" value="{{ mode }}">
+      <input type="hidden" id="tc-import-month" name="month" value="{{ month_value }}">
+      <input type="hidden" id="tc-import-from" name="date_from" value="{{ date_from_value }}">
+      <input type="hidden" id="tc-import-to" name="date_to" value="{{ date_to_value }}">
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Mitarbeiter</label>
         <select name="user_id" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
@@ -113,7 +116,10 @@
   </div>
 
   <form id="tc-drawer-form" method="post" action="/admin/timeclock/0/add" class="p-4 space-y-3">
-    <input type="hidden" name="month" value="{{ month_value }}">
+    <input type="hidden" id="tc-drawer-mode" name="mode" value="{{ mode }}">
+    <input type="hidden" id="tc-drawer-month" name="month" value="{{ month_value }}">
+    <input type="hidden" id="tc-drawer-from" name="date_from" value="{{ date_from_value }}">
+    <input type="hidden" id="tc-drawer-to" name="date_to" value="{{ date_to_value }}">
 
     <div id="tc-f-user-field">
       <label class="block text-[11px] text-slate-400 mb-1">Mitarbeiter</label>
@@ -187,6 +193,29 @@
       form.action = '/admin/timeclock/' + userSelect.value + '/add';
       openDrawer();
       clockIn.focus();
+    }
+
+    // Haelt die versteckten mode/month/date_from/date_to-Felder von Drawer-
+    // und Import-Formular (beide liegen ausserhalb von #tc-fragment) mit dem
+    // gerade aktiven Filter synchron - sonst wuerde z.B. eine neu angelegte
+    // Buchung nach einem Zeitraumwechsel auf den beim Seitenaufruf initial
+    // geladenen Filter zurueckspringen statt in den gerade sichtbaren.
+    function syncPeriodFields() {
+      var state = document.getElementById('tc-period-state');
+      if (!state) return;
+      var mode = state.dataset.mode, month = state.dataset.month, from = state.dataset.from, to = state.dataset.to;
+      ['tc-import-mode', 'tc-drawer-mode'].forEach(function (id) {
+        var el = document.getElementById(id); if (el) el.value = mode;
+      });
+      ['tc-import-month', 'tc-drawer-month'].forEach(function (id) {
+        var el = document.getElementById(id); if (el) el.value = month;
+      });
+      ['tc-import-from', 'tc-drawer-from'].forEach(function (id) {
+        var el = document.getElementById(id); if (el) el.value = from;
+      });
+      ['tc-import-to', 'tc-drawer-to'].forEach(function (id) {
+        var el = document.getElementById(id); if (el) el.value = to;
+      });
     }
 
     function openEdit(btn) {
@@ -284,17 +313,30 @@
       });
     })();
 
-    // ---- AJAX-Fragment: Monats-/Mitarbeiterfilter ohne Full-Page-Reload.
-    // #tc-fragment wird bei jedem Monatswechsel per fetch() komplett neu vom
-    // Server befuellt (siehe GET /admin/timeclock mit X-Requested-With) -
-    // dabei gehen alle direkt daran gebundenen Listener verloren, deshalb
-    // bindFragment() nach jedem Tausch erneut aufrufen. ----
-    function bindFragment() {
+    // Bleibt ueber Zeitraumwechsel hinweg erhalten (siehe onBind unten), da
+    // #tc-user-filter bei jedem fetch()-Tausch als neues DOM-Element ersteht.
+    var selectedUserId = '';
+
+    // ---- AJAX-Fragment: Zeitraum-/Mitarbeiterfilter ohne Full-Page-Reload.
+    // Monats-/Zeitraum-Navigation und Modus-Umschalter sind ausgelagert in
+    // app/static/timeclock_period.js (siehe initTimeclockPeriod unten) -
+    // identisch zur Mitarbeiter-Zeiterfassung (siehe timeclock.html). Alles
+    // Seiten-spezifische (Mitarbeiterfilter, Export-Links, Daten-Menue,
+    // Kebab-Menues) wird per onBind-Callback nach jedem Fragment-Tausch neu
+    // gebunden. ----
+    function onBind() {
+      syncPeriodFields();
+
+      var periodState = document.getElementById('tc-period-state');
+      var mode = periodState ? periodState.dataset.mode : 'month';
+      var monthValue = periodState ? periodState.dataset.month : '';
+      var dateFrom = periodState ? periodState.dataset.from : '';
+      var dateTo = periodState ? periodState.dataset.to : '';
+
       var userFilter = document.getElementById('tc-user-filter');
       var rows = Array.prototype.slice.call(document.querySelectorAll('#tc-table tbody tr[data-user-id]'));
       var emptyMsg = document.getElementById('tc-empty');
       var tableWrap = document.getElementById('tc-table');
-      var monthInput = fragment.querySelector('.tc-month-input');
       var csvLink = document.getElementById('tc-csv-link');
       var pdfLink = document.getElementById('tc-pdf-link');
 
@@ -313,11 +355,13 @@
 
       function updateExportLinks() {
         if (!userFilter) return;
+        var periodQuery = 'mode=' + mode + (mode === 'range' ? '&from=' + dateFrom + '&to=' + dateTo : '&month=' + monthValue);
         // PDF-Export folgt der Mitarbeiter-Auswahl - nur bei einer konkreten
-        // Person sinnvoll (PDF-Export ist immer pro Person, siehe Route).
+        // Person sinnvoll (PDF-Export ist immer pro Person, siehe Route) -
+        // und dem gerade aktiven Zeitraum-Filter (Requirement 3).
         if (pdfLink) {
           if (userFilter.value) {
-            pdfLink.href = '/admin/timeclock/' + userFilter.value + '/export.pdf';
+            pdfLink.href = '/admin/timeclock/' + userFilter.value + '/export.pdf?' + periodQuery;
             pdfLink.classList.remove('hidden');
             pdfLink.classList.add('flex');
           } else {
@@ -325,16 +369,24 @@
             pdfLink.classList.remove('flex');
           }
         }
-        // CSV-Export folgt Monat (immer) + Mitarbeiter-Filter (optional) -
-        // anders als der PDF-Export bleibt er auch bei "Alle Mitarbeiter" sichtbar.
-        if (csvLink && monthInput) {
-          var base = '/admin/timeclock/export.csv?month=' + monthInput.value;
+        // CSV-Export folgt dem aktiven Zeitraum-Filter (immer) + Mitarbeiter-
+        // Filter (optional) - anders als der PDF-Export bleibt er auch bei
+        // "Alle Mitarbeiter" sichtbar.
+        if (csvLink) {
+          var base = '/admin/timeclock/export.csv?' + periodQuery;
           csvLink.href = userFilter.value ? base + '&user_id=' + userFilter.value : base;
         }
       }
 
       if (userFilter) {
+        // Bereits gewaehlten Mitarbeiter nach einem Zeitraumwechsel wieder
+        // vorauswaehlen (siehe selectedUserId oben).
+        if (selectedUserId && userFilter.querySelector('option[value="' + selectedUserId + '"]')) {
+          userFilter.value = selectedUserId;
+        }
+        applyUserFilter();
         userFilter.addEventListener('change', function () {
+          selectedUserId = userFilter.value;
           applyUserFilter();
           updateExportLinks();
         });
@@ -384,56 +436,9 @@
       fragment.querySelectorAll('.tc-edit-btn').forEach(function (btn) {
         btn.addEventListener('click', function () { closeAllKebabMenus(); openEdit(btn); });
       });
-
-      // Monatsnavigation (< / > / "Aktueller Monat" / Monats-Picker) loest
-      // einen fetch() statt einer echten Seiten-Navigation aus.
-      fragment.querySelectorAll('.tc-month-nav').forEach(function (a) {
-        a.addEventListener('click', function (e) {
-          e.preventDefault();
-          loadMonth(a.getAttribute('href'));
-        });
-      });
-      if (monthInput) {
-        monthInput.addEventListener('change', function () {
-          loadMonth('/admin/timeclock?month=' + monthInput.value);
-        });
-      }
     }
 
-    // Holt das Monats-Fragment per fetch() nach, ersetzt #tc-fragment und
-    // synchronisiert die URL lautlos per history.replaceState (kein neuer
-    // Verlaufseintrag pro Monatsklick, aber Links bleiben teilbar). Ein
-    // dezentes opacity-50 waehrend des Ladens gibt sofortiges Feedback, ohne
-    // dass das Layout springt (Tabellenhoehe bleibt bis zum Tausch gleich).
-    function loadMonth(url) {
-      var prevFilter = document.getElementById('tc-user-filter');
-      var selectedUser = prevFilter ? prevFilter.value : '';
-      fragment.classList.add('opacity-50', 'pointer-events-none');
-      fetch(url, { headers: { 'X-Requested-With': 'fetch' } })
-        .then(function (resp) {
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
-          return resp.text();
-        })
-        .then(function (html) {
-          fragment.innerHTML = html;
-          fragment.classList.remove('opacity-50', 'pointer-events-none');
-          var target = new URL(url, window.location.origin);
-          history.replaceState(null, '', target.pathname + target.search);
-          bindFragment();
-          var newFilter = document.getElementById('tc-user-filter');
-          if (newFilter && selectedUser && newFilter.querySelector('option[value="' + selectedUser + '"]')) {
-            newFilter.value = selectedUser;
-            newFilter.dispatchEvent(new Event('change'));
-          }
-        })
-        .catch(function () {
-          // Fallback bei Netzwerkfehler/Serverausfall: normale Navigation,
-          // damit die Seite in jedem Fall bedienbar bleibt.
-          window.location.href = url;
-        });
-    }
-
-    bindFragment();
+    initTimeclockPeriod(fragment, '/admin/timeclock', onBind);
   })();
 </script>
 

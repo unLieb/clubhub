@@ -1,0 +1,30 @@
+{# Wiederverwendbare Monat/Freier-Zeitraum-Filterleiste fuer die Zeiterfassung
+   (Mitarbeiter: _timeclock_self_fragment.html, Admin: _timeclock_fragment.html).
+   Klassen mit "tp-"-Praefix, an die app/static/timeclock_period.js bindet -
+   identisch in beiden Ansichten, wie von der Anforderung "Wiederverwendbare
+   Filter-Komponente" verlangt. base_url ist "/timeclock" bzw. "/admin/timeclock". #}
+{% macro period_controls(base_url, mode, month_value, prev_month_value, next_month_value, date_from_value, date_to_value) %}
+<div class="flex flex-wrap items-center justify-between gap-2">
+  <div class="flex flex-wrap items-center gap-2">
+    {% if mode == 'range' %}
+    <label class="text-xs text-slate-500">Von</label>
+    <input type="date" class="tp-date-from rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm" value="{{ date_from_value }}">
+    <label class="text-xs text-slate-500">Bis</label>
+    <input type="date" class="tp-date-to rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm" value="{{ date_to_value }}">
+    {% else %}
+    <a href="{{ base_url }}?mode=month&month={{ prev_month_value }}" class="tp-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Vorheriger Monat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </a>
+    <input type="month" value="{{ month_value }}" class="tp-month-input rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <a href="{{ base_url }}?mode=month&month={{ next_month_value }}" class="tp-month-nav p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Nächster Monat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </a>
+    <a href="{{ base_url }}?mode=month" class="tp-month-nav text-xs text-slate-500 hover:text-slate-300 ml-1">Aktueller Monat</a>
+    {% endif %}
+  </div>
+  <div class="flex items-center rounded-md border border-line overflow-hidden text-xs font-medium shrink-0">
+    <button type="button" class="tp-mode-btn px-3 py-1.5 {% if mode == 'month' %}bg-go/90 text-oncolor{% else %}text-slate-300 hover:bg-panel2{% endif %}" data-mode="month">Monat</button>
+    <button type="button" class="tp-mode-btn px-3 py-1.5 {% if mode == 'range' %}bg-go/90 text-oncolor{% else %}text-slate-300 hover:bg-panel2{% endif %}" data-mode="range">Freier Zeitraum</button>
+  </div>
+</div>
+{% endmacro %}
