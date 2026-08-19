@@ -1604,9 +1604,7 @@ def nav_badges(request: Request) -> dict:
             return {"reports": 0, "inventory": 0}
         reports_open = db.query(models.Report).filter(models.Report.status != "done").count()
         items = filter_inventory_for_user(db.query(models.InventoryItem).all(), user)
-        inventory_critical = sum(
-            1 for i in items if compute_inventory_status(i)["status"] in ("low", "critical", "empty")
-        )
+        inventory_critical = sum(1 for i in items if compute_inventory_status(i)["status"] == "low")
         return {"reports": reports_open, "inventory": inventory_critical}
     finally:
         db.close()
@@ -2682,7 +2680,7 @@ def admin_rooms_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
-_INVENTORY_STATUS_ORDER = {"empty": 0, "critical": 1, "low": 2, "ok": 3}
+_INVENTORY_STATUS_ORDER = {"low": 0, "ok": 1}
 
 
 def _build_admin_inventory_context(request: Request, admin, sort: str, db: Session, img_fetch_failed: bool = False) -> dict:

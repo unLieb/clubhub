@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.76.0] - 2026-08-19
+- Inventar-Statusanzeige auf klares 2-Farben-System vereinfacht: nur noch grün „Im Soll“ (Bestand über Mindestbestand) oder rot „Niedriger Bestand“ (Bestand auf oder unter Mindestbestand) – die bisherigen Zwischenstufen „Kritisch“ (orange) und „Bestand leer“ sowie die Prozentanzeige im Detailbereich entfallen. Badge, Fortschrittsbalken und „Nachbestellen“-Button sind jetzt einheitlich rot eingefärbt und der Button ist bei „Im Soll“ ausgeblendet.
+- Fix: Die Bestands-Benachrichtigung an Gruppen (vorher an die inzwischen entfernte „Kritisch“-Stufe gekoppelt) löst jetzt korrekt bei „Niedriger Bestand“ aus.
+
 ## [0.75.0] - 2026-08-18
 - Inventar-Verwaltung (`/admin/inventory`): Anlegen, Bearbeiten und Löschen von Artikeln laufen jetzt per fetch() ohne Full-Page-Reload – nur die Tabelle wird aktualisiert, die aktuell gewählte Sortierung bleibt dabei erhalten (auch der Sortierungs-Wechsel selbst läuft jetzt ohne Reload). Bei einem fehlgeschlagenen Speichern bleibt der Bearbeiten-Drawer offen und zeigt eine Fehlermeldung statt Datenverlust.
 - Fix: Das ⋮-Kebab-Menü einer Artikelzeile klappt jetzt automatisch nach oben auf (`bottom-full`), wenn am Tabellenende nicht mehr genug Platz nach unten ist – vorher wurde es vom horizontal scrollbaren Tabellen-Wrapper abgeschnitten.

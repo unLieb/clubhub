@@ -269,10 +269,14 @@ class InventoryItem(Base):
     pack_size = Column(Float, nullable=True)           # Inhalt je Gebinde, z.B. 10 (Liter) oder 8 (Rollen)
     pack_unit = Column(String, nullable=True)          # Einheit des Inhalts, z.B. "Liter", "Rollen", "Stück"
     stock_current = Column(Float, default=0.0)         # Ist (in Gebinden, z.B. Kanister)
-    stock_min = Column(Float, default=0.0)             # Soll-Bestand (in Gebinden) - Zielwert, ab hier "Im Soll"
-    # Mindestbestand/kritische Schwelle (in Gebinden) - darunter "critical" statt nur
-    # "low". Optional; ohne eigenen Wert wird die Hälfte von stock_min angenommen
-    # (siehe status.inventory_critical_threshold).
+    # Mindestbestand (in Gebinden) - einzige Schwelle für den 2-Stufen-Status
+    # (siehe status.compute_inventory_status): darüber "ok"/"Im Soll" (grün),
+    # ab hier oder darunter "low"/"Niedriger Bestand" (rot).
+    stock_min = Column(Float, default=0.0)
+    # Frueherer zusaetzlicher "critical"-Schwellenwert (Ampel-System mit
+    # Zwischenstufen) - seit der Vereinfachung auf 2 Stufen nicht mehr in
+    # status.compute_inventory_status verwendet. Spalte bleibt bestehen,
+    # damit bereits gesetzte Werte nicht stillschweigend verloren gehen.
     stock_critical = Column(Float, nullable=True)
     category = Column(String, nullable=True)          # frei vergeben, z.B. "Reinigungsmittel"
     location = Column(String, nullable=True)          # Lagerort, frei vergeben, z.B. "Lager A"

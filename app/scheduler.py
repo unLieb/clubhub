@@ -103,18 +103,17 @@ def check_inventory_job():
         for item in items:
             if item.notified:
                 continue
-            # Nur ab "critical"/"empty" benachrichtigen, nicht schon bei "low"
-            # (unter Soll-Bestand, aber noch über dem Mindestbestand) - sonst
-            # nervt es bei jedem kleinen Abgang unterhalb des Zielwerts.
-            if compute_inventory_status(item)["status"] not in ("critical", "empty"):
+            # Vereinfachtes 2-Stufen-System (siehe status.compute_inventory_status):
+            # "low" ist bereits die einzige "braucht Aufmerksamkeit"-Stufe.
+            if compute_inventory_status(item)["status"] != "low":
                 continue
             if not _within_working_hours(item.group, now_local):
                 continue  # wird beim nächsten Tick nachgeholt, sobald Arbeitszeit beginnt
             notify_group(
                 item.group,
-                f"Bestand kritisch: {item.name}",
+                f"Niedriger Bestand: {item.name}",
                 f"„{item.name}“ liegt bei {item.stock_current:g}"
-                f"{' ' + item.unit if item.unit else ''} – Soll-Bestand ist {item.stock_min:g}.",
+                f"{' ' + item.unit if item.unit else ''} – Mindestbestand ist {item.stock_min:g}.",
                 url=f"/inventory?focus=item-{item.id}",
             )
             item.notified = True
