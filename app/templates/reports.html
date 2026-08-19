@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_report_macros.html" as rb %}
 {% import "_group_macros.html" as gm %}
+{% import "_dropzone_macros.html" as dz %}
 {% block title %}Meldungen – ClubHUB{% endblock %}
 {% block content %}
 
@@ -267,7 +268,7 @@
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Bilder (optional, mehrere möglich)</label>
-        <input type="file" name="photos" accept="image/*" multiple class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
+        {{ dz.dropzone("photos", "report-f-photos", accept="image/*", multiple=True, label="Fotos hierher ziehen oder klicken / antippen") }}
       </div>
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Meldung erstellen</button>
     </form>

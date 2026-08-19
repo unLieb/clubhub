@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.83.2] - 2026-08-19
+- Meldungen (`/reports`, Formular „Neue Meldung"): Der Bild-Upload nutzt jetzt dieselbe Dropzone-Komponente wie an anderen Stellen der App (gestrichelter Rahmen, Icon, „Fotos hierher ziehen oder klicken / antippen", Drag&Drop, Einfügen per Strg+V) statt des nackten Datei-Auswahl-Felds – inklusive Vorschau-Thumbnails mit „✕"-Button zum Entfernen einzelner Fotos vor dem Absenden.
+
 ## [0.83.1] - 2026-08-19
 - Meldungen (`/reports`, Formular „Neue Meldung"): Der Placeholder im Beschreibungsfeld passt sich jetzt der Kategorie an – bei „Materialwunsch / Anschaffung" erscheint „Was wird benötigt? Z.B. Akku-Schrauber für die Werkstatt oder neue Kaffeemaschine…" statt des Standard-Placeholders.
 
