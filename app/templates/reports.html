@@ -244,13 +244,21 @@
             <option value="low">Niedrig</option>
           </select>
         </div>
-        <div>
-          <label class="block text-[11px] text-slate-400 mb-1">Gruppe<span id="report-f-group-hint" class="hidden text-late"> * (Pflicht bei Anschaffung)</span></label>
-          <select name="assigned_group_id" id="report-f-group" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <option value="" id="report-f-group-auto">– automatisch (Bereich) –</option>
-            <option value="all">Alle (Betriebsweit)</option>
-            {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
-          </select>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Gruppe<span id="report-f-group-hint" class="hidden text-late"> * (Pflicht bei Anschaffung)</span></label>
+        <div class="flex flex-wrap gap-1.5" id="report-f-group">
+          <label id="report-f-group-auto-label" class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+            <input type="radio" name="assigned_group_id" value="" id="report-f-group-auto" class="sr-only" checked>– automatisch (Bereich) –
+          </label>
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+            <input type="radio" name="assigned_group_id" value="all" class="sr-only">Alle (Betriebsweit)
+          </label>
+          {% for g in groups %}
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+            <input type="radio" name="assigned_group_id" value="{{ g.id }}" class="sr-only">{{ g.name }}
+          </label>
+          {% endfor %}
         </div>
       </div>
       <div>
@@ -311,8 +319,9 @@
     var roomField = document.getElementById('report-f-room-field');
     var roomSelect = document.getElementById('report-f-room');
     var priorityField = document.getElementById('report-f-priority-field');
-    var groupSelect = document.getElementById('report-f-group');
-    var groupAutoOption = document.getElementById('report-f-group-auto');
+    var groupAutoLabel = document.getElementById('report-f-group-auto-label');
+    var groupAutoRadio = document.getElementById('report-f-group-auto');
+    var groupRadios = document.querySelectorAll('input[name="assigned_group_id"]');
     var groupHint = document.getElementById('report-f-group-hint');
 
     function applyCategoryMode() {
@@ -320,11 +329,14 @@
       roomField.classList.toggle('hidden', isAnschaffung);
       roomSelect.required = !isAnschaffung;
       priorityField.classList.toggle('hidden', isAnschaffung);
-      groupAutoOption.classList.toggle('hidden', isAnschaffung);
-      groupSelect.required = isAnschaffung;
+      // "Automatisch (Bereich)" ergibt bei Anschaffung keinen Sinn (kein
+      // Bereich vorhanden) - Chip ausblenden und bei aktueller Auswahl auf
+      // "Alle (Betriebsweit)" (naechster Chip) ausweichen, statt eine leere/
+      // ungueltige Zustaendigkeit stehen zu lassen.
+      groupAutoLabel.classList.toggle('hidden', isAnschaffung);
       groupHint.classList.toggle('hidden', !isAnschaffung);
-      if (isAnschaffung && groupSelect.value === '' && groupSelect.options.length > 1) {
-        groupSelect.selectedIndex = 1;
+      if (isAnschaffung && groupAutoRadio.checked && groupRadios.length > 1) {
+        groupRadios[1].checked = true;
       }
     }
     categorySelect.addEventListener('change', applyCategoryMode);
