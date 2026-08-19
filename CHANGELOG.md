@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.83.1] - 2026-08-19
+- Meldungen (`/reports`, Formular „Neue Meldung"): Der Placeholder im Beschreibungsfeld passt sich jetzt der Kategorie an – bei „Materialwunsch / Anschaffung" erscheint „Was wird benötigt? Z.B. Akku-Schrauber für die Werkstatt oder neue Kaffeemaschine…" statt des Standard-Placeholders.
+
 ## [0.83.0] - 2026-08-19
 - Meldungen (`/reports`, Formular „Neue Meldung"): Das „Gruppe"-Dropdown ist jetzt wie bei Terminen eine anklickbare Chip-Auswahl (Automatisch (Bereich), Alle (Betriebsweit), einzelne Gruppen) statt eines Auswahlmenüs. Anders als bei Terminen bleibt es dabei Single-Select (Radio-Verhalten) für eine eindeutige Zuständigkeit – der aktive Chip ist grün/dunkel hervorgehoben.
 
