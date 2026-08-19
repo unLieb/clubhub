@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.80.0] - 2026-08-19
+- Aufgaben-Sortierung in der Bereichsansicht (`/room/{id}`) an die praktische Arbeitsweise angepasst: Turnus kurz vor lang (Täglich/Wöchentlich zuerst, Monatlich/Quartalsweise darunter), „Nach Bedarf“-Aufgaben jetzt bewusst am Ende statt am ursprünglichen Anlage-Zeitpunkt. Innerhalb desselben Turnus alphabetisch nach Name, damit die Liste eine feste Reihenfolge behält statt bei jedem Aufruf in Anlage-Reihenfolge zu erscheinen. Bereits erledigte Aufgaben bleiben wie bisher vollständig ausgeblendet, bis sie erneut fällig werden.
+
 ## [0.79.1] - 2026-08-19
 - Fix: Das Buchen von Inventar-Bestand (`/inventar`, „Buchen“-Button je Artikel) lief per echtem Formular-POST und sprang danach an den Seitenanfang zurück. Läuft jetzt per fetch() ohne Full-Page-Reload: Scroll-Position bleibt exakt erhalten, nur die betroffene Artikel-Karte (Ist-Bestand, Fortschrittsbalken, Status-Badge „Im Soll“/„Niedriger Bestand“) wird ausgetauscht statt des gesamten Grids – eine aufgeklappte „Details“-Ansicht bleibt dabei offen.
 

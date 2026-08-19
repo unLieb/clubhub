@@ -865,6 +865,12 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
         if (statuses[t.id]["on_demand"] and not statuses[t.id]["on_demand_done_today"])
         or (not statuses[t.id]["on_demand"] and statuses[t.id]["status"] != "green")
     ]
+    # Turnus kurz -> lang (Tagesgeschäft zuerst, Grundreinigungen darunter),
+    # "Nach Bedarf" (interval_hours=0) bewusst ans Ende statt an den Anfang -
+    # numerisch waere 0 sonst der kuerzeste Turnus. Innerhalb desselben
+    # Turnus alphabetisch nach Namen, damit die Liste eine feste Reihenfolge
+    # behaelt statt bei jedem Aufruf in Einfuege-/ID-Reihenfolge zu springen.
+    pending_tasks.sort(key=lambda t: (t.interval_hours or float("inf"), t.name.lower()))
     pending_task_ids = {t.id for t in pending_tasks}
     done_tasks = [t for t in room.tasks if t.id not in pending_task_ids]
     setups = (
