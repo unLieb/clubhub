@@ -28,6 +28,12 @@
       <option value="low">Niedriger Bestand</option>
       <option value="ok">Im Soll</option>
     </select>
+    {% if user %}
+    <button type="button" id="inv-scan-open-btn" class="flex items-center gap-1.5 px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+      Wareneingang / Scannen
+    </button>
+    {% endif %}
   </div>
 </div>
 
@@ -168,6 +174,215 @@
     <span id="inv-toast-text"></span>
   </div>
 </div>
+
+{% if user %}
+<!-- Wareneingang-Scanner: Kamera-Modal per html5-qrcode (siehe
+     /static/html5-qrcode.min.js, nur auf dieser Seite geladen). Ein
+     erkannter Barcode geht per fetch() an /api/inventory/scan-inbound -
+     bekannter Artikel: Bestand wird sofort um die eingestellte Menge erhoeht
+     (siehe inventory_scan_inbound in main.py). Unbekannter Barcode: Dropdown
+     zum Zuweisen an einen bestehenden Artikel (Auswahl ist bereits serverseitig
+     mit den fuer diesen Nutzer sichtbaren Artikeln vorgefuellt, siehe unten -
+     kein zusaetzlicher fetch() fuer die Artikelliste noetig). -->
+<script src="/static/html5-qrcode.min.js"></script>
+<div id="inv-scan-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+  <div class="w-full max-w-md rounded-xl border border-line bg-panel p-4 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-display font-medium">Wareneingang / Scannen</h2>
+      <button type="button" id="inv-scan-close-btn" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div id="inv-scan-reader" class="rounded-lg overflow-hidden bg-black mb-3"></div>
+    <p id="inv-scan-status" class="text-xs text-slate-500 mb-3">Kamera wird gestartet…</p>
+
+    <div class="flex items-center gap-2 mb-3">
+      <label for="inv-scan-quantity" class="text-sm text-slate-300 shrink-0">Menge je Scan</label>
+      <input type="number" id="inv-scan-quantity" value="1" min="0.5" step="0.5"
+             class="w-20 rounded-md bg-ink border border-line px-2 py-1.5 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+    </div>
+
+    <div id="inv-scan-result-matched" class="hidden rounded-lg border border-go/40 bg-go/10 text-go text-sm px-3 py-2 mb-3"></div>
+
+    <div id="inv-scan-result-unknown" class="hidden rounded-lg border border-warn/40 bg-warn/10 p-3 mb-3">
+      <p class="text-warn text-sm mb-2">Unbekannter Barcode: <span id="inv-scan-unknown-code" class="font-mono"></span></p>
+      <label class="block text-[11px] text-slate-400 mb-1">Diesem Artikel zuweisen &amp; Menge buchen</label>
+      <select id="inv-scan-assign-select" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm mb-2">
+        <option value="">– Artikel wählen –</option>
+        {% for item in items %}
+        <option value="{{ item.id }}">{{ item.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="flex gap-2">
+        <button type="button" id="inv-scan-assign-btn" class="flex-1 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Zuweisen &amp; Buchen</button>
+        <button type="button" id="inv-scan-dismiss-btn" class="px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium">Verwerfen</button>
+      </div>
+    </div>
+
+    <p id="inv-scan-error" class="hidden text-late text-sm"></p>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var openBtn = document.getElementById('inv-scan-open-btn');
+    if (!openBtn) return;
+    var modal = document.getElementById('inv-scan-modal');
+    var closeBtn = document.getElementById('inv-scan-close-btn');
+    var statusEl = document.getElementById('inv-scan-status');
+    var quantityInput = document.getElementById('inv-scan-quantity');
+    var matchedBox = document.getElementById('inv-scan-result-matched');
+    var unknownBox = document.getElementById('inv-scan-result-unknown');
+    var unknownCodeEl = document.getElementById('inv-scan-unknown-code');
+    var assignSelect = document.getElementById('inv-scan-assign-select');
+    var assignBtn = document.getElementById('inv-scan-assign-btn');
+    var dismissBtn = document.getElementById('inv-scan-dismiss-btn');
+    var errorEl = document.getElementById('inv-scan-error');
+
+    var qrScanner = null;
+    var busy = false;          // laeuft gerade ein fetch()? (verhindert Doppel-Scans)
+    var pendingBarcode = null; // aktueller "unbekannter Barcode", auf Zuweisung wartend
+    var hadSuccessfulScan = false;
+
+    function playBeep() {
+      try {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        var ctx = new Ctx();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } catch (e) { /* Web Audio nicht verfuegbar - kein Ton, kein Fehler */ }
+    }
+
+    function resetResultBoxes() {
+      matchedBox.classList.add('hidden');
+      unknownBox.classList.add('hidden');
+      errorEl.classList.add('hidden');
+      pendingBarcode = null;
+    }
+
+    function showMatched(data) {
+      resetResultBoxes();
+      var unitText = data.unit ? ' ' + data.unit : '';
+      matchedBox.textContent = '„' + data.item_name + '“ gebucht - neuer Bestand: ' + data.new_stock + unitText;
+      matchedBox.classList.remove('hidden');
+      playBeep();
+      hadSuccessfulScan = true;
+    }
+
+    function showUnknown(barcode) {
+      resetResultBoxes();
+      pendingBarcode = barcode;
+      unknownCodeEl.textContent = barcode;
+      assignSelect.value = '';
+      unknownBox.classList.remove('hidden');
+    }
+
+    function showError(message) {
+      resetResultBoxes();
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    }
+
+    function handleDecoded(barcode) {
+      if (busy || pendingBarcode) return; // waehrend "unbekannt" wartet nicht weiterscannen
+      busy = true;
+      var quantity = parseFloat(quantityInput.value) || 1;
+      fetch('/api/inventory/scan-inbound', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: barcode, quantity: quantity }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          busy = false;
+          if (data.matched) {
+            showMatched(data);
+          } else {
+            showUnknown(data.barcode || barcode);
+          }
+        })
+        .catch(function () {
+          busy = false;
+          showError('Scan konnte nicht verarbeitet werden - bitte erneut versuchen.');
+        });
+    }
+
+    assignBtn.addEventListener('click', function () {
+      if (!pendingBarcode || busy) return;
+      var itemId = assignSelect.value;
+      if (!itemId) return;
+      busy = true;
+      assignBtn.disabled = true;
+      var quantity = parseFloat(quantityInput.value) || 1;
+      fetch('/api/inventory/scan-inbound-assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: pendingBarcode, item_id: parseInt(itemId, 10), quantity: quantity }),
+      })
+        .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+        .then(function (data) {
+          busy = false;
+          assignBtn.disabled = false;
+          showMatched(data);
+        })
+        .catch(function () {
+          busy = false;
+          assignBtn.disabled = false;
+          showError('Zuweisen fehlgeschlagen - bitte erneut versuchen.');
+        });
+    });
+
+    dismissBtn.addEventListener('click', function () {
+      resetResultBoxes();
+    });
+
+    function openModal() {
+      modal.classList.remove('hidden');
+      resetResultBoxes();
+      hadSuccessfulScan = false;
+      statusEl.textContent = 'Kamera wird gestartet…';
+      if (typeof Html5Qrcode === 'undefined') {
+        statusEl.textContent = '';
+        showError('Scanner-Bibliothek konnte nicht geladen werden.');
+        return;
+      }
+      qrScanner = new Html5Qrcode('inv-scan-reader');
+      qrScanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        function (decodedText) { handleDecoded(decodedText); },
+        function () { /* einzelner Frame ohne erkannten Code - kein Fehler */ }
+      ).then(function () {
+        statusEl.textContent = 'Barcode vor die Kamera halten…';
+      }).catch(function () {
+        statusEl.textContent = '';
+        showError('Kamera konnte nicht gestartet werden - Zugriff erlaubt?');
+      });
+    }
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      if (qrScanner) {
+        qrScanner.stop().then(function () { qrScanner.clear(); }).catch(function () {});
+        qrScanner = null;
+      }
+      resetResultBoxes();
+      if (hadSuccessfulScan) window.location.reload();
+    }
+
+    openBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+  })();
+</script>
+{% endif %}
 
 <script>
   (function () {

@@ -306,6 +306,13 @@ class InventoryItem(Base):
     category = Column(String, nullable=True)          # frei vergeben, z.B. "Reinigungsmittel"
     location = Column(String, nullable=True)          # Lagerort, frei vergeben, z.B. "Lager A"
     reorder_url = Column(String, nullable=True)        # Produktseite zum Nachbestellen (nur Link, kein Checkout)
+    # Für den Wareneingangs-Scanner (/inventory, "Wareneingang / Scannen") -
+    # verknüpft einen gescannten Barcode mit diesem Artikel, damit künftige
+    # Scans automatisch den richtigen Bestand erhöhen. Bewusst nicht
+    # unique=True (Column-Constraints greifen bei create_all() ohnehin nicht
+    # auf bestehende Tabellen) - die Zuweisung im Scan-Flow räumt einen
+    # bereits vergebenen Barcode selbst um, siehe inventory_scan_assign.
+    barcode = Column(String, nullable=True, index=True)
     image_url = Column(String, nullable=True)          # entweder /uploads/inventory/... oder externe URL
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     notified = Column(Boolean, default=False)          # schon über aktuelle Unterschreitung informiert?

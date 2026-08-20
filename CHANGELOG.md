@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.90.0] - 2026-08-20
+- Inventar: Neue Barcode-Scan-Funktion für den Wareneingang ("Wareneingang / Scannen") – öffnet ein Kamera-Scanner-Modal (html5-qrcode), erkennt einen Barcode und bucht automatisch die eingestellte Menge auf den verknüpften Artikel, inkl. Erfolgston und Eintrag im Inventar-Log. Unbekannte Barcodes lassen sich direkt im selben Schritt per Dropdown einem bestehenden Artikel zuweisen. Barcodes können auch manuell in der Artikelverwaltung hinterlegt werden.
+
 ## [0.89.0] - 2026-08-20
 - Eigenständige Login-Seite (`/login`) entfernt: Das Login-Formular (inkl. Passkey-Login) lebt jetzt ausschließlich im Dashboard (`/`), wohin bisher separate "Anmelden"-Links auch schon verwiesen haben. Nicht angemeldete Aufrufe geschützter Seiten leiten weiterhin mit `next`-Rücksprung dorthin um, damit man nach dem Login automatisch bei der eigentlich gewünschten Seite landet.
 

@@ -367,6 +367,20 @@ def _migrate_inventory_critical_stock(db: Session):
     _ensure_column(db, "inventory_items", "stock_critical", "FLOAT")
 
 
+def _migrate_inventory_barcode(db: Session):
+    """Optionaler Barcode je Artikel fuer den Wareneingangs-Scanner (siehe
+    models.InventoryItem.barcode) - kein Altdaten-Bezug. Nicht-eindeutiger
+    Index (kein UNIQUE, siehe Kommentar am Modell), aber wie beim
+    Personalnummer-Index ueber ein separates CREATE INDEX statt
+    Column(index=True) nachgezogen, da create_all() bestehende Tabellen
+    nicht aendert."""
+    _ensure_column(db, "inventory_items", "barcode", "TEXT")
+    db.execute(text(
+        "CREATE INDEX IF NOT EXISTS idx_inventory_items_barcode ON inventory_items(barcode)"
+    ))
+    db.commit()
+
+
 def _migrate_user_time_tracking(db: Session):
     """Zeiterfassung: Stundensatz + Soll-Arbeitszeit/Monat pro Nutzer, beide
     optional (kein Altdaten-Bezug)."""
@@ -551,6 +565,7 @@ def _startup():
         _migrate_inventory_pack_size(db)
         _migrate_inventory_unit_plural(db)
         _migrate_inventory_critical_stock(db)
+        _migrate_inventory_barcode(db)
         _migrate_user_time_tracking(db)
         _migrate_remove_timeclock_nfc_tags(db)
         _migrate_user_avatar(db)
@@ -2204,6 +2219,80 @@ def inventory_adjust(
             "consumption": consumption,
         })
     return RedirectResponse("/inventory", status_code=302)
+
+
+def _apply_inbound_scan(db: Session, item: models.InventoryItem, quantity: float, user, note: str):
+    item.stock_current += quantity
+    db.add(models.InventoryMovement(item_id=item.id, user_id=user.id, delta=quantity, note=note))
+    if item.stock_current >= item.stock_min:
+        item.notified = False
+    db.commit()
+
+
+class ScanInboundIn(BaseModel):
+    barcode: str
+    quantity: float = 1.0
+
+
+@app.post("/api/inventory/scan-inbound")
+def inventory_scan_inbound(payload: ScanInboundIn, request: Request, db: Session = Depends(get_db)):
+    """Wareneingang per Kamera-Scan (siehe html5-qrcode-Modal in
+    inventory.html): ein erkannter Barcode erhoeht direkt den Bestand des
+    verknuepften Artikels um die gewaehlte Menge - ist der Barcode noch
+    keinem Artikel zugeordnet, liefert matched=False zurueck, das Frontend
+    zeigt dann die Zuweisen-Dropdown an (siehe inventory_scan_assign)."""
+    user = require_login(request, db)
+    barcode = payload.barcode.strip()
+    if not barcode:
+        raise HTTPException(status_code=400, detail="barcode fehlt")
+    quantity = payload.quantity if payload.quantity and payload.quantity > 0 else 1.0
+
+    item = db.query(models.InventoryItem).filter(models.InventoryItem.barcode == barcode).first()
+    if not item or not user_can_see_inventory_item(user, item):
+        return {"ok": True, "matched": False, "barcode": barcode}
+
+    _apply_inbound_scan(db, item, quantity, user, note="Wareneingang (Scan)")
+    return {
+        "ok": True, "matched": True, "item_id": item.id, "item_name": item.name,
+        "new_stock": item.stock_current, "unit": item.unit,
+    }
+
+
+class ScanInboundAssignIn(BaseModel):
+    barcode: str
+    item_id: int
+    quantity: float = 1.0
+
+
+@app.post("/api/inventory/scan-inbound-assign")
+def inventory_scan_assign(payload: ScanInboundAssignIn, request: Request, db: Session = Depends(get_db)):
+    """Verknuepft einen bisher unbekannten, gescannten Barcode direkt mit
+    einem bestehenden Artikel (Dropdown-Auswahl im Scan-Modal) und bucht im
+    selben Schritt gleich die gewaehlte Menge zu - der Wareneingang, der zum
+    Scan gefuehrt hat, soll dadurch nicht verloren gehen, nur weil der
+    Barcode neu ist."""
+    user = require_login(request, db)
+    barcode = payload.barcode.strip()
+    if not barcode:
+        raise HTTPException(status_code=400, detail="barcode fehlt")
+    quantity = payload.quantity if payload.quantity and payload.quantity > 0 else 1.0
+
+    item = db.query(models.InventoryItem).filter(models.InventoryItem.id == payload.item_id).first()
+    if not item or not user_can_see_inventory_item(user, item):
+        raise HTTPException(status_code=404, detail="Artikel nicht gefunden")
+
+    # Barcode gehoert nur zu einem Artikel - eine evtl. bestehende Zuordnung
+    # woanders entfernen, damit kuenftige Scans eindeutig bleiben.
+    db.query(models.InventoryItem).filter(
+        models.InventoryItem.barcode == barcode, models.InventoryItem.id != item.id,
+    ).update({"barcode": None})
+    item.barcode = barcode
+
+    _apply_inbound_scan(db, item, quantity, user, note="Wareneingang (Scan, Barcode zugewiesen)")
+    return {
+        "ok": True, "matched": True, "item_id": item.id, "item_name": item.name,
+        "new_stock": item.stock_current, "unit": item.unit,
+    }
 
 
 @app.post("/inventory/{item_id}/image")
@@ -4835,6 +4924,7 @@ def admin_add_inventory_item(
     location: str = Form(""),
     reorder_url: str = Form(""),
     group_id: str = Form(""),
+    barcode: str = Form(""),
     next: str = Form("/admin/inventory"),
     sort: str = "status",
     db: Session = Depends(get_db),
@@ -4845,6 +4935,12 @@ def admin_add_inventory_item(
     # der verlinkten Seite als Artikelbild übernehmen, falls auffindbar.
     image_url = fetch_product_image(reorder_url) if reorder_url else None
     image_fetch_failed = bool(reorder_url) and not image_url
+    barcode = barcode.strip() or None
+    if barcode:
+        # Ein Barcode gehoert nur zu einem Artikel - falls er (z.B. per
+        # manueller Eingabe) schon einem anderen zugeordnet war, dort
+        # entfernen, damit kuenftige Scans nicht mehrdeutig werden.
+        db.query(models.InventoryItem).filter(models.InventoryItem.barcode == barcode).update({"barcode": None})
     db.add(models.InventoryItem(
         name=name,
         unit=unit or None,
@@ -4859,6 +4955,7 @@ def admin_add_inventory_item(
         reorder_url=reorder_url,
         image_url=image_url,
         group_id=int(group_id) if group_id else None,
+        barcode=barcode,
     ))
     db.commit()
     if request.headers.get("X-Requested-With") == "fetch":
@@ -4884,6 +4981,7 @@ def admin_edit_inventory_item(
     location: str = Form(""),
     reorder_url: str = Form(""),
     group_id: str = Form(""),
+    barcode: str = Form(""),
     next: str = Form("/admin/inventory"),
     sort: str = "status",
     db: Session = Depends(get_db),
@@ -4903,6 +5001,12 @@ def admin_edit_inventory_item(
         item.stock_critical = float(stock_critical) if stock_critical else None
         item.category = category or None
         item.location = location or None
+        new_barcode = barcode.strip() or None
+        if new_barcode and new_barcode != item.barcode:
+            db.query(models.InventoryItem).filter(
+                models.InventoryItem.barcode == new_barcode, models.InventoryItem.id != item.id,
+            ).update({"barcode": None})
+        item.barcode = new_barcode
         new_reorder_url = reorder_url or None
         # Nur beim tatsächlichen Ändern/Neuzuweisen des Kauflinks neu abrufen -
         # so wird ein manuell gesetztes Bild nicht bei jedem Speichern überschrieben.

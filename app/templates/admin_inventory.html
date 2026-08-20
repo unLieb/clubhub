@@ -40,6 +40,7 @@
       </select>
       <input name="category" id="inv-f-category" list="inv-categories" placeholder="Kategorie, z.B. Reinigungsmittel" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <input name="location" id="inv-f-location" list="inv-locations" placeholder="Lagerort, z.B. Lager A" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <input name="barcode" id="inv-f-barcode" placeholder="Barcode (optional, für Wareneingang-Scan)" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm font-mono">
     </div>
 
     <div class="space-y-2">
@@ -130,6 +131,7 @@
       packUnit: document.getElementById('inv-f-pack-unit'),
       packSize: document.getElementById('inv-f-pack-size'),
       reorderUrl: document.getElementById('inv-f-reorder-url'),
+      barcode: document.getElementById('inv-f-barcode'),
     };
 
     function openDrawer() {
@@ -173,6 +175,7 @@
       fields.packUnit.value = d.packUnit || '';
       fields.packSize.value = d.packSize || '';
       fields.reorderUrl.value = d.reorderUrl || '';
+      fields.barcode.value = d.barcode || '';
       if (deleteBtn) {
         deleteBtn.classList.remove('hidden');
         deleteBtn.setAttribute('formaction', '/admin/inventory/' + d.id + '/delete');

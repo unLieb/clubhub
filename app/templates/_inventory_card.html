@@ -185,6 +185,9 @@
             <li class="flex justify-between gap-4"><span class="text-slate-500">Kategorie</span><span class="text-slate-300">{{ item.category or "–" }}</span></li>
             <li class="flex justify-between gap-4"><span class="text-slate-500">Gebinde</span><span class="text-slate-300">{{ item|unit_label(item.stock_current, item.stock_min) if item.unit else "–" }}{% if item.pack_size and item.pack_unit %} (à {{ item.pack_size|qty }} {{ item.pack_unit }}){% endif %}</span></li>
             <li class="flex justify-between gap-4"><span class="text-slate-500">Lagerort</span><span class="text-slate-300">{{ item.location or "–" }}</span></li>
+            {% if item.barcode %}
+            <li class="flex justify-between gap-4"><span class="text-slate-500">Barcode</span><span class="text-slate-300 font-mono">{{ item.barcode }}</span></li>
+            {% endif %}
             {% if item.movements %}
             <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ (item.movements[0].timestamp|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if item.movements[0].user %} &middot; {{ item.movements[0].user.name }}{% endif %}</span></li>
             {% endif %}
