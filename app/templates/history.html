@@ -46,7 +46,12 @@
           <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime)|reldate }}</td>
           <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
           <td class="px-4 py-2.5">{{ c.task.name }}</td>
-          <td class="px-4 py-2.5 text-slate-300"><span class="inline-flex items-center gap-1.5 flex-wrap">{{ c.user.name }}{{ gm.group_badges(c.user.groups) }}</span></td>
+          <td class="px-4 py-2.5 text-slate-300">
+            <div class="flex items-center justify-between gap-2">
+              <span class="whitespace-nowrap shrink-0">{{ c.user.name }}</span>
+              <span class="flex items-center justify-end gap-1.5 flex-wrap min-w-0">{{ gm.group_badges(c.user.groups) }}</span>
+            </div>
+          </td>
           {% if user and (user.is_admin or user.is_developer) %}
           <td class="px-4 py-2.5 text-right">
             <form method="post" action="/history/{{ c.id }}/delete" onsubmit="return confirm('Diese Erledigung wirklich zurückziehen? Die Aufgabe gilt danach wieder als nicht erledigt (Stand: vorherige Erledigung bzw. nie erledigt).')">

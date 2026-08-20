@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.85.1] - 2026-08-20
+- Historie (`/history`): Gruppen-Badges in der Spalte „Erledigt von" springen nicht mehr je nach Namenslänge hin und her – Name steht links, Badges sind rechtsbündig auf einer festen vertikalen Linie ausgerichtet (`flex justify-between`). Nebenbei behoben: Bei mehreren/langen Badges liefen sie vorher über den Zellenrand hinaus statt sauber umzubrechen.
+
 ## [0.85.0] - 2026-08-19
 - Neu: Nutzer deaktivieren statt löschen (Soft-Delete). Der "Löschen"-Button in der Nutzerverwaltung ist jetzt ein "Deaktivieren"/"Aktivieren"-Umschalter – deaktivierte Konten können sich nicht mehr einloggen oder einstempeln (auch eine bereits offene Sitzung wird sofort beendet), tauchen aber weiterhin mit vollem Namen und Gruppen-Badge in Historie und Zeiterfassung auf sowie in der "Urlaub für jemand anderen eintragen"-Auswahl bereits bestehender Einträge. Neu angelegt werden können sie dort nicht mehr, bis das Konto reaktiviert wird.
 - Der letzte verbleibende aktive Admin sowie das eigene Konto lassen sich nicht deaktivieren, damit niemand versehentlich alle aussperrt.
