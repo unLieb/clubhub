@@ -1113,8 +1113,11 @@ def complete_due_tasks(room_id: int, request: Request, next: str = Form("/"), db
     siehe Nutzer-Feedback nach der ersten Version. "Nach Bedarf"-Aufgaben und
     bereits erledigte (grüne) bleiben ohnehin unberührt."""
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if not room:
+        if is_fetch:
+            raise HTTPException(status_code=404)
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
     due_tasks = [
@@ -1124,6 +1127,27 @@ def complete_due_tasks(room_id: int, request: Request, next: str = Form("/"), db
     _complete_tasks(db, due_tasks, user.id)
     count = len(due_tasks)
     msg = f"{count} tägliche {'Aufgabe' if count == 1 else 'Aufgaben'} für {room.name} als erledigt markiert"
+
+    if is_fetch:
+        # Nur die betroffene Kachel (mobile Zeile + Desktop-Karte) als
+        # Fragmente zurueckgeben (siehe _room_grid_row_mobile.html/
+        # _room_grid_card_desktop.html) statt eines Redirects - so bleibt die
+        # Scroll-Position auf dem Dashboard/der Bereichsuebersicht beim
+        # Abhaken erhalten und nur diese eine Kachel wird ersetzt.
+        room_status, _, _, _, daily_due_room_ids, _ = compute_room_statuses([room], now)
+        context = {
+            "request": request,
+            "user": user,
+            "room": room,
+            "rs": room_status[room.id],
+            "daily_due_room_ids": daily_due_room_ids,
+        }
+        return {
+            "ok": True,
+            "room_id": room.id,
+            "mobile_html": templates.env.get_template("_room_grid_row_mobile.html").render(context),
+            "desktop_html": templates.env.get_template("_room_grid_card_desktop.html").render(context),
+        }
     return RedirectResponse(_with_toast(next, msg), status_code=302)
 
 

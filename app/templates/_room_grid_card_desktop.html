@@ -1,0 +1,52 @@
+{# Eine einzelne Desktop-Bereichs-Karte - aus _room_grid.html ausgelagert,
+   analog zu _room_grid_row_mobile.html (siehe dort fuer Details zum
+   asynchronen "Taegliche erledigen"-Update). Erwartet im Kontext: room, rs
+   (room_status-Eintrag), user, daily_due_room_ids. #}
+<div id="room-card-{{ room.id }}" class="rounded-lg border border-line border-l-4 bg-panel2 p-3.5 transition-colors
+  {% if rs.status == 'green' %}border-l-go
+  {% elif rs.status == 'yellow' %}border-l-warn
+  {% else %}border-l-late{% endif %}">
+  <a href="/room/{{ room.id }}" class="block hover:opacity-90">
+    <div class="flex items-center gap-2 mb-2.5">
+      <span class="font-medium text-sm truncate">{{ room.name }}</span>
+    </div>
+
+    <div class="flex items-center gap-1.5 text-sm mb-1
+      {% if rs.status == 'green' %}text-go
+      {% elif rs.status == 'yellow' %}text-warn
+      {% else %}text-late{% endif %}">
+      <span class="w-2 h-2 rounded-full status-dot
+        {% if rs.status == 'green' %}bg-go
+        {% elif rs.status == 'yellow' %}bg-warn
+        {% else %}bg-late{% endif %}"></span>
+      <span class="font-medium">
+        {% if rs.status == 'green' %}Erledigt
+        {% elif rs.status == 'yellow' %}Bald fällig
+        {% else %}Überfällig{% endif %}
+      </span>
+    </div>
+    {% if rs.duration_text %}
+    <div class="text-xs text-slate-400 mb-2.5">{{ rs.duration_text }}</div>
+    {% else %}
+    <div class="mb-2.5"></div>
+    {% endif %}
+
+    <div class="pt-2 border-t border-line/60">
+      {% if rs.last_completed %}
+      <div class="text-[11px] text-slate-500 uppercase tracking-wide mb-0.5">Letzte Reinigung</div>
+      <div class="text-xs text-slate-300">{{ (rs.last_completed|localtime)|reldate }} &middot; {{ rs.last_user }}</div>
+      {% else %}
+      <div class="text-xs text-slate-500 italic">Noch keine Reinigung erfolgt</div>
+      {% endif %}
+    </div>
+  </a>
+  {% if user and room.id in daily_due_room_ids %}
+  <form method="post" action="/room/{{ room.id }}/complete-due" class="room-quick-complete-form mt-2.5 pt-2.5 border-t border-line/60">
+    <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+    <button type="submit" class="w-full flex items-center justify-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md bg-go/15 text-go hover:bg-go/25 transition-colors">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      Tägliche erledigen
+    </button>
+  </form>
+  {% endif %}
+</div>

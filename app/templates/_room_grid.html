@@ -1,91 +1,16 @@
 <!-- Mobile: vertikale Liste, ein Fingertipp pro Bereich -->
-<div class="lg:hidden rounded-xl border border-line divide-y divide-line overflow-hidden">
+<div class="lg:hidden rounded-xl border border-line divide-y divide-line overflow-hidden" id="room-grid-mobile">
   {% for room in rooms %}
   {% set rs = room_status[room.id] %}
-  <div class="flex items-center justify-between gap-2 px-4 py-3.5">
-    <a href="/room/{{ room.id }}" class="flex items-center gap-3 min-w-0 flex-1 active:opacity-70">
-      <span class="w-2.5 h-2.5 rounded-full status-dot shrink-0
-        {% if rs.status == 'green' %}bg-go
-        {% elif rs.status == 'yellow' %}bg-warn
-        {% else %}bg-late{% endif %}"></span>
-      <div class="min-w-0">
-        <div class="text-sm font-medium truncate">{{ room.name }}</div>
-        <div class="text-xs text-slate-500 truncate">
-          {% if rs.duration_text %}{{ rs.duration_text }}
-          {% elif rs.last_completed %}{{ (rs.last_completed|localtime)|reldate }} &middot; {{ rs.last_user }}
-          {% else %}Noch keine Reinigung{% endif %}
-        </div>
-      </div>
-    </a>
-    <div class="flex items-center gap-1 shrink-0">
-      {% if user and room.id in daily_due_room_ids %}
-      <form method="post" action="/room/{{ room.id }}/complete-due">
-        <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
-        <button type="submit" aria-label="Tägliche Aufgaben in {{ room.name }} erledigen" title="Tägliche erledigen" class="w-8 h-8 rounded-full bg-go/15 text-go flex items-center justify-center active:bg-go/25">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-        </button>
-      </form>
-      {% endif %}
-      <a href="/room/{{ room.id }}" class="text-slate-500 shrink-0" aria-label="{{ room.name }} öffnen">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-      </a>
-    </div>
-  </div>
+  {% include "_room_grid_row_mobile.html" %}
   {% endfor %}
 </div>
 
 <!-- Desktop: Karten-Grid -->
-<div class="hidden lg:grid gap-3 lg:grid-cols-3 xl:grid-cols-4">
+<div class="hidden lg:grid gap-3 lg:grid-cols-3 xl:grid-cols-4" id="room-grid-desktop">
   {% for room in rooms %}
   {% set rs = room_status[room.id] %}
-  <div class="rounded-lg border border-line border-l-4 bg-panel2 p-3.5 transition-colors
-    {% if rs.status == 'green' %}border-l-go
-    {% elif rs.status == 'yellow' %}border-l-warn
-    {% else %}border-l-late{% endif %}">
-    <a href="/room/{{ room.id }}" class="block hover:opacity-90">
-      <div class="flex items-center gap-2 mb-2.5">
-        <span class="font-medium text-sm truncate">{{ room.name }}</span>
-      </div>
-
-      <div class="flex items-center gap-1.5 text-sm mb-1
-        {% if rs.status == 'green' %}text-go
-        {% elif rs.status == 'yellow' %}text-warn
-        {% else %}text-late{% endif %}">
-        <span class="w-2 h-2 rounded-full status-dot
-          {% if rs.status == 'green' %}bg-go
-          {% elif rs.status == 'yellow' %}bg-warn
-          {% else %}bg-late{% endif %}"></span>
-        <span class="font-medium">
-          {% if rs.status == 'green' %}Erledigt
-          {% elif rs.status == 'yellow' %}Bald fällig
-          {% else %}Überfällig{% endif %}
-        </span>
-      </div>
-      {% if rs.duration_text %}
-      <div class="text-xs text-slate-400 mb-2.5">{{ rs.duration_text }}</div>
-      {% else %}
-      <div class="mb-2.5"></div>
-      {% endif %}
-
-      <div class="pt-2 border-t border-line/60">
-        {% if rs.last_completed %}
-        <div class="text-[11px] text-slate-500 uppercase tracking-wide mb-0.5">Letzte Reinigung</div>
-        <div class="text-xs text-slate-300">{{ (rs.last_completed|localtime)|reldate }} &middot; {{ rs.last_user }}</div>
-        {% else %}
-        <div class="text-xs text-slate-500 italic">Noch keine Reinigung erfolgt</div>
-        {% endif %}
-      </div>
-    </a>
-    {% if user and room.id in daily_due_room_ids %}
-    <form method="post" action="/room/{{ room.id }}/complete-due" class="mt-2.5 pt-2.5 border-t border-line/60">
-      <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
-      <button type="submit" class="w-full flex items-center justify-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md bg-go/15 text-go hover:bg-go/25 transition-colors">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-        Tägliche erledigen
-      </button>
-    </form>
-    {% endif %}
-  </div>
+  {% include "_room_grid_card_desktop.html" %}
   {% endfor %}
 </div>
 
@@ -94,3 +19,56 @@
   <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-warn"></span>Bald fällig</span>
   <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-late"></span>Überfällig</span>
 </div>
+
+<script>
+  // Asynchrones "Taegliche erledigen" ohne Full-Page-Reload: fetch() statt
+  // echtem Formular-POST (Server unterscheidet ueber X-Requested-With: fetch,
+  // siehe complete_due_tasks in main.py) - liefert dabei nur die aktualisierte
+  // Kachel (mobile Zeile + Desktop-Karte) als HTML-Fragment zurueck, die
+  // Seite ersetzt ausschliesslich diese eine Kachel im DOM. Dadurch bleiben
+  // Scroll-Position und alles andere auf der Seite unangetastet - anders als
+  // beim bisherigen echten POST+Redirect, der ganz oben auf der Seite landete.
+  // Event-Delegation auf beide Grid-Container statt Einzel-Bindung pro
+  // Formular, damit es nach jedem Kachel-Austausch automatisch weiter
+  // funktioniert, ohne neu gebunden werden zu muessen. Klassischer
+  // Formular-Fallback (ohne JS) bleibt ueber das normale action/method-
+  // Attribut der Formulare erhalten.
+  (function () {
+    function bindGrid(grid) {
+      if (!grid || grid._quickCompleteBound) return;
+      grid._quickCompleteBound = true;
+      grid.addEventListener('submit', function (e) {
+        var form = e.target.closest('.room-quick-complete-form');
+        if (!form) return;
+        e.preventDefault();
+        var tile = form.closest('[id^="room-row-"], [id^="room-card-"]');
+        var btn = form.querySelector('button');
+        if (btn) btn.disabled = true;
+        if (tile) tile.classList.add('opacity-50', 'pointer-events-none');
+
+        fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'X-Requested-With': 'fetch' },
+        })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('http ' + resp.status);
+            return resp.json();
+          })
+          .then(function (data) {
+            var mobileRow = document.getElementById('room-row-' + data.room_id);
+            if (mobileRow) mobileRow.outerHTML = data.mobile_html;
+            var desktopCard = document.getElementById('room-card-' + data.room_id);
+            if (desktopCard) desktopCard.outerHTML = data.desktop_html;
+          })
+          .catch(function () {
+            if (btn) btn.disabled = false;
+            if (tile) tile.classList.remove('opacity-50', 'pointer-events-none');
+            alert('Abhaken fehlgeschlagen - bitte erneut versuchen.');
+          });
+      });
+    }
+    bindGrid(document.getElementById('room-grid-mobile'));
+    bindGrid(document.getElementById('room-grid-desktop'));
+  })();
+</script>
