@@ -3047,15 +3047,30 @@ def history(
 
 
 @app.post("/history/{completion_id}/delete")
-def delete_completion(completion_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_completion(
+    completion_id: int, request: Request, return_to: str = Form("/history"), db: Session = Depends(get_db)
+):
     """Zieht eine versehentlich als erledigt markierte Aufgabe zurück - nur
-    Admin/Entwickler, da das den Fälligkeits-Status der Aufgabe direkt beeinflusst."""
+    Admin/Entwickler, da das den Fälligkeits-Status der Aufgabe direkt beeinflusst.
+    Für JS-Clients (siehe history.html, fetch mit X-Requested-With: fetch)
+    antwortet die Route nur mit {"ok": true} statt einem Redirect, damit die
+    Seite die Zeile ohne Reload selbst aus der Tabelle entfernen kann (Seiten-
+    zahl/Scroll-Position bleiben dadurch automatisch erhalten). Ohne diesen
+    Header (klassischer Formular-POST, z.B. ohne JS) bleibt der bisherige
+    Redirect als Fallback erhalten - return_to (aktuelle URL inkl. Filter/
+    Seite, siehe verstecktes Feld im Formular) statt immer auf /history."""
     require_admin_or_developer(request, db)
     completion = db.query(models.Completion).filter(models.Completion.id == completion_id).first()
     if completion:
         db.delete(completion)
         db.commit()
-    return RedirectResponse("/history", status_code=302)
+    if request.headers.get("X-Requested-With") == "fetch":
+        return {"ok": True}
+    # Nur ein eigener, relativer Pfad ist erlaubt (kein "//evil.com" o.ä.),
+    # sonst faellt es auf /history zurueck statt einem manipulierten Ziel zu
+    # folgen.
+    target = return_to if return_to.startswith("/") and not return_to.startswith("//") else "/history"
+    return RedirectResponse(target, status_code=302)
 
 
 # ---------- Login / Logout ----------

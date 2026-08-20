@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.85.2] - 2026-08-20
+- Historie (`/history`): "Rückgängig" läuft jetzt per fetch() ohne Full-Page-Reload – die betroffene Zeile verschwindet direkt aus der Tabelle, Seitenzahl/Filter und Scroll-Position bleiben dabei exakt erhalten statt wie bisher auf Seite 1 zurückzuspringen. Klassischer Formular-Fallback (ohne JS) respektiert jetzt ebenfalls den aktuellen Filter-/Seiten-Zustand statt immer auf die unfilterte erste Seite umzuleiten.
+
 ## [0.85.1] - 2026-08-20
 - Historie (`/history`): Gruppen-Badges in der Spalte „Erledigt von" springen nicht mehr je nach Namenslänge hin und her – Name steht links, Badges sind rechtsbündig auf einer festen vertikalen Linie ausgerichtet (`flex justify-between`). Nebenbei behoben: Bei mehreren/langen Badges liefen sie vorher über den Zellenrand hinaus statt sauber umzubrechen.
 

@@ -42,7 +42,7 @@
       </thead>
       <tbody class="divide-y divide-line">
         {% for c in completions %}
-        <tr>
+        <tr id="hist-row-{{ c.id }}">
           <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime)|reldate }}</td>
           <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
           <td class="px-4 py-2.5">{{ c.task.name }}</td>
@@ -54,14 +54,15 @@
           </td>
           {% if user and (user.is_admin or user.is_developer) %}
           <td class="px-4 py-2.5 text-right">
-            <form method="post" action="/history/{{ c.id }}/delete" onsubmit="return confirm('Diese Erledigung wirklich zurückziehen? Die Aufgabe gilt danach wieder als nicht erledigt (Stand: vorherige Erledigung bzw. nie erledigt).')">
+            <form method="post" action="/history/{{ c.id }}/delete" class="hist-delete-form">
+              <input type="hidden" name="return_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
               <button class="text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-late whitespace-nowrap">Rückgängig</button>
             </form>
           </td>
           {% endif %}
         </tr>
         {% else %}
-        <tr><td colspan="5" class="px-4 py-6 text-center text-slate-500 italic">Keine Einträge gefunden.</td></tr>
+        <tr id="hist-empty-row"><td colspan="5" class="px-4 py-6 text-center text-slate-500 italic">Keine Einträge gefunden.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -90,5 +91,91 @@
   </div>
   {% endif %}
 </div>
+
+<!-- Fehler-Toast fuers asynchrone "Rueckgaengig" (siehe Skript unten) -
+     Erfolg ist bereits am Verschwinden der Zeile selbst sichtbar. -->
+<div id="hist-toast" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100%-2rem)]">
+  <div class="flex items-center gap-2 rounded-lg border border-late/40 bg-late text-white text-sm font-medium px-4 py-2.5 shadow-lg">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
+    <span id="hist-toast-text"></span>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    var toast = document.getElementById('hist-toast');
+    var toastText = document.getElementById('hist-toast-text');
+    var toastTimer = null;
+
+    function showErrorToast(message) {
+      if (toastTimer) clearTimeout(toastTimer);
+      toastText.textContent = message;
+      toast.classList.remove('hidden');
+      toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+    }
+
+    // Animierte Hoehe/Deckkraft statt die Zeile hart zu entfernen - selbes
+    // Muster wie beim Abhaken einer Aufgabe (siehe room.html), nur ohne
+    // Rueckgaengig-Option (das WAR hier bereits die Rueckgaengig-Aktion).
+    function collapseRow(row) {
+      var startHeight = row.getBoundingClientRect().height;
+      row.style.display = 'table-row';
+      row.style.height = startHeight + 'px';
+      row.style.overflow = 'hidden';
+      row.style.transition = 'height 250ms ease, opacity 200ms ease';
+      void row.offsetHeight;
+      row.style.opacity = '0';
+      row.style.height = '0px';
+      setTimeout(function () {
+        row.remove();
+        // Asynchron entfernte letzte Zeile der Seite - sonst bliebe eine
+        // komplett leere Tabelle ohne jeden Hinweistext stehen.
+        if (!tbody.querySelector('tr')) {
+          var emptyRow = document.createElement('tr');
+          emptyRow.id = 'hist-empty-row';
+          emptyRow.innerHTML = '<td colspan="5" class="px-4 py-6 text-center text-slate-500 italic">Keine Einträge mehr auf dieser Seite.</td>';
+          tbody.appendChild(emptyRow);
+        }
+      }, 260);
+    }
+
+    // Asynchrones "Rückgängig" ohne Full-Page-Reload: fetch() statt echtem
+    // Formular-POST (Server unterscheidet ueber X-Requested-With: fetch,
+    // siehe delete_completion in main.py) - Seitenzahl/Filter und
+    // Scroll-Position bleiben dadurch automatisch exakt erhalten, da gar
+    // keine Navigation stattfindet. Klassischer Formular-Fallback (echter
+    // POST + Redirect auf return_to) bleibt fuer Nicht-JS-Faelle erhalten.
+    tbody.addEventListener('submit', function (e) {
+      var form = e.target.closest('.hist-delete-form');
+      if (!form) return;
+      e.preventDefault();
+      var row = form.closest('tr');
+      if (!confirm('Diese Erledigung wirklich zurückziehen? Die Aufgabe gilt danach wieder als nicht erledigt (Stand: vorherige Erledigung bzw. nie erledigt).')) {
+        return;
+      }
+      var btn = form.querySelector('button');
+      btn.disabled = true;
+
+      fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'fetch' },
+      })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('http ' + resp.status);
+          return resp.json();
+        })
+        .then(function () {
+          collapseRow(row);
+        })
+        .catch(function () {
+          btn.disabled = false;
+          showErrorToast('Rückgängig machen fehlgeschlagen - bitte erneut versuchen.');
+        });
+    });
+  })();
+</script>
 
 {% endblock %}
