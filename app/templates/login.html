@@ -22,7 +22,7 @@
     <input type="hidden" name="next" value="{{ next or '/' }}">
     <div>
       <label class="block text-sm text-slate-300 mb-1.5">Benutzername oder Personalnummer</label>
-      <input type="text" name="identifier" required autofocus autocomplete="username"
+      <input type="text" name="identifier" required autofocus autocomplete="username webauthn"
              class="w-full rounded-md bg-ink border border-line px-3 py-2 text-slate-100">
     </div>
     <div>
@@ -42,21 +42,34 @@
     var btn = document.getElementById('login-passkey-btn');
     var divider = document.getElementById('login-passkey-divider');
     var errorBox = document.getElementById('login-passkey-error');
+    var nextUrl = {{ (next or '/')|tojson }};
+
+    function handleResult(result) {
+      if (result.ok) {
+        window.location.href = result.redirect || '/';
+      } else {
+        errorBox.textContent = result.error || 'Passkey-Anmeldung fehlgeschlagen.';
+        errorBox.classList.remove('hidden');
+      }
+    }
+
     btn.classList.remove('hidden');
     divider.classList.remove('hidden');
     btn.addEventListener('click', function () {
       errorBox.classList.add('hidden');
       btn.disabled = true;
-      webauthnLoginWithPasskey({{ (next or '/')|tojson }}, function (result) {
+      webauthnLoginWithPasskey(nextUrl, function (result) {
         btn.disabled = false;
-        if (result.ok) {
-          window.location.href = result.redirect || '/';
-        } else {
-          errorBox.textContent = result.error || 'Passkey-Anmeldung fehlgeschlagen.';
-          errorBox.classList.remove('hidden');
-        }
+        handleResult(result);
       });
     });
+
+    // Passkey-Autofill (Conditional UI): laeuft unauffaellig im Hintergrund,
+    // sobald der Browser sie unterstuetzt (siehe webauthnStartConditionalLogin)
+    // - zeigt passende Passkeys direkt in der nativen Autofill-Liste des
+    // Benutzername-Felds oben an (autocomplete="username webauthn"), ganz
+    // ohne eigenen Button-Klick. Kein Verhalten, falls nicht unterstuetzt.
+    webauthnStartConditionalLogin(nextUrl, handleResult);
   })();
 </script>
 

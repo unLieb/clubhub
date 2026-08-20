@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.88.1] - 2026-08-20
+- Passkey-Login: Autofill (Conditional UI) im Benutzername-Feld auf der Login-Seite – unterstützende Browser schlagen gespeicherte Passkeys direkt in der Tastatur-/Autofill-Leiste vor, ganz ohne den separaten "Mit Passkey anmelden"-Button antippen zu müssen.
+
 ## [0.88.0] - 2026-08-20
 - Passkey-Login (WebAuthn/FIDO2): Im Profil lassen sich jetzt Passkeys (Fingerabdruck, Gesichtserkennung, Geräte-PIN oder Sicherheitsschlüssel) hinzufügen, benennen und entfernen. Auf der Login-Seite (`/login`) steht dafür ein neuer "Mit Passkey anmelden"-Button bereit, der ganz ohne vorherige Benutzernamen-Eingabe funktioniert. Der Terminal-Modus für die Zeiterfassung bleibt davon unberührt und nutzt weiterhin ausschließlich die PIN-Eingabe.
 

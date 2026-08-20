@@ -102,13 +102,22 @@ function webauthnRegisterPasskey(name, onDone) {
     });
 }
 
-// Meldet den Nutzer per Passkey an (Login-Seite), ganz ohne vorherige
-// Identifier-Eingabe (discoverable credential / "usernameless").
-function webauthnLoginWithPasskey(nextUrl, onDone) {
+// Gemeinsamer Kern fuer beide Login-Wege (siehe unten): den expliziten "Mit
+// Passkey anmelden"-Button (mediation weggelassen = normaler Modal-Dialog)
+// und die Conditional-UI-Autofill-Vorschlaege im Benutzername-Feld
+// (mediation: 'conditional' = kein Dialog, der Browser zeigt die
+// passenden Passkeys stattdessen direkt in der Autofill-Liste des Feldes
+// an, das dafuer autocomplete="webauthn" braucht, siehe login.html). Beide
+// nutzen denselben /login/passkey/options-Endpunkt, da sich die
+// Challenge/Optionen fachlich nicht unterscheiden - nur mediation ist
+// clientseitig anders.
+function webauthnRequestLogin(mediation, nextUrl, onDone) {
   fetch('/login/passkey/options', { headers: { 'X-Requested-With': 'fetch' } })
     .then(function (r) { return r.json(); })
     .then(function (opts) {
-      return navigator.credentials.get({ publicKey: webauthnDecodeRequestOptions(opts) });
+      var getOptions = { publicKey: webauthnDecodeRequestOptions(opts) };
+      if (mediation) getOptions.mediation = mediation;
+      return navigator.credentials.get(getOptions);
     })
     .then(function (cred) {
       return fetch('/login/passkey/verify', {
@@ -120,9 +129,33 @@ function webauthnLoginWithPasskey(nextUrl, onDone) {
     .then(function (r) { return r.json(); })
     .then(onDone)
     .catch(function (err) {
+      // AbortError passiert routinemaessig, wenn ein zweiter get()-Aufruf
+      // (Button-Klick waehrend die Conditional-UI-Anfrage noch laeuft, oder
+      // ein Seitenwechsel) den vorherigen automatisch abbricht - kein
+      // echter Fehler, dafuer keine Fehlermeldung anzeigen.
+      if (err && err.name === 'AbortError') return;
       var msg = (err && err.name === 'NotAllowedError')
         ? 'Abgebrochen.'
         : 'Passkey-Anmeldung fehlgeschlagen.';
       onDone({ ok: false, error: msg });
     });
+}
+
+// Meldet den Nutzer per Passkey an (expliziter Button, Login-Seite), ganz
+// ohne vorherige Identifier-Eingabe (discoverable credential / "usernameless").
+function webauthnLoginWithPasskey(nextUrl, onDone) {
+  webauthnRequestLogin(undefined, nextUrl, onDone);
+}
+
+// Startet im Hintergrund die Conditional-UI-Anfrage (Passkey-Autofill): kein
+// Dialog, der Browser bietet passende Passkeys stattdessen direkt in der
+// nativen Autofill-Liste des Benutzername-Felds an, sobald es fokussiert
+// wird. Loest onDone erst aus, wenn der Nutzer dort tatsaechlich einen
+// Passkey auswaehlt (oder es fehlschlaegt) - laeuft sonst einfach im
+// Hintergrund weiter, bis die Seite verlassen wird.
+function webauthnStartConditionalLogin(nextUrl, onDone) {
+  if (!webauthnSupported() || typeof PublicKeyCredential.isConditionalMediationAvailable !== 'function') return;
+  PublicKeyCredential.isConditionalMediationAvailable().then(function (available) {
+    if (available) webauthnRequestLogin('conditional', nextUrl, onDone);
+  });
 }
