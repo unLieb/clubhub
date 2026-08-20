@@ -30,6 +30,7 @@ from . import data_export
 from . import version
 from . import push
 from . import pdf_export
+from . import webauthn_auth
 from .auth import (
     hash_password, verify_password, find_user_by_identifier, get_current_user, require_login,
     require_admin, require_admin_or_shift_lead, require_admin_or_developer, require_staff_or_developer,
@@ -3187,6 +3188,61 @@ def login_submit(
     return RedirectResponse(next or "/", status_code=302)
 
 
+@app.get("/login/passkey/options")
+def login_passkey_options(request: Request):
+    """Liefert die navigator.credentials.get()-Optionen fuer den 'Mit
+    Passkey anmelden'-Button auf /login (siehe webauthn_auth.py -
+    absichtlich ohne allow_credentials, der Browser zeigt darum direkt alle
+    zu dieser Seite passenden Passkeys zur Auswahl an, ganz ohne vorherige
+    Identifier-Eingabe). Die Challenge landet in der (auch fuer noch nicht
+    eingeloggte Besucher vorhandenen, cookie-basierten) Session, damit
+    login_passkey_verify sie gegen die tatsaechliche Antwort pruefen kann."""
+    options = webauthn_auth.build_authentication_options(request)
+    request.session["webauthn_login_challenge"] = webauthn_auth.encode_bytes(options.challenge)
+    return Response(content=webauthn_auth.options_json(options), media_type="application/json")
+
+
+class PasskeyLoginIn(BaseModel):
+    credential: dict
+    next: str = "/"
+
+
+@app.post("/login/passkey/verify")
+def login_passkey_verify(payload: PasskeyLoginIn, request: Request, db: Session = Depends(get_db)):
+    challenge_b64 = request.session.pop("webauthn_login_challenge", None)
+    if not challenge_b64:
+        return {"ok": False, "error": "Anmeldevorgang abgelaufen, bitte erneut versuchen."}
+
+    credential_id = payload.credential.get("id")
+    cred = db.query(models.WebauthnCredential).filter(
+        models.WebauthnCredential.credential_id == credential_id
+    ).first()
+    if not cred:
+        return {"ok": False, "error": "Dieser Passkey ist nicht registriert."}
+
+    try:
+        verification = webauthn_auth.verify_authentication(
+            request, payload.credential,
+            expected_challenge=webauthn_auth.decode_bytes(challenge_b64),
+            public_key=webauthn_auth.decode_bytes(cred.public_key),
+            sign_count=cred.sign_count,
+        )
+    except Exception:
+        return {"ok": False, "error": "Passkey-Anmeldung fehlgeschlagen."}
+
+    user = cred.user
+    if not user.is_active:
+        return {"ok": False, "error": "Dieses Konto wurde deaktiviert. Bitte an die Verwaltung wenden."}
+
+    cred.sign_count = verification.new_sign_count
+    cred.last_used_at = ntptime.now_utc()
+    db.commit()
+
+    request.session["user_id"] = user.id
+    next_url = payload.next if payload.next.startswith("/") and not payload.next.startswith("//") else "/"
+    return {"ok": True, "redirect": next_url}
+
+
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
@@ -3246,6 +3302,72 @@ def profile_change_password(
         "password_error": error,
         "password_success": error is None,
     })
+
+
+@app.get("/profile/passkeys/options")
+def profile_passkeys_options(request: Request, db: Session = Depends(get_db)):
+    """Liefert die navigator.credentials.create()-Optionen fuer den
+    'Passkey hinzufuegen'-Button im Profil (siehe webauthn_auth.py). Die
+    Challenge landet in der Session, damit profile_passkeys_register sie
+    gegen die tatsaechliche Antwort pruefen kann."""
+    user = require_login(request, db)
+    existing_ids = [c.credential_id for c in user.webauthn_credentials]
+    options = webauthn_auth.build_registration_options(request, user, existing_ids)
+    request.session["webauthn_reg_challenge"] = webauthn_auth.encode_bytes(options.challenge)
+    return Response(content=webauthn_auth.options_json(options), media_type="application/json")
+
+
+class PasskeyRegisterIn(BaseModel):
+    name: str
+    credential: dict
+
+
+@app.post("/profile/passkeys/register")
+def profile_passkeys_register(payload: PasskeyRegisterIn, request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    challenge_b64 = request.session.pop("webauthn_reg_challenge", None)
+    if not challenge_b64:
+        return {"ok": False, "error": "Registrierung abgelaufen, bitte erneut versuchen."}
+
+    name = payload.name.strip() or "Passkey"
+    try:
+        verification = webauthn_auth.verify_registration(
+            request, payload.credential, expected_challenge=webauthn_auth.decode_bytes(challenge_b64),
+        )
+    except Exception:
+        return {"ok": False, "error": "Passkey konnte nicht registriert werden."}
+
+    db.add(models.WebauthnCredential(
+        user_id=user.id,
+        name=name,
+        credential_id=webauthn_auth.encode_bytes(verification.credential_id),
+        public_key=webauthn_auth.encode_bytes(verification.credential_public_key),
+        sign_count=verification.sign_count,
+    ))
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/profile/passkeys/{credential_id}/rename")
+def profile_passkeys_rename(credential_id: int, request: Request, name: str = Form(...), db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    cred = db.query(models.WebauthnCredential).filter(
+        models.WebauthnCredential.id == credential_id, models.WebauthnCredential.user_id == user.id,
+    ).first()
+    if cred and name.strip():
+        cred.name = name.strip()
+        db.commit()
+    return RedirectResponse("/profile", status_code=302)
+
+
+@app.post("/profile/passkeys/{credential_id}/delete")
+def profile_passkeys_delete(credential_id: int, request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    db.query(models.WebauthnCredential).filter(
+        models.WebauthnCredential.id == credential_id, models.WebauthnCredential.user_id == user.id,
+    ).delete()
+    db.commit()
+    return RedirectResponse("/profile", status_code=302)
 
 
 @app.post("/profile/pay")

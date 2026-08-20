@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.88.0] - 2026-08-20
+- Passkey-Login (WebAuthn/FIDO2): Im Profil lassen sich jetzt Passkeys (Fingerabdruck, Gesichtserkennung, Geräte-PIN oder Sicherheitsschlüssel) hinzufügen, benennen und entfernen. Auf der Login-Seite (`/login`) steht dafür ein neuer "Mit Passkey anmelden"-Button bereit, der ganz ohne vorherige Benutzernamen-Eingabe funktioniert. Der Terminal-Modus für die Zeiterfassung bleibt davon unberührt und nutzt weiterhin ausschließlich die PIN-Eingabe.
+
 ## [0.87.0] - 2026-08-20
 - Meldungen: Produkt-/Shop-Links werden jetzt in der Detail-Karte angezeigt – ein gespeicherter Produkt-Link erscheint als anklickbarer "Zum Shop / Produkt"-Button, und URLs, die direkt im Beschreibungstext getippt wurden, werden beim Anzeigen automatisch in klickbare Links umgewandelt.
 

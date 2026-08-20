@@ -152,6 +152,10 @@ class User(Base):
     push_subscriptions = relationship(
         "PushSubscription", back_populates="user", cascade="all, delete-orphan"
     )
+    webauthn_credentials = relationship(
+        "WebauthnCredential", back_populates="user", cascade="all, delete-orphan",
+        order_by="desc(WebauthnCredential.created_at)"
+    )
 
 
 class Room(Base):
@@ -524,6 +528,27 @@ class PushSubscription(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="push_subscriptions")
+
+
+class WebauthnCredential(Base):
+    """Ein registrierter Passkey (WebAuthn/FIDO2) eines Nutzers fuer den
+    Login auf /login - unabhaengig vom Passwort, ein Nutzer kann beliebig
+    viele haben (z.B. Handy + Sicherheitsschluessel). credential_id
+    identifiziert den Passkey eindeutig (vom Authenticator vergeben, als
+    base64url-String gespeichert), public_key + sign_count werden fuer die
+    Signaturpruefung bei jedem Login gebraucht (siehe webauthn_auth.py)."""
+    __tablename__ = "webauthn_credentials"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    credential_id = Column(String, unique=True, nullable=False)
+    public_key = Column(String, nullable=False)
+    sign_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="webauthn_credentials")
 
 
 class Appointment(Base):

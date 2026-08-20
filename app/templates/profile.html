@@ -43,6 +43,69 @@
   </section>
 
   <section class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Passkeys</h2>
+    {% if user.webauthn_credentials %}
+    <ul class="space-y-2 mb-3">
+      {% for pk in user.webauthn_credentials %}
+      <li class="flex items-center justify-between gap-3 rounded-lg border border-line bg-ink/40 px-3 py-2 text-sm">
+        <div class="min-w-0 flex-1">
+          <form method="post" action="/profile/passkeys/{{ pk.id }}/rename">
+            <input type="text" name="name" value="{{ pk.name }}"
+                   onblur="if (this.value.trim() && this.value !== this.defaultValue) this.form.submit()"
+                   class="bg-transparent border border-transparent hover:border-line focus:border-line focus:bg-ink rounded px-1 -mx-1 py-0.5 text-slate-200 w-full">
+          </form>
+          <div class="text-[11px] text-slate-500 px-1">
+            erstellt am {{ (pk.created_at|localtime).strftime("%d.%m.%Y") }}
+            {% if pk.last_used_at %} &middot; zuletzt genutzt {{ (pk.last_used_at|localtime)|reldate }}{% endif %}
+          </div>
+        </div>
+        <form method="post" action="/profile/passkeys/{{ pk.id }}/delete" onsubmit="return confirm('Passkey wirklich entfernen?')">
+          <button class="px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-late hover:border-late/50 text-xs font-medium whitespace-nowrap">Entfernen</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-slate-500 text-sm italic mb-3">Noch kein Passkey hinterlegt.</p>
+    {% endif %}
+    <div id="passkey-add-error" class="hidden rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-2"></div>
+    <div class="flex flex-col sm:flex-row gap-2">
+      <input type="text" id="passkey-add-name" placeholder="Name (z.B. „Handy“, „Sicherheitsschlüssel“)" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <button type="button" id="passkey-add-btn" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Passkey hinzufügen</button>
+    </div>
+    <p id="passkey-unsupported" class="hidden text-[11px] text-slate-500 mt-2">Dein Browser/Gerät unterstützt keine Passkeys.</p>
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
+      Ein Passkey ersetzt dein Passwort beim Login auf diesem Gerät (z.B. per Fingerabdruck, Gesichtserkennung
+      oder Geräte-PIN) - du kannst beliebig viele hinzufügen, dein Passwort bleibt daneben weiterhin gültig.
+    </p>
+    <script>
+      (function () {
+        var btn = document.getElementById('passkey-add-btn');
+        var nameInput = document.getElementById('passkey-add-name');
+        var errorBox = document.getElementById('passkey-add-error');
+        if (typeof webauthnSupported !== 'function' || !webauthnSupported()) {
+          btn.disabled = true;
+          document.getElementById('passkey-unsupported').classList.remove('hidden');
+          return;
+        }
+        btn.addEventListener('click', function () {
+          errorBox.classList.add('hidden');
+          btn.disabled = true;
+          webauthnRegisterPasskey(nameInput.value.trim() || 'Passkey', function (result) {
+            btn.disabled = false;
+            if (result.ok) {
+              window.location.reload();
+            } else {
+              errorBox.textContent = result.error || 'Passkey konnte nicht erstellt werden.';
+              errorBox.classList.remove('hidden');
+            }
+          });
+        });
+      })();
+    </script>
+  </section>
+
+  <section class="rounded-xl border border-line bg-panel p-4">
     <h2 class="font-display font-medium mb-3">Lohn &amp; Sollzeit</h2>
     <form method="post" action="/profile/pay" class="space-y-2">
       <div class="flex flex-col sm:flex-row gap-2">
