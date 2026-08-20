@@ -1,4 +1,4 @@
-// Passkey (WebAuthn/FIDO2) - Login (login.html) und Verwaltung (profile.html).
+// Passkey (WebAuthn/FIDO2) - Login (dashboard.html) und Verwaltung (profile.html).
 // Serverseitige Optionen/Verifikation siehe webauthn_auth.py + main.py
 // (/login/passkey/options+verify, /profile/passkeys/options+register).
 // Die vom Server per options_to_json() gelieferten Felder (challenge,
@@ -107,7 +107,7 @@ function webauthnRegisterPasskey(name, onDone) {
 // und die Conditional-UI-Autofill-Vorschlaege im Benutzername-Feld
 // (mediation: 'conditional' = kein Dialog, der Browser zeigt die
 // passenden Passkeys stattdessen direkt in der Autofill-Liste des Feldes
-// an, das dafuer autocomplete="webauthn" braucht, siehe login.html). Beide
+// an, das dafuer autocomplete="webauthn" braucht, siehe dashboard.html). Beide
 // nutzen denselben /login/passkey/options-Endpunkt, da sich die
 // Challenge/Optionen fachlich nicht unterscheiden - nur mediation ist
 // clientseitig anders.

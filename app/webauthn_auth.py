@@ -1,5 +1,5 @@
-"""WebAuthn/Passkey-Hilfsfunktionen (Registrierung im Profil + Login auf
-/login). RP-ID und erwarteter Origin werden pro Request aus dem Host/Schema
+"""WebAuthn/Passkey-Hilfsfunktionen (Registrierung im Profil + Login im
+Dashboard). RP-ID und erwarteter Origin werden pro Request aus dem Host/Schema
 abgeleitet statt fest konfiguriert - funktioniert dadurch unveraendert sowohl
 im lokalen Dev (http://localhost:8055, WebAuthn erlaubt "localhost" explizit
 auch ohne HTTPS) als auch hinter dem Reverse-Proxy in Produktion
@@ -38,7 +38,7 @@ def expected_origin_for(request: Request) -> str:
 def build_registration_options(request: Request, user, existing_credential_ids: list[str]):
     """Optionen fuer navigator.credentials.create() im Profil. Fordert einen
     "resident key" (= das, was Betriebssysteme/Browser heute als "Passkey"
-    bezeichnen), da der Login auf /login absichtlich ohne vorherige
+    bezeichnen), da der Login im Dashboard absichtlich ohne vorherige
     Identifier-Eingabe funktionieren soll (siehe build_authentication_options
     mit leerer allow_credentials-Liste) - das setzt discoverable Credentials
     voraus. exclude_credentials verhindert, dass derselbe Authenticator
@@ -72,7 +72,7 @@ def verify_registration(request: Request, credential: dict, expected_challenge: 
 
 
 def build_authentication_options(request: Request):
-    """Optionen fuer navigator.credentials.get() auf /login. Bewusst leere
+    """Optionen fuer navigator.credentials.get() im Dashboard-Login. Bewusst leere
     allow_credentials-Liste (= "usernameless"/discoverable Login) - der
     Browser/das Betriebssystem zeigt dem Nutzer direkt seine passenden
     Passkeys fuer diese Seite zur Auswahl an, ganz ohne vorherige

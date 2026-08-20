@@ -138,7 +138,7 @@
     <div class="flex-1 h-px bg-line"></div>oder<div class="flex-1 h-px bg-line"></div>
   </div>
   <form method="post" action="/login" class="flex flex-col sm:flex-row gap-2">
-    <input type="hidden" name="next" value="/">
+    <input type="hidden" name="next" value="{{ next or '/' }}">
     <input type="text" name="identifier" placeholder="Benutzername oder Personalnummer" required autocomplete="username webauthn"
            class="flex-1 rounded-md bg-ink border border-line px-3 py-2 text-slate-100 text-sm">
     <input type="password" name="password" placeholder="Passwort" required autocomplete="current-password"
@@ -152,6 +152,7 @@
     var btn = document.getElementById('dash-login-passkey-btn');
     var divider = document.getElementById('dash-login-passkey-divider');
     var errorBox = document.getElementById('dash-login-passkey-error');
+    var nextUrl = {{ (next or '/')|tojson }};
 
     function handleResult(result) {
       if (result.ok) {
@@ -167,19 +168,20 @@
     btn.addEventListener('click', function () {
       errorBox.classList.add('hidden');
       btn.disabled = true;
-      webauthnLoginWithPasskey('/', function (result) {
+      webauthnLoginWithPasskey(nextUrl, function (result) {
         btn.disabled = false;
         handleResult(result);
       });
     });
 
-    // Passkey-Autofill (Conditional UI), siehe login.html fuer denselben
-    // Mechanismus - hier zusaetzlich, da dieses ins Dashboard eingebettete
-    // Mini-Formular (nicht die eigenstaendige /login-Seite) der Ort ist, an
-    // dem die meisten Nutzer tatsaechlich zuerst landen. Ein Fehlschlag
-    // bleibt bewusst unsichtbar (siehe login.html), da der Nutzer diesen
-    // Hintergrund-Vorgang nie aktiv gestartet hat.
-    webauthnStartConditionalLogin('/', function (result) {
+    // Passkey-Autofill (Conditional UI): laeuft unauffaellig im Hintergrund,
+    // sobald der Browser sie unterstuetzt (siehe webauthnStartConditionalLogin
+    // in webauthn.js) - zeigt passende Passkeys direkt in der nativen
+    // Autofill-Liste des Benutzername-Felds oben an (autocomplete="username
+    // webauthn"), ganz ohne eigenen Button-Klick. Ein Fehlschlag bleibt
+    // bewusst unsichtbar, da der Nutzer diesen Hintergrund-Vorgang nie aktiv
+    // gestartet hat - nur ein Erfolg loest die Weiterleitung aus.
+    webauthnStartConditionalLogin(nextUrl, function (result) {
       if (result.ok) handleResult(result);
     });
   })();

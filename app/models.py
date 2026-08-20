@@ -532,7 +532,7 @@ class PushSubscription(Base):
 
 class WebauthnCredential(Base):
     """Ein registrierter Passkey (WebAuthn/FIDO2) eines Nutzers fuer den
-    Login auf /login - unabhaengig vom Passwort, ein Nutzer kann beliebig
+    Login im Dashboard (/) - unabhaengig vom Passwort, ein Nutzer kann beliebig
     viele haben (z.B. Handy + Sicherheitsschluessel). credential_id
     identifiziert den Passkey eindeutig (vom Authenticator vergeben, als
     base64url-String gespeichert), public_key + sign_count werden fuer die

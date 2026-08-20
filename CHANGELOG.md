@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.89.0] - 2026-08-20
+- Eigenständige Login-Seite (`/login`) entfernt: Das Login-Formular (inkl. Passkey-Login) lebt jetzt ausschließlich im Dashboard (`/`), wohin bisher separate "Anmelden"-Links auch schon verwiesen haben. Nicht angemeldete Aufrufe geschützter Seiten leiten weiterhin mit `next`-Rücksprung dorthin um, damit man nach dem Login automatisch bei der eigentlich gewünschten Seite landet.
+
 ## [0.88.2] - 2026-08-20
 - Passkey-Login: Der "Mit Passkey anmelden"-Button samt Autofill (Conditional UI) erscheint jetzt auch im ins Dashboard eingebetteten Mini-Login-Formular (`/`), nicht nur auf der eigenständigen `/login`-Seite – das ist für die meisten Nutzer der tatsächliche erste Anmelde-Ort. Ein Fehlschlag der unauffälligen Hintergrund-Autofill-Abfrage zeigt außerdem korrekterweise keine Fehlermeldung mehr an, da der Nutzer diesen Vorgang nie aktiv gestartet hat.
 

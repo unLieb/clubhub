@@ -583,14 +583,36 @@ def _startup():
 
 
 def require_login_page(request: Request, db: Session):
-    """Für normale Seitenaufrufe (GET): ohne Login direkt auf /login umleiten
-    (mit next-Rücksprung), statt wie require_login() einen rohen 401 zu
-    werfen - bessere UX für ganze Seiten statt einzelner Aktionen. Gibt
-    (user, None) bei Login zurück, sonst (None, RedirectResponse)."""
+    """Für normale Seitenaufrufe (GET): ohne Login direkt auf das Dashboard
+    umleiten (mit next-Rücksprung), statt wie require_login() einen rohen 401
+    zu werfen - bessere UX für ganze Seiten statt einzelner Aktionen. Das
+    Login-Formular (samt Passkey-Option) ist direkt ins Dashboard eingebettet,
+    es gibt keine eigenständige /login-Seite mehr. Gibt (user, None) bei
+    Login zurück, sonst (None, RedirectResponse)."""
     user = get_current_user(request, db)
     if user:
         return user, None
-    return None, RedirectResponse(f"/login?next={request.url.path}", status_code=302)
+    return None, RedirectResponse(f"/?next={request.url.path}", status_code=302)
+
+
+def _safe_next_url(next_url: str) -> str:
+    """Lässt als next-Rücksprungziel nur relative Pfade zu (kein offener
+    Redirect über einen manipulierten next-Query-/Form-Wert, z.B.
+    /?next=https://evil.example.com)."""
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return next_url
+    return "/"
+
+
+def _login_error_redirect(error: str, next_url: str) -> str:
+    """Ziel-URL fürs Dashboard-Login bei einem fehlgeschlagenen Versuch -
+    next bleibt dabei erhalten, damit ein per Deep-Link (require_login_page)
+    hierher umgeleiteter Nutzer sein eigentliches Ziel nach einem Tippfehler
+    nicht verliert."""
+    target = f"/?login_error={error}"
+    if next_url != "/":
+        target += f"&next={quote(next_url)}"
+    return target
 
 
 # ---------- Dashboard ----------
@@ -951,6 +973,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "timeclock_open_entry": timeclock_open_entry,
         "currently_clocked_in": currently_clocked_in,
         "login_error": request.query_params.get("login_error", ""),
+        "next": _safe_next_url(request.query_params.get("next", "/")),
     })
 
 
@@ -3147,13 +3170,6 @@ def delete_completion(
 
 # ---------- Login / Logout ----------
 
-@app.get("/login")
-def login_form(request: Request, next: str = "/", db: Session = Depends(get_db)):
-    return templates.TemplateResponse("login.html", {
-        "request": request, "user": None, "next": next, "error": None,
-    })
-
-
 @app.post("/login")
 def login_submit(
     request: Request,
@@ -3162,41 +3178,30 @@ def login_submit(
     next: str = Form("/"),
     db: Session = Depends(get_db),
 ):
+    next = _safe_next_url(next)
     user = find_user_by_identifier(db, identifier)
     if not user or not verify_password(password, user.password_hash):
-        if next in ("", "/"):
-            # Login-Formular ist direkt ins Dashboard eingebettet (kein
-            # Umweg über die eigenständige /login-Seite) - Fehler dorthin
-            # zurückspiegeln statt auf die separate Seite umzuleiten.
-            return RedirectResponse("/?login_error=1", status_code=302)
-        return templates.TemplateResponse("login.html", {
-            "request": request, "user": None, "next": next,
-            "error": "Benutzername/Personalnummer oder Passwort ist falsch.",
-        })
+        return RedirectResponse(_login_error_redirect("1", next), status_code=302)
     if not user.is_active:
         # Passwort war korrekt, Konto ist aber deaktiviert (Soft-Delete, siehe
         # User.is_active) - eigene Meldung statt der generischen "falsch"-
         # Meldung, damit klar ist, dass es an der Verwaltung liegt, nicht an
         # einem Tippfehler.
-        if next in ("", "/"):
-            return RedirectResponse("/?login_error=inactive", status_code=302)
-        return templates.TemplateResponse("login.html", {
-            "request": request, "user": None, "next": next,
-            "error": "Dieses Konto wurde deaktiviert. Bitte an die Verwaltung wenden.",
-        })
+        return RedirectResponse(_login_error_redirect("inactive", next), status_code=302)
     request.session["user_id"] = user.id
-    return RedirectResponse(next or "/", status_code=302)
+    return RedirectResponse(next, status_code=302)
 
 
 @app.get("/login/passkey/options")
 def login_passkey_options(request: Request):
     """Liefert die navigator.credentials.get()-Optionen fuer den 'Mit
-    Passkey anmelden'-Button auf /login (siehe webauthn_auth.py -
-    absichtlich ohne allow_credentials, der Browser zeigt darum direkt alle
-    zu dieser Seite passenden Passkeys zur Auswahl an, ganz ohne vorherige
-    Identifier-Eingabe). Die Challenge landet in der (auch fuer noch nicht
-    eingeloggte Besucher vorhandenen, cookie-basierten) Session, damit
-    login_passkey_verify sie gegen die tatsaechliche Antwort pruefen kann."""
+    Passkey anmelden'-Button im ins Dashboard (/) eingebetteten Login-
+    Formular (siehe webauthn_auth.py - absichtlich ohne allow_credentials,
+    der Browser zeigt darum direkt alle zu dieser Seite passenden Passkeys
+    zur Auswahl an, ganz ohne vorherige Identifier-Eingabe). Die Challenge
+    landet in der (auch fuer noch nicht eingeloggte Besucher vorhandenen,
+    cookie-basierten) Session, damit login_passkey_verify sie gegen die
+    tatsaechliche Antwort pruefen kann."""
     options = webauthn_auth.build_authentication_options(request)
     request.session["webauthn_login_challenge"] = webauthn_auth.encode_bytes(options.challenge)
     return Response(content=webauthn_auth.options_json(options), media_type="application/json")
