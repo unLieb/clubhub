@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.87.0] - 2026-08-20
+- Meldungen: Produkt-/Shop-Links werden jetzt in der Detail-Karte angezeigt – ein gespeicherter Produkt-Link erscheint als anklickbarer "Zum Shop / Produkt"-Button, und URLs, die direkt im Beschreibungstext getippt wurden, werden beim Anzeigen automatisch in klickbare Links umgewandelt.
+
 ## [0.86.0] - 2026-08-20
 - Dashboard/Bereichsübersicht: Der grüne Haken-Quick-Button auf einer Bereichs-Kachel ("Tägliche erledigen") läuft jetzt per fetch() ohne Full-Page-Reload – nur diese eine Kachel (Status-Punkt, Rahmenfarbe, Text) aktualisiert sich, die Scroll-Position bleibt exakt erhalten, egal ob mobil oder am Desktop. Betrifft `/` und `/rooms`, da beide dasselbe Bereichs-Grid nutzen.
 

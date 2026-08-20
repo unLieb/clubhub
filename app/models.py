@@ -365,6 +365,11 @@ class Report(Base):
     # eigenes Boolean statt eines Sentinel-Werts in assigned_group_id, da
     # das eine echte FK auf eine konkrete Gruppe bleiben soll.
     is_company_wide = Column(Boolean, default=False)
+    # Produkt-/Shop-Link, primaer fuer die Kategorie "anschaffung" befuellt
+    # (siehe "Produkt-Link"-Assistent in reports.html), aber nicht auf diese
+    # Kategorie beschraenkt gespeichert - Anzeige als "Zum Shop / Produkt"-
+    # Button im Details-Tab der Meldungskarte.
+    product_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)

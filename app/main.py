@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin, urlparse, quote, urlencode
 
 import httpx
+from markupsafe import Markup
 from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks, HTTPException, Query
 from fastapi.responses import RedirectResponse, Response, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -121,6 +122,36 @@ def _weekday_label_de(raw):
 
 
 templates.env.filters["weekday_label"] = _weekday_label_de
+
+_URL_RE = re.compile(r'(https?://[^\s<>"\')]+)')
+
+
+def _urlize(text_value):
+    """Wandelt rohe URLs, die ein Nutzer direkt in ein Freitextfeld getippt
+    hat (z.B. die Meldungs-Beschreibung), beim Rendern in anklickbare Links
+    um - Jinja2 (anders als Flask) bringt dafuer keinen eingebauten
+    "urlize"-Filter mit. Escaped den Rest des Texts selbst und markiert das
+    Ergebnis explizit als sicheres HTML (Markup), da autoescape sonst auch
+    die von uns erzeugten <a>-Tags escapen wuerde."""
+    if not text_value:
+        return text_value
+    parts = _URL_RE.split(text_value)
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            stripped = part.rstrip(".,;:!?")
+            trailing = part[len(stripped):]
+            safe_url = html.escape(stripped)
+            out.append(
+                f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer" '
+                f'class="text-accent underline break-all">{safe_url}</a>{html.escape(trailing)}'
+            )
+        else:
+            out.append(html.escape(part))
+    return Markup("".join(out))
+
+
+templates.env.filters["urlize"] = _urlize
 
 
 @app.get("/healthz")
@@ -268,6 +299,12 @@ def _migrate_report_company_wide(db: Session):
     (kein Altdaten-Bezug, Standard: False - bestehende Meldungen bleiben wie
     bisher automatisch/Bereichs- bzw. Gruppen-zugeordnet)."""
     _ensure_column(db, "reports", "is_company_wide", "INTEGER DEFAULT 0")
+
+
+def _migrate_report_product_url(db: Session):
+    """Neue optionale Produkt-/Shop-Link-Spalte je Meldung (kein Altdaten-
+    Bezug, siehe models.Report.product_url)."""
+    _ensure_column(db, "reports", "product_url", "TEXT")
 
 
 def _migrate_appointment_company_wide(db: Session):
@@ -505,6 +542,7 @@ def _startup():
         _migrate_report_assigned_group(db)
         _migrate_report_room_optional(db)
         _migrate_report_company_wide(db)
+        _migrate_report_product_url(db)
         _migrate_appointment_company_wide(db)
         _migrate_appointment_groups_backfill(db)
         _migrate_report_photos(db)
@@ -2403,6 +2441,7 @@ async def reports_create(
     assigned_group_id: str = Form(""),
     photos: list[UploadFile] = File([]),
     link_preview_image: str = Form(""),
+    product_url: str = Form(""),
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
@@ -2444,9 +2483,17 @@ async def reports_create(
                 _with_toast("/reports", "Bereich nicht gefunden oder keine Berechtigung.", "error"), status_code=302,
             )
 
+    # Nur echte http(s)-URLs uebernehmen - der Wert landet spaeter direkt als
+    # href in einem <a>-Tag (siehe reports.html), ein "javascript:"-Link o.ae.
+    # waere sonst clientseitig manipulierbar auf ein XSS-Risiko.
+    product_url = product_url.strip()
+    if product_url and not re.match(r"^https?://", product_url, re.IGNORECASE):
+        product_url = ""
+
     report = models.Report(
         room_id=room_id_int, user_id=user.id, comment=comment, priority=priority, category=category,
         assigned_group_id=assigned_group_id, is_company_wide=is_company_wide,
+        product_url=product_url or None,
     )
     db.add(report)
     db.commit()

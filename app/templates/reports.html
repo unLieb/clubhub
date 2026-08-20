@@ -85,7 +85,14 @@
         <div class="tab-panel grid lg:grid-cols-2 gap-4" data-tab="details">
           <div>
             <h4 class="text-sm font-medium mb-2">Beschreibung</h4>
-            <p class="text-sm text-slate-300">{{ r.comment }}</p>
+            <p class="text-sm text-slate-300">{{ r.comment | urlize }}</p>
+            {% if r.product_url %}
+            <a href="{{ r.product_url }}" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-1.5 mt-2 text-xs font-medium px-2.5 py-1.5 rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+              Zum Shop / Produkt
+            </a>
+            {% endif %}
 
             <h4 class="text-sm font-medium mb-2 mt-4">Bilder{% if r.photos %} ({{ r.photos|length }}){% endif %}</h4>
             <div class="flex flex-wrap gap-2">
@@ -264,7 +271,7 @@
       </div>
       <div id="report-f-link-field" class="hidden">
         <label class="block text-[11px] text-slate-400 mb-1">Produkt-Link / Shop-URL (optional)</label>
-        <input type="url" id="report-f-link" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <input type="url" name="product_url" id="report-f-link" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
         <p id="report-f-link-status" class="hidden text-[11px] text-slate-500 mt-1"></p>
         <div id="report-f-link-preview" class="hidden items-center gap-2 mt-2">
           <img id="report-f-link-preview-img" class="w-12 h-12 rounded-lg object-cover border border-line" alt="">
