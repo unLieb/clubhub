@@ -40,7 +40,12 @@
       </select>
       <input name="category" id="inv-f-category" list="inv-categories" placeholder="Kategorie, z.B. Reinigungsmittel" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <input name="location" id="inv-f-location" list="inv-locations" placeholder="Lagerort, z.B. Lager A" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      <input name="barcode" id="inv-f-barcode" placeholder="Barcode (optional, für Wareneingang-Scan)" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm font-mono">
+      <div class="flex gap-2">
+        <input name="barcode" id="inv-f-barcode" placeholder="Barcode (optional, für Wareneingang-Scan)" class="flex-1 min-w-0 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm font-mono">
+        <button type="button" id="inv-f-barcode-scan-btn" class="shrink-0 w-9 h-9 flex items-center justify-center rounded-md border border-line text-slate-400 hover:text-slate-100 hover:bg-panel2" aria-label="Barcode per Kamera scannen" title="Barcode scannen">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+        </button>
+      </div>
     </div>
 
     <div class="space-y-2">
@@ -107,6 +112,25 @@
   </form>
 </div>
 
+<!-- Kamera-Scan-Modal fuer das Barcode-Feld oben - liegt ueber dem Drawer
+     (z-[60] > Drawer-z-50), da es aus dem Formular heraus geoeffnet wird.
+     Start/Stop der Kamera per gemeinsamem Helfer, siehe barcode_scan.js
+     (auch vom Wareneingang-Scanner in inventory.html genutzt). -->
+<script src="/static/html5-qrcode.min.js"></script>
+<script src="/static/barcode_scan.js"></script>
+<div id="inv-barcode-scan-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+  <div class="w-full max-w-sm rounded-xl border border-line bg-panel p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-display font-medium text-sm">Barcode scannen</h2>
+      <button type="button" id="inv-barcode-scan-close-btn" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="inv-barcode-scan-reader" class="rounded-lg overflow-hidden bg-black mb-2"></div>
+    <p id="inv-barcode-scan-status" class="text-xs text-slate-500"></p>
+  </div>
+</div>
+
 <script>
   (function () {
     var contentEl = document.getElementById('inv-content');
@@ -142,6 +166,41 @@
     function closeDrawer() {
       overlay.classList.add('hidden');
       drawer.classList.add('translate-x-full');
+      closeBarcodeScanModal();
+    }
+
+    // Kamera-Scan-Button direkt am Barcode-Feld: oeffnet ein kleines Modal,
+    // ein erkannter Code landet direkt im Feld (kein API-Call noetig, anders
+    // als der Wareneingang-Scanner in inventory.html - hier soll nur der
+    // Feldwert befuellt werden).
+    var scanBtn = document.getElementById('inv-f-barcode-scan-btn');
+    var scanModal = document.getElementById('inv-barcode-scan-modal');
+    var scanCloseBtn = document.getElementById('inv-barcode-scan-close-btn');
+    var scanStatus = document.getElementById('inv-barcode-scan-status');
+    var activeBarcodeScanner = null;
+
+    function openBarcodeScanModal() {
+      scanModal.classList.remove('hidden');
+      scanStatus.textContent = 'Kamera wird gestartet…';
+      activeBarcodeScanner = startBarcodeScanner('inv-barcode-scan-reader', function (decodedText) {
+        fields.barcode.value = decodedText;
+        closeBarcodeScanModal();
+      }, function () {
+        scanStatus.textContent = 'Barcode vor die Kamera halten…';
+      }, function () {
+        scanStatus.textContent = 'Kamera konnte nicht gestartet werden - Zugriff erlaubt?';
+      });
+    }
+
+    function closeBarcodeScanModal() {
+      scanModal.classList.add('hidden');
+      stopBarcodeScanner(activeBarcodeScanner);
+      activeBarcodeScanner = null;
+    }
+
+    if (scanBtn) {
+      scanBtn.addEventListener('click', openBarcodeScanModal);
+      scanCloseBtn.addEventListener('click', closeBarcodeScanModal);
     }
 
     function openCreate() {

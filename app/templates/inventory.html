@@ -183,8 +183,12 @@
      (siehe inventory_scan_inbound in main.py). Unbekannter Barcode: Dropdown
      zum Zuweisen an einen bestehenden Artikel (Auswahl ist bereits serverseitig
      mit den fuer diesen Nutzer sichtbaren Artikeln vorgefuellt, siehe unten -
-     kein zusaetzlicher fetch() fuer die Artikelliste noetig). -->
+     kein zusaetzlicher fetch() fuer die Artikelliste noetig). Start/Stop der
+     Kamera laeuft ueber die gemeinsamen Helfer in barcode_scan.js (siehe
+     dort - auch vom Scan-Button im Artikel-Formular unter /admin/inventory
+     genutzt). -->
 <script src="/static/html5-qrcode.min.js"></script>
+<script src="/static/barcode_scan.js"></script>
 <div id="inv-scan-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
   <div class="w-full max-w-md rounded-xl border border-line bg-panel p-4 max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-3">
@@ -349,20 +353,9 @@
       resetResultBoxes();
       hadSuccessfulScan = false;
       statusEl.textContent = 'Kamera wird gestartet…';
-      if (typeof Html5Qrcode === 'undefined') {
-        statusEl.textContent = '';
-        showError('Scanner-Bibliothek konnte nicht geladen werden.');
-        return;
-      }
-      qrScanner = new Html5Qrcode('inv-scan-reader');
-      qrScanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 150 } },
-        function (decodedText) { handleDecoded(decodedText); },
-        function () { /* einzelner Frame ohne erkannten Code - kein Fehler */ }
-      ).then(function () {
+      qrScanner = startBarcodeScanner('inv-scan-reader', handleDecoded, function () {
         statusEl.textContent = 'Barcode vor die Kamera halten…';
-      }).catch(function () {
+      }, function () {
         statusEl.textContent = '';
         showError('Kamera konnte nicht gestartet werden - Zugriff erlaubt?');
       });
@@ -370,10 +363,8 @@
 
     function closeModal() {
       modal.classList.add('hidden');
-      if (qrScanner) {
-        qrScanner.stop().then(function () { qrScanner.clear(); }).catch(function () {});
-        qrScanner = null;
-      }
+      stopBarcodeScanner(qrScanner);
+      qrScanner = null;
       resetResultBoxes();
       if (hadSuccessfulScan) window.location.reload();
     }
