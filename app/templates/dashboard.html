@@ -124,20 +124,66 @@
 {% if not user %}
 <div class="rounded-xl border border-line bg-panel p-4 mb-6">
   <div class="text-sm text-slate-300 mb-3">Für Bereiche, Inventar, Meldungen und mehr bitte anmelden.</div>
+  <div id="dash-login-passkey-error" class="hidden rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3"></div>
   {% if login_error == 'inactive' %}
   <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">Dieses Konto wurde deaktiviert. Bitte an die Verwaltung wenden.</div>
   {% elif login_error %}
   <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">Benutzername/Personalnummer oder Passwort ist falsch.</div>
   {% endif %}
+  <button type="button" id="dash-login-passkey-btn" class="hidden w-full mb-3 py-2 rounded-md border border-line bg-panel2 hover:bg-panel text-slate-100 font-medium text-sm flex items-center justify-center gap-2">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    Mit Passkey anmelden
+  </button>
+  <div id="dash-login-passkey-divider" class="hidden flex items-center gap-3 text-xs text-slate-500 mb-3">
+    <div class="flex-1 h-px bg-line"></div>oder<div class="flex-1 h-px bg-line"></div>
+  </div>
   <form method="post" action="/login" class="flex flex-col sm:flex-row gap-2">
     <input type="hidden" name="next" value="/">
-    <input type="text" name="identifier" placeholder="Benutzername oder Personalnummer" required autocomplete="username"
+    <input type="text" name="identifier" placeholder="Benutzername oder Personalnummer" required autocomplete="username webauthn"
            class="flex-1 rounded-md bg-ink border border-line px-3 py-2 text-slate-100 text-sm">
     <input type="password" name="password" placeholder="Passwort" required autocomplete="current-password"
            class="flex-1 rounded-md bg-ink border border-line px-3 py-2 text-slate-100 text-sm">
     <button type="submit" class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium text-sm whitespace-nowrap">Anmelden</button>
   </form>
 </div>
+<script>
+  (function () {
+    if (typeof webauthnSupported !== 'function' || !webauthnSupported()) return;
+    var btn = document.getElementById('dash-login-passkey-btn');
+    var divider = document.getElementById('dash-login-passkey-divider');
+    var errorBox = document.getElementById('dash-login-passkey-error');
+
+    function handleResult(result) {
+      if (result.ok) {
+        window.location.href = result.redirect || '/';
+      } else {
+        errorBox.textContent = result.error || 'Passkey-Anmeldung fehlgeschlagen.';
+        errorBox.classList.remove('hidden');
+      }
+    }
+
+    btn.classList.remove('hidden');
+    divider.classList.remove('hidden');
+    btn.addEventListener('click', function () {
+      errorBox.classList.add('hidden');
+      btn.disabled = true;
+      webauthnLoginWithPasskey('/', function (result) {
+        btn.disabled = false;
+        handleResult(result);
+      });
+    });
+
+    // Passkey-Autofill (Conditional UI), siehe login.html fuer denselben
+    // Mechanismus - hier zusaetzlich, da dieses ins Dashboard eingebettete
+    // Mini-Formular (nicht die eigenstaendige /login-Seite) der Ort ist, an
+    // dem die meisten Nutzer tatsaechlich zuerst landen. Ein Fehlschlag
+    // bleibt bewusst unsichtbar (siehe login.html), da der Nutzer diesen
+    // Hintergrund-Vorgang nie aktiv gestartet hat.
+    webauthnStartConditionalLogin('/', function (result) {
+      if (result.ok) handleResult(result);
+    });
+  })();
+</script>
 {% endif %}
 
 {% if user %}

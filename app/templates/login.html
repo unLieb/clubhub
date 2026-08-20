@@ -68,8 +68,13 @@
     // sobald der Browser sie unterstuetzt (siehe webauthnStartConditionalLogin)
     // - zeigt passende Passkeys direkt in der nativen Autofill-Liste des
     // Benutzername-Felds oben an (autocomplete="username webauthn"), ganz
-    // ohne eigenen Button-Klick. Kein Verhalten, falls nicht unterstuetzt.
-    webauthnStartConditionalLogin(nextUrl, handleResult);
+    // ohne eigenen Button-Klick. Ein Fehlschlag hier (z.B. kein Passkey
+    // hinterlegt, oder der Nutzer ignoriert den Autofill-Vorschlag) bleibt
+    // bewusst unsichtbar, da der Nutzer diesen Vorgang nie aktiv gestartet
+    // hat - nur ein Erfolg loest die Weiterleitung aus.
+    webauthnStartConditionalLogin(nextUrl, function (result) {
+      if (result.ok) handleResult(result);
+    });
   })();
 </script>
 
