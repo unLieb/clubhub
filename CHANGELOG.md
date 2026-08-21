@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.90.5] - 2026-08-21
+- Barcode-/QR-Scanner: die wirkliche, seit der Fokus/FPS-Optimierung bestehende Ursache von "Kamera konnte nicht gestartet werden" gefunden und behoben. Die Kombination aus Rückkamera-Erzwingung und Autofokus-Einstellung wurde der Scanner-Bibliothek in einer Form übergeben, die sie grundsätzlich ablehnt (noch bevor überhaupt eine Kamera-Berechtigung angefragt wurde) – dadurch schlug jeder Scan-Versuch fehl, unabhängig vom Gerät oder der erteilten Berechtigung. Läuft jetzt korrekt über den dafür vorgesehenen Bibliotheks-Mechanismus. Zusätzlich zeigen Kamera-Fehler jetzt zuverlässig die richtige, spezifische Meldung (z.B. "Zugriff verweigert" statt der nichtssagenden generischen Meldung).
+
 ## [0.90.4] - 2026-08-21
 - Barcode-/QR-Scanner: den eigentlichen Grund für "Kamera konnte nicht gestartet werden" gefunden und behoben – die feste Scan-Box-Größe (250×150px) konnte größer sein als das tatsächliche Kamerabild auf manchen Geräten, was die Bibliothek nach erfolgreichem Kamera-Start intern zum Absturz brachte (nicht die Kamera-Berechtigung selbst war das Problem). Die Scan-Box wird jetzt dynamisch anhand der tatsächlichen Bildgröße berechnet und kann diesen Fehler dadurch nicht mehr auslösen.
 

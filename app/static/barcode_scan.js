@@ -91,12 +91,19 @@ function stopBarcodeScanner(readerId) {
   });
 }
 
+// Html5Qrcode reicht den eigentlichen getUserMedia()-Fehler nicht als
+// Error-Objekt durch, sondern verpackt ihn in einen eigenen String
+// ("Error getting userMedia, error = NotAllowedError: Permission denied",
+// siehe errorGettingUserMedia() in html5-qrcode.min.js) - err.name ist in
+// dem Fall also undefined. Deshalb zusaetzlich den (ggf. verpackten)
+// Fehlertext nach den bekannten Namen durchsuchen, statt sich nur auf
+// err.name zu verlassen.
 function _classifyCameraError(err) {
-  var name = err && err.name;
-  if (name === 'NotAllowedError') return 'permission-denied';
-  if (name === 'NotFoundError') return 'no-camera';
-  if (name === 'NotReadableError') return 'in-use';
-  if (name === 'OverconstrainedError') return 'overconstrained';
+  var text = (err && err.name) ? err.name : String(err);
+  if (/NotAllowedError/.test(text)) return 'permission-denied';
+  if (/NotFoundError/.test(text)) return 'no-camera';
+  if (/NotReadableError/.test(text)) return 'in-use';
+  if (/OverconstrainedError/.test(text)) return 'overconstrained';
   return 'unknown';
 }
 
@@ -163,11 +170,22 @@ function startBarcodeScanner(readerId, onDecoded, onStarted, onFailed) {
     // wirft bei dieser Bibliothek "Cannot transition to a new state,
     // already under transition", da der interne Zustand nach einem
     // fehlgeschlagenen Start nicht zuverlaessig zurueckgesetzt wird.
-    function attempt(cameraConfig, allowFallback) {
+    //
+    // WICHTIG: der erste start()-Parameter (cameraIdOrConfig) akzeptiert bei
+    // dieser Bibliothek als Objekt ausschliesslich GENAU EIN Feld - entweder
+    // {facingMode: "..."} (als reiner String, kein {exact:...}) ODER
+    // {deviceId: "..."}. Alles andere (z.B. zusaetzlich "advanced") wirft
+    // sofort "'cameraIdOrConfig' object should have exactly 1 key" - noch
+    // bevor ueberhaupt eine Kamera-Berechtigung angefragt wird. Echte
+    // MediaTrackConstraints (facingMode als {exact:...}, advanced-Liste
+    // fuer den Autofokus) muessen stattdessen ueber das separate
+    // "videoConstraints"-Feld im zweiten start()-Parameter uebergeben werden -
+    // das reicht die Bibliothek unveraendert an getUserMedia() durch.
+    function attempt(videoConstraints, allowFallback) {
       var scanner = new Html5Qrcode(readerId);
       var startPromise = scanner.start(
-        cameraConfig,
-        { fps: BARCODE_SCAN_FPS, qrbox: _computeQrbox },
+        { facingMode: 'environment' },
+        { fps: BARCODE_SCAN_FPS, qrbox: _computeQrbox, videoConstraints: videoConstraints },
         confirmedDecodeHandler,
         function () { /* einzelner Frame ohne erkannten Code - kein Fehler */ }
       ).then(function () {
