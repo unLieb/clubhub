@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.90.2] - 2026-08-21
+- Barcode-/QR-Scanner: Genauigkeit verbessert, um Fehllesungen durch Unschärfe zu vermeiden. Ein Code wird jetzt erst als gültig übernommen, wenn er zweimal hintereinander innerhalb von 500ms identisch gelesen wurde (Mehrfach-Bestätigung), statt sofort beim ersten – noch unscharfen – Frame. Zusätzlich wird kontinuierlicher Autofokus angefordert (sofern Kamera/Browser das unterstützen) und die Auslesefrequenz auf 12 FPS gesetzt. Betrifft beide Scanner (Wareneingang im Inventar und den neuen Kamera-Button am Barcode-Feld), da beide denselben gemeinsamen Helfer nutzen.
+
 ## [0.90.1] - 2026-08-20
 - Inventar-Verwaltung: Direkt neben dem Barcode-Feld im Artikel-Formular ("Neuer Artikel" / "Artikel bearbeiten") gibt es jetzt einen kleinen Kamera-Button – öffnet ein Scanner-Modal, der erkannte Barcode wird automatisch ins Feld übernommen, ganz ohne ihn abtippen zu müssen.
 
