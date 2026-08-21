@@ -177,25 +177,23 @@
     var scanModal = document.getElementById('inv-barcode-scan-modal');
     var scanCloseBtn = document.getElementById('inv-barcode-scan-close-btn');
     var scanStatus = document.getElementById('inv-barcode-scan-status');
-    var activeBarcodeScanner = null;
 
     function openBarcodeScanModal() {
       scanModal.classList.remove('hidden');
       scanStatus.textContent = 'Kamera wird gestartet…';
-      activeBarcodeScanner = startBarcodeScanner('inv-barcode-scan-reader', function (decodedText) {
+      startBarcodeScanner('inv-barcode-scan-reader', function (decodedText) {
         fields.barcode.value = decodedText;
         closeBarcodeScanModal();
       }, function () {
         scanStatus.textContent = 'Barcode vor die Kamera halten…';
-      }, function () {
-        scanStatus.textContent = 'Kamera konnte nicht gestartet werden - Zugriff erlaubt?';
+      }, function (reason) {
+        scanStatus.textContent = barcodeScanErrorMessage(reason);
       });
     }
 
     function closeBarcodeScanModal() {
       scanModal.classList.add('hidden');
-      stopBarcodeScanner(activeBarcodeScanner);
-      activeBarcodeScanner = null;
+      stopBarcodeScanner('inv-barcode-scan-reader');
     }
 
     if (scanBtn) {

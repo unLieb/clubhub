@@ -244,7 +244,6 @@
     var dismissBtn = document.getElementById('inv-scan-dismiss-btn');
     var errorEl = document.getElementById('inv-scan-error');
 
-    var qrScanner = null;
     var busy = false;          // laeuft gerade ein fetch()? (verhindert Doppel-Scans)
     var pendingBarcode = null; // aktueller "unbekannter Barcode", auf Zuweisung wartend
     var hadSuccessfulScan = false;
@@ -353,18 +352,17 @@
       resetResultBoxes();
       hadSuccessfulScan = false;
       statusEl.textContent = 'Kamera wird gestartet…';
-      qrScanner = startBarcodeScanner('inv-scan-reader', handleDecoded, function () {
+      startBarcodeScanner('inv-scan-reader', handleDecoded, function () {
         statusEl.textContent = 'Barcode vor die Kamera halten…';
-      }, function () {
+      }, function (reason) {
         statusEl.textContent = '';
-        showError('Kamera konnte nicht gestartet werden - Zugriff erlaubt?');
+        showError(barcodeScanErrorMessage(reason));
       });
     }
 
     function closeModal() {
       modal.classList.add('hidden');
-      stopBarcodeScanner(qrScanner);
-      qrScanner = null;
+      stopBarcodeScanner('inv-scan-reader');
       resetResultBoxes();
       if (hadSuccessfulScan) window.location.reload();
     }

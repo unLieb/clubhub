@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.90.3] - 2026-08-21
+- Barcode-/QR-Scanner: Fehler "Kamera konnte nicht gestartet werden" behoben – trat auf, weil ein fehlgeschlagener Rückkamera-Versuch (`facingMode: {exact: "environment"}`) dieselbe Scanner-Instanz für den Fallback-Versuch wiederverwendete, was die Bibliothek in einen inkonsistenten Zustand brachte. Jeder Versuch bekommt jetzt eine frische Instanz. Zusätzlich: aktive Kamera-Streams werden beim Öffnen/Schließen des Scan-Modals zuverlässig zuerst gestoppt (inkl. aller MediaStreamTracks), bevor eine neue Instanz startet; Kamera-Fehler (Berechtigung verweigert, keine Kamera, Kamera belegt) zeigen jetzt eine passende Meldung statt eines generischen Fehlers; ein Aufruf ohne HTTPS (außer localhost) zeigt sofort den Hinweis, dass Kamerazugriff eine sichere Verbindung braucht.
+
 ## [0.90.2] - 2026-08-21
 - Barcode-/QR-Scanner: Genauigkeit verbessert, um Fehllesungen durch Unschärfe zu vermeiden. Ein Code wird jetzt erst als gültig übernommen, wenn er zweimal hintereinander innerhalb von 500ms identisch gelesen wurde (Mehrfach-Bestätigung), statt sofort beim ersten – noch unscharfen – Frame. Zusätzlich wird kontinuierlicher Autofokus angefordert (sofern Kamera/Browser das unterstützen) und die Auslesefrequenz auf 12 FPS gesetzt. Betrifft beide Scanner (Wareneingang im Inventar und den neuen Kamera-Button am Barcode-Feld), da beide denselben gemeinsamen Helfer nutzen.
 
