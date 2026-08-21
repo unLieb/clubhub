@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.90.7] - 2026-08-21
+- Wareneingang-Scanner: Die Mengen-Auswahl erscheint jetzt erst, nachdem der erste Barcode erkannt wurde, statt schon direkt unter der Kamera sichtbar zu sein – vermeidet die Verwechslung mit einer Einstellung für "wie oft scannen".
+
 ## [0.90.6] - 2026-08-21
 - Wareneingang-Scanner: Die "Menge je Scan" lässt sich jetzt wie im normalen Inventar per Minus-/Plus-Buttons einstellen, statt nur über das Zahlenfeld-Spinner-Steuerelement des Browsers – gleiche Bedienung, gleiches Aussehen wie beim regulären Buchen.
 

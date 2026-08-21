@@ -201,8 +201,8 @@
     <div id="inv-scan-reader" class="rounded-lg overflow-hidden bg-black mb-3"></div>
     <p id="inv-scan-status" class="text-xs text-slate-500 mb-3">Kamera wird gestartet…</p>
 
-    <div class="flex items-center gap-2 mb-3">
-      <label class="text-sm text-slate-300 shrink-0">Menge je Scan</label>
+    <div id="inv-scan-quantity-row" class="hidden items-center gap-2 mb-3">
+      <label class="text-sm text-slate-300 shrink-0">Menge für den nächsten Scan</label>
       <div class="flex items-center rounded-md border border-line overflow-hidden">
         <button type="button" class="scan-qty-step px-2.5 py-1.5 text-slate-300 hover:bg-panel2 hover:text-slate-100" data-step="-1" aria-label="Menge verringern">&minus;</button>
         <input type="number" id="inv-scan-quantity" value="1" min="0.5" step="0.5"
@@ -239,6 +239,7 @@
     var modal = document.getElementById('inv-scan-modal');
     var closeBtn = document.getElementById('inv-scan-close-btn');
     var statusEl = document.getElementById('inv-scan-status');
+    var quantityRow = document.getElementById('inv-scan-quantity-row');
     var quantityInput = document.getElementById('inv-scan-quantity');
     var matchedBox = document.getElementById('inv-scan-result-matched');
     var unknownBox = document.getElementById('inv-scan-result-unknown');
@@ -288,11 +289,21 @@
       pendingBarcode = null;
     }
 
+    // Menge-Steuerung bleibt beim Oeffnen zunaechst verborgen (siehe
+    // openModal) und erscheint erst nach dem ersten Scan-Ergebnis - direkt
+    // unter der Kamera stehend liesse sie sich sonst leicht als "wie oft
+    // scannen" statt "Menge je erkanntem Code" missverstehen.
+    function revealQuantityRow() {
+      quantityRow.classList.remove('hidden');
+      quantityRow.classList.add('flex');
+    }
+
     function showMatched(data) {
       resetResultBoxes();
       var unitText = data.unit ? ' ' + data.unit : '';
       matchedBox.textContent = '„' + data.item_name + '“ gebucht - neuer Bestand: ' + data.new_stock + unitText;
       matchedBox.classList.remove('hidden');
+      revealQuantityRow();
       playBeep();
       hadSuccessfulScan = true;
     }
@@ -303,6 +314,7 @@
       unknownCodeEl.textContent = barcode;
       assignSelect.value = '';
       unknownBox.classList.remove('hidden');
+      revealQuantityRow();
     }
 
     function showError(message) {
@@ -367,6 +379,8 @@
     function openModal() {
       modal.classList.remove('hidden');
       resetResultBoxes();
+      quantityRow.classList.add('hidden');
+      quantityRow.classList.remove('flex');
       hadSuccessfulScan = false;
       statusEl.textContent = 'Kamera wird gestartet…';
       startBarcodeScanner('inv-scan-reader', handleDecoded, function () {
