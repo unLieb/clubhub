@@ -16,6 +16,23 @@ var BARCODE_CONFIRM_WINDOW_MS = 500;
 // leistungsschwaechere Geraete/Browser ins Stocken geraten.
 var BARCODE_SCAN_FPS = 12;
 
+// qrbox als Funktion statt fester Pixelgroesse: Html5Qrcode ruft sie mit den
+// TATSAECHLICHEN Massen des Kamera-Bildes auf (erst nach Start des Streams
+// bekannt) und wirft andernfalls "'config.qrbox' dimensions should not be
+// greater than the dimensions of the root HTML element", sobald eine fest
+// eingestellte Box (z.B. 250x150px) groesser ist als der tatsaechliche
+// Video-Stream - genau das war die eigentliche Ursache von "Kamera konnte
+// nicht gestartet werden" (der Fehler kam nicht von der Kamera-Berechtigung,
+// sondern von dieser Validierung danach). 70% der kuerzeren Kanten-Seite,
+// eingegrenzt auf die von der Bibliothek erlaubte Mindestgroesse (50px) -
+// dadurch niemals groesser als der tatsaechliche Videostream.
+function _computeQrbox(viewfinderWidth, viewfinderHeight) {
+  var edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
+  edge = Math.max(edge, 50);
+  edge = Math.min(edge, 300);
+  return { width: edge, height: edge };
+}
+
 // Pro Reader-Element (readerId) hoechstens eine laufende Html5Qrcode-Instanz -
 // verhindert, dass beim schnellen Schliessen+Wiederoeffnen des Modals zwei
 // Instanzen um dieselbe Kamera konkurrieren (typische Ursache fuer "Kamera
@@ -150,7 +167,7 @@ function startBarcodeScanner(readerId, onDecoded, onStarted, onFailed) {
       var scanner = new Html5Qrcode(readerId);
       var startPromise = scanner.start(
         cameraConfig,
-        { fps: BARCODE_SCAN_FPS, qrbox: { width: 250, height: 150 } },
+        { fps: BARCODE_SCAN_FPS, qrbox: _computeQrbox },
         confirmedDecodeHandler,
         function () { /* einzelner Frame ohne erkannten Code - kein Fehler */ }
       ).then(function () {
