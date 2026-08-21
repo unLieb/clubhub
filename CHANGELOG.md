@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.90.6] - 2026-08-21
+- Wareneingang-Scanner: Die "Menge je Scan" lässt sich jetzt wie im normalen Inventar per Minus-/Plus-Buttons einstellen, statt nur über das Zahlenfeld-Spinner-Steuerelement des Browsers – gleiche Bedienung, gleiches Aussehen wie beim regulären Buchen.
+
 ## [0.90.5] - 2026-08-21
 - Barcode-/QR-Scanner: die wirkliche, seit der Fokus/FPS-Optimierung bestehende Ursache von "Kamera konnte nicht gestartet werden" gefunden und behoben. Die Kombination aus Rückkamera-Erzwingung und Autofokus-Einstellung wurde der Scanner-Bibliothek in einer Form übergeben, die sie grundsätzlich ablehnt (noch bevor überhaupt eine Kamera-Berechtigung angefragt wurde) – dadurch schlug jeder Scan-Versuch fehl, unabhängig vom Gerät oder der erteilten Berechtigung. Läuft jetzt korrekt über den dafür vorgesehenen Bibliotheks-Mechanismus. Zusätzlich zeigen Kamera-Fehler jetzt zuverlässig die richtige, spezifische Meldung (z.B. "Zugriff verweigert" statt der nichtssagenden generischen Meldung).
 

@@ -202,9 +202,13 @@
     <p id="inv-scan-status" class="text-xs text-slate-500 mb-3">Kamera wird gestartet…</p>
 
     <div class="flex items-center gap-2 mb-3">
-      <label for="inv-scan-quantity" class="text-sm text-slate-300 shrink-0">Menge je Scan</label>
-      <input type="number" id="inv-scan-quantity" value="1" min="0.5" step="0.5"
-             class="w-20 rounded-md bg-ink border border-line px-2 py-1.5 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+      <label class="text-sm text-slate-300 shrink-0">Menge je Scan</label>
+      <div class="flex items-center rounded-md border border-line overflow-hidden">
+        <button type="button" class="scan-qty-step px-2.5 py-1.5 text-slate-300 hover:bg-panel2 hover:text-slate-100" data-step="-1" aria-label="Menge verringern">&minus;</button>
+        <input type="number" id="inv-scan-quantity" value="1" min="0.5" step="0.5"
+               class="w-16 bg-ink border-x border-line px-2 py-1.5 text-sm text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+        <button type="button" class="scan-qty-step px-2.5 py-1.5 text-slate-300 hover:bg-panel2 hover:text-slate-100" data-step="1" aria-label="Menge erhöhen">+</button>
+      </div>
     </div>
 
     <div id="inv-scan-result-matched" class="hidden rounded-lg border border-go/40 bg-go/10 text-go text-sm px-3 py-2 mb-3"></div>
@@ -243,6 +247,19 @@
     var assignBtn = document.getElementById('inv-scan-assign-btn');
     var dismissBtn = document.getElementById('inv-scan-dismiss-btn');
     var errorEl = document.getElementById('inv-scan-error');
+
+    // Plus/Minus-Bedienung fuer "Menge je Scan", identisch zur Mengen-
+    // Steuerung beim normalen Buchen im Inventar (siehe .delta-step in
+    // _inventory_card.html) - hier zusaetzlich auf das min-Attribut
+    // geklemmt, da eine Menge je Scan nie auf 0 oder negativ sinken soll.
+    modal.addEventListener('click', function (e) {
+      var btn = e.target.closest('.scan-qty-step');
+      if (!btn) return;
+      var step = parseFloat(btn.dataset.step);
+      var current = parseFloat(quantityInput.value) || 0;
+      var min = parseFloat(quantityInput.min) || 0;
+      quantityInput.value = Math.max(Math.round((current + step) * 10) / 10, min);
+    });
 
     var busy = false;          // laeuft gerade ein fetch()? (verhindert Doppel-Scans)
     var pendingBarcode = null; // aktueller "unbekannter Barcode", auf Zuweisung wartend
