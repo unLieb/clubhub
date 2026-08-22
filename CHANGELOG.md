@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.91.1] - 2026-08-22
+- Dashboard-Widget "Letzte Reinigungen": Zeilen sind jetzt in drei klare Spalten strukturiert (Bereich mit fester Mindestbreite, Mitarbeiter, Zeitpunkt) – alle Namen und Datumsangaben stehen dadurch bündig untereinander statt je nach Bereichsnamen-Länge zu verrutschen. Der Trennpunkt vor dem Namen ist entfallen.
+
 ## [0.91.0] - 2026-08-22
 - Push-Benachrichtigungen für erledigte Aufgaben werden jetzt pro Bereich gebündelt: Statt bei mehreren Erledigungen (z.B. über den Sammel-Button oder mehreren schnellen Einzelabhakungen) für jede Aufgabe einzeln zu benachrichtigen, sammelt ClubHUB alle Erledigungen eines Bereichs innerhalb von 45 Sekunden und verschickt danach höchstens eine zusammengefasste Nachricht (z.B. "Erledigt: Gäste WCs – 5 Aufgaben wurden von Sebastian erledigt.") an die betroffenen Gruppenmitglieder.
 

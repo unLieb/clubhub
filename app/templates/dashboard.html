@@ -377,13 +377,13 @@
     </div>
     <ul class="divide-y divide-line">
       {% for c in recent_completions %}
-      <li class="flex items-center justify-between py-2.5 text-sm">
-        <div class="flex items-center gap-2.5 min-w-0">
+      <li class="flex items-center gap-3 py-2.5 text-sm">
+        <div class="flex items-center gap-2 min-w-[130px]">
           <span class="w-1.5 h-1.5 rounded-full bg-go shrink-0"></span>
           <span class="truncate">{{ c.task.room.name }}</span>
-          <span class="text-slate-500 truncate">&middot; {{ c.user.name }}</span>
         </div>
-        <span class="text-slate-500 text-xs whitespace-nowrap">{{ (c.timestamp|localtime)|reldate }}</span>
+        <span class="text-slate-500 truncate flex-1 min-w-0">{{ c.user.name }}</span>
+        <span class="text-slate-500 text-xs whitespace-nowrap shrink-0">{{ (c.timestamp|localtime)|reldate }}</span>
       </li>
       {% else %}
       <li class="py-4 text-center text-slate-500 text-sm italic">Noch keine Einträge</li>
