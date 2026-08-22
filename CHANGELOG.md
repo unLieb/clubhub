@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.92.0] - 2026-08-22
+- Dashboard anpassen: Neuer Button oben rechts öffnet ein Modal mit Schaltern für alle sechs Dashboard-Widgets (KPI-Karten, Nächste Termine, Bereiche, Meldungen, Letzte Reinigungen, Überfällige Aufgaben). Ausgeblendete Widgets verschwinden sofort, ganz ohne Neuladen der Seite, und die Auswahl wird pro Nutzer gespeichert – bleibt dadurch auch nach dem nächsten Login oder auf einem anderen Gerät erhalten.
+
 ## [0.91.1] - 2026-08-22
 - Dashboard-Widget "Letzte Reinigungen": Zeilen sind jetzt in drei klare Spalten strukturiert (Bereich mit fester Mindestbreite, Mitarbeiter, Zeitpunkt) – alle Namen und Datumsangaben stehen dadurch bündig untereinander statt je nach Bereichsnamen-Länge zu verrutschen. Der Trennpunkt vor dem Namen ist entfallen.
 

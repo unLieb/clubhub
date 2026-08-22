@@ -209,6 +209,28 @@ GROUP_DEFAULT_COLOR = GROUP_COLOR_PALETTE[0][0]
 templates.env.globals["group_color_palette"] = GROUP_COLOR_PALETTE
 templates.env.globals["group_default_color"] = GROUP_DEFAULT_COLOR
 
+# Fuer "Dashboard anpassen" (siehe dashboard.html) - Reihenfolge hier
+# bestimmt auch die Reihenfolge im Anpassen-Modal. Schluessel sind stabile,
+# interne IDs (nicht die Anzeige-Labels), damit spaeter uebersetzte/
+# umbenannte Labels bestehende User.hidden_dashboard_widgets-Werte nicht
+# invalidieren.
+DASHBOARD_WIDGETS = [
+    ("kpi", "KPI-Karten (Erledigt/Fällig/Überfällig/Bereiche)"),
+    ("appointments", "Nächste Termine"),
+    ("rooms", "Bereiche"),
+    ("reports", "Meldungen"),
+    ("history", "Letzte Reinigungen"),
+    ("overdue", "Überfällige Aufgaben"),
+]
+DASHBOARD_WIDGET_KEYS = {key for key, _ in DASHBOARD_WIDGETS}
+templates.env.globals["dashboard_widgets"] = DASHBOARD_WIDGETS
+
+
+def _user_hidden_dashboard_widgets(user) -> set:
+    if not user or not user.hidden_dashboard_widgets:
+        return set()
+    return {k for k in user.hidden_dashboard_widgets.split(",") if k in DASHBOARD_WIDGET_KEYS}
+
 scheduler = None
 
 
@@ -471,6 +493,13 @@ def _migrate_user_active(db: Session):
     _ensure_column(db, "users", "is_active", "INTEGER DEFAULT 1")
 
 
+def _migrate_user_dashboard_widgets(db: Session):
+    """Neue Spalte fuer die persoenliche Dashboard-Anpassung (siehe
+    User.hidden_dashboard_widgets) - kein Altdaten-Bezug, leer = alle
+    Widgets sichtbar."""
+    _ensure_column(db, "users", "hidden_dashboard_widgets", "TEXT")
+
+
 def _migrate_time_entry_audit_hash(db: Session):
     """Neue Hash-Kette-Spalte auf dem Änderungsprotokoll (kein Altdaten-Bezug,
     bestehende Einträge ohne Hash werden von verify_audit_chain() einfach als
@@ -576,6 +605,7 @@ def _startup():
         _migrate_user_developer_role(db)
         _migrate_user_flat_rate(db)
         _migrate_user_active(db)
+        _migrate_user_dashboard_widgets(db)
         _migrate_room_setup_events(db)
         _migrate_task_note(db)
         _migrate_task_group_key(db)
@@ -990,6 +1020,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "currently_clocked_in": currently_clocked_in,
         "login_error": request.query_params.get("login_error", ""),
         "next": _safe_next_url(request.query_params.get("next", "/")),
+        "hidden_dashboard_widgets": _user_hidden_dashboard_widgets(user),
     })
 
 
@@ -3482,6 +3513,25 @@ def profile_set_pay(
     user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month.strip() else None
     db.commit()
     return RedirectResponse("/profile", status_code=302)
+
+
+class DashboardWidgetsIn(BaseModel):
+    hidden: list[str] = []
+
+
+@app.post("/profile/dashboard-widgets")
+def profile_set_dashboard_widgets(payload: DashboardWidgetsIn, request: Request, db: Session = Depends(get_db)):
+    """Speichert, welche Dashboard-Widgets fuer diesen Nutzer ausgeblendet
+    sind (siehe "Dashboard anpassen" in dashboard.html) - die Sichtbarkeit
+    selbst wendet das JS dort bereits sofort clientseitig an, dieser Call
+    persistiert die Auswahl nur im Hintergrund fuer den naechsten Login/
+    andere Geraete. Unbekannte Schluessel werden verworfen statt gespeichert,
+    falls sich DASHBOARD_WIDGETS mal aendert."""
+    user = require_login(request, db)
+    valid = [k for k in payload.hidden if k in DASHBOARD_WIDGET_KEYS]
+    user.hidden_dashboard_widgets = ",".join(valid) if valid else None
+    db.commit()
+    return {"ok": True}
 
 
 # ---------- Admin ----------

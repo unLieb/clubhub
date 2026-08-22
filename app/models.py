@@ -141,6 +141,13 @@ class User(Base):
     # Zeiterfassung erhalten (kein cascade delete wie bei einem echten
     # User-Loeschen).
     is_active = Column(Boolean, default=True)
+    # Persoenliche Dashboard-Anpassung ("Dashboard anpassen"): kommagetrennte
+    # Liste der ausgeblendeten Widget-Schluessel (siehe DASHBOARD_WIDGETS in
+    # main.py), z.B. "appointments,overdue" - leer/None = alle Widgets
+    # sichtbar (bewusst "welche sind versteckt" statt "welche sind sichtbar",
+    # damit neu hinzukommende Widgets in Zukunft ohne Migration automatisch
+    # fuer alle bestehenden Nutzer sichtbar bleiben).
+    hidden_dashboard_widgets = Column(String, nullable=True)
 
     groups = relationship("Group", secondary=user_group, back_populates="users")
     hidden_inventory_groups = relationship("Group", secondary=user_hidden_inventory_group)

@@ -3,14 +3,22 @@
 {% block title %}Dashboard – ClubHUB{% endblock %}
 {% block content %}
 
-<div class="mb-6">
-  <h1 class="font-display text-2xl font-semibold">Dashboard</h1>
-  <p class="text-slate-300 text-base mt-2">
-    {{ greeting }}{% if user %}, {{ user.name }}{% endif %}!
-    Heute stehen <span class="font-medium text-slate-100">{{ pending_tasks_count }}</span> {{ "Reinigung" if pending_tasks_count == 1 else "Reinigungen" }} und
-    <span class="font-medium text-slate-100">{{ report_stats.needs_attention }}</span> offene {{ "Meldung" if report_stats.needs_attention == 1 else "Meldungen" }} an.
-  </p>
-  <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
+<div class="mb-6 flex items-start justify-between gap-3">
+  <div>
+    <h1 class="font-display text-2xl font-semibold">Dashboard</h1>
+    <p class="text-slate-300 text-base mt-2">
+      {{ greeting }}{% if user %}, {{ user.name }}{% endif %}!
+      Heute stehen <span class="font-medium text-slate-100">{{ pending_tasks_count }}</span> {{ "Reinigung" if pending_tasks_count == 1 else "Reinigungen" }} und
+      <span class="font-medium text-slate-100">{{ report_stats.needs_attention }}</span> offene {{ "Meldung" if report_stats.needs_attention == 1 else "Meldungen" }} an.
+    </p>
+    <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
+  </div>
+  {% if user %}
+  <button type="button" id="dash-customize-btn" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 hover:text-slate-100 text-sm font-medium whitespace-nowrap" aria-label="Dashboard anpassen" title="Dashboard anpassen">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+    <span class="hidden sm:inline">Dashboard anpassen</span>
+  </button>
+  {% endif %}
 </div>
 
 {% if user %}
@@ -79,7 +87,7 @@
 {% endif %}
 
 <!-- Stat-Karten -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+<div data-dashboard-widget="kpi" {% if 'kpi' in hidden_dashboard_widgets %}style="display:none"{% endif %} class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
   <div class="rounded-xl border border-line bg-panel p-4 flex items-center gap-3.5">
     <div class="w-11 h-11 rounded-full bg-go/15 text-go flex items-center justify-center shrink-0">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -233,7 +241,7 @@
      weiter unten (nur zukünftige, nicht-heutige Termine - "heute" steht
      bereits ganz oben im "Heute anstehend"-Block) sowie den Eintrag im
      "Heute anstehend"-Block selbst. -->
-<div class="hidden lg:block rounded-xl border border-line bg-panel p-4 mb-6">
+<div data-dashboard-widget="appointments" {% if 'appointments' in hidden_dashboard_widgets %}style="display:none"{% endif %} class="hidden lg:block rounded-xl border border-line bg-panel p-4 mb-6">
   <div class="flex items-center justify-between mb-3">
     <h3 class="font-display font-medium flex items-center gap-2">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -256,7 +264,7 @@
      Bereiche-/Meldungen-Uebersicht, wie im "Heute anstehend"-Block oben
      bereits die dringendsten Punkte vorweggenommen wurden. -->
 {% if future_appointments %}
-<div class="lg:hidden rounded-xl border border-line bg-panel p-3 mb-6">
+<div data-dashboard-widget="appointments" {% if 'appointments' in hidden_dashboard_widgets %}style="display:none"{% endif %} class="lg:hidden rounded-xl border border-line bg-panel p-3 mb-6">
   <div class="flex items-center justify-between mb-2">
     <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Termine (Vorschau)</div>
     <a href="/appointments" class="text-xs text-slate-400 hover:text-slate-100">Alle &rarr;</a>
@@ -284,7 +292,7 @@
 
 <!-- Bereiche mit Handlungsbedarf + Meldungen -->
 <div class="grid lg:grid-cols-3 gap-4 mb-6">
-  <div class="lg:col-span-2 rounded-xl border border-line bg-panel p-4">
+  <div data-dashboard-widget="rooms" {% if 'rooms' in hidden_dashboard_widgets %}style="display:none"{% endif %} class="lg:col-span-2 rounded-xl border border-line bg-panel p-4">
     <div class="mb-4">
       <a href="/rooms" class="font-display font-medium flex items-center gap-2 hover:text-go w-fit">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -306,7 +314,7 @@
     {% endif %}
   </div>
 
-  <div class="rounded-xl border border-line bg-panel p-4">
+  <div data-dashboard-widget="reports" {% if 'reports' in hidden_dashboard_widgets %}style="display:none"{% endif %} class="rounded-xl border border-line bg-panel p-4">
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-display font-medium flex items-center gap-2">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -367,7 +375,7 @@
 
 <!-- Letzte Reinigungen + Überfällige Aufgaben -->
 <div class="grid lg:grid-cols-2 gap-4">
-  <div class="rounded-xl border border-line bg-panel p-4">
+  <div data-dashboard-widget="history" {% if 'history' in hidden_dashboard_widgets %}style="display:none"{% endif %} class="rounded-xl border border-line bg-panel p-4">
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-display font-medium flex items-center gap-2">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
@@ -391,7 +399,7 @@
     </ul>
   </div>
 
-  <div class="hidden lg:block rounded-xl border border-line bg-panel p-4">
+  <div data-dashboard-widget="overdue" {% if 'overdue' in hidden_dashboard_widgets %}style="display:none"{% endif %} class="hidden lg:block rounded-xl border border-line bg-panel p-4">
     <div class="flex items-center justify-between mb-3 gap-2">
       <h2 class="font-display font-medium flex items-center gap-2">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-late"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
@@ -426,6 +434,87 @@
     </ul>
   </div>
 </div>
+{% endif %}
+
+{% if user %}
+<!-- "Dashboard anpassen"-Modal (siehe Button oben im Header): Toggle je
+     Widget, wirkt sofort clientseitig (kein Reload noetig, da alle Widgets
+     ohnehin schon serverseitig gerendert sind - nur ihre Sichtbarkeit wird
+     umgeschaltet) und wird im Hintergrund per fetch() persistiert (siehe
+     POST /profile/dashboard-widgets in main.py), damit die Auswahl beim
+     naechsten Login/auf anderen Geraeten erhalten bleibt. -->
+<div id="dash-customize-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+  <div class="w-full max-w-sm rounded-xl border border-line bg-panel p-4">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="font-display font-medium">Dashboard anpassen</h2>
+      <button type="button" id="dash-customize-close-btn" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p class="text-xs text-slate-500 mb-3">Wähle, welche Bereiche auf deinem Dashboard angezeigt werden.</p>
+    <ul class="divide-y divide-line">
+      {% for key, label in dashboard_widgets %}
+      <li class="flex items-center justify-between gap-3 py-2.5">
+        <span class="text-sm text-slate-200">{{ label }}</span>
+        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+          <input type="checkbox" class="dash-widget-toggle sr-only peer" data-widget="{{ key }}" {% if key not in hidden_dashboard_widgets %}checked{% endif %}>
+          <div class="w-9 h-5 bg-panel2 border border-line rounded-full peer-checked:bg-go peer-checked:border-go transition-colors"></div>
+          <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var openBtn = document.getElementById('dash-customize-btn');
+    if (!openBtn) return;
+    var modal = document.getElementById('dash-customize-modal');
+    var closeBtn = document.getElementById('dash-customize-close-btn');
+    var toggles = document.querySelectorAll('.dash-widget-toggle');
+
+    function applyVisibility(key, visible) {
+      document.querySelectorAll('[data-dashboard-widget="' + key + '"]').forEach(function (el) {
+        el.style.display = visible ? '' : 'none';
+      });
+    }
+
+    // Debounced statt bei jedem einzelnen Toggle sofort zu speichern - sonst
+    // koennten bei mehreren schnell hintereinander umgelegten Schaltern
+    // parallele fetch()-Aufrufe in vertauschter Reihenfolge beim Server
+    // ankommen und ein spaeterer Klick wuerde von einer frueher gestarteten,
+    // aber spaeter ankommenden Anfrage wieder ueberschrieben.
+    var persistTimer = null;
+    function persist() {
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(function () {
+        var hidden = [];
+        toggles.forEach(function (t) { if (!t.checked) hidden.push(t.dataset.widget); });
+        fetch('/profile/dashboard-widgets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hidden: hidden }),
+        });
+      }, 250);
+    }
+
+    toggles.forEach(function (t) {
+      t.addEventListener('change', function () {
+        applyVisibility(t.dataset.widget, t.checked);
+        persist();
+      });
+    });
+
+    function openModal() { modal.classList.remove('hidden'); }
+    function closeModal() { modal.classList.add('hidden'); }
+
+    openBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+  })();
+</script>
 {% endif %}
 
 {% endblock %}
