@@ -12,6 +12,7 @@ from .status import task_status, compute_inventory_status
 from .notifications import notify_group, notify_groups, notify_user
 from . import ntptime
 from . import backup
+from . import notification_batching
 
 logger = logging.getLogger("reinigungsplan.scheduler")
 
@@ -90,6 +91,42 @@ def check_tasks_job():
         db.commit()
     except Exception:
         logger.exception("Fehler beim Prüfen der Aufgaben")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _format_names_de(names) -> str:
+    """'Sebastian' / 'Sebastian und Anna' / 'Sebastian, Anna und Max' -
+    deutsche Aufzaehlung fuer die gesammelte Erledigt-Benachrichtigung."""
+    names = sorted(names)
+    if len(names) == 1:
+        return names[0]
+    return f"{', '.join(names[:-1])} und {names[-1]}"
+
+
+def check_completion_batches_job():
+    """Verschickt die in notification_batching gesammelten Erledigt-
+    Ereignisse: pro Bereich, dessen Sammel-Zeitfenster abgelaufen ist,
+    genau eine zusammengefasste Push-Nachricht statt einer je Aufgabe (siehe
+    queue_task_completion in main.py, wo jede Erledigung eingereiht wird,
+    statt sofort zu benachrichtigen)."""
+    db = SessionLocal()
+    try:
+        now = ntptime.now_utc()
+        for room_id, entry in notification_batching.pop_due_batches(now):
+            groups = db.query(Group).filter(Group.id.in_(entry["group_ids"])).all()
+            if not groups:
+                continue
+            count = entry["count"]
+            task_word = "Aufgabe" if count == 1 else "Aufgaben"
+            verb = "wurde" if count == 1 else "wurden"
+            who = _format_names_de(entry["user_names"])
+            title = f"Erledigt: {entry['room_name']}"
+            msg = f"{count} {task_word} {verb} von {who} erledigt."
+            notify_groups(groups, title, msg, url=f"/room/{room_id}")
+    except Exception:
+        logger.exception("Fehler beim Verschicken gebündelter Erledigt-Benachrichtigungen")
         db.rollback()
     finally:
         db.close()
@@ -201,6 +238,11 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
     # alle 15 Minuten prüfen; ausreichend granular für Intervalle ab 1h aufwärts
     scheduler.add_job(check_tasks_job, "interval", minutes=15, id="check_tasks")
+    # Deutlich granularer als die anderen Jobs: das Batching-Zeitfenster
+    # (siehe notification_batching.BATCH_WINDOW_SECONDS) ist auf Sekunden,
+    # nicht Minuten ausgelegt - sonst wuerde die gesammelte Push-Nachricht
+    # erst mit der naechsten 15-Minuten-Flanke rausgehen.
+    scheduler.add_job(check_completion_batches_job, "interval", seconds=15, id="check_completion_batches")
     scheduler.add_job(check_inventory_job, "interval", minutes=15, id="check_inventory")
     scheduler.add_job(check_appointments_job, "interval", minutes=15, id="check_appointments")
     # NTP-Offset regelmäßig auffrischen (Erstsync passiert synchron beim App-Start)

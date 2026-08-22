@@ -31,6 +31,7 @@ from . import version
 from . import push
 from . import pdf_export
 from . import webauthn_auth
+from . import notification_batching
 from .auth import (
     hash_password, verify_password, find_user_by_identifier, get_current_user, require_login,
     require_admin, require_admin_or_shift_lead, require_admin_or_developer, require_staff_or_developer,
@@ -1117,6 +1118,10 @@ def _complete_tasks(db: Session, tasks: list, user_id: int):
             {"last_status": "green"}
         )
     db.commit()
+    if tasks:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        for task in tasks:
+            notification_batching.queue_task_completion(task.room, task.groups or task.room.groups, user)
 
 
 @app.post("/room/{room_id}/task/{task_id}/complete")
@@ -1140,6 +1145,7 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
         {"last_status": "green"}
     )
     db.commit()
+    notification_batching.queue_task_completion(task.room, task.groups or task.room.groups, user)
     if is_fetch:
         db.refresh(completion)
         return {"ok": True, "completion_id": completion.id, "task_id": task.id}

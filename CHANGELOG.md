@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.91.0] - 2026-08-22
+- Push-Benachrichtigungen für erledigte Aufgaben werden jetzt pro Bereich gebündelt: Statt bei mehreren Erledigungen (z.B. über den Sammel-Button oder mehreren schnellen Einzelabhakungen) für jede Aufgabe einzeln zu benachrichtigen, sammelt ClubHUB alle Erledigungen eines Bereichs innerhalb von 45 Sekunden und verschickt danach höchstens eine zusammengefasste Nachricht (z.B. "Erledigt: Gäste WCs – 5 Aufgaben wurden von Sebastian erledigt.") an die betroffenen Gruppenmitglieder.
+
 ## [0.90.7] - 2026-08-21
 - Wareneingang-Scanner: Die Mengen-Auswahl erscheint jetzt erst, nachdem der erste Barcode erkannt wurde, statt schon direkt unter der Kamera sichtbar zu sein – vermeidet die Verwechslung mit einer Einstellung für "wie oft scannen".
 
