@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.92.1] - 2026-08-22
+- Dashboard anpassen: Die Widget-Auswahl wird jetzt geräteseitig im Browser (`localStorage`) statt im Nutzerkonto gespeichert – die Ansicht ist dadurch pro Gerät/Browser individuell (nicht mehr geräteübergreifend synchron), kommt ganz ohne Server-Anfrage aus und funktioniert dadurch auch offline. Beim ersten Aufruf ohne gespeicherte Auswahl sind weiterhin alle Widgets sichtbar.
+
 ## [0.92.0] - 2026-08-22
 - Dashboard anpassen: Neuer Button oben rechts öffnet ein Modal mit Schaltern für alle sechs Dashboard-Widgets (KPI-Karten, Nächste Termine, Bereiche, Meldungen, Letzte Reinigungen, Überfällige Aufgaben). Ausgeblendete Widgets verschwinden sofort, ganz ohne Neuladen der Seite, und die Auswahl wird pro Nutzer gespeichert – bleibt dadurch auch nach dem nächsten Login oder auf einem anderen Gerät erhalten.
 
