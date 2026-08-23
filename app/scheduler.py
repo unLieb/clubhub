@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
-from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group
+from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group, Room
 from .status import task_status, compute_inventory_status
 from .notifications import notify_group, notify_groups, notify_user
 from . import ntptime
@@ -22,6 +22,12 @@ APP_TIMEZONE = ZoneInfo(os.environ.get("APP_TIMEZONE", "Europe/Berlin"))
 # viele Tage diese aufbewahrt werden, bevor sie automatisch gelöscht werden.
 BACKUP_SCHEDULE_HOURS = os.environ.get("BACKUP_SCHEDULE_HOURS", "0,6,12,18")
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "3"))
+
+# Drossel-Intervall je Bereich für die gebündelte "Überfällig"-Sammel-Push
+# (siehe Room.overdue_notified_at) - verhindert wiederholte Sammel-Pushes für
+# denselben Bereich, solange dort weiterhin (dieselben oder neue) Aufgaben
+# überfällig sind.
+OVERDUE_BATCH_THROTTLE_HOURS = float(os.environ.get("OVERDUE_BATCH_THROTTLE_HOURS", "4"))
 
 # Statuswechsel, bei denen wir aktiv informieren (green -> gelb/rot ist neu, rot bleibt still nach erster Meldung)
 NOTIFY_ON = {"yellow", "red"}
@@ -45,18 +51,33 @@ def _within_working_hours(group, now_local) -> bool:
 
 
 def check_tasks_job():
+    """"Bald fällig" (gelb) bleibt eine sofortige Einzel-Push je Aufgabe/
+    Gruppe beim Statuswechsel (wie bisher) - "Überfällig" (rot) dagegen wird
+    NICHT mehr direkt aus dieser Schleife heraus verschickt, sondern nur
+    gesammelt (siehe overdue_by_room unten). Grund: bei mehreren gleichzeitig
+    überfälligen Aufgaben in einem Bereich (oder mehreren Aufgaben, die
+    nacheinander über die Zeit überfällig werden) würde sonst pro Aufgabe und
+    Gruppe ein eigener Push rausgehen und den Kanal überfluten - hier deshalb
+    stattdessen genau eine gebündelte Sammel-Push je Bereich (siehe unten,
+    gedrosselt über Room.overdue_notified_at)."""
     db = SessionLocal()
     try:
-        now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
+        now = ntptime.now_utc()
+        now_local = now.astimezone(APP_TIMEZONE)
         tasks = db.query(Task).all()
+
+        # room_id -> {"room": Room, "task_names": [...], "group_ids": {...}}
+        overdue_by_room = {}
+
         for task in tasks:
             result = task_status(task)
             new_status = result["status"]
+            task_groups = task.groups or task.room.groups
 
             # Explizit zugewiesene Gruppen benachrichtigen, falls gesetzt -
             # sonst wie bisher alle Gruppen des Bereichs (Rückwärtskompatibel
             # für Aufgaben ohne eigene Gruppen-Zuordnung).
-            for group in (task.groups or task.room.groups):
+            for group in task_groups:
                 notice = (
                     db.query(TaskGroupNotice)
                     .filter_by(task_id=task.id, group_id=group.id)
@@ -82,11 +103,43 @@ def check_tasks_job():
                 if new_status == "yellow":
                     title = f"Bald fällig: {task.room.name}"
                     msg = f"„{task.name}“ wird demnächst fällig."
-                else:
-                    title = f"Überfällig: {task.room.name}"
-                    msg = f"„{task.name}“ ist überfällig und sollte erledigt werden."
-                notify_group(group, title, msg, url=f"/room/{task.room_id}?focus=task-{task.id}")
+                    notify_group(group, title, msg, url=f"/room/{task.room_id}?focus=task-{task.id}")
                 notice.last_status = new_status
+
+            if new_status == "red":
+                entry = overdue_by_room.setdefault(
+                    task.room_id, {"room": task.room, "task_names": [], "group_ids": set()}
+                )
+                entry["task_names"].append(task.name)
+                entry["group_ids"].update(g.id for g in task_groups)
+
+        db.commit()
+
+        # Gebündelte "Überfällig"-Sammel-Push: pro Bereich mit aktuell
+        # überfälligen Aufgaben höchstens eine Meldung, gedrosselt auf
+        # OVERDUE_BATCH_THROTTLE_HOURS je Bereich statt bei jedem 15-Minuten-
+        # Tick erneut zu feuern, solange die Überfälligkeit anhält.
+        for room_id, entry in overdue_by_room.items():
+            room = entry["room"]
+            last_notified = _aware(room.overdue_notified_at)
+            if last_notified is not None and (now - last_notified).total_seconds() < OVERDUE_BATCH_THROTTLE_HOURS * 3600:
+                continue
+            groups = db.query(Group).filter(Group.id.in_(entry["group_ids"])).all()
+            if not groups:
+                continue
+            if not any(_within_working_hours(g, now_local) for g in groups):
+                continue  # wird beim nächsten Tick nachgeholt, sobald Arbeitszeit beginnt
+
+            count = len(entry["task_names"])
+            task_word = "Aufgabe" if count == 1 else "Aufgaben"
+            verb = "ist" if count == 1 else "sind"
+            examples = ", ".join(entry["task_names"][:3])
+            if count > 3:
+                examples += ", ..."
+            title = f"Überfällig: {room.name}"
+            msg = f"{count} {task_word} {verb} überfällig (z.B. {examples})."
+            notify_groups(groups, title, msg, url=f"/room/{room_id}")
+            room.overdue_notified_at = now
 
         db.commit()
     except Exception:
@@ -110,7 +163,14 @@ def check_completion_batches_job():
     Ereignisse: pro Bereich, dessen Sammel-Zeitfenster abgelaufen ist,
     genau eine zusammengefasste Push-Nachricht statt einer je Aufgabe (siehe
     queue_task_completion in main.py, wo jede Erledigung eingereiht wird,
-    statt sofort zu benachrichtigen)."""
+    statt sofort zu benachrichtigen).
+
+    Opt-in statt Opt-out (siehe User.notify_on_completion in models.py):
+    standardmäßig aus, jeder aktiviert es sich bei Bedarf selbst im eigenen
+    Profil. Geht deshalb bewusst NICHT über notify_group/notify_groups (die
+    würden zusätzlich auch die geteilten Gruppen-Kanäle ntfy/Gotify/Signal
+    bedienen, die keinen Opt-in je Empfänger kennen), sondern nur als
+    persönlicher Web-Push an einzelne, explizit angemeldete Nutzer."""
     db = SessionLocal()
     try:
         now = ntptime.now_utc()
@@ -124,7 +184,15 @@ def check_completion_batches_job():
             who = _format_names_de(entry["user_names"])
             title = f"Erledigt: {entry['room_name']}"
             msg = f"{count} {task_word} {verb} von {who} erledigt."
-            notify_groups(groups, title, msg, url=f"/room/{room_id}")
+            url = f"/room/{room_id}"
+
+            seen_user_ids = set()
+            for group in groups:
+                for member in group.users:
+                    if member.id in seen_user_ids or not member.notify_on_completion:
+                        continue
+                    seen_user_ids.add(member.id)
+                    notify_user(member, title, msg, url=url)
     except Exception:
         logger.exception("Fehler beim Verschicken gebündelter Erledigt-Benachrichtigungen")
         db.rollback()

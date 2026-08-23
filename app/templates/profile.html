@@ -134,6 +134,21 @@
   </section>
 
   <section class="rounded-xl border border-line bg-panel p-4">
+    <h2 class="font-display font-medium mb-3">Benachrichtigungs-Einstellungen</h2>
+    <form method="post" action="/profile/notifications">
+      <label class="flex items-center gap-2.5 cursor-pointer">
+        <input type="checkbox" name="notify_on_completion" {% if user.notify_on_completion %}checked{% endif %}
+               onchange="this.form.submit()" class="w-4 h-4 rounded border-line accent-go">
+        <span class="text-sm text-slate-200">Benachrichtigung erhalten, wenn Aufgaben erledigt werden</span>
+      </label>
+    </form>
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
+      Standardmäßig aus - bei Aktivierung bekommst du auf deinen angemeldeten Geräten (siehe unten) eine gebündelte
+      Meldung, sobald in einem deiner Bereiche Aufgaben abgehakt werden.
+    </p>
+  </section>
+
+  <section class="rounded-xl border border-line bg-panel p-4">
     <h2 class="font-display font-medium mb-3">Meine Geräte (Benachrichtigungen)</h2>
     {% if user.push_subscriptions %}
     <ul class="space-y-2">

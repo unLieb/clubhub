@@ -141,6 +141,12 @@ class User(Base):
     # Zeiterfassung erhalten (kein cascade delete wie bei einem echten
     # User-Loeschen).
     is_active = Column(Boolean, default=True)
+    # Opt-in statt Opt-out: "Erledigt"-Sammel-Pushes (siehe
+    # check_completion_batches_job in scheduler.py) sind fuer die meisten
+    # eher Hintergrundrauschen als eine Aktion, die sie selbst ausloesen
+    # muessen - daher Default False, jeder aktiviert es sich bei Bedarf
+    # selbst im eigenen Profil.
+    notify_on_completion = Column(Boolean, default=False)
 
     groups = relationship("Group", secondary=user_group, back_populates="users")
     hidden_inventory_groups = relationship("Group", secondary=user_hidden_inventory_group)
@@ -163,6 +169,12 @@ class Room(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    # Zeitpunkt der letzten gebuendelten "Ueberfaellig"-Sammel-Push fuer
+    # diesen Bereich (siehe check_tasks_job in scheduler.py) - verhindert,
+    # dass bei mehreren ueberfaelligen Aufgaben im selben Bereich innerhalb
+    # des Drossel-Intervalls (OVERDUE_BATCH_THROTTLE_HOURS) wiederholt
+    # derselbe Sammel-Push rausgeht.
+    overdue_notified_at = Column(DateTime(timezone=True), nullable=True)
 
     groups = relationship("Group", secondary=room_group, back_populates="rooms")
     tasks = relationship("Task", back_populates="room", cascade="all, delete-orphan")

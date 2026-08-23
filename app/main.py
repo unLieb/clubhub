@@ -508,6 +508,19 @@ def _migrate_user_personnel_number(db: Session):
     db.commit()
 
 
+def _migrate_user_notify_on_completion(db: Session):
+    """Opt-in-Einstellung fuer die "Erledigt"-Sammel-Pushes (siehe
+    check_completion_batches_job in scheduler.py) - Default False, siehe
+    Kommentar am Feld in models.py."""
+    _ensure_column(db, "users", "notify_on_completion", "INTEGER DEFAULT 0")
+
+
+def _migrate_room_overdue_notified(db: Session):
+    """Drossel-Zeitstempel fuer die gebuendelte "Ueberfaellig"-Sammel-Push
+    je Bereich (siehe check_tasks_job in scheduler.py)."""
+    _ensure_column(db, "rooms", "overdue_notified_at", "DATETIME")
+
+
 def _migrate_remove_timeclock_nfc_tags(db: Session):
     """Das Ein-/Ausstempeln lief anfangs über einen gemeinsamen NFC-Tag
     (/timeclock/scan), wurde aber durch ein autorisiertes Terminal ersetzt
@@ -597,6 +610,8 @@ def _startup():
         _migrate_task_group_key(db)
         _migrate_task_active_weekdays(db)
         _migrate_detach_task_groups(db)
+        _migrate_user_notify_on_completion(db)
+        _migrate_room_overdue_notified(db)
     finally:
         db.close()
 
@@ -3905,6 +3920,18 @@ def profile_set_pay(
     user = require_login(request, db)
     user.hourly_wage = float(hourly_wage) if hourly_wage.strip() else None
     user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month.strip() else None
+    db.commit()
+    return RedirectResponse("/profile", status_code=302)
+
+
+@app.post("/profile/notifications")
+def profile_set_notifications(
+    request: Request,
+    notify_on_completion: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    user.notify_on_completion = bool(notify_on_completion)
     db.commit()
     return RedirectResponse("/profile", status_code=302)
 

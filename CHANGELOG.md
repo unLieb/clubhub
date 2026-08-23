@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.96.0] - 2026-08-23
+- Überfällig-Benachrichtigungen aus dem Hintergrund-Job gebündelt: statt für jede überfällige Aufgabe einzeln zu benachrichtigen, sammelt ClubHUB jetzt alle aktuell überfälligen Aufgaben eines Bereichs und verschickt höchstens eine zusammengefasste Meldung (z.B. "Überfällig: Gäste WC – 3 Aufgaben sind überfällig (z.B. Mülleimer leeren, Sanitäranlagen reinigen...)."). Pro Bereich wird dieselbe Sammel-Meldung frühestens alle 4 Stunden erneut verschickt (per Umgebungsvariable `OVERDUE_BATCH_THROTTLE_HOURS` einstellbar), auch wenn zwischendurch weitere Aufgaben überfällig werden. "Bald fällig"-Hinweise bleiben unverändert sofortige Einzel-Benachrichtigungen.
+- "Erledigt"-Benachrichtigungen sind jetzt standardmäßig deaktiviert und lassen sich im Profil unter "Benachrichtigungs-Einstellungen" gezielt aktivieren ("Benachrichtigung erhalten, wenn Aufgaben erledigt werden"). Wer das nicht explizit einschaltet, bekommt diese eher informativen Sammel-Meldungen nicht mehr auf sein Gerät.
+
 ## [0.95.4] - 2026-08-23
 - Kühlungen: Kopfzeile der Kühlzellen-Karte überarbeitet – der Messwert steht wieder wie gewohnt oberhalb der Soll-/Grenzwert-Zeile neben Name und Status statt in einer eigenen Zeile darunter, und Erfassungszeitpunkt/-person sind dort entfallen (stehen bereits bei "Letzte Messungen"/in der Historie, doppelt an der Kopfzeile also unnötig und zuvor Ursache der Kollision mit der Soll-/Grenzwert-Badge).
 
