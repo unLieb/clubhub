@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.97.1] - 2026-08-23
+- Systemverwaltung: die aufklappbare Liste "Einzelne Sicherungen" hat jetzt eine feste Maximalhöhe mit eigenem Scrollbalken, statt die Karte bei vielen automatischen Sicherungen beliebig in die Länge zu ziehen – das 2-Spalten-Grid bleibt dadurch stabil, die Nachbarkarten rutschen nicht mehr nach unten weg.
+
 ## [0.97.0] - 2026-08-23
 - Neues Audit-Log in der Verwaltung (`/admin/audit-log`): protokolliert wichtige Verwaltungs-Aktionen (Login, Nutzer anlegen/bearbeiten/(de)aktivieren, Gruppen/Bereiche/Inventar-Stammdaten anlegen/bearbeiten/löschen, Backup-Download, Struktur-Import) mit Zeitpunkt, Nutzer, Aktion, Kategorie, Beschreibung und IP-Adresse. Übersichtliche Tabelle mit Stichwortsuche sowie Filter nach Nutzer und Kategorie, neue Kachel auf der Verwaltungs-Hauptseite. Nur für Admins/Schichtleiter sichtbar, wie die Nutzerverwaltung selbst. Vollständige Datenbank-Wiederherstellungen erscheinen bewusst nicht im Log (die Datenbankdatei wird dabei komplett ausgetauscht, ein Log-Eintrag ginge dabei sofort wieder verloren) - dafür stattdessen im Docker-Log nachvollziehbar.
 

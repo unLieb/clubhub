@@ -78,7 +78,7 @@
         Einzelne Sicherungen ({{ scheduled_backups|length }})
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
       </summary>
-      <ul class="mt-2 space-y-1 text-sm">
+      <ul class="mt-2 space-y-1 text-sm max-h-64 overflow-y-auto pr-2">
         {% for b in scheduled_backups %}
         <li class="flex items-center justify-between gap-3 border-b border-line/50 last:border-0 py-2">
           <div class="min-w-0">
