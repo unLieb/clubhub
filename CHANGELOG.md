@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.95.3] - 2026-08-23
+- Kühlungen (mobile Ansicht): Messwert und Zeitstempel in der Kopfzeile stapeln sich jetzt als eigene Zeile unter Name/Badges, statt als gleichberechtigte Nachbarn um denselben Platz zu konkurrieren – dadurch landete der Zeitstempel je nach Zeilenumbruch zu dicht an der Soll-/Grenzwert-Badge. Ab Tablet-Breite bleibt der Messwert weiterhin gewohnt rechts neben Name/Badges.
+
 ## [0.95.2] - 2026-08-23
 - Kühlungen (mobile Ansicht): den grünen "Kreis" um die Soll-/Grenzwert- und Status-Badges behoben – bei längeren Werten (z.B. Minus-Temperaturen) brach der Text innerhalb der Pillen-Badges auf mehrere Zeilen um, was sie durch die abgerundeten Ecken wie einen aufgeblähten Kreis statt einer sauberen Pille aussehen ließ. Außerdem den Chart-Tooltip korrigiert: er war zuletzt komplett deaktiviert, erscheint jetzt wie gewünscht wieder beim Antippen eines Messpunkts, verschwindet aber – anders als vorher – beim Antippen einer Stelle außerhalb des Diagramms, statt dauerhaft stehen zu bleiben.
 
