@@ -308,7 +308,13 @@
   </div>
 </div>
 
-<!-- Mobile Bottom-Navigation (nur < lg) -->
+<!-- Mobile Bottom-Navigation (nur < lg) - max. 5 Items, damit jedes Icon auf
+     schmalen Displays noch bequem antippbar bleibt. Alle weiteren Module
+     stecken hinter "Mehr" im Bottom-Sheet (siehe unten), statt die Leiste mit
+     jedem neuen Modul weiter zu stauchen. -->
+{% set more_paths = ['/history', '/kuehlungen', '/appointments', '/vacations', '/timeclock', '/admin'] %}
+{% set on_more_page = user and request.url.path in more_paths %}
+{% set more_badge_count = badges.cooling %}
 <nav class="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-ink border-t border-line flex safe-bottom">
   <a href="/" class="tab-link {% if request.url.path == '/' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -318,10 +324,6 @@
   <a href="/rooms" class="tab-link {% if request.url.path == '/rooms' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
     Bereiche
-  </a>
-  <a href="/history" class="tab-link {% if request.url.path == '/history' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-    Historie
   </a>
   <a href="/inventory" class="tab-link {% if request.url.path == '/inventory' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
     <span class="relative">
@@ -337,12 +339,65 @@
     </span>
     Meldungen
   </a>
-  <a href="/timeclock" class="tab-link {% if request.url.path == '/timeclock' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
-    Zeit
-  </a>
+  <button type="button" id="mobile-more-btn" class="tab-link {% if on_more_page %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
+    <span class="relative">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+      {% if more_badge_count %}<span class="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-late text-white text-[8px] font-semibold flex items-center justify-center leading-none">{{ more_badge_count }}</span>{% endif %}
+    </span>
+    Mehr
+  </button>
   {% endif %}
 </nav>
+
+{% if user %}
+<!-- "Mehr"-Bottom-Sheet: alle Module, die nicht mehr in die 5-Item-Leiste
+     passen, aus Platzgruenden - gleiches Slide-Muster wie der Aufgaben-
+     Drawer in room.html (translate-Klasse + transition-transform), nur von
+     unten statt von rechts. -->
+<div id="mobile-more-overlay" class="lg:hidden hidden fixed inset-0 bg-black/50 z-40"></div>
+<div id="mobile-more-sheet" class="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-panel border-t border-line rounded-t-2xl translate-y-full transition-transform duration-200 safe-bottom max-h-[75vh] overflow-y-auto">
+  <div class="flex justify-center pt-2.5 pb-1">
+    <span class="w-9 h-1 rounded-full bg-panel2"></span>
+  </div>
+  <div class="flex items-center justify-between px-4 pb-2">
+    <h2 class="font-display font-medium text-sm">Mehr</h2>
+    <button type="button" id="mobile-more-close" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="px-2 pb-2 grid grid-cols-3 gap-1">
+    <a href="/history" class="tab-link {% if request.url.path == '/history' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      Historie
+    </a>
+    <a href="/kuehlungen" class="tab-link {% if request.url.path == '/kuehlungen' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <span class="relative">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+        {% if badges.cooling %}<span class="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-late text-white text-[8px] font-semibold flex items-center justify-center leading-none">{{ badges.cooling }}</span>{% endif %}
+      </span>
+      Kühlungen
+    </a>
+    <a href="/appointments" class="tab-link {% if request.url.path == '/appointments' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Termine
+    </a>
+    <a href="/vacations" class="tab-link {% if request.url.path == '/vacations' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      Urlaub
+    </a>
+    <a href="/timeclock" class="tab-link {% if request.url.path == '/timeclock' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
+      Zeiterfassung
+    </a>
+    {% if user.is_admin or user.is_shift_lead or user.is_developer %}
+    <a href="/admin" class="tab-link {% if request.url.path == '/admin' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 2.5"/></svg>
+      Verwaltung
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 
 <script>
 (function () {
@@ -402,6 +457,35 @@
     if (!menu.classList.contains('hidden') && !menu.contains(e.target)) {
       menu.classList.add('hidden');
     }
+  });
+})();
+
+// "Mehr"-Bottom-Sheet der mobilen Navigation: gleiches Slide-Muster wie der
+// Aufgaben-Drawer in room.html (translate-Klasse toggeln + transition-
+// transform per CSS), nur von unten statt von rechts.
+(function () {
+  var openBtn = document.getElementById('mobile-more-btn');
+  var overlay = document.getElementById('mobile-more-overlay');
+  var sheet = document.getElementById('mobile-more-sheet');
+  var closeBtn = document.getElementById('mobile-more-close');
+  if (!openBtn || !overlay || !sheet) return;
+
+  function openSheet() {
+    overlay.classList.remove('hidden');
+    // Erst den 'hidden'-Reflow abwarten, sonst greift die Transition nicht
+    // und das Sheet erscheint ohne Slide-Animation sofort an Ort und Stelle.
+    requestAnimationFrame(function () { sheet.classList.remove('translate-y-full'); });
+  }
+  function closeSheet() {
+    sheet.classList.add('translate-y-full');
+    overlay.classList.add('hidden');
+  }
+
+  openBtn.addEventListener('click', openSheet);
+  if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+  overlay.addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !sheet.classList.contains('translate-y-full')) closeSheet();
   });
 })();
 

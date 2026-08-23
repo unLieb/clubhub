@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.95.0] - 2026-08-23
+- Mobile Navigationsleiste: auf 5 Icons begrenzt (Dashboard, Bereiche, Inventar, Meldungen, Mehr) statt mit jedem neuen Modul weiter zu wachsen. „Mehr" öffnet ein Bottom-Sheet von unten mit allen weiteren Modulen (Historie, Kühlungen, Termine, Urlaub, Zeiterfassung, für Verwaltung Berechtigte zusätzlich Verwaltung) – inkl. Meldungs-Badge (z.B. Kühlungs-Alarm), die sonst in der Leiste nicht mehr sichtbar wären. Befindet sich der Nutzer auf einer Seite aus dem Mehr-Menü, wird der „Mehr"-Button selbst grün als aktiv hervorgehoben.
+
 ## [0.94.0] - 2026-08-23
 - Kühlungen: Temperaturmessungen lassen sich jetzt nachträglich erfassen und korrigieren. Beim Erfassen kann über das Uhr-Symbol optional ein abweichender Zeitpunkt gewählt werden (Standard bleibt „jetzt"); im Widget „Letzte Messungen" ermöglicht ein neuer „Nachtragen"-Button das gesammelte Eintragen mehrerer Werte über ein kleines Formular, und jede Messung lässt sich dort direkt bearbeiten oder löschen (z.B. bei Zahlendrehern). Rückdatierte oder korrigierte Werte lösen keine (dann irreführende) Live-Meldung mehr aus – nur eine tatsächlich neue, aktuellste Messung tut das; Status-Badge und „notified"-Zustand der Kühlzelle werden nach jeder Änderung korrekt neu bestimmt.
 
