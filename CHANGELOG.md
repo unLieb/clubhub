@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.97.2] - 2026-08-23
+- Audit-Log DSGVO-konform gemacht: Client-IP-Adressen werden nicht mehr erfasst und gespeichert (bereits vorhandene Einträge wurden beim Update einmalig bereinigt). Die IP-Spalte ist dadurch auch aus der Tabelle unter `/admin/audit-log` verschwunden – der frei gewordene Platz kommt der "Details"-Spalte zugute, die jetzt breiter und besser lesbar dargestellt wird.
+- Systemverwaltung: Die Kennzahlen-Zeilen der Karten "System & Status" und "Automatische Sicherungen" sind jetzt exakt auf gleicher Höhe ausgerichtet (gemeinsame Mindesthöhe für beide Listen), dadurch fluchten auch "Jetzt synchronisieren" und der Erklärungstext rechts daneben zeilengenau.
+
 ## [0.97.1] - 2026-08-23
 - Systemverwaltung: die aufklappbare Liste "Einzelne Sicherungen" hat jetzt eine feste Maximalhöhe mit eigenem Scrollbalken, statt die Karte bei vielen automatischen Sicherungen beliebig in die Länge zu ziehen – das 2-Spalten-Grid bleibt dadurch stabil, die Nachbarkarten rutschen nicht mehr nach unten weg.
 

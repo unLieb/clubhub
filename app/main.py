@@ -523,6 +523,19 @@ def _migrate_room_overdue_notified(db: Session):
     _ensure_column(db, "rooms", "overdue_notified_at", "DATETIME")
 
 
+def _migrate_audit_log_drop_ip(db: Session):
+    """DSGVO: Client-IP-Adressen wurden bis v0.97.1 im Audit-Log gespeichert -
+    ab hier nicht mehr (siehe AuditLog in models.py). Die Spalte bleibt in
+    bestehenden Datenbanken strukturell bestehen (kein DROP COLUMN, dafuer
+    gibt es in diesem Projekt keinen Praezedenzfall), bereits gespeicherte
+    Adressen werden hier aber einmalig geloescht statt nur kuenftig keine
+    neuen mehr zu erfassen."""
+    existing = {row[1] for row in db.execute(text("PRAGMA table_info(audit_logs)")).fetchall()}
+    if "ip_address" in existing:
+        db.execute(text("UPDATE audit_logs SET ip_address = NULL WHERE ip_address IS NOT NULL"))
+        db.commit()
+
+
 def _migrate_remove_timeclock_nfc_tags(db: Session):
     """Das Ein-/Ausstempeln lief anfangs über einen gemeinsamen NFC-Tag
     (/timeclock/scan), wurde aber durch ein autorisiertes Terminal ersetzt
@@ -614,6 +627,7 @@ def _startup():
         _migrate_detach_task_groups(db)
         _migrate_user_notify_on_completion(db)
         _migrate_room_overdue_notified(db)
+        _migrate_audit_log_drop_ip(db)
     finally:
         db.close()
 
@@ -3726,7 +3740,7 @@ def login_submit(
         # einem Tippfehler.
         return RedirectResponse(_login_error_redirect("inactive", next), status_code=302)
     request.session["user_id"] = user.id
-    log_audit(db, user, "LOGIN", "System", f"„{user.name}“ per Passwort angemeldet.", request)
+    log_audit(db, user, "LOGIN", "System", f"„{user.name}“ per Passwort angemeldet.")
     db.commit()
     return RedirectResponse(next, status_code=302)
 
@@ -3780,7 +3794,7 @@ def login_passkey_verify(payload: PasskeyLoginIn, request: Request, db: Session 
 
     cred.sign_count = verification.new_sign_count
     cred.last_used_at = ntptime.now_utc()
-    log_audit(db, user, "LOGIN", "System", f"„{user.name}“ per Passkey angemeldet.", request)
+    log_audit(db, user, "LOGIN", "System", f"„{user.name}“ per Passkey angemeldet.")
     db.commit()
 
     request.session["user_id"] = user.id
@@ -4968,7 +4982,7 @@ def admin_resync_ntp(request: Request, db: Session = Depends(get_db)):
 def admin_download_backup(request: Request, db: Session = Depends(get_db)):
     admin = require_admin_or_developer(request, db)
     data = backup.create_backup_bytes()
-    log_audit(db, admin, "READ", "System", "Vollständiges Backup heruntergeladen.", request)
+    log_audit(db, admin, "READ", "System", "Vollständiges Backup heruntergeladen.")
     db.commit()
     return Response(
         content=data,
@@ -5023,7 +5037,7 @@ async def admin_import_data(
     selected = {c for c in categories if c in data_export.CATEGORIES}
     summary = data_export.import_data_json(db, data, selected, admin)
     total_created = sum(s.get("created", 0) for s in summary.values())
-    log_audit(db, admin, "CREATE", "System", f"Struktur-Import ausgeführt ({total_created} Datensätze angelegt, Kategorien: {', '.join(sorted(selected)) or '–'}).", request)
+    log_audit(db, admin, "CREATE", "System", f"Struktur-Import ausgeführt ({total_created} Datensätze angelegt, Kategorien: {', '.join(sorted(selected)) or '–'}).")
     db.commit()
     return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, import_summary=summary))
 
@@ -5109,7 +5123,7 @@ def admin_add_group(
         # sonst faellt ein manipulierter/unbekannter Wert auf die Standardfarbe zurueck.
         color=color if color in GROUP_COLOR_VALUES else GROUP_DEFAULT_COLOR,
     ))
-    log_audit(db, actor, "CREATE", "Gruppe", f"Gruppe „{name}“ angelegt.", request)
+    log_audit(db, actor, "CREATE", "Gruppe", f"Gruppe „{name}“ angelegt.")
     db.commit()
     return RedirectResponse("/admin/groups", status_code=302)
 
@@ -5133,7 +5147,7 @@ def admin_edit_group(
         group.work_start_hour = int(work_start_hour) if work_start_hour else None
         group.work_end_hour = int(work_end_hour) if work_end_hour else None
         group.color = color if color in GROUP_COLOR_VALUES else GROUP_DEFAULT_COLOR
-        log_audit(db, actor, "UPDATE", "Gruppe", f"Gruppe „{name}“ bearbeitet.", request)
+        log_audit(db, actor, "UPDATE", "Gruppe", f"Gruppe „{name}“ bearbeitet.")
         db.commit()
     return RedirectResponse("/admin/groups", status_code=302)
 
@@ -5143,7 +5157,7 @@ def admin_delete_group(group_id: int, request: Request, db: Session = Depends(ge
     actor = require_admin_or_developer(request, db)
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if group:
-        log_audit(db, actor, "DELETE", "Gruppe", f"Gruppe „{group.name}“ gelöscht.", request)
+        log_audit(db, actor, "DELETE", "Gruppe", f"Gruppe „{group.name}“ gelöscht.")
         db.delete(group)
         db.commit()
     return RedirectResponse("/admin/groups", status_code=302)
@@ -5235,7 +5249,7 @@ def admin_add_user(
     if actor.is_admin:
         user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
     db.add(user)
-    log_audit(db, actor, "CREATE", "Nutzer", f"Nutzer „{name}“ angelegt (Rolle: {role}).", request)
+    log_audit(db, actor, "CREATE", "Nutzer", f"Nutzer „{name}“ angelegt (Rolle: {role}).")
     db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 
@@ -5291,7 +5305,7 @@ def admin_edit_user(
             # Hier nur von einem vollen Admin änderbar; der Nutzer selbst kann sie
             # zusätzlich im eigenen Profil anpassen - beide pflegen denselben Wert.
             target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
-        log_audit(db, actor, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ bearbeitet.", request)
+        log_audit(db, actor, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ bearbeitet.")
         db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 
@@ -5314,11 +5328,11 @@ def admin_toggle_user_active(user_id: int, request: Request, db: Session = Depen
             ).count()
             if not target.is_admin or other_active_admins > 0:
                 target.is_active = False
-                log_audit(db, admin, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ deaktiviert.", request)
+                log_audit(db, admin, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ deaktiviert.")
                 db.commit()
         else:
             target.is_active = True
-            log_audit(db, admin, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ reaktiviert.", request)
+            log_audit(db, admin, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ reaktiviert.")
             db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 
@@ -5333,7 +5347,7 @@ def admin_add_room(
     actor = require_staff_or_developer(request, db)
     groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all()
     db.add(models.Room(name=name, groups=groups))
-    log_audit(db, actor, "CREATE", "Bereich", f"Bereich „{name}“ angelegt.", request)
+    log_audit(db, actor, "CREATE", "Bereich", f"Bereich „{name}“ angelegt.")
     db.commit()
     return RedirectResponse("/admin/rooms", status_code=302)
 
@@ -5351,7 +5365,7 @@ def admin_edit_room(
     if room:
         room.name = name
         room.groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all()
-        log_audit(db, actor, "UPDATE", "Bereich", f"Bereich „{name}“ bearbeitet.", request)
+        log_audit(db, actor, "UPDATE", "Bereich", f"Bereich „{name}“ bearbeitet.")
         db.commit()
     return RedirectResponse("/admin/rooms", status_code=302)
 
@@ -5361,7 +5375,7 @@ def admin_delete_room(room_id: int, request: Request, db: Session = Depends(get_
     actor = require_admin_or_developer(request, db)
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if room:
-        log_audit(db, actor, "DELETE", "Bereich", f"Bereich „{room.name}“ gelöscht.", request)
+        log_audit(db, actor, "DELETE", "Bereich", f"Bereich „{room.name}“ gelöscht.")
         db.delete(room)
         db.commit()
     return RedirectResponse("/admin/rooms", status_code=302)
@@ -5499,7 +5513,7 @@ def admin_add_inventory_item(
         group_id=int(group_id) if group_id else None,
         barcode=barcode,
     ))
-    log_audit(db, admin, "CREATE", "Inventar", f"Artikel „{name}“ angelegt.", request)
+    log_audit(db, admin, "CREATE", "Inventar", f"Artikel „{name}“ angelegt.")
     db.commit()
     if request.headers.get("X-Requested-With") == "fetch":
         return templates.TemplateResponse(
@@ -5564,7 +5578,7 @@ def admin_edit_inventory_item(
         item.group_id = int(group_id) if group_id else None
         if item.stock_current >= item.stock_min:
             item.notified = False
-        log_audit(db, actor, "UPDATE", "Inventar", f"Artikel „{name}“ bearbeitet.", request)
+        log_audit(db, actor, "UPDATE", "Inventar", f"Artikel „{name}“ bearbeitet.")
         db.commit()
         if request.headers.get("X-Requested-With") == "fetch":
             return templates.TemplateResponse(
@@ -5581,7 +5595,7 @@ def admin_delete_inventory_item(item_id: int, request: Request, sort: str = "sta
     admin = require_admin_or_developer(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
     if item:
-        log_audit(db, admin, "DELETE", "Inventar", f"Artikel „{item.name}“ gelöscht.", request)
+        log_audit(db, admin, "DELETE", "Inventar", f"Artikel „{item.name}“ gelöscht.")
         db.delete(item)
         db.commit()
     if request.headers.get("X-Requested-With") == "fetch":

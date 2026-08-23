@@ -18,7 +18,7 @@
         <span class="px-2 py-0.5 rounded-full bg-panel2 text-slate-400 font-mono">{{ app_build_hash }}</span>
       </div>
     </div>
-    <ul class="text-sm space-y-1.5">
+    <ul class="text-sm space-y-1.5 min-h-[124px]">
       <li class="flex justify-between gap-4"><span class="text-slate-500">Zeitzone</span><span class="text-slate-300">{{ app_timezone }}</span></li>
       <li class="flex justify-between gap-4"><span class="text-slate-500">NTP-Server</span><span class="text-slate-300">{{ ntp_status.server }}</span></li>
       <li class="flex justify-between gap-4">
@@ -49,7 +49,7 @@
   <!-- Karte 2 (oben rechts): Automatische Sicherungen -->
   <section class="rounded-xl border border-line bg-panel p-4">
     <h2 class="font-display font-medium mb-3">Automatische Sicherungen</h2>
-    <ul class="text-sm space-y-1.5">
+    <ul class="text-sm space-y-1.5 min-h-[124px]">
       <li class="flex justify-between gap-4"><span class="text-slate-500">Zeitpunkte (lokal)</span><span class="text-slate-300">{{ backup_schedule_hours }} Uhr</span></li>
       <li class="flex justify-between gap-4"><span class="text-slate-500">Aufbewahrung</span><span class="text-slate-300">{{ backup_retention_days }} Tage</span></li>
       <li class="flex justify-between gap-4"><span class="text-slate-500">Vorhanden</span><span class="text-slate-300">{{ scheduled_backups|length }}</span></li>

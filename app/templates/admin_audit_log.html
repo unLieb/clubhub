@@ -39,8 +39,7 @@
           <th class="px-4 py-2.5 font-medium whitespace-nowrap">Nutzer</th>
           <th class="px-4 py-2.5 font-medium whitespace-nowrap">Aktion</th>
           <th class="px-4 py-2.5 font-medium whitespace-nowrap">Kategorie</th>
-          <th class="px-4 py-2.5 font-medium">Details</th>
-          <th class="px-4 py-2.5 font-medium whitespace-nowrap">IP</th>
+          <th class="px-4 py-2.5 font-medium w-full">Details</th>
         </tr>
       </thead>
       <tbody>
@@ -58,7 +57,6 @@
           </td>
           <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap align-top">{{ e.target_type }}</td>
           <td class="px-4 py-2.5 text-slate-300 align-top">{{ e.details }}</td>
-          <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap align-top font-mono text-xs">{{ e.ip_address or "–" }}</td>
         </tr>
         {% endfor %}
       </tbody>

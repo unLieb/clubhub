@@ -712,7 +712,15 @@ class AuditLog(Base):
     tauschen die komplette Datenbankdatei aus und werden bewusst NICHT hier,
     sondern nur ins Docker-Log geschrieben (siehe admin_restore_backup in
     main.py) - ein kurz vor dem Dateitausch committeter Eintrag würde vom
-    Tausch selbst sofort wieder verworfen."""
+    Tausch selbst sofort wieder verworfen.
+
+    Erfasst bewusst KEINE Client-IP-Adresse (DSGVO/personenbezogene Daten,
+    hier fuer den Zweck des Protokolls - wer hat wann welche Stammdaten-
+    Aenderung vorgenommen - nicht erforderlich). Die Spalte 'ip_address'
+    existiert in bestehenden Datenbanken evtl. noch als Altlast aus einer
+    frueheren Version (siehe _migrate_audit_log_drop_ip in main.py, die
+    dort bereits gespeicherte Adressen einmalig auf NULL zuruecksetzt),
+    ist hier aber bewusst nicht mehr als Spalte gemappt."""
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True)
@@ -722,6 +730,5 @@ class AuditLog(Base):
     action = Column(String, nullable=False)        # z.B. CREATE | UPDATE | DELETE | LOGIN
     target_type = Column(String, nullable=False)   # z.B. Nutzer | Gruppe | Bereich | Inventar | System
     details = Column(String, nullable=False)
-    ip_address = Column(String, nullable=True)
 
     user = relationship("User")
