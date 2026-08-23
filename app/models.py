@@ -338,6 +338,48 @@ class InventoryMovement(Base):
     user = relationship("User")
 
 
+class CoolingDevice(Base):
+    """Kuehlzelle/Kuehlschrank fuer die digitale Temperaturdokumentation
+    (HACCP, siehe /kuehlungen) - Aufbau bewusst analog zu InventoryItem:
+    Stammdaten hier, jede Erfassung als eigene CoolingReading-Zeile."""
+    __tablename__ = "cooling_devices"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    location = Column(String, nullable=True)
+    target_temp = Column(Float, nullable=False)        # Soll-Temperatur in °C
+    max_temp = Column(Float, nullable=False)            # Grenzwert in °C - Ueberschreitung loest Meldung aus
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    # Wie InventoryItem.notified: verhindert wiederholte Meldungen/Pushes fuer
+    # dieselbe andauernde Grenzwert-Ueberschreitung - wird bei der naechsten
+    # Erfassung wieder im Zielbereich automatisch zurueckgesetzt.
+    notified = Column(Boolean, default=False)
+
+    group = relationship("Group")
+    readings = relationship(
+        "CoolingReading", back_populates="device", cascade="all, delete-orphan",
+        order_by="desc(CoolingReading.timestamp)"
+    )
+
+
+class CoolingReading(Base):
+    __tablename__ = "cooling_readings"
+
+    id = Column(Integer, primary_key=True)
+    device_id = Column(Integer, ForeignKey("cooling_devices.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    value = Column(Float, nullable=False)               # gemessene Temperatur in °C
+    # Ob der Grenzwert zum Zeitpunkt DIESER Erfassung ueberschritten war -
+    # bewusst gespeichert statt bei jeder Anzeige gegen device.max_temp neu
+    # zu pruefen: max_temp kann sich spaeter aendern, ein HACCP-Pruefprotokoll
+    # muss aber den damals tatsaechlich geltenden Grenzwert widerspiegeln.
+    is_over_limit = Column(Boolean, default=False)
+    timestamp = Column(DateTime(timezone=True), default=utcnow)
+
+    device = relationship("CoolingDevice", back_populates="readings")
+    user = relationship("User")
+
+
 class Report(Base):
     """Meldung: Mitarbeiter melden Defekte/Fehlendes zu einem Bereich,
     optional mit mehreren Fotos. Kann von jedem eingeloggten Nutzer als

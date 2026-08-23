@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.93.0] - 2026-08-23
+- Neues Modul „Kühlungen" (`/kuehlungen`): digitale Temperaturdokumentation für Kühlzellen nach HACCP. Jede Kühlzelle bekommt eine Soll-Temperatur und einen Grenzwert; Temperaturen lassen sich über eine für Smartphone/Tablet optimierte Eingabemaske erfassen. Wird der Grenzwert überschritten, erscheint der Eintrag rot und es wird automatisch eine kritische Meldung an die zuständige Gruppe (oder betriebsweit) verschickt – solange die Überschreitung anhält, wird nicht erneut benachrichtigt, nach einer Rückkehr in den Soll-Bereich löst die nächste Überschreitung wieder eine neue Meldung aus. Der Temperaturverlauf wird pro Kühlzelle als Chart.js-Liniendiagramm mit 7-/30-Tage-Filter und eingezeichnetem Soll-/Grenzwert dargestellt. Für Prüfungen lässt sich der Monatsverlauf einer Kühlzelle als CSV oder PDF herunterladen, überschrittene Messungen sind darin farblich hervorgehoben.
+
 ## [0.92.1] - 2026-08-22
 - Dashboard anpassen: Die Widget-Auswahl wird jetzt geräteseitig im Browser (`localStorage`) statt im Nutzerkonto gespeichert – die Ansicht ist dadurch pro Gerät/Browser individuell (nicht mehr geräteübergreifend synchron), kommt ganz ohne Server-Anfrage aus und funktioniert dadurch auch offline. Beim ersten Aufruf ohne gespeicherte Auswahl sind weiterhin alle Widgets sichtbar.
 

@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Kühlungen – ClubHUB{% endblock %}
+{% block content %}
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
+
+<div class="mb-6 mt-2">
+  <h1 class="font-display text-2xl font-semibold">Kühlungen</h1>
+  <p class="text-slate-400 text-sm mt-1">Digitale Temperaturdokumentation für Kühlzellen &middot; HACCP</p>
+</div>
+
+{% if not user %}
+<div class="rounded-lg border border-line bg-panel p-3 mb-5 text-sm text-slate-300 flex items-center justify-between">
+  <span>Zum Erfassen von Temperaturen anmelden.</span>
+  <a href="/?next=/kuehlungen" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor font-medium">Anmelden</a>
+</div>
+{% endif %}
+
+{% if user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3 rounded-xl bg-go/90 hover:bg-go text-oncolor group-open:rounded-b-none">
+    <span class="font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Kühlzelle hinzufügen
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="p-4 border-t border-line">
+    <form method="post" action="/kuehlungen" class="space-y-2">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input name="name" placeholder="Name, z.B. Kühlzelle 1" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <input name="location" placeholder="Standort, z.B. Küche" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Soll-Temperatur (°C)</label>
+          <input name="target_temp" type="number" step="0.1" required placeholder="4" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Grenzwert (°C)</label>
+          <input name="max_temp" type="number" step="0.1" required placeholder="7" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div class="flex-1">
+          <label class="block text-[11px] text-slate-400 mb-1">Gruppe (optional)</label>
+          <select name="group_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="">– keine Gruppe –</option>
+            {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Kühlzelle anlegen</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
+<div class="space-y-3" id="cooling-list">
+  {% for device in devices %}
+  {% set ctx = device_contexts[device.id] %}
+  {% include "_cooling_device_card.html" %}
+  {% else %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine Kühlzellen angelegt.
+  </div>
+  {% endfor %}
+</div>
+
+<div id="cooling-toast" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100%-2rem)]">
+  <div class="flex items-center gap-2 rounded-lg border border-late/40 bg-late text-white text-sm font-medium px-4 py-2.5 shadow-lg">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
+    <span id="cooling-toast-text"></span>
+  </div>
+</div>
+
+<script src="/static/chart.min.js"></script>
+<script>
+  (function () {
+    // Nicht-Auto-UMD-Build von Chart.js (siehe /static/chart.min.js) muss
+    // die benoetigten Controller/Skalen/Elemente einmalig selbst registrieren.
+    Chart.register.apply(Chart, Chart.registerables);
+
+    var list = document.getElementById('cooling-list');
+    var charts = {}; // device_id -> Chart-Instanz, lazy angelegt beim ersten Aufklappen
+
+    function themeColor(name, fallback) {
+      var v = getComputedStyle(document.documentElement).getPropertyValue('--color-' + name);
+      return (v && v.trim()) || fallback;
+    }
+
+    function formatLabel(iso) {
+      var d = new Date(iso);
+      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' '
+        + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function buildChart(canvas, deviceId) {
+      var wrapper = canvas.closest('.cooling-chart-wrapper');
+      var dataEl = wrapper.querySelector('.cooling-chart-data');
+      var raw = JSON.parse(dataEl.textContent || '[]');
+      var target = parseFloat(dataEl.dataset.target);
+      var max = parseFloat(dataEl.dataset.max);
+      var goColor = themeColor('go', '#33c481');
+      var lateColor = themeColor('late', '#ef5757');
+      var accentColor = themeColor('accent', '#5b8def');
+      var days = 30; // Standard-Ansicht beim ersten Aufklappen, siehe aktiver "30 Tage"-Button in _cooling_device_card.html
+
+      function pointsForDays(d) {
+        var cutoff = Date.now() - d * 24 * 60 * 60 * 1000;
+        return raw.filter(function (p) { return new Date(p.t).getTime() >= cutoff; });
+      }
+
+      var points = pointsForDays(days);
+      var chart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: points.map(function (p) { return formatLabel(p.t); }),
+          datasets: [
+            {
+              label: 'Temperatur',
+              data: points.map(function (p) { return p.v; }),
+              borderColor: accentColor,
+              backgroundColor: accentColor,
+              pointBackgroundColor: points.map(function (p) { return p.over ? lateColor : accentColor; }),
+              pointBorderColor: points.map(function (p) { return p.over ? lateColor : accentColor; }),
+              pointRadius: 3,
+              tension: 0.25,
+              spanGaps: true,
+            },
+            {
+              label: 'Soll',
+              data: points.map(function () { return target; }),
+              borderColor: goColor,
+              borderDash: [4, 4],
+              borderWidth: 1.5,
+              pointRadius: 0,
+              fill: false,
+            },
+            {
+              label: 'Grenzwert',
+              data: points.map(function () { return max; }),
+              borderColor: lateColor,
+              borderDash: [4, 4],
+              borderWidth: 1.5,
+              pointRadius: 0,
+              fill: false,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (item) {
+                  if (item.datasetIndex !== 0) return item.dataset.label + ': ' + item.formattedValue + '°C';
+                  return 'Temperatur: ' + item.formattedValue + '°C';
+                },
+              },
+            },
+          },
+          scales: {
+            x: { ticks: { maxTicksLimit: 6, color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.15)' } },
+          },
+        },
+      });
+      chart._coolingRaw = raw;
+      chart._coolingTarget = target;
+      chart._coolingMax = max;
+      charts[deviceId] = chart;
+      return chart;
+    }
+
+    function setChartRange(wrapper, days) {
+      var canvas = wrapper.querySelector('canvas');
+      var chart = charts[canvas.id];
+      if (!chart) return;
+      var cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      var points = chart._coolingRaw.filter(function (p) { return new Date(p.t).getTime() >= cutoff; });
+      chart.data.labels = points.map(function (p) { return formatLabel(p.t); });
+      chart.data.datasets[0].data = points.map(function (p) { return p.v; });
+      chart.data.datasets[0].pointBackgroundColor = points.map(function (p) { return p.over ? themeColor('late', '#ef5757') : themeColor('accent', '#5b8def'); });
+      chart.data.datasets[0].pointBorderColor = chart.data.datasets[0].pointBackgroundColor;
+      chart.data.datasets[1].data = points.map(function () { return chart._coolingTarget; });
+      chart.data.datasets[2].data = points.map(function () { return chart._coolingMax; });
+      chart.update();
+    }
+
+    // Charts erst beim tatsaechlichen Aufklappen der Details initialisieren -
+    // ein <canvas> in einem noch geschlossenen <details> hat Breite 0, Chart.js
+    // wuerde sonst mit falscher Groesse rendern.
+    list.addEventListener('toggle', function (e) {
+      var details = e.target;
+      if (!details.classList.contains('cooling-details') || !details.open) return;
+      var canvas = details.querySelector('.cooling-chart-wrapper canvas');
+      if (canvas && !charts[canvas.id]) buildChart(canvas, canvas.id);
+    }, true);
+
+    list.addEventListener('click', function (e) {
+      var rangeBtn = e.target.closest('.cooling-range-btn');
+      if (rangeBtn) {
+        var wrapper = rangeBtn.closest('.cooling-chart-wrapper');
+        wrapper.querySelectorAll('.cooling-range-btn').forEach(function (b) {
+          b.classList.remove('bg-go/20', 'text-go');
+          b.classList.add('text-slate-300');
+        });
+        rangeBtn.classList.add('bg-go/20', 'text-go');
+        rangeBtn.classList.remove('text-slate-300');
+        setChartRange(wrapper, parseInt(rangeBtn.dataset.days, 10));
+        return;
+      }
+    });
+
+    // Monats-Picker aktualisiert die CSV/PDF-Export-Links (?month=YYYY-MM),
+    // ohne dass ein Klick auf "CSV"/"PDF" selbst einen Request ausloest -
+    // das sind normale <a>-Downloads, kein fetch().
+    list.addEventListener('change', function (e) {
+      var monthInput = e.target.closest('.cooling-export-month');
+      if (!monthInput || !monthInput.value) return;
+      var exportBox = monthInput.closest('.cooling-export');
+      var deviceId = exportBox.dataset.deviceId;
+      exportBox.querySelector('.cooling-export-csv').href = '/kuehlungen/' + deviceId + '/export.csv?month=' + monthInput.value;
+      exportBox.querySelector('.cooling-export-pdf').href = '/kuehlungen/' + deviceId + '/export.pdf?month=' + monthInput.value;
+    });
+
+    var toast = document.getElementById('cooling-toast');
+    var toastText = document.getElementById('cooling-toast-text');
+    var toastTimer = null;
+    function showErrorToast(message) {
+      if (toastTimer) clearTimeout(toastTimer);
+      toastText.textContent = message;
+      toast.classList.remove('hidden');
+      toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+    }
+
+    // Asynchrones Erfassen ohne Full-Page-Reload - identisches Muster wie das
+    // Buchen im Inventar (siehe inventory.html): fetch() mit X-Requested-With,
+    // Server liefert nur das aktualisierte Karten-Fragment zurueck. Chart-
+    // Instanz der ersetzten Karte wird aus dem Cache entfernt, damit ein
+    // erneutes Aufklappen sie mit den neuen Daten frisch aufbaut.
+    list.addEventListener('submit', function (e) {
+      var form = e.target.closest('.cooling-log-form');
+      if (!form) return;
+      e.preventDefault();
+      var card = form.closest('.cooling-device-card');
+      var btn = form.querySelector('.cooling-log-btn');
+      if (btn && btn.disabled) return;
+      if (btn) btn.disabled = true;
+      if (card) card.classList.add('opacity-60', 'pointer-events-none');
+
+      fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'fetch' },
+      })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('http ' + resp.status);
+          return resp.text();
+        })
+        .then(function (html) {
+          if (!card) return;
+          var detailsOpen = card.querySelector(':scope > details.cooling-details');
+          detailsOpen = !!(detailsOpen && detailsOpen.open);
+          var oldCanvas = card.querySelector('.cooling-chart-wrapper canvas');
+          if (oldCanvas && charts[oldCanvas.id]) {
+            charts[oldCanvas.id].destroy();
+            delete charts[oldCanvas.id];
+          }
+          var wrapper = document.createElement('div');
+          wrapper.innerHTML = html.trim();
+          var newCard = wrapper.firstElementChild;
+          if (!newCard) return;
+          if (detailsOpen) {
+            var newDetails = newCard.querySelector(':scope > details.cooling-details');
+            if (newDetails) {
+              newDetails.open = true;
+              var newCanvas = newDetails.querySelector('.cooling-chart-wrapper canvas');
+              if (newCanvas) buildChart(newCanvas, newCanvas.id);
+            }
+          }
+          card.replaceWith(newCard);
+        })
+        .catch(function () {
+          if (card) card.classList.remove('opacity-60', 'pointer-events-none');
+          if (btn) btn.disabled = false;
+          showErrorToast('Erfassen fehlgeschlagen - bitte erneut versuchen.');
+        });
+    });
+  })();
+</script>
+{% endblock %}

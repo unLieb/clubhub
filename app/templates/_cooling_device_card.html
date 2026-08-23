@@ -1,0 +1,146 @@
+{# Einzelne Kühlzellen-Karte - aus kuehlungen.html ausgelagert, damit POST
+   /kuehlungen/{id}/log ("Erfassen") bei fetch()-Anfragen (siehe
+   X-Requested-With: fetch) nur dieses eine Karten-Fragment statt der
+   kompletten Seite zurueckgeben kann, analog zu _inventory_card.html.
+   Erwartet im Kontext: device, ctx (_build_cooling_device_context: latest,
+   is_over_limit, chart_data, recent_readings, groups, now_month), user. #}
+{% import "_group_macros.html" as gm %}
+<div id="cooling-device-{{ device.id }}" class="cooling-device-card rounded-xl border border-line border-l-4 {{ 'border-l-late' if ctx.is_over_limit else 'border-l-go' }} bg-panel p-4">
+
+  <!-- Kopfzeile: immer sichtbar -->
+  <div class="flex items-center gap-4 flex-wrap">
+    <div class="w-14 h-14 rounded-lg bg-panel2 flex items-center justify-center shrink-0 {{ 'text-late' if ctx.is_over_limit else 'text-slate-400' }}">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+    </div>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-medium">{{ device.name }}</span>
+        {% if ctx.is_over_limit %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium"><span class="w-1.5 h-1.5 rounded-full bg-late"></span>Grenzwert überschritten</span>
+        {% elif ctx.latest %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium"><span class="w-1.5 h-1.5 rounded-full bg-go"></span>Im Soll</span>
+        {% else %}
+        <span class="text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">Noch keine Messung</span>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
+        {% if device.location %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          {{ device.location }}
+        </span>
+        {% endif %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
+          Soll {{ "%g"|format(device.target_temp) }}°C &middot; Grenzwert {{ "%g"|format(device.max_temp) }}°C
+        </span>
+        {{ gm.group_badge(device.group) }}
+      </div>
+    </div>
+    {% if ctx.latest %}
+    <div class="shrink-0 text-right">
+      <div class="text-2xl font-display font-semibold {{ 'text-late' if ctx.is_over_limit else '' }}">{{ "%.1f"|format(ctx.latest.value) }}°C</div>
+      <div class="text-[11px] text-slate-500">{{ (ctx.latest.timestamp|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if ctx.latest.user %} &middot; {{ ctx.latest.user.name }}{% endif %}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if user %}
+  <form method="post" action="/kuehlungen/{{ device.id }}/log" class="cooling-log-form flex items-center gap-2 mt-3 flex-wrap">
+    <input name="value" type="number" step="0.1" inputmode="decimal" placeholder="Temperatur °C" required
+           class="w-36 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <button class="cooling-log-btn px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Erfassen</button>
+  </form>
+  {% endif %}
+
+  <!-- Details: klappt darunter auf, leicht eingerückt -->
+  <details class="mt-3 group cooling-details">
+    <summary class="cursor-pointer list-none flex items-center justify-end gap-1 text-sm text-slate-400 hover:text-slate-100">
+      Details
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+    </summary>
+
+    <div class="mt-3 pt-3 ml-6 border-t border-line grid lg:grid-cols-2 gap-4">
+      <!-- Linke Spalte: Chart + letzte Messungen -->
+      <div class="space-y-4">
+        <div class="rounded-lg border border-line bg-ink/40 p-3 cooling-chart-wrapper">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-sm font-medium">Temperaturverlauf</h4>
+            <div class="flex items-center rounded-md border border-line overflow-hidden text-xs">
+              <button type="button" class="cooling-range-btn px-2 py-1 text-slate-300 hover:bg-panel2" data-days="7">7 Tage</button>
+              <button type="button" class="cooling-range-btn px-2 py-1 bg-go/20 text-go" data-days="30">30 Tage</button>
+            </div>
+          </div>
+          <div class="h-40"><canvas id="cooling-chart-{{ device.id }}"></canvas></div>
+          <script type="application/json" class="cooling-chart-data" data-target="{{ device.target_temp }}" data-max="{{ device.max_temp }}">{{ ctx.chart_data | tojson }}</script>
+        </div>
+
+        <div class="rounded-lg border border-line bg-ink/40 p-3">
+          <h4 class="text-sm font-medium mb-2">Letzte Messungen</h4>
+          <ul class="divide-y divide-line">
+            {% for r in ctx.recent_readings %}
+            <li class="flex items-center justify-between py-2 text-sm gap-2">
+              <div class="min-w-0">
+                <div class="truncate font-medium {{ 'text-late' if r.is_over_limit else '' }}">
+                  {{ "%.1f"|format(r.value) }}°C
+                  {% if r.is_over_limit %}<span class="text-[10px] font-semibold uppercase ml-1">Überschritten</span>{% endif %}
+                </div>
+                <div class="text-xs text-slate-500">{{ (r.timestamp|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if r.user %} &middot; {{ r.user.name }}{% endif %}</div>
+              </div>
+            </li>
+            {% else %}
+            <li class="py-3 text-center text-slate-500 text-sm italic">Noch keine Messungen</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <!-- Rechte Spalte: Export + Stammdaten -->
+      <div class="space-y-4">
+        <div class="rounded-lg border border-line bg-ink/40 p-3">
+          <h4 class="text-sm font-medium mb-2">Monats-Export (HACCP)</h4>
+          <p class="text-xs text-slate-500 mb-2">Erfasste Temperaturen eines Monats für Kontrollen herunterladen.</p>
+          <div class="cooling-export flex items-center gap-2 flex-wrap" data-device-id="{{ device.id }}">
+            <input type="month" class="cooling-export-month rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm" value="{{ ctx.now_month }}">
+            <a href="/kuehlungen/{{ device.id }}/export.csv?month={{ ctx.now_month }}" class="cooling-export-csv px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium">CSV</a>
+            <a href="/kuehlungen/{{ device.id }}/export.pdf?month={{ ctx.now_month }}" class="cooling-export-pdf px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium">PDF</a>
+          </div>
+        </div>
+
+        {% if user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
+        <div class="rounded-lg border border-line bg-ink/40 p-3">
+          <h4 class="text-sm font-medium mb-2">Stammdaten bearbeiten</h4>
+          <form method="post" action="/kuehlungen/{{ device.id }}/edit" class="space-y-2">
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input name="name" value="{{ device.name }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <input name="location" value="{{ device.location or '' }}" placeholder="Standort" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <div class="flex-1">
+                <label class="block text-[11px] text-slate-400 mb-1">Soll-Temperatur (°C)</label>
+                <input name="target_temp" type="number" step="0.1" value="{{ device.target_temp }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              </div>
+              <div class="flex-1">
+                <label class="block text-[11px] text-slate-400 mb-1">Grenzwert (°C)</label>
+                <input name="max_temp" type="number" step="0.1" value="{{ device.max_temp }}" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              </div>
+              <div class="flex-1">
+                <label class="block text-[11px] text-slate-400 mb-1">Gruppe</label>
+                <select name="group_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+                  <option value="">– keine Gruppe –</option>
+                  {% for g in ctx.groups %}<option value="{{ g.id }}" {% if device.group_id == g.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+                </select>
+              </div>
+            </div>
+            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+          </form>
+          {% if user.is_admin or user.is_developer %}
+          <form method="post" action="/kuehlungen/{{ device.id }}/delete" class="mt-2" onsubmit="return confirm('„{{ device.name }}“ wirklich löschen? Alle erfassten Messwerte gehen unwiderruflich verloren.')">
+            <button type="submit" class="px-3 py-1.5 rounded-md border border-late/40 text-late hover:bg-late/10 text-sm font-medium">Kühlzelle löschen</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+</div>

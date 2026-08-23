@@ -1934,6 +1934,23 @@ def filter_inventory_for_user(items, user):
     return visible
 
 
+def user_can_see_cooling_device(user, device) -> bool:
+    """Identisches Sichtbarkeits-Schema wie user_can_see_inventory_item -
+    Kuehlzellen ohne Gruppe sind gemeinsam sichtbar, sonst nur fuer die
+    eigene(n) Gruppe(n) bzw. Admins."""
+    if user and user.is_admin:
+        return True
+    if device.group_id is None:
+        return True
+    if not user:
+        return False
+    return any(g.id == device.group_id for g in user.groups)
+
+
+def filter_cooling_devices_for_user(devices, user):
+    return [d for d in devices if user_can_see_cooling_device(user, d)]
+
+
 _OG_IMAGE_PATTERNS = [
     re.compile(r'<meta[^>]+property=["\']og:image(?::secure_url)?["\'][^>]+content=["\']([^"\']+)["\']', re.I),
     re.compile(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image(?::secure_url)?["\']', re.I),
@@ -2083,11 +2100,13 @@ def nav_badges(request: Request) -> dict:
     try:
         user = get_current_user(request, db)
         if not user:
-            return {"reports": 0, "inventory": 0}
+            return {"reports": 0, "inventory": 0, "cooling": 0}
         reports_open = db.query(models.Report).filter(models.Report.status != "done").count()
         items = filter_inventory_for_user(db.query(models.InventoryItem).all(), user)
         inventory_critical = sum(1 for i in items if compute_inventory_status(i)["status"] == "low")
-        return {"reports": reports_open, "inventory": inventory_critical}
+        devices = filter_cooling_devices_for_user(db.query(models.CoolingDevice).all(), user)
+        cooling_alerts = sum(1 for d in devices if d.readings and d.readings[0].is_over_limit)
+        return {"reports": reports_open, "inventory": inventory_critical, "cooling": cooling_alerts}
     finally:
         db.close()
 
@@ -2342,17 +2361,304 @@ async def inventory_set_image(
     return RedirectResponse("/inventory", status_code=302)
 
 
+# ---------- Kühlungen (HACCP-Temperaturdokumentation) ----------
+
+def _ascii_slug(name: str, fallback: str) -> str:
+    """ASCII-sicherer Dateiname-Baustein (Content-Disposition-Header
+    vertraegt keine rohen Umlaute) - gleiches Vorgehen wie im bestehenden
+    Zeiterfassungs-CSV-Export (admin_timeclock_export_csv)."""
+    ascii_name = name.translate(str.maketrans("äöüÄÖÜß", "aouAOUs"))
+    return re.sub(r"[^A-Za-z0-9_-]+", "-", ascii_name).strip("-") or fallback
+
+
+def _cooling_chart_data(device, now, days: int = 30) -> list[dict]:
+    """Rohdaten fuer das Chart.js-Liniendiagramm (siehe kuehlungen.html) -
+    liefert bewusst die vollen letzten `days` Tage als einzelne Punkte statt
+    vorab auf 7 Tage einzuschraenken: der 7/30-Tage-Filter im Chart ist rein
+    clientseitig (Datum-Vergleich in JS), damit der Wechsel ohne Nachladen
+    sofort passiert."""
+    cutoff = now - timedelta(days=days)
+    readings = [r for r in device.readings if _to_local(r.timestamp) >= _to_local(cutoff)]
+    readings.sort(key=lambda r: r.timestamp)
+    return [
+        {"t": _to_local(r.timestamp).isoformat(), "v": r.value, "over": r.is_over_limit}
+        for r in readings
+    ]
+
+
+def _build_cooling_device_context(request, user, device, now, db: Session) -> dict:
+    latest = device.readings[0] if device.readings else None
+    return {
+        "request": request,
+        "user": user,
+        "device": device,
+        "latest": latest,
+        "is_over_limit": bool(latest and latest.is_over_limit),
+        "chart_data": _cooling_chart_data(device, now),
+        "recent_readings": device.readings[:15],
+        "groups": db.query(models.Group).order_by(models.Group.name).all(),
+        "now_month": _to_local(now).strftime("%Y-%m"),
+    }
+
+
+@app.get("/kuehlungen")
+def cooling_overview(request: Request, db: Session = Depends(get_db)):
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
+    now = ntptime.now_utc()
+    devices = filter_cooling_devices_for_user(
+        db.query(models.CoolingDevice).order_by(models.CoolingDevice.name).all(), user
+    )
+    device_contexts = {d.id: _build_cooling_device_context(request, user, d, now, db) for d in devices}
+    return templates.TemplateResponse("kuehlungen.html", {
+        "request": request,
+        "user": user,
+        "devices": devices,
+        "device_contexts": device_contexts,
+        "groups": db.query(models.Group).order_by(models.Group.name).all(),
+    })
+
+
+@app.post("/kuehlungen")
+def cooling_device_create(
+    request: Request,
+    name: str = Form(...),
+    location: str = Form(""),
+    target_temp: float = Form(...),
+    max_temp: float = Form(...),
+    group_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_staff_or_developer(request, db)
+    db.add(models.CoolingDevice(
+        name=name, location=location or None, target_temp=target_temp, max_temp=max_temp,
+        group_id=int(group_id) if group_id else None,
+    ))
+    db.commit()
+    return RedirectResponse("/kuehlungen", status_code=302)
+
+
+@app.post("/kuehlungen/{device_id}/edit")
+def cooling_device_edit(
+    device_id: int,
+    request: Request,
+    name: str = Form(...),
+    location: str = Form(""),
+    target_temp: float = Form(...),
+    max_temp: float = Form(...),
+    group_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_staff_or_developer(request, db)
+    device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
+    if device:
+        device.name = name
+        device.location = location or None
+        device.target_temp = target_temp
+        device.max_temp = max_temp
+        device.group_id = int(group_id) if group_id else None
+        db.commit()
+    return RedirectResponse("/kuehlungen", status_code=302)
+
+
+@app.post("/kuehlungen/{device_id}/delete")
+def cooling_device_delete(device_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin_or_developer(request, db)
+    device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
+    if device:
+        db.delete(device)
+        db.commit()
+    return RedirectResponse("/kuehlungen", status_code=302)
+
+
+def _create_cooling_alert(db: Session, background_tasks: BackgroundTasks, device, reading, user):
+    """Erzeugt automatisch eine Meldung (Kategorie "kuehlung", siehe
+    REPORT_CATEGORIES) und benachrichtigt die zustaendige(n) Gruppe(n), wenn
+    eine Erfassung den Grenzwert einer Kuehlzelle ueberschreitet - analog zum
+    Verhalten bei niedrigem Lagerbestand (siehe check_inventory_job in
+    scheduler.py), hier aber sofort bei der Erfassung statt per Scheduler-
+    Tick, da eine HACCP-relevante Ueberschreitung nicht bis zum naechsten
+    Durchlauf warten soll."""
+    comment = (
+        f"Kühlzelle „{device.name}“ hat den Grenzwert überschritten: "
+        f"{reading.value:g}°C gemessen (Soll {device.target_temp:g}°C, Grenzwert {device.max_temp:g}°C), "
+        f"erfasst von {user.name}."
+    )
+    report = models.Report(
+        room_id=None, user_id=user.id, comment=comment, priority="critical", category="kuehlung",
+        assigned_group_id=device.group_id, is_company_wide=device.group_id is None,
+    )
+    db.add(report)
+    db.commit()
+
+    # Gruppen inkl. Kanaele + Mitglieder/Push-Abos hier bereits vollstaendig
+    # laden (nicht erst lazy in notify_group/notify_groups) - die Session ist
+    # geschlossen, sobald der Background-Task nach dem Response tatsaechlich
+    # laeuft, sonst DetachedInstanceError (siehe reports_create fuer dasselbe
+    # Muster).
+    group_loaders = (
+        joinedload(models.Group.channels),
+        joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
+    )
+    title = f"Kühlung überschritten: {device.name}"
+    focus_url = f"/kuehlungen?focus=device-{device.id}"
+    if device.group_id is None:
+        all_groups = db.query(models.Group).options(*group_loaders).all()
+        if all_groups:
+            background_tasks.add_task(notify_groups, all_groups, title, comment, "high", focus_url)
+    else:
+        group = db.query(models.Group).options(*group_loaders).filter(models.Group.id == device.group_id).first()
+        if group:
+            background_tasks.add_task(notify_group, group, title, comment, "high", focus_url)
+
+
+@app.post("/kuehlungen/{device_id}/log")
+def cooling_device_log(
+    device_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    value: float = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
+    if not device or not user_can_see_cooling_device(user, device):
+        if is_fetch:
+            raise HTTPException(status_code=404)
+        return RedirectResponse("/kuehlungen", status_code=302)
+
+    over_limit = value > device.max_temp
+    reading = models.CoolingReading(device_id=device.id, user_id=user.id, value=value, is_over_limit=over_limit)
+    db.add(reading)
+    # War_notified: nur beim UEBERGANG in eine Ueberschreitung (nicht bei
+    # jeder weiteren zu hohen Erfassung in Folge) eine neue Meldung erzeugen -
+    # gleiches Prinzip wie InventoryItem.notified beim Lagerbestand.
+    was_notified = device.notified
+    device.notified = over_limit
+    db.commit()
+    if over_limit and not was_notified:
+        _create_cooling_alert(db, background_tasks, device, reading, user)
+
+    if is_fetch:
+        now = ntptime.now_utc()
+        return templates.TemplateResponse("_cooling_device_card.html", {
+            "request": request, "user": user, "device": device,
+            "ctx": _build_cooling_device_context(request, user, device, now, db),
+        })
+    return RedirectResponse("/kuehlungen", status_code=302)
+
+
+def _cooling_month_readings(db: Session, device, month: str):
+    """Parst 'YYYY-MM' und liefert (year, month_int, readings) fuer den
+    Export - readings chronologisch aufsteigend (fuers Protokoll), anders als
+    die sonst ueberall verwendete neueste-zuerst-Reihenfolge."""
+    year_str, month_str = month.split("-")
+    year, month_int = int(year_str), int(month_str)
+    start = datetime(year, month_int, 1, tzinfo=APP_TIMEZONE)
+    end = datetime(year + (1 if month_int == 12 else 0), 1 if month_int == 12 else month_int + 1, 1, tzinfo=APP_TIMEZONE)
+    readings = (
+        db.query(models.CoolingReading)
+        .filter(models.CoolingReading.device_id == device.id)
+        .order_by(models.CoolingReading.timestamp)
+        .all()
+    )
+    return [r for r in readings if start <= _to_local(r.timestamp) < end]
+
+
+@app.get("/kuehlungen/{device_id}/export.csv")
+def cooling_device_export_csv(device_id: int, request: Request, month: str, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
+    if not device or not user_can_see_cooling_device(user, device):
+        raise HTTPException(status_code=404)
+    try:
+        readings = _cooling_month_readings(db, device, month)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ungültiger Monat")
+
+    # Manuelles Zusammenbauen statt csv-Modul, wie beim Zeiterfassungs-Export
+    # (admin_timeclock_export_csv) - ";" als Trenner (deutsches Excel-
+    # Gebietsschema nutzt "," als Dezimaltrennzeichen), esc() ersetzt einen
+    # eventuellen Trenner im Namen statt ihn faelschlich als Spaltenende zu
+    # werten.
+    def esc(value: str) -> str:
+        return (value or "").replace(";", ",")
+
+    lines = ["Datum;Uhrzeit;Temperatur (°C);Grenzwert überschritten;Erfasst von"]
+    for r in readings:
+        local_ts = _to_local(r.timestamp)
+        lines.append(";".join([
+            local_ts.strftime("%d.%m.%Y"), local_ts.strftime("%H:%M"),
+            f"{r.value:g}", "Ja" if r.is_over_limit else "Nein", esc(r.user.name if r.user else "–"),
+        ]))
+    csv_content = "\n".join(lines) + "\n"
+
+    filename = f"kuehlung-{_ascii_slug(device.name, 'kuehlzelle')}-{month}.csv"
+    return Response(
+        # utf-8-sig (BOM), damit Excel unter Windows die Datei beim
+        # Doppelklick zuverlaessig als UTF-8 statt der System-Codepage
+        # erkennt - sonst werden Umlaute/° falsch dargestellt.
+        content=csv_content.encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/kuehlungen/{device_id}/export.pdf")
+def cooling_device_export_pdf(device_id: int, request: Request, month: str, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
+    if not device or not user_can_see_cooling_device(user, device):
+        raise HTTPException(status_code=404)
+    try:
+        readings = _cooling_month_readings(db, device, month)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ungültiger Monat")
+
+    month_label = datetime.strptime(month, "%Y-%m").strftime("%m/%Y")
+    readings_local = [
+        {
+            "date": _to_local(r.timestamp).strftime("%d.%m.%Y"),
+            "time": _to_local(r.timestamp).strftime("%H:%M"),
+            "value": r.value,
+            "over_limit": r.is_over_limit,
+            "user_name": r.user.name if r.user else "–",
+        }
+        for r in readings
+    ]
+    pdf_bytes = pdf_export.generate_cooling_report_pdf(
+        device_name=device.name, location=device.location, target_temp=device.target_temp,
+        max_temp=device.max_temp, month_label=month_label, readings=readings_local,
+        generated_at_local=ntptime.now_utc().astimezone(APP_TIMEZONE),
+    )
+    filename = f"kuehlung-{_ascii_slug(device.name, 'kuehlzelle')}-{month}.pdf"
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ---------- Meldungen ----------
 
 REPORT_PRIORITIES = ("critical", "high", "normal", "low")
 REPORT_PRIORITY_RANK = {p: i for i, p in enumerate(REPORT_PRIORITIES)}
-REPORT_CATEGORIES = ("defekt", "material", "reinigung", "anschaffung", "sonstiges")
+# "kuehlung" wird ausschliesslich automatisch erzeugt (siehe
+# _create_cooling_alert in der Kuehlungen-Sektion unten, wenn eine Erfassung
+# den Grenzwert einer Kuehlzelle ueberschreitet) - bewusst kein manuell
+# waehlbarer Eintrag im "Neue Meldung"-Formular (reports.html, dortiges
+# <select> ist fest verdrahtet, nicht aus REPORT_CATEGORIES generiert),
+# muss aber trotzdem hier stehen, damit reports_create() diese Kategorie
+# nicht auf "sonstiges" zurueckfaellt und REPORT_ROOMLESS_CATEGORIES greift.
+REPORT_CATEGORIES = ("defekt", "material", "reinigung", "anschaffung", "sonstiges", "kuehlung")
 # Materialwunsch/Anschaffung ist an keinen Bereich gebunden (siehe
 # models.Report.room_id) - man bestellt fuer die eigene Gruppe, nicht für
 # einen Raum, daher braucht diese Kategorie zwingend eine zustaendige Gruppe
 # statt eines Bereichs, und keine Priorität (die ist ein Dringlichkeits-Maß
-# für Defekte, passt hier nicht).
-REPORT_ROOMLESS_CATEGORIES = ("anschaffung",)
+# für Defekte, passt hier nicht). "kuehlung" ist ebenfalls roomless - eine
+# Kuehlzelle ist kein Bereich (Room), sondern ein eigenes CoolingDevice.
+REPORT_ROOMLESS_CATEGORIES = ("anschaffung", "kuehlung")
 REPORT_STATUSES = ("open", "in_progress", "done")
 
 
