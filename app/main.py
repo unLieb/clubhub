@@ -517,12 +517,6 @@ def _migrate_user_notify_on_completion(db: Session):
     _ensure_column(db, "users", "notify_on_completion", "INTEGER DEFAULT 0")
 
 
-def _migrate_room_overdue_notified(db: Session):
-    """Drossel-Zeitstempel fuer die gebuendelte "Ueberfaellig"-Sammel-Push
-    je Bereich (siehe check_tasks_job in scheduler.py)."""
-    _ensure_column(db, "rooms", "overdue_notified_at", "DATETIME")
-
-
 def _migrate_audit_log_drop_ip(db: Session):
     """DSGVO: Client-IP-Adressen wurden bis v0.97.1 im Audit-Log gespeichert -
     ab hier nicht mehr (siehe AuditLog in models.py). Die Spalte bleibt in
@@ -626,7 +620,6 @@ def _startup():
         _migrate_task_active_weekdays(db)
         _migrate_detach_task_groups(db)
         _migrate_user_notify_on_completion(db)
-        _migrate_room_overdue_notified(db)
         _migrate_audit_log_drop_ip(db)
     finally:
         db.close()

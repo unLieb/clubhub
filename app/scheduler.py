@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
-from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group, Room
+from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group, RoomGroupThrottle
 from .status import task_status, compute_inventory_status
 from .notifications import notify_group, notify_groups, notify_user
 from . import ntptime
@@ -23,10 +23,13 @@ APP_TIMEZONE = ZoneInfo(os.environ.get("APP_TIMEZONE", "Europe/Berlin"))
 BACKUP_SCHEDULE_HOURS = os.environ.get("BACKUP_SCHEDULE_HOURS", "0,6,12,18")
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "3"))
 
-# Drossel-Intervall je Bereich für die gebündelte "Überfällig"-Sammel-Push
-# (siehe Room.overdue_notified_at) - verhindert wiederholte Sammel-Pushes für
-# denselben Bereich, solange dort weiterhin (dieselben oder neue) Aufgaben
-# überfällig sind.
+# Drossel-Intervall je (Bereich, Gruppe) für die gebündelte "Überfällig"-
+# Sammel-Push (siehe RoomGroupThrottle) - verhindert wiederholte Sammel-
+# Pushes für dieselbe Bereich-Gruppen-Kombination, solange dort weiterhin
+# (dieselben oder neue) Aufgaben überfällig sind. Pro Gruppe statt nur pro
+# Bereich, damit eine Gruppe mit später öffnendem Arbeitszeit-Fenster nicht
+# leer ausgeht, nur weil eine andere Gruppe desselben Bereichs bereits
+# informiert wurde.
 OVERDUE_BATCH_THROTTLE_HOURS = float(os.environ.get("OVERDUE_BATCH_THROTTLE_HOURS", "4"))
 
 # Statuswechsel, bei denen wir aktiv informieren (green -> gelb/rot ist neu, rot bleibt still nach erster Meldung)
@@ -58,8 +61,8 @@ def check_tasks_job():
     überfälligen Aufgaben in einem Bereich (oder mehreren Aufgaben, die
     nacheinander über die Zeit überfällig werden) würde sonst pro Aufgabe und
     Gruppe ein eigener Push rausgehen und den Kanal überfluten - hier deshalb
-    stattdessen genau eine gebündelte Sammel-Push je Bereich (siehe unten,
-    gedrosselt über Room.overdue_notified_at)."""
+    stattdessen genau eine gebündelte Sammel-Push je Bereich und Gruppe
+    (siehe unten, gedrosselt über RoomGroupThrottle)."""
     db = SessionLocal()
     try:
         now = ntptime.now_utc()
@@ -116,32 +119,47 @@ def check_tasks_job():
         db.commit()
 
         # Gebündelte "Überfällig"-Sammel-Push: pro Bereich mit aktuell
-        # überfälligen Aufgaben höchstens eine Meldung, gedrosselt auf
-        # OVERDUE_BATCH_THROTTLE_HOURS je Bereich statt bei jedem 15-Minuten-
-        # Tick erneut zu feuern, solange die Überfälligkeit anhält.
+        # überfälligen Aufgaben höchstens eine Meldung je Gruppe, gedrosselt
+        # auf OVERDUE_BATCH_THROTTLE_HOURS je (Bereich, Gruppe) statt bei
+        # jedem 15-Minuten-Tick erneut zu feuern, solange die Überfälligkeit
+        # anhält.
         for room_id, entry in overdue_by_room.items():
             room = entry["room"]
-            last_notified = _aware(room.overdue_notified_at)
-            if last_notified is not None and (now - last_notified).total_seconds() < OVERDUE_BATCH_THROTTLE_HOURS * 3600:
-                continue
             all_groups = db.query(Group).filter(Group.id.in_(entry["group_ids"])).all()
             if not all_groups:
                 continue
-            # Nur an Gruppen schicken, die JETZT innerhalb ihrer EIGENEN
+            # Nur Gruppen betrachten, die JETZT innerhalb ihrer EIGENEN
             # Arbeitszeit sind - bei mehreren Gruppen am selben Bereich (z.B.
             # Hausmeister mit festem Fenster + Toilettenbetreuung ganz ohne
-            # Fenster) durfte eine Gruppe ohne Einschraenkung bisher (any())
-            # dazu fuehren, dass eine ANDERE Gruppe ausserhalb ihres eigenen
-            # Fensters trotzdem benachrichtigt wurde. Bekannter Kompromiss:
-            # der Drossel-Zeitstempel bleibt je Bereich (nicht je Gruppe) -
-            # bekommt eine Gruppe ohne Fenster den Push zuerst, kann eine
-            # andere Gruppe, deren Fenster erst spaeter oeffnet, denselben
-            # Bereich innerhalb des Drossel-Intervalls verpassen. Seltener
-            # und harmloser Fall als das urspruengliche Problem (Push
-            # ausserhalb der eigenen Arbeitszeit).
+            # Fenster) darf eine Gruppe ohne Einschraenkung nicht dazu fuehren,
+            # dass eine ANDERE Gruppe ausserhalb ihres eigenen Fensters
+            # trotzdem benachrichtigt wird.
             groups = [g for g in all_groups if _within_working_hours(g, now_local)]
             if not groups:
                 continue  # wird beim nächsten Tick nachgeholt, sobald eine Arbeitszeit beginnt
+
+            # Von den (aktuell im Dienst befindlichen) Gruppen wiederum nur
+            # die, deren eigenes Drossel-Fenster fuer DIESEN Bereich bereits
+            # abgelaufen ist - pro (Bereich, Gruppe) statt nur pro Bereich,
+            # damit eine spaeter startende Schicht nicht leer ausgeht, nur
+            # weil eine frueher startende Gruppe desselben Bereichs kuerzlich
+            # schon informiert wurde.
+            throttles = {
+                t.group_id: t
+                for t in db.query(RoomGroupThrottle).filter(
+                    RoomGroupThrottle.room_id == room_id,
+                    RoomGroupThrottle.group_id.in_([g.id for g in groups]),
+                ).all()
+            }
+            due_groups = []
+            for group in groups:
+                throttle = throttles.get(group.id)
+                last_notified = _aware(throttle.notified_at) if throttle else None
+                if last_notified is not None and (now - last_notified).total_seconds() < OVERDUE_BATCH_THROTTLE_HOURS * 3600:
+                    continue
+                due_groups.append((group, throttle))
+            if not due_groups:
+                continue
 
             count = len(entry["task_names"])
             task_word = "Aufgabe" if count == 1 else "Aufgaben"
@@ -151,8 +169,12 @@ def check_tasks_job():
                 examples += ", ..."
             title = f"Überfällig: {room.name}"
             msg = f"{count} {task_word} {verb} überfällig (z.B. {examples})."
-            notify_groups(groups, title, msg, url=f"/room/{room_id}")
-            room.overdue_notified_at = now
+            notify_groups([g for g, _ in due_groups], title, msg, url=f"/room/{room_id}")
+            for group, throttle in due_groups:
+                if throttle:
+                    throttle.notified_at = now
+                else:
+                    db.add(RoomGroupThrottle(room_id=room_id, group_id=group.id, notified_at=now))
 
         db.commit()
     except Exception:
@@ -183,10 +205,17 @@ def check_completion_batches_job():
     Profil. Geht deshalb bewusst NICHT über notify_group/notify_groups (die
     würden zusätzlich auch die geteilten Gruppen-Kanäle ntfy/Gotify/Signal
     bedienen, die keinen Opt-in je Empfänger kennen), sondern nur als
-    persönlicher Web-Push an einzelne, explizit angemeldete Nutzer."""
+    persönlicher Web-Push an einzelne, explizit angemeldete Nutzer.
+
+    Respektiert außerdem die Arbeitszeit der jeweiligen Gruppe (wie die
+    anderen Job-Typen) - eine Gruppe, die gerade nicht im Dienst ist, wird
+    für diesen Batch übersprungen (kein Nachholen für sie, anders als bei
+    Überfällig/Bald fällig: ein einzelnes "wurde erledigt" ist rein
+    informativ und nach Schichtende nicht mehr sinnvoll nachzureichen)."""
     db = SessionLocal()
     try:
         now = ntptime.now_utc()
+        now_local = now.astimezone(APP_TIMEZONE)
         for room_id, entry in notification_batching.pop_due_batches(now):
             groups = db.query(Group).filter(Group.id.in_(entry["group_ids"])).all()
             if not groups:
@@ -201,6 +230,8 @@ def check_completion_batches_job():
 
             seen_user_ids = set()
             for group in groups:
+                if not _within_working_hours(group, now_local):
+                    continue
                 for member in group.users:
                     if member.id in seen_user_ids or not member.notify_on_completion:
                         continue

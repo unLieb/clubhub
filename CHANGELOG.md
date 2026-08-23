@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.98.0] - 2026-08-23
+- "Erledigt"-Sammel-Pushes respektieren jetzt ebenfalls die Arbeitszeit der jeweiligen Gruppe – wer gerade nicht im Dienst ist, bekommt die (rein informative) Meldung nicht mehr außerhalb seiner Arbeitszeit.
+- Der Drossel-Zeitstempel für die "Überfällig"-Sammel-Push wird jetzt pro Kombination aus Bereich UND Gruppe gespeichert (neue Tabelle `room_group_throttles`) statt nur global pro Bereich. Dadurch verpasst eine später startende Schicht/Gruppe eine Benachrichtigung nicht mehr nur, weil eine andere Gruppe desselben Bereichs innerhalb der letzten 4 Stunden bereits informiert wurde.
+
 ## [0.97.4] - 2026-08-23
 - Bugfix: die gebündelte "Überfällig"-Sammel-Push (siehe 0.96.0) respektierte die Arbeitszeit einer Gruppe nicht mehr korrekt, wenn ein Bereich mehreren Gruppen zugeordnet ist und mindestens eine davon kein eigenes Arbeitszeit-Fenster hat (z.B. "Gäste WCs": Hausmeister 6–14 Uhr + Toilettenbetreuung ohne Einschränkung) – die Prüfung "irgendeine der Gruppen ist gerade in ihrer Arbeitszeit" schickte den Push dann an alle zugeordneten Gruppen, auch außerhalb von deren eigenem Fenster. Die Meldung geht jetzt nur noch an die Gruppen raus, die gerade tatsächlich innerhalb ihrer eigenen Arbeitszeit sind.
 

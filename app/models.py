@@ -169,12 +169,6 @@ class Room(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    # Zeitpunkt der letzten gebuendelten "Ueberfaellig"-Sammel-Push fuer
-    # diesen Bereich (siehe check_tasks_job in scheduler.py) - verhindert,
-    # dass bei mehreren ueberfaelligen Aufgaben im selben Bereich innerhalb
-    # des Drossel-Intervalls (OVERDUE_BATCH_THROTTLE_HOURS) wiederholt
-    # derselbe Sammel-Push rausgeht.
-    overdue_notified_at = Column(DateTime(timezone=True), nullable=True)
 
     groups = relationship("Group", secondary=room_group, back_populates="rooms")
     tasks = relationship("Task", back_populates="room", cascade="all, delete-orphan")
@@ -296,6 +290,22 @@ class TaskGroupNotice(Base):
     task_id = Column(Integer, ForeignKey("tasks.id"), primary_key=True)
     group_id = Column(Integer, ForeignKey("groups.id"), primary_key=True)
     last_status = Column(String, default="green")
+
+
+class RoomGroupThrottle(Base):
+    """Drossel-Zeitstempel für die gebündelte "Überfällig"-Sammel-Push, pro
+    (Bereich, Gruppe) statt nur global pro Bereich (siehe check_tasks_job in
+    scheduler.py) - sonst würde eine Gruppe mit später öffnendem Arbeitszeit-
+    Fenster eine Benachrichtigung verpassen, nur weil eine ANDERE Gruppe
+    desselben Bereichs innerhalb des Drossel-Intervalls
+    (OVERDUE_BATCH_THROTTLE_HOURS) bereits informiert wurde. Ersetzt das
+    frühere Room.overdue_notified_at (nur global je Bereich, siehe Git-
+    Historie)."""
+    __tablename__ = "room_group_throttles"
+
+    room_id = Column(Integer, ForeignKey("rooms.id"), primary_key=True)
+    group_id = Column(Integer, ForeignKey("groups.id"), primary_key=True)
+    notified_at = Column(DateTime(timezone=True), nullable=False)
 
 
 class InventoryItem(Base):
