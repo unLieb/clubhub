@@ -10,7 +10,7 @@
 {% macro group_badge(group) -%}
 {%- if group -%}
 {%- set c = group.color or group_default_color -%}
-<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium" style="background-color: {{ c }}26; color: {{ c }};">{{ group.name }}</span>
+<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap" style="background-color: {{ c }}26; color: {{ c }};">{{ group.name }}</span>
 {%- endif -%}
 {%- endmacro %}
 

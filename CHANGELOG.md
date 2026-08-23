@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.95.2] - 2026-08-23
+- Kühlungen (mobile Ansicht): den grünen "Kreis" um die Soll-/Grenzwert- und Status-Badges behoben – bei längeren Werten (z.B. Minus-Temperaturen) brach der Text innerhalb der Pillen-Badges auf mehrere Zeilen um, was sie durch die abgerundeten Ecken wie einen aufgeblähten Kreis statt einer sauberen Pille aussehen ließ. Außerdem den Chart-Tooltip korrigiert: er war zuletzt komplett deaktiviert, erscheint jetzt wie gewünscht wieder beim Antippen eines Messpunkts, verschwindet aber – anders als vorher – beim Antippen einer Stelle außerhalb des Diagramms, statt dauerhaft stehen zu bleiben.
+
 ## [0.95.1] - 2026-08-23
 - Kühlungen (mobile Ansicht): zwei Layout-Fehler behoben. Erstens verdeckte der Chart.js-Tooltip auf dem Smartphone nach dem Antippen eines Messpunkts als schwarzer Kasten einen Großteil des Diagramms, weil er (anders als am Desktop per Maus-Hover) mangels "Mouse-Leave" einfach stehen blieb – er ist auf reinen Touch-Geräten jetzt deaktiviert. Zweitens zwang die eigene Mindestbreite des Chart-Canvas (Browser-Standard 300px, bevor Chart.js sie überschreibt) die Detail-Ansicht in die Breite, wodurch "30 Tage", "Nachtragen" sowie CSV/PDF-Buttons am rechten Bildschirmrand abgeschnitten wirkten – behoben durch die von Chart.js empfohlene Container-Struktur (`min-width: 0` auf den Grid-/Flex-Spalten, `position: relative` auf dem Canvas-Elternelement). Zusätzlich die Kreis-Buttons im Kopfbereich (Profil-Avatar, Design-/Benachrichtigungs-Umschalter) defensiv gegen Verzerrung abgesichert (feste Bildgrößen, konsequentes `shrink-0`).
 

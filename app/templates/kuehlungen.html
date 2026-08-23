@@ -111,11 +111,24 @@
     var charts = {}; // device_id -> Chart-Instanz, lazy angelegt beim ersten Aufklappen
 
     // Auf reinen Touch-Geraeten bleibt der Chart.js-Tooltip nach dem Antippen
-    // stehen (kein "mouseleave", das ihn wie am Desktop automatisch wieder
-    // ausblendet) und wirkt auf den kleinen mobilen Chart-Karten wie ein
-    // stoerender schwarzer Kasten, der einen Grossteil des Charts verdeckt -
-    // daher dort komplett deaktiviert statt nur umgestylt.
-    var isTouchDevice = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    // eines Messpunkts stehen (kein "mouseleave", das ihn wie am Desktop
+    // automatisch wieder ausblendet) - er soll aber weiterhin erscheinen,
+    // nur eben beim Antippen einer beliebigen Stelle ausserhalb des Charts
+    // wieder verschwinden, statt dauerhaft ueber dem Diagramm stehen zu
+    // bleiben. Dafuer bei jedem Tap/Klick auf dem Dokument alle offenen
+    // Tooltips schliessen, ausser der Tap traf selbst ein Chart-Canvas.
+    function dismissTooltip(chart) {
+      chart.setActiveElements([]);
+      chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+      chart.update();
+    }
+    document.addEventListener('pointerdown', function (e) {
+      var targetCanvas = e.target.closest('.cooling-chart-wrapper canvas');
+      Object.keys(charts).forEach(function (id) {
+        if (targetCanvas && targetCanvas.id === 'cooling-chart-' + id) return;
+        dismissTooltip(charts[id]);
+      });
+    });
 
     function themeColor(name, fallback) {
       var v = getComputedStyle(document.documentElement).getPropertyValue('--color-' + name);
@@ -188,7 +201,6 @@
           plugins: {
             legend: { display: false },
             tooltip: {
-              enabled: !isTouchDevice,
               backgroundColor: 'rgba(28,36,49,0.92)',
               padding: 8,
               cornerRadius: 6,

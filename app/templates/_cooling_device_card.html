@@ -16,21 +16,21 @@
       <div class="flex items-center gap-2 flex-wrap">
         <span class="font-medium">{{ device.name }}</span>
         {% if ctx.is_over_limit %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium"><span class="w-1.5 h-1.5 rounded-full bg-late"></span>Grenzwert überschritten</span>
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-late shrink-0"></span>Grenzwert überschritten</span>
         {% elif ctx.latest %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium"><span class="w-1.5 h-1.5 rounded-full bg-go"></span>Im Soll</span>
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-go shrink-0"></span>Im Soll</span>
         {% else %}
-        <span class="text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">Noch keine Messung</span>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium whitespace-nowrap">Noch keine Messung</span>
         {% endif %}
       </div>
       <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
         {% if device.location %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300 whitespace-nowrap">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
           {{ device.location }}
         </span>
         {% endif %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300 whitespace-nowrap">
           Soll {{ "%g"|format(device.target_temp) }}°C &middot; Grenzwert {{ "%g"|format(device.max_temp) }}°C
         </span>
         {{ gm.group_badge(device.group) }}
