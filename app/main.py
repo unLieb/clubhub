@@ -2513,12 +2513,32 @@ def _create_cooling_alert(db: Session, background_tasks: BackgroundTasks, device
             background_tasks.add_task(notify_group, group, title, comment, "high", focus_url)
 
 
+def _cooling_latest_reading(db: Session, device_id: int):
+    return (
+        db.query(models.CoolingReading)
+        .filter(models.CoolingReading.device_id == device_id)
+        .order_by(models.CoolingReading.timestamp.desc())
+        .first()
+    )
+
+
+def _recompute_cooling_notified(db: Session, device) -> None:
+    """Nach dem Bearbeiten/Loeschen einer einzelnen Messung den 'notified'-
+    Zustand anhand des chronologisch tatsaechlich juengsten verbliebenen
+    Messwerts neu bestimmen - loest bewusst KEINE neue Push-Meldung aus:
+    Korrekturen historischer Werte sollen nicht wie ein frisches Live-
+    Ereignis behandelt werden (siehe cooling_reading_edit/-delete)."""
+    latest = _cooling_latest_reading(db, device.id)
+    device.notified = bool(latest and latest.is_over_limit)
+
+
 @app.post("/kuehlungen/{device_id}/log")
 def cooling_device_log(
     device_id: int,
     request: Request,
     background_tasks: BackgroundTasks,
     value: float = Form(...),
+    timestamp: str = Form(""),
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
@@ -2529,17 +2549,100 @@ def cooling_device_log(
             raise HTTPException(status_code=404)
         return RedirectResponse("/kuehlungen", status_code=302)
 
+    reading_time = _parse_local_dt(timestamp) or ntptime.now_utc()
+    existing_latest = _cooling_latest_reading(db, device.id)
+    # Nur wenn die neue Messung chronologisch die juengste ist, spiegelt sie
+    # den aktuellen Zustand der Kuehlzelle wider - nachgetragene/rueckdatierte
+    # Werte vor dem bisher juengsten Eintrag aendern weder das Status-Badge
+    # noch loesen sie eine (dann irrefuehrend "gerade jetzt") Meldung aus.
+    is_new_latest = existing_latest is None or reading_time >= _to_local(existing_latest.timestamp)
+
     over_limit = value > device.max_temp
-    reading = models.CoolingReading(device_id=device.id, user_id=user.id, value=value, is_over_limit=over_limit)
+    reading = models.CoolingReading(
+        device_id=device.id, user_id=user.id, value=value, is_over_limit=over_limit, timestamp=reading_time
+    )
     db.add(reading)
     # War_notified: nur beim UEBERGANG in eine Ueberschreitung (nicht bei
     # jeder weiteren zu hohen Erfassung in Folge) eine neue Meldung erzeugen -
     # gleiches Prinzip wie InventoryItem.notified beim Lagerbestand.
     was_notified = device.notified
-    device.notified = over_limit
+    if is_new_latest:
+        device.notified = over_limit
     db.commit()
-    if over_limit and not was_notified:
+    if is_new_latest and over_limit and not was_notified:
         _create_cooling_alert(db, background_tasks, device, reading, user)
+
+    if is_fetch:
+        now = ntptime.now_utc()
+        return templates.TemplateResponse("_cooling_device_card.html", {
+            "request": request, "user": user, "device": device,
+            "ctx": _build_cooling_device_context(request, user, device, now, db),
+        })
+    return RedirectResponse("/kuehlungen", status_code=302)
+
+
+@app.post("/kuehlungen/{device_id}/readings/{reading_id}/edit")
+def cooling_reading_edit(
+    device_id: int,
+    reading_id: int,
+    request: Request,
+    value: float = Form(...),
+    timestamp: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = require_staff_or_developer(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
+    reading = (
+        db.query(models.CoolingReading)
+        .filter(models.CoolingReading.id == reading_id, models.CoolingReading.device_id == device_id)
+        .first()
+        if device else None
+    )
+    if not device or not reading:
+        if is_fetch:
+            raise HTTPException(status_code=404)
+        return RedirectResponse("/kuehlungen", status_code=302)
+
+    reading.value = value
+    reading.timestamp = _parse_local_dt(timestamp) or reading.timestamp
+    reading.is_over_limit = value > device.max_temp
+    _recompute_cooling_notified(db, device)
+    db.commit()
+
+    if is_fetch:
+        now = ntptime.now_utc()
+        return templates.TemplateResponse("_cooling_device_card.html", {
+            "request": request, "user": user, "device": device,
+            "ctx": _build_cooling_device_context(request, user, device, now, db),
+        })
+    return RedirectResponse("/kuehlungen", status_code=302)
+
+
+@app.post("/kuehlungen/{device_id}/readings/{reading_id}/delete")
+def cooling_reading_delete(
+    device_id: int,
+    reading_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = require_staff_or_developer(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
+    reading = (
+        db.query(models.CoolingReading)
+        .filter(models.CoolingReading.id == reading_id, models.CoolingReading.device_id == device_id)
+        .first()
+        if device else None
+    )
+    if not device or not reading:
+        if is_fetch:
+            raise HTTPException(status_code=404)
+        return RedirectResponse("/kuehlungen", status_code=302)
+
+    db.delete(reading)
+    _recompute_cooling_notified(db, device)
+    db.commit()
 
     if is_fetch:
         now = ntptime.now_utc()
