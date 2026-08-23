@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.95.4] - 2026-08-23
+- Kühlungen: Kopfzeile der Kühlzellen-Karte überarbeitet – der Messwert steht wieder wie gewohnt oberhalb der Soll-/Grenzwert-Zeile neben Name und Status statt in einer eigenen Zeile darunter, und Erfassungszeitpunkt/-person sind dort entfallen (stehen bereits bei "Letzte Messungen"/in der Historie, doppelt an der Kopfzeile also unnötig und zuvor Ursache der Kollision mit der Soll-/Grenzwert-Badge).
+
 ## [0.95.3] - 2026-08-23
 - Kühlungen (mobile Ansicht): Messwert und Zeitstempel in der Kopfzeile stapeln sich jetzt als eigene Zeile unter Name/Badges, statt als gleichberechtigte Nachbarn um denselben Platz zu konkurrieren – dadurch landete der Zeitstempel je nach Zeilenumbruch zu dicht an der Soll-/Grenzwert-Badge. Ab Tablet-Breite bleibt der Messwert weiterhin gewohnt rechts neben Name/Badges.
 

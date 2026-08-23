@@ -7,47 +7,42 @@
 {% import "_group_macros.html" as gm %}
 <div id="cooling-device-{{ device.id }}" class="cooling-device-card rounded-xl border border-line border-l-4 {{ 'border-l-late' if ctx.is_over_limit else 'border-l-go' }} bg-panel p-4">
 
-  <!-- Kopfzeile: immer sichtbar. Auf dem Handy stapelt sich der Messwert
-       (mit Zeitstempel) als eigene Zeile unter Icon/Name/Badges (flex-col) -
-       vorher konkurrierten beide als flex-wrap-Geschwister um denselben
-       Platz, wodurch der Zeitstempel je nach Zeilenumbruch direkt neben/auf
-       der zweiten Badge-Zeile landen konnte. Ab sm steht der Messwert wieder
-       gewohnt rechts neben Icon/Name/Badges. -->
-  <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-    <div class="flex items-center gap-4 min-w-0 flex-1">
-      <div class="w-14 h-14 rounded-lg bg-panel2 flex items-center justify-center shrink-0 {{ 'text-late' if ctx.is_over_limit else 'text-slate-400' }}">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+  <!-- Kopfzeile: immer sichtbar. Messwert steht rechts neben Name/Badges,
+       oberhalb der Soll-/Grenzwert-Zeile - Erfassungszeitpunkt/-person
+       bewusst nicht hier (nur der reine Wert), das steht bereits weiter
+       unten bei "Letzte Messungen"/in der Historie und wuerde als zweite
+       Zeile im Messwert-Block sonst wieder mit der Soll-/Grenzwert-Badge
+       kollidieren koennen. -->
+  <div class="flex items-center gap-4 flex-wrap">
+    <div class="w-14 h-14 rounded-lg bg-panel2 flex items-center justify-center shrink-0 {{ 'text-late' if ctx.is_over_limit else 'text-slate-400' }}">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+    </div>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-medium">{{ device.name }}</span>
+        {% if ctx.is_over_limit %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-late shrink-0"></span>Grenzwert überschritten</span>
+        {% elif ctx.latest %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-go shrink-0"></span>Im Soll</span>
+        {% else %}
+        <span class="text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium whitespace-nowrap">Noch keine Messung</span>
+        {% endif %}
       </div>
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="font-medium">{{ device.name }}</span>
-          {% if ctx.is_over_limit %}
-          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-late shrink-0"></span>Grenzwert überschritten</span>
-          {% elif ctx.latest %}
-          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-go shrink-0"></span>Im Soll</span>
-          {% else %}
-          <span class="text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium whitespace-nowrap">Noch keine Messung</span>
-          {% endif %}
-        </div>
-        <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
-          {% if device.location %}
-          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300 whitespace-nowrap">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-            {{ device.location }}
-          </span>
-          {% endif %}
-          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300 whitespace-nowrap">
-            Soll {{ "%g"|format(device.target_temp) }}°C &middot; Grenzwert {{ "%g"|format(device.max_temp) }}°C
-          </span>
-          {{ gm.group_badge(device.group) }}
-        </div>
+      <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
+        {% if device.location %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300 whitespace-nowrap">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          {{ device.location }}
+        </span>
+        {% endif %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300 whitespace-nowrap">
+          Soll {{ "%g"|format(device.target_temp) }}°C &middot; Grenzwert {{ "%g"|format(device.max_temp) }}°C
+        </span>
+        {{ gm.group_badge(device.group) }}
       </div>
     </div>
     {% if ctx.latest %}
-    <div class="shrink-0 text-right">
-      <div class="text-2xl font-display font-semibold {{ 'text-late' if ctx.is_over_limit else '' }}">{{ "%.1f"|format(ctx.latest.value) }}°C</div>
-      <div class="text-[11px] text-slate-500">{{ (ctx.latest.timestamp|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if ctx.latest.user %} &middot; {{ ctx.latest.user.name }}{% endif %}</div>
-    </div>
+    <div class="shrink-0 text-2xl font-display font-semibold {{ 'text-late' if ctx.is_over_limit else '' }}">{{ "%.1f"|format(ctx.latest.value) }}°C</div>
     {% endif %}
   </div>
 
