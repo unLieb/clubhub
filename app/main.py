@@ -32,6 +32,7 @@ from . import push
 from . import pdf_export
 from . import webauthn_auth
 from . import notification_batching
+from .audit import log_audit
 from .auth import (
     hash_password, verify_password, find_user_by_identifier, get_current_user, require_login,
     require_admin, require_admin_or_shift_lead, require_admin_or_developer, require_staff_or_developer,
@@ -52,6 +53,7 @@ class _HealthzLogFilter(logging.Filter):
 
 
 logging.getLogger("uvicorn.access").addFilter(_HealthzLogFilter())
+logger = logging.getLogger("reinigungsplan.main")
 
 app = FastAPI(title="ClubHUB")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "change-me-in-production"))
@@ -3724,6 +3726,8 @@ def login_submit(
         # einem Tippfehler.
         return RedirectResponse(_login_error_redirect("inactive", next), status_code=302)
     request.session["user_id"] = user.id
+    log_audit(db, user, "LOGIN", "System", f"„{user.name}“ per Passwort angemeldet.", request)
+    db.commit()
     return RedirectResponse(next, status_code=302)
 
 
@@ -3776,6 +3780,7 @@ def login_passkey_verify(payload: PasskeyLoginIn, request: Request, db: Session 
 
     cred.sign_count = verification.new_sign_count
     cred.last_used_at = ntptime.now_utc()
+    log_audit(db, user, "LOGIN", "System", f"„{user.name}“ per Passkey angemeldet.", request)
     db.commit()
 
     request.session["user_id"] = user.id
@@ -3957,7 +3962,63 @@ def admin_home(request: Request, db: Session = Depends(get_db)):
         "nfc_tags_unscanned_count": db.query(models.NfcTag).filter(models.NfcTag.uid.is_(None)).count(),
         "feedback_count": db.query(models.Feedback).count(),
         "feedback_open_count": db.query(models.Feedback).filter(models.Feedback.status != "done").count(),
+        "audit_log_count": db.query(models.AuditLog).count(),
         "ntp_status": ntptime.status(),
+    })
+
+
+@app.get("/admin/audit-log")
+def admin_audit_log_page(
+    request: Request,
+    q: str = "",
+    user_id: str = "",
+    target_type: str = "",
+    db: Session = Depends(get_db),
+):
+    """Nur Admin/Schichtleiter (wie /admin/users) statt breiter fuer alle
+    Verwaltungsrollen geoeffnet - der Log enthaelt u.a. Nutzerverwaltungs-
+    Details, die per Rollenkonzept ausdruecklich vor Entwickler-Konten
+    verborgen bleiben sollen (siehe require_admin_or_shift_lead)."""
+    admin = require_admin_or_shift_lead(request, db)
+    query = db.query(models.AuditLog).order_by(models.AuditLog.timestamp.desc())
+    q = q.strip()
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            models.AuditLog.details.ilike(like)
+            | models.AuditLog.user_name.ilike(like)
+            | models.AuditLog.action.ilike(like)
+        )
+    if user_id.strip():
+        query = query.filter(models.AuditLog.user_id == int(user_id))
+    if target_type.strip():
+        query = query.filter(models.AuditLog.target_type == target_type)
+    # Auf 500 begrenzt statt paginiert - fuer ein Aktivitaetsprotokoll dieser
+    # Groessenordnung (Admin-/Stammdaten-Aktionen, kein Klick-Tracking)
+    # ausreichend; bei Bedarf ueber Suche/Filter weiter eingrenzbar.
+    entries = query.limit(500).all()
+
+    all_target_types = [
+        row[0] for row in
+        db.query(models.AuditLog.target_type).distinct().order_by(models.AuditLog.target_type).all()
+    ]
+    all_users = (
+        db.query(models.User)
+        .filter(models.User.id.in_(db.query(models.AuditLog.user_id).distinct()))
+        .order_by(models.User.name)
+        .all()
+    )
+
+    return templates.TemplateResponse("admin_audit_log.html", {
+        "request": request,
+        "user": admin,
+        "entries": entries,
+        "entries_truncated": len(entries) == 500,
+        "all_target_types": all_target_types,
+        "all_users": all_users,
+        "q": q,
+        "selected_user_id": user_id,
+        "selected_target_type": target_type,
     })
 
 
@@ -4905,8 +4966,10 @@ def admin_resync_ntp(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/system/backup")
 def admin_download_backup(request: Request, db: Session = Depends(get_db)):
-    require_admin_or_developer(request, db)
+    admin = require_admin_or_developer(request, db)
     data = backup.create_backup_bytes()
+    log_audit(db, admin, "READ", "System", "Vollständiges Backup heruntergeladen.", request)
+    db.commit()
     return Response(
         content=data,
         media_type="application/octet-stream",
@@ -4959,6 +5022,9 @@ async def admin_import_data(
         )
     selected = {c for c in categories if c in data_export.CATEGORIES}
     summary = data_export.import_data_json(db, data, selected, admin)
+    total_created = sum(s.get("created", 0) for s in summary.values())
+    log_audit(db, admin, "CREATE", "System", f"Struktur-Import ausgeführt ({total_created} Datensätze angelegt, Kategorien: {', '.join(sorted(selected)) or '–'}).", request)
+    db.commit()
     return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, import_summary=summary))
 
 
@@ -4995,6 +5061,11 @@ async def admin_restore_backup(
     error = backup.restore_from_bytes(data)
     if error:
         return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, error))
+    # Bewusst kein log_audit(): die Wiederherstellung tauscht die komplette
+    # Datenbankdatei aus, ein kurz zuvor committeter Log-Eintrag ginge dabei
+    # sofort wieder verloren (siehe Kommentar an AuditLog in models.py) -
+    # daher stattdessen ins Docker-Log, das unabhaengig von der DB-Datei ist.
+    logger.warning(f"Datenbank-Wiederherstellung (Upload) durch „{admin.name}“ (id={admin.id})")
     background_tasks.add_task(_trigger_restart)
     return _restore_success_response()
 
@@ -5010,6 +5081,9 @@ def admin_restore_scheduled_backup(
     error = backup.restore_from_path(path)
     if error:
         return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, error))
+    # Siehe Kommentar in admin_restore_backup - kein log_audit(), da die
+    # Datenbankdatei komplett ausgetauscht wird.
+    logger.warning(f"Datenbank-Wiederherstellung (Sicherung „{filename}“) durch „{admin.name}“ (id={admin.id})")
     background_tasks.add_task(_trigger_restart)
     return _restore_success_response()
 
@@ -5024,7 +5098,7 @@ def admin_add_group(
     color: str = Form(GROUP_DEFAULT_COLOR),
     db: Session = Depends(get_db),
 ):
-    require_staff_or_developer(request, db)
+    actor = require_staff_or_developer(request, db)
     channels = db.query(models.NotificationChannel).filter(models.NotificationChannel.id.in_(channel_ids)).all()
     db.add(models.Group(
         name=name,
@@ -5035,6 +5109,7 @@ def admin_add_group(
         # sonst faellt ein manipulierter/unbekannter Wert auf die Standardfarbe zurueck.
         color=color if color in GROUP_COLOR_VALUES else GROUP_DEFAULT_COLOR,
     ))
+    log_audit(db, actor, "CREATE", "Gruppe", f"Gruppe „{name}“ angelegt.", request)
     db.commit()
     return RedirectResponse("/admin/groups", status_code=302)
 
@@ -5050,7 +5125,7 @@ def admin_edit_group(
     color: str = Form(GROUP_DEFAULT_COLOR),
     db: Session = Depends(get_db),
 ):
-    require_staff_or_developer(request, db)
+    actor = require_staff_or_developer(request, db)
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if group:
         group.name = name
@@ -5058,15 +5133,17 @@ def admin_edit_group(
         group.work_start_hour = int(work_start_hour) if work_start_hour else None
         group.work_end_hour = int(work_end_hour) if work_end_hour else None
         group.color = color if color in GROUP_COLOR_VALUES else GROUP_DEFAULT_COLOR
+        log_audit(db, actor, "UPDATE", "Gruppe", f"Gruppe „{name}“ bearbeitet.", request)
         db.commit()
     return RedirectResponse("/admin/groups", status_code=302)
 
 
 @app.post("/admin/groups/{group_id}/delete")
 def admin_delete_group(group_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin_or_developer(request, db)
+    actor = require_admin_or_developer(request, db)
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if group:
+        log_audit(db, actor, "DELETE", "Gruppe", f"Gruppe „{group.name}“ gelöscht.", request)
         db.delete(group)
         db.commit()
     return RedirectResponse("/admin/groups", status_code=302)
@@ -5158,6 +5235,7 @@ def admin_add_user(
     if actor.is_admin:
         user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
     db.add(user)
+    log_audit(db, actor, "CREATE", "Nutzer", f"Nutzer „{name}“ angelegt (Rolle: {role}).", request)
     db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 
@@ -5213,6 +5291,7 @@ def admin_edit_user(
             # Hier nur von einem vollen Admin änderbar; der Nutzer selbst kann sie
             # zusätzlich im eigenen Profil anpassen - beide pflegen denselben Wert.
             target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
+        log_audit(db, actor, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ bearbeitet.", request)
         db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 
@@ -5235,9 +5314,11 @@ def admin_toggle_user_active(user_id: int, request: Request, db: Session = Depen
             ).count()
             if not target.is_admin or other_active_admins > 0:
                 target.is_active = False
+                log_audit(db, admin, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ deaktiviert.", request)
                 db.commit()
         else:
             target.is_active = True
+            log_audit(db, admin, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ reaktiviert.", request)
             db.commit()
     return RedirectResponse("/admin/users", status_code=302)
 
@@ -5249,9 +5330,10 @@ def admin_add_room(
     group_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
-    require_staff_or_developer(request, db)
+    actor = require_staff_or_developer(request, db)
     groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all()
     db.add(models.Room(name=name, groups=groups))
+    log_audit(db, actor, "CREATE", "Bereich", f"Bereich „{name}“ angelegt.", request)
     db.commit()
     return RedirectResponse("/admin/rooms", status_code=302)
 
@@ -5264,20 +5346,22 @@ def admin_edit_room(
     group_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
-    require_staff_or_developer(request, db)
+    actor = require_staff_or_developer(request, db)
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if room:
         room.name = name
         room.groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all()
+        log_audit(db, actor, "UPDATE", "Bereich", f"Bereich „{name}“ bearbeitet.", request)
         db.commit()
     return RedirectResponse("/admin/rooms", status_code=302)
 
 
 @app.post("/admin/rooms/{room_id}/delete")
 def admin_delete_room(room_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin_or_developer(request, db)
+    actor = require_admin_or_developer(request, db)
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if room:
+        log_audit(db, actor, "DELETE", "Bereich", f"Bereich „{room.name}“ gelöscht.", request)
         db.delete(room)
         db.commit()
     return RedirectResponse("/admin/rooms", status_code=302)
@@ -5415,6 +5499,7 @@ def admin_add_inventory_item(
         group_id=int(group_id) if group_id else None,
         barcode=barcode,
     ))
+    log_audit(db, admin, "CREATE", "Inventar", f"Artikel „{name}“ angelegt.", request)
     db.commit()
     if request.headers.get("X-Requested-With") == "fetch":
         return templates.TemplateResponse(
@@ -5479,6 +5564,7 @@ def admin_edit_inventory_item(
         item.group_id = int(group_id) if group_id else None
         if item.stock_current >= item.stock_min:
             item.notified = False
+        log_audit(db, actor, "UPDATE", "Inventar", f"Artikel „{name}“ bearbeitet.", request)
         db.commit()
         if request.headers.get("X-Requested-With") == "fetch":
             return templates.TemplateResponse(
@@ -5495,6 +5581,7 @@ def admin_delete_inventory_item(item_id: int, request: Request, sort: str = "sta
     admin = require_admin_or_developer(request, db)
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
     if item:
+        log_audit(db, admin, "DELETE", "Inventar", f"Artikel „{item.name}“ gelöscht.", request)
         db.delete(item)
         db.commit()
     if request.headers.get("X-Requested-With") == "fetch":

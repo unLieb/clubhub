@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Audit-Log – Verwaltung{% endblock %}
+{% block content %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-1">Audit-Log</h1>
+<p class="text-slate-400 text-sm mb-6">Aktivitätsprotokoll wichtiger Verwaltungs-Aktionen (Nutzer, Gruppen, Bereiche, Inventar, System) - neueste zuerst.</p>
+
+<div class="rounded-xl border border-line bg-panel p-4 mb-4">
+  <form method="get" action="/admin/audit-log" class="flex flex-col sm:flex-row gap-2">
+    <input type="text" name="q" value="{{ q }}" placeholder="Suche nach Stichwort (Details, Nutzer, Aktion)…"
+           class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <select name="user_id" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <option value="">Alle Nutzer</option>
+      {% for u in all_users %}
+      <option value="{{ u.id }}" {% if selected_user_id == u.id|string %}selected{% endif %}>{{ u.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="target_type" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <option value="">Alle Kategorien</option>
+      {% for t in all_target_types %}
+      <option value="{{ t }}" {% if selected_target_type == t %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Filtern</button>
+    {% if q or selected_user_id or selected_target_type %}
+    <a href="/admin/audit-log" class="px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium whitespace-nowrap text-center">Zurücksetzen</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="rounded-xl border border-line bg-panel overflow-hidden">
+  {% if entries %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-line text-left text-[11px] text-slate-500 uppercase tracking-wide">
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">Zeitpunkt</th>
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">Nutzer</th>
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">Aktion</th>
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">Kategorie</th>
+          <th class="px-4 py-2.5 font-medium">Details</th>
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr class="border-b border-line/50 last:border-0 hover:bg-panel2/50">
+          <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap align-top">{{ (e.timestamp|localtime).strftime("%d.%m.%Y, %H:%M:%S") }}</td>
+          <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap align-top">{{ e.user_name or "–" }}</td>
+          <td class="px-4 py-2.5 align-top">
+            <span class="inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap
+              {% if e.action == 'CREATE' %}bg-go/15 text-go
+              {% elif e.action == 'UPDATE' %}bg-accent/15 text-accent
+              {% elif e.action == 'DELETE' %}bg-late/15 text-late
+              {% elif e.action == 'LOGIN' %}bg-warn/15 text-warn
+              {% else %}bg-panel2 text-slate-300{% endif %}">{{ e.action }}</span>
+          </td>
+          <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap align-top">{{ e.target_type }}</td>
+          <td class="px-4 py-2.5 text-slate-300 align-top">{{ e.details }}</td>
+          <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap align-top font-mono text-xs">{{ e.ip_address or "–" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if entries_truncated %}
+  <p class="text-[11px] text-slate-500 px-4 py-2.5 border-t border-line">
+    Zeigt die neuesten 500 Einträge - über Suche/Filter weiter eingrenzen, um ältere zu finden.
+  </p>
+  {% endif %}
+  {% else %}
+  <p class="text-slate-500 text-sm italic p-8 text-center">
+    {% if q or selected_user_id or selected_target_type %}Keine Einträge für diese Filter gefunden.{% else %}Noch keine Einträge protokolliert.{% endif %}
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

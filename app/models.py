@@ -696,3 +696,32 @@ class FeedbackPhoto(Base):
     filename = Column(String, nullable=False)           # relativ zu uploads/feedback/
 
     feedback = relationship("Feedback", back_populates="photos")
+
+
+class AuditLog(Base):
+    """Aktivitätsprotokoll für wichtige Admin-/Stammdaten-Aktionen (Nutzer-
+    verwaltung, Gruppen/Bereiche/Inventar-Stammdaten, Struktur-Import,
+    Login) - siehe log_audit() in audit.py für den zentralen Schreib-
+    Helfer und /admin/audit-log für die Ansicht. user_name wird zusätzlich
+    zur user_id-Fremdschlüssel-Referenz gespeichert, damit ein Eintrag auch
+    dann noch lesbar bleibt, falls der Nutzer-Datensatz einmal nicht mehr
+    auflösbar sein sollte - ClubHUB löscht Nutzer zwar nie hart (siehe
+    User.is_active/Soft-Delete), das ist aber ein Log, kein Stammdatensatz,
+    daher hier defensiv redundant statt sich allein auf die Relation zu
+    verlassen. Volle DB-Wiederherstellungen (siehe backup.restore_from_bytes)
+    tauschen die komplette Datenbankdatei aus und werden bewusst NICHT hier,
+    sondern nur ins Docker-Log geschrieben (siehe admin_restore_backup in
+    main.py) - ein kurz vor dem Dateitausch committeter Eintrag würde vom
+    Tausch selbst sofort wieder verworfen."""
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime(timezone=True), default=utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_name = Column(String, nullable=True)
+    action = Column(String, nullable=False)        # z.B. CREATE | UPDATE | DELETE | LOGIN
+    target_type = Column(String, nullable=False)   # z.B. Nutzer | Gruppe | Bereich | Inventar | System
+    details = Column(String, nullable=False)
+    ip_address = Column(String, nullable=True)
+
+    user = relationship("User")
