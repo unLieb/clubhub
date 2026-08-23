@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.96.1] - 2026-08-23
+- Profil (`/profile`): auf ein 2-Spalten-Grid ab Tablet-Breite umgestellt und thematisch neu gruppiert – "Konto & Sicherheit" fasst Profilbild, Passwort und Passkeys jetzt in einer Karte zusammen (per dezenten Trennlinien statt drei eigenen Karten), "Lohn & Sollzeit" bleibt eigenständig, und die Benachrichtigungs-Einstellung sitzt jetzt direkt als Kopfzeile über "Meine Geräte" in einer gemeinsamen Karte. Buttons innerhalb der Konto-Karte haben jetzt eine einheitliche Breite.
+
 ## [0.96.0] - 2026-08-23
 - Überfällig-Benachrichtigungen aus dem Hintergrund-Job gebündelt: statt für jede überfällige Aufgabe einzeln zu benachrichtigen, sammelt ClubHUB jetzt alle aktuell überfälligen Aufgaben eines Bereichs und verschickt höchstens eine zusammengefasste Meldung (z.B. "Überfällig: Gäste WC – 3 Aufgaben sind überfällig (z.B. Mülleimer leeren, Sanitäranlagen reinigen...)."). Pro Bereich wird dieselbe Sammel-Meldung frühestens alle 4 Stunden erneut verschickt (per Umgebungsvariable `OVERDUE_BATCH_THROTTLE_HOURS` einstellbar), auch wenn zwischendurch weitere Aufgaben überfällig werden. "Bald fällig"-Hinweise bleiben unverändert sofortige Einzel-Benachrichtigungen.
 - "Erledigt"-Benachrichtigungen sind jetzt standardmäßig deaktiviert und lassen sich im Profil unter "Benachrichtigungs-Einstellungen" gezielt aktivieren ("Benachrichtigung erhalten, wenn Aufgaben erledigt werden"). Wer das nicht explizit einschaltet, bekommt diese eher informativen Sammel-Meldungen nicht mehr auf sein Gerät.
