@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.97.4] - 2026-08-23
+- Bugfix: die gebündelte "Überfällig"-Sammel-Push (siehe 0.96.0) respektierte die Arbeitszeit einer Gruppe nicht mehr korrekt, wenn ein Bereich mehreren Gruppen zugeordnet ist und mindestens eine davon kein eigenes Arbeitszeit-Fenster hat (z.B. "Gäste WCs": Hausmeister 6–14 Uhr + Toilettenbetreuung ohne Einschränkung) – die Prüfung "irgendeine der Gruppen ist gerade in ihrer Arbeitszeit" schickte den Push dann an alle zugeordneten Gruppen, auch außerhalb von deren eigenem Fenster. Die Meldung geht jetzt nur noch an die Gruppen raus, die gerade tatsächlich innerhalb ihrer eigenen Arbeitszeit sind.
+
 ## [0.97.3] - 2026-08-23
 - Systemverwaltung: Die Unterkanten von "System & Status" und "Automatische Sicherungen" (obere Kartenreihe) fluchten jetzt exakt – zuvor variierte die Höhe je nach Zeilenumbruch der Erklärungstexte leicht zwischen beiden Karten. "Backup & Wiederherstellung" und "Struktur-Export & -Import" (untere Reihe) behalten bewusst weiterhin ihre eigene, unterschiedliche Höhe, statt die kürzere Karte mit Leerraum auf die Höhe der längeren zu strecken.
 

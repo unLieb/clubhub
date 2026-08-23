@@ -124,11 +124,24 @@ def check_tasks_job():
             last_notified = _aware(room.overdue_notified_at)
             if last_notified is not None and (now - last_notified).total_seconds() < OVERDUE_BATCH_THROTTLE_HOURS * 3600:
                 continue
-            groups = db.query(Group).filter(Group.id.in_(entry["group_ids"])).all()
-            if not groups:
+            all_groups = db.query(Group).filter(Group.id.in_(entry["group_ids"])).all()
+            if not all_groups:
                 continue
-            if not any(_within_working_hours(g, now_local) for g in groups):
-                continue  # wird beim nächsten Tick nachgeholt, sobald Arbeitszeit beginnt
+            # Nur an Gruppen schicken, die JETZT innerhalb ihrer EIGENEN
+            # Arbeitszeit sind - bei mehreren Gruppen am selben Bereich (z.B.
+            # Hausmeister mit festem Fenster + Toilettenbetreuung ganz ohne
+            # Fenster) durfte eine Gruppe ohne Einschraenkung bisher (any())
+            # dazu fuehren, dass eine ANDERE Gruppe ausserhalb ihres eigenen
+            # Fensters trotzdem benachrichtigt wurde. Bekannter Kompromiss:
+            # der Drossel-Zeitstempel bleibt je Bereich (nicht je Gruppe) -
+            # bekommt eine Gruppe ohne Fenster den Push zuerst, kann eine
+            # andere Gruppe, deren Fenster erst spaeter oeffnet, denselben
+            # Bereich innerhalb des Drossel-Intervalls verpassen. Seltener
+            # und harmloser Fall als das urspruengliche Problem (Push
+            # ausserhalb der eigenen Arbeitszeit).
+            groups = [g for g in all_groups if _within_working_hours(g, now_local)]
+            if not groups:
+                continue  # wird beim nächsten Tick nachgeholt, sobald eine Arbeitszeit beginnt
 
             count = len(entry["task_names"])
             task_word = "Aufgabe" if count == 1 else "Aufgaben"
