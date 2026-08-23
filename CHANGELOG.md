@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.96.2] - 2026-08-23
+- Systemverwaltung (`/admin/system`): auf ein 2-Spalten-Grid umgestellt. "Version" und "Zeitsynchronisation" sind jetzt eine gemeinsame Karte "System & Status" (Version/Build als kompakte Badges im Karten-Kopf statt eigener Liste), daneben "Automatische Sicherungen"; darunter "Backup & Wiederherstellung" und "Struktur-Export & -Import" nebeneinander statt aller vier Karten in einer langen Spalte untereinander.
+
 ## [0.96.1] - 2026-08-23
 - Profil (`/profile`): auf ein 2-Spalten-Grid ab Tablet-Breite umgestellt und thematisch neu gruppiert – "Konto & Sicherheit" fasst Profilbild, Passwort und Passkeys jetzt in einer Karte zusammen (per dezenten Trennlinien statt drei eigenen Karten), "Lohn & Sollzeit" bleibt eigenständig, und die Benachrichtigungs-Einstellung sitzt jetzt direkt als Kopfzeile über "Meine Geräte" in einer gemeinsamen Karte. Buttons innerhalb der Konto-Karte haben jetzt eine einheitliche Breite.
 
