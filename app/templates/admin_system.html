@@ -5,7 +5,16 @@
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">System</h1>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+<!-- Kein items-start auf dem Grid selbst: die Karten 1+2 (oben) sollen sich
+     bewusst auf gleiche Hoehe strecken (Standard-Grid-Verhalten "stretch"),
+     damit ihre Unterkanten exakt fluchten - der Hoehenunterschied dort ist
+     durch die Mindesthoehe der Kennzahlen-Liste (min-h-[124px] oben) ohnehin
+     nur noch wenige Pixel. Karten 3+4 (unten) haben dagegen deutlich
+     unterschiedlich viel Inhalt (siehe Struktur-Import mit Kategorie-
+     Auswahl) - self-start dort haelt sie bewusst bei ihrer eigenen
+     natuerlichen Hoehe, sonst wuerde die kuerzere Karte mit viel Leerraum
+     auf die Hoehe der laengeren gestreckt. -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
   <!-- Karte 1 (oben links): System & Status - Version/Build kompakt als
        Badges im Karten-Kopf statt eigener Card, Zeitsynchronisation
@@ -100,7 +109,7 @@
   </section>
 
   <!-- Karte 3 (unten links): Backup & Wiederherstellung -->
-  <section class="rounded-xl border border-line bg-panel p-4">
+  <section class="rounded-xl border border-line bg-panel p-4 self-start">
     <h2 class="font-display font-medium mb-3">Backup &amp; Wiederherstellung</h2>
     <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
       Die Datenbank enthält alle Nutzer, Gruppen, Bereiche, Aufgaben, Historie und das Inventar in einer
@@ -132,7 +141,7 @@
   </section>
 
   <!-- Karte 4 (unten rechts): Struktur-Export & -Import -->
-  <section class="rounded-xl border border-line bg-panel p-4">
+  <section class="rounded-xl border border-line bg-panel p-4 self-start">
     <h2 class="font-display font-medium mb-3">Struktur-Export &amp; -Import</h2>
     <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
       Anders als die Sicherung oben: exportiert Gruppen, Bereiche, Aufgaben, Inventar usw. als lesbare JSON-Datei
