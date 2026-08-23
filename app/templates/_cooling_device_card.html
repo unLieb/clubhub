@@ -63,23 +63,31 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
     </summary>
 
-    <div class="mt-3 pt-3 ml-6 border-t border-line grid lg:grid-cols-2 gap-4">
+    <div class="mt-3 pt-3 ml-6 border-t border-line grid lg:grid-cols-2 gap-4 min-w-0">
       <!-- Linke Spalte: Chart + letzte Messungen -->
-      <div class="space-y-4">
-        <div class="rounded-lg border border-line bg-ink/40 p-3 cooling-chart-wrapper">
-          <div class="flex items-center justify-between mb-2">
+      <div class="space-y-4 min-w-0">
+        <div class="rounded-lg border border-line bg-ink/40 p-3 cooling-chart-wrapper min-w-0">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
             <h4 class="text-sm font-medium">Temperaturverlauf</h4>
-            <div class="flex items-center rounded-md border border-line overflow-hidden text-xs">
+            <div class="flex items-center rounded-md border border-line overflow-hidden text-xs shrink-0">
               <button type="button" class="cooling-range-btn px-2 py-1 text-slate-300 hover:bg-panel2" data-days="7">7 Tage</button>
               <button type="button" class="cooling-range-btn px-2 py-1 bg-go/20 text-go" data-days="30">30 Tage</button>
             </div>
           </div>
-          <div class="h-40"><canvas id="cooling-chart-{{ device.id }}"></canvas></div>
+          <!-- position:relative + min-w-0 auf dem direkten Canvas-Elternelement
+               ist die von Chart.js empfohlene Voraussetzung fuer korrektes
+               responsive Resizing in Grid-/Flex-Layouts - ohne das erzwingt
+               die eigene Mindestbreite des <canvas> (Browser-Default 300px,
+               bevor Chart.js sie per JS ueberschreibt) sonst die gesamte
+               Grid-Spalte in die Breite und laesst Inhalte rechts vom
+               sichtbaren Bereich abgeschnitten wirken (u.a. Ursache des
+               gemeldeten Layout-Fehlers auf dem Smartphone). -->
+          <div class="h-40 min-w-0 relative"><canvas id="cooling-chart-{{ device.id }}"></canvas></div>
           <script type="application/json" class="cooling-chart-data" data-target="{{ device.target_temp }}" data-max="{{ device.max_temp }}">{{ ctx.chart_data | tojson }}</script>
         </div>
 
-        <div class="rounded-lg border border-line bg-ink/40 p-3">
-          <div class="flex items-center justify-between mb-2">
+        <div class="rounded-lg border border-line bg-ink/40 p-3 min-w-0">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
             <h4 class="text-sm font-medium">Letzte Messungen</h4>
             {% if user %}
             <button type="button" class="cooling-backfill-open flex items-center gap-1 text-xs text-go hover:underline" data-device-id="{{ device.id }}">
@@ -131,8 +139,8 @@
       </div>
 
       <!-- Rechte Spalte: Export + Stammdaten -->
-      <div class="space-y-4">
-        <div class="rounded-lg border border-line bg-ink/40 p-3">
+      <div class="space-y-4 min-w-0">
+        <div class="rounded-lg border border-line bg-ink/40 p-3 min-w-0">
           <h4 class="text-sm font-medium mb-2">Monats-Export (HACCP)</h4>
           <p class="text-xs text-slate-500 mb-2">Erfasste Temperaturen eines Monats für Kontrollen herunterladen.</p>
           <div class="cooling-export flex items-center gap-2 flex-wrap" data-device-id="{{ device.id }}">

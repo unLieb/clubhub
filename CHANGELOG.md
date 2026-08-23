@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.95.1] - 2026-08-23
+- Kühlungen (mobile Ansicht): zwei Layout-Fehler behoben. Erstens verdeckte der Chart.js-Tooltip auf dem Smartphone nach dem Antippen eines Messpunkts als schwarzer Kasten einen Großteil des Diagramms, weil er (anders als am Desktop per Maus-Hover) mangels "Mouse-Leave" einfach stehen blieb – er ist auf reinen Touch-Geräten jetzt deaktiviert. Zweitens zwang die eigene Mindestbreite des Chart-Canvas (Browser-Standard 300px, bevor Chart.js sie überschreibt) die Detail-Ansicht in die Breite, wodurch "30 Tage", "Nachtragen" sowie CSV/PDF-Buttons am rechten Bildschirmrand abgeschnitten wirkten – behoben durch die von Chart.js empfohlene Container-Struktur (`min-width: 0` auf den Grid-/Flex-Spalten, `position: relative` auf dem Canvas-Elternelement). Zusätzlich die Kreis-Buttons im Kopfbereich (Profil-Avatar, Design-/Benachrichtigungs-Umschalter) defensiv gegen Verzerrung abgesichert (feste Bildgrößen, konsequentes `shrink-0`).
+
 ## [0.95.0] - 2026-08-23
 - Mobile Navigationsleiste: auf 5 Icons begrenzt (Dashboard, Bereiche, Inventar, Meldungen, Mehr) statt mit jedem neuen Modul weiter zu wachsen. „Mehr" öffnet ein Bottom-Sheet von unten mit allen weiteren Modulen (Historie, Kühlungen, Termine, Urlaub, Zeiterfassung, für Verwaltung Berechtigte zusätzlich Verwaltung) – inkl. Meldungs-Badge (z.B. Kühlungs-Alarm), die sonst in der Leiste nicht mehr sichtbar wären. Befindet sich der Nutzer auf einer Seite aus dem Mehr-Menü, wird der „Mehr"-Button selbst grün als aktiv hervorgehoben.
 

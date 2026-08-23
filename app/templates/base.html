@@ -148,12 +148,12 @@
 <!-- Theme-Umschalter, oben rechts (ab lg) -->
 <div class="hidden lg:flex fixed top-4 right-4 z-50 items-center gap-2">
   {% if user %}
-  <button type="button" class="push-toggle-btn hidden w-9 h-9 rounded-full bg-panel/90 backdrop-blur border border-line flex items-center justify-center text-slate-300 hover:text-slate-100 hover:border-go/50" aria-label="Benachrichtigungen">
+  <button type="button" class="push-toggle-btn hidden w-9 h-9 rounded-full bg-panel/90 backdrop-blur border border-line flex items-center justify-center text-slate-300 hover:text-slate-100 hover:border-go/50 shrink-0" aria-label="Benachrichtigungen">
     <svg class="push-icon-on hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
     <svg class="push-icon-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
   </button>
   {% endif %}
-  <button type="button" class="theme-toggle-btn w-9 h-9 rounded-full bg-panel/90 backdrop-blur border border-line flex items-center justify-center text-slate-300 hover:text-slate-100 hover:border-go/50" aria-label="Design umschalten"></button>
+  <button type="button" class="theme-toggle-btn w-9 h-9 rounded-full bg-panel/90 backdrop-blur border border-line flex items-center justify-center text-slate-300 hover:text-slate-100 hover:border-go/50 shrink-0" aria-label="Design umschalten"></button>
 </div>
 
 <!-- Mobile-Kopfzeile (nur < lg) -->
@@ -164,16 +164,16 @@
   </a>
   <div class="flex items-center gap-2 shrink-0">
     {% if user %}
-    <button type="button" class="push-toggle-btn hidden w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300" aria-label="Benachrichtigungen">
+    <button type="button" class="push-toggle-btn hidden w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300 shrink-0" aria-label="Benachrichtigungen">
       <svg class="push-icon-on hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
       <svg class="push-icon-off" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
     </button>
     {% endif %}
-    <button type="button" class="theme-toggle-btn w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300" aria-label="Design umschalten"></button>
+    <button type="button" class="theme-toggle-btn w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300 shrink-0" aria-label="Design umschalten"></button>
     {% if user %}
     <div class="relative">
       <button type="button" class="mobile-profile-btn w-8 h-8 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-xs shrink-0" aria-label="Profilmenü öffnen">
-        {% if user.avatar_url %}<img src="{{ user.avatar_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ user.name[0]|upper }}{% endif %}
+        {% if user.avatar_url %}<img src="{{ user.avatar_url }}" alt="" width="32" height="32" class="w-full h-full object-cover">{% else %}{{ user.name[0]|upper }}{% endif %}
       </button>
       <div class="mobile-profile-menu hidden absolute right-0 top-full mt-2 w-48 rounded-lg border border-line bg-panel shadow-lg py-1.5 z-50 text-sm">
         <div class="px-3 py-1.5 text-slate-500 text-[11px] truncate border-b border-line mb-1">{{ user.name }}</div>
@@ -286,7 +286,7 @@
     <div class="px-3 py-4 border-t border-sidebar-line">
       <div class="flex items-center gap-2.5 px-2 py-1.5">
         <a href="/profile" title="Profil" class="w-8 h-8 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-sm shrink-0">
-          {% if user.avatar_url %}<img src="{{ user.avatar_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ user.name[0]|upper }}{% endif %}
+          {% if user.avatar_url %}<img src="{{ user.avatar_url }}" alt="" width="32" height="32" class="w-full h-full object-cover">{% else %}{{ user.name[0]|upper }}{% endif %}
         </a>
         <a href="/profile" class="flex-1 min-w-0">
           <div class="text-sm text-sidebar-text-strong truncate">{{ user.name }}</div>

@@ -110,6 +110,13 @@
 
     var charts = {}; // device_id -> Chart-Instanz, lazy angelegt beim ersten Aufklappen
 
+    // Auf reinen Touch-Geraeten bleibt der Chart.js-Tooltip nach dem Antippen
+    // stehen (kein "mouseleave", das ihn wie am Desktop automatisch wieder
+    // ausblendet) und wirkt auf den kleinen mobilen Chart-Karten wie ein
+    // stoerender schwarzer Kasten, der einen Grossteil des Charts verdeckt -
+    // daher dort komplett deaktiviert statt nur umgestylt.
+    var isTouchDevice = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+
     function themeColor(name, fallback) {
       var v = getComputedStyle(document.documentElement).getPropertyValue('--color-' + name);
       return (v && v.trim()) || fallback;
@@ -181,6 +188,13 @@
           plugins: {
             legend: { display: false },
             tooltip: {
+              enabled: !isTouchDevice,
+              backgroundColor: 'rgba(28,36,49,0.92)',
+              padding: 8,
+              cornerRadius: 6,
+              displayColors: false,
+              titleFont: { size: 11 },
+              bodyFont: { size: 11 },
               callbacks: {
                 label: function (item) {
                   if (item.datasetIndex !== 0) return item.dataset.label + ': ' + item.formattedValue + '°C';
