@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.98.1] - 2026-08-25
+- Bugfix Wareneingang-Scan: nach einer erfolgreichen Buchung erkannte die Kamera denselben Barcode oft noch ein zweites Mal (falls der Artikel auch nur kurz weiter im Bild war) und buchte ihn dadurch versehentlich doppelt. Derselbe Code wird jetzt für 2,5 Sekunden nach einer Buchung/Zuweisung ignoriert.
+
 ## [0.98.0] - 2026-08-23
 - "Erledigt"-Sammel-Pushes respektieren jetzt ebenfalls die Arbeitszeit der jeweiligen Gruppe – wer gerade nicht im Dienst ist, bekommt die (rein informative) Meldung nicht mehr außerhalb seiner Arbeitszeit.
 - Der Drossel-Zeitstempel für die "Überfällig"-Sammel-Push wird jetzt pro Kombination aus Bereich UND Gruppe gespeichert (neue Tabelle `room_group_throttles`) statt nur global pro Bereich. Dadurch verpasst eine später startende Schicht/Gruppe eine Benachrichtigung nicht mehr nur, weil eine andere Gruppe desselben Bereichs innerhalb der letzten 4 Stunden bereits informiert wurde.

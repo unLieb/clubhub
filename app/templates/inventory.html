@@ -266,6 +266,17 @@
     var pendingBarcode = null; // aktueller "unbekannter Barcode", auf Zuweisung wartend
     var hadSuccessfulScan = false;
 
+    // Abklingzeit je zuletzt verarbeitetem Code: die Kamera scannt nach einer
+    // erfolgreichen Buchung ungebremst weiter (12 FPS, siehe barcode_scan.js),
+    // haelt man den Artikel auch nur kurz weiter vor die Kamera (z.B. beim
+    // Ablegen), wird derselbe Code erneut bestaetigt und handleDecoded ein
+    // zweites Mal aufgerufen - busy schuetzt nur waehrend des eigentlichen
+    // fetch()-Aufrufs, nicht danach. Ohne diese Sperre wurde so bei jedem Scan
+    // zusaetzlich ein zweiter Artikel gebucht.
+    var RESCAN_COOLDOWN_MS = 2500;
+    var lastProcessedBarcode = null;
+    var lastProcessedAt = 0;
+
     function playBeep() {
       try {
         var Ctx = window.AudioContext || window.webkitAudioContext;
@@ -325,6 +336,10 @@
 
     function handleDecoded(barcode) {
       if (busy || pendingBarcode) return; // waehrend "unbekannt" wartet nicht weiterscannen
+      var now = Date.now();
+      if (barcode === lastProcessedBarcode && (now - lastProcessedAt) < RESCAN_COOLDOWN_MS) return;
+      lastProcessedBarcode = barcode;
+      lastProcessedAt = now;
       busy = true;
       var quantity = parseFloat(quantityInput.value) || 1;
       fetch('/api/inventory/scan-inbound', {
@@ -354,6 +369,11 @@
       busy = true;
       assignBtn.disabled = true;
       var quantity = parseFloat(quantityInput.value) || 1;
+      // Danach ist der Code der Kamera bekannt (siehe Backend-Zuweisung) -
+      // gleiche Abklingzeit wie bei handleDecoded, sonst wuerde eine weiter
+      // sichtbare Ware sofort erneut als bekannter Artikel gebucht.
+      lastProcessedBarcode = pendingBarcode;
+      lastProcessedAt = Date.now();
       fetch('/api/inventory/scan-inbound-assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -382,6 +402,8 @@
       quantityRow.classList.add('hidden');
       quantityRow.classList.remove('flex');
       hadSuccessfulScan = false;
+      lastProcessedBarcode = null;
+      lastProcessedAt = 0;
       statusEl.textContent = 'Kamera wird gestartet…';
       startBarcodeScanner('inv-scan-reader', handleDecoded, function () {
         statusEl.textContent = 'Barcode vor die Kamera halten…';
