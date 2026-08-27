@@ -34,7 +34,7 @@
     <h1 class="font-display text-2xl font-semibold">Dashboard</h1>
     <p class="text-slate-300 text-base mt-2">
       {{ greeting }}{% if user %}, {{ user.name }}{% endif %}!
-      Heute stehen <span class="font-medium text-slate-100">{{ pending_tasks_count }}</span> {{ "Reinigung" if pending_tasks_count == 1 else "Reinigungen" }} und
+      Heute stehen <span id="dash-pending-count" class="font-medium text-slate-100">{{ pending_tasks_count }}</span> <span id="dash-pending-word">{{ "Reinigung" if pending_tasks_count == 1 else "Reinigungen" }}</span> und
       <span class="font-medium text-slate-100">{{ report_stats.needs_attention }}</span> offene {{ "Meldung" if report_stats.needs_attention == 1 else "Meldungen" }} an.
     </p>
     <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
@@ -69,19 +69,25 @@
   {% endif %}
 
   {% if overdue_tasks %}
-  <div class="space-y-1.5">
+  <div class="space-y-1.5" id="dash-mobile-overdue-list">
     {% for entry in overdue_tasks %}
     {% set t = entry.task %}
-    <a href="/room/{{ t.room.id }}" class="flex items-center justify-between bg-late/10 border border-late/30 rounded-lg px-3 py-2 active:bg-late/20">
-      <div class="min-w-0">
+    <div class="dash-overdue-mobile-row flex items-center justify-between bg-late/10 border border-late/30 rounded-lg px-3 py-2" id="dash-overdue-mobile-{{ t.id }}">
+      <a href="/room/{{ t.room.id }}" class="min-w-0 flex-1">
         <div class="text-sm text-slate-200 truncate">{{ t.room.name }}</div>
         <div class="text-xs text-slate-500 truncate">{{ t.name }}</div>
         <div class="text-xs text-late truncate">{{ entry.duration_text }}</div>
-      </div>
-      <span class="shrink-0 text-xs px-3 py-1.5 rounded-md bg-late/90 text-white font-medium">Reinigen</span>
-    </a>
+      </a>
+      <form method="post" action="/room/{{ t.room.id }}/task/{{ t.id }}/complete" class="dash-complete-form shrink-0 ml-2"
+            data-task-id="{{ t.id }}" data-room-id="{{ t.room.id }}" data-task-name="{{ t.name }}">
+        <button type="submit" class="dash-complete-btn text-xs px-3 py-1.5 rounded-md bg-late/90 text-white font-medium disabled:opacity-60">
+          <span class="dash-complete-btn-text">Reinigen</span>
+        </button>
+      </form>
+    </div>
     {% endfor %}
   </div>
+  <p id="dash-mobile-overdue-empty" class="hidden text-sm text-slate-500 italic px-1">Alles erledigt 🎉</p>
   {% endif %}
 </div>
 {% endif %}
@@ -119,7 +125,7 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
     </div>
     <div>
-      <div class="font-display text-2xl font-semibold leading-none">{{ stats.done_today }}</div>
+      <div id="dash-stat-done-today" class="font-display text-2xl font-semibold leading-none">{{ stats.done_today }}</div>
       <div class="text-xs text-slate-400 mt-1">Erledigt heute</div>
     </div>
   </div>
@@ -137,7 +143,7 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
     </div>
     <div>
-      <div class="font-display text-2xl font-semibold leading-none">{{ stats.overdue }}</div>
+      <div id="dash-stat-overdue" class="font-display text-2xl font-semibold leading-none">{{ stats.overdue }}</div>
       <div class="text-xs text-slate-400 mt-1">Überfällig</div>
     </div>
   </div>
@@ -441,23 +447,29 @@
       </form>
       {% endif %}
     </div>
-    <ul class="divide-y divide-line">
+    <ul class="divide-y divide-line" id="dash-overdue-list">
       {% for entry in overdue_tasks %}
       {% set t = entry.task %}
-      <li class="flex items-center justify-between py-2.5 gap-3">
-        <div class="min-w-0">
+      <li class="dash-overdue-row flex items-center justify-between py-2.5 gap-3" id="dash-overdue-{{ t.id }}">
+        <a href="/room/{{ t.room.id }}" class="min-w-0 flex-1">
           <div class="text-sm truncate">{{ t.room.name }}</div>
           <div class="text-xs text-slate-500 truncate">{{ t.name }}</div>
           <div class="text-xs text-late truncate">{{ entry.duration_text }}</div>
-        </div>
-        <a href="/room/{{ t.room.id }}" class="shrink-0 text-xs px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white font-medium">
-          Reinigen
         </a>
+        <form method="post" action="/room/{{ t.room.id }}/task/{{ t.id }}/complete" class="dash-complete-form shrink-0"
+              data-task-id="{{ t.id }}" data-room-id="{{ t.room.id }}" data-task-name="{{ t.name }}">
+          <button type="submit" class="dash-complete-btn text-xs px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white font-medium disabled:opacity-60">
+            <span class="dash-complete-btn-text">Reinigen</span>
+          </button>
+        </form>
       </li>
       {% else %}
       <li class="py-4 text-center text-slate-500 text-sm italic">Aktuell nichts überfällig 🎉</li>
       {% endfor %}
     </ul>
+    {% if overdue_tasks %}
+    <p id="dash-overdue-empty-msg" class="hidden py-4 text-center text-slate-500 text-sm italic">Aktuell nichts überfällig 🎉</p>
+    {% endif %}
   </div>
 </div>
 {% endif %}
@@ -555,6 +567,125 @@
     openBtn.addEventListener('click', openModal);
     closeBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+  })();
+</script>
+
+<!-- Asynchrones Abhaken direkt vom Dashboard aus (Handy-Block "Heute
+     anstehend" + Desktop-Widget "Überfällige Aufgaben"), analog zu
+     room.html: fetch() statt echtem Formular-POST, Karte blendet sich per
+     CSS-Transition aus, Live-Counter im Header/den Stat-Karten werden ohne
+     Reload aktualisiert, Leer-Zustand erscheint automatisch. Dieselbe
+     überfällige Aufgabe steht gleichzeitig in BEIDEN Listen im DOM (nur per
+     CSS-Breakpoint ein-/ausgeblendet) - beim Abhaken über eine der beiden
+     Stellen werden deshalb immer alle Vorkommen synchron entfernt. -->
+<script>
+  (function () {
+    var forms = document.querySelectorAll('.dash-complete-form');
+    if (!forms.length) return;
+
+    // Gleiche Ausblend-Animation wie in room.html (dort nicht wiederverwendbar,
+    // da dashboard.html kein gemeinsames JS-Modul mit room.html teilt).
+    function collapseCard(card) {
+      if (!card) return;
+      var startHeight = card.getBoundingClientRect().height;
+      card.style.maxHeight = startHeight + 'px';
+      card.style.overflow = 'hidden';
+      card.style.transition = 'max-height 300ms ease, opacity 250ms ease, margin 300ms ease, padding 300ms ease, border-width 300ms ease';
+      void card.offsetHeight;
+      card.style.opacity = '0';
+      card.style.maxHeight = '0px';
+      card.style.marginTop = '0px';
+      card.style.marginBottom = '0px';
+      card.style.paddingTop = '0px';
+      card.style.paddingBottom = '0px';
+      card.style.borderTopWidth = '0px';
+      card.style.borderBottomWidth = '0px';
+      setTimeout(function () { card.style.display = 'none'; }, 320);
+    }
+
+    function decrementText(el) {
+      if (!el) return;
+      var n = Math.max(0, (parseInt(el.textContent, 10) || 0) - 1);
+      el.textContent = n;
+      return n;
+    }
+
+    function incrementText(el) {
+      if (!el) return;
+      el.textContent = (parseInt(el.textContent, 10) || 0) + 1;
+    }
+
+    function updatePendingHeaderCount() {
+      var n = decrementText(document.getElementById('dash-pending-count'));
+      var wordEl = document.getElementById('dash-pending-word');
+      if (wordEl && typeof n === 'number') wordEl.textContent = n === 1 ? 'Reinigung' : 'Reinigungen';
+    }
+
+    function checkOverdueEmptyStates() {
+      var desktopList = document.getElementById('dash-overdue-list');
+      var desktopEmptyMsg = document.getElementById('dash-overdue-empty-msg');
+      if (desktopList && desktopEmptyMsg) {
+        var anyDesktopLeft = Array.prototype.some.call(desktopList.querySelectorAll('.dash-overdue-row'), function (row) {
+          return row.style.display !== 'none';
+        });
+        desktopEmptyMsg.classList.toggle('hidden', anyDesktopLeft);
+      }
+      var mobileList = document.getElementById('dash-mobile-overdue-list');
+      var mobileEmptyMsg = document.getElementById('dash-mobile-overdue-empty');
+      if (mobileList && mobileEmptyMsg) {
+        var anyMobileLeft = Array.prototype.some.call(mobileList.querySelectorAll('.dash-overdue-mobile-row'), function (row) {
+          return row.style.display !== 'none';
+        });
+        mobileEmptyMsg.classList.toggle('hidden', anyMobileLeft);
+      }
+    }
+
+    function settleTaskEverywhere(taskId) {
+      collapseCard(document.getElementById('dash-overdue-' + taskId));
+      collapseCard(document.getElementById('dash-overdue-mobile-' + taskId));
+      document.querySelectorAll('.dash-complete-form[data-task-id="' + taskId + '"] .dash-complete-btn').forEach(function (btn) {
+        btn.disabled = true;
+      });
+      setTimeout(checkOverdueEmptyStates, 330);
+    }
+
+    forms.forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('.dash-complete-btn');
+        var textEl = form.querySelector('.dash-complete-btn-text');
+        if (btn.disabled) return;
+        var taskId = form.dataset.taskId;
+        var originalText = textEl.textContent;
+        btn.disabled = true;
+        textEl.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+
+        fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'fetch' } })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('http ' + resp.status);
+            return resp.json();
+          })
+          .then(function () {
+            settleTaskEverywhere(taskId);
+            updatePendingHeaderCount();
+            decrementText(document.getElementById('dash-stat-overdue'));
+            incrementText(document.getElementById('dash-stat-done-today'));
+          })
+          .catch(function () {
+            document.querySelectorAll('.dash-complete-form[data-task-id="' + taskId + '"]').forEach(function (f) {
+              var b = f.querySelector('.dash-complete-btn');
+              var t = f.querySelector('.dash-complete-btn-text');
+              b.disabled = false;
+              t.textContent = 'Fehlgeschlagen';
+              b.classList.add('opacity-70');
+              setTimeout(function () {
+                t.textContent = originalText;
+                b.classList.remove('opacity-70');
+              }, 2500);
+            });
+          });
+      });
+    });
   })();
 </script>
 {% endif %}

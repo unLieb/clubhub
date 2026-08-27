@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [0.99.0] - 2026-08-27
+- Überfällige Aufgaben lassen sich jetzt auch direkt vom Dashboard aus abhaken (Handy-Block "Heute anstehend" + Desktop-Widget "Überfällige Aufgaben"), ohne erst in den Bereich wechseln zu müssen: die Karte blendet sich flüssig aus, der Zähler "Heute stehen X Reinigungen an" sowie die Kennzahlen "Erledigt heute"/"Überfällig" aktualisieren sich live, und sobald nichts mehr überfällig ist, erscheint automatisch "Aktuell nichts überfällig 🎉" – alles ohne Neuladen der Seite.
+- Bereichs-Ansicht (`/room/<id>`): die "Alles erledigt"-Meldung erscheint jetzt ebenfalls automatisch, sobald die letzte offene Aufgabe per Klick abgehakt wird, statt erst nach einem Neuladen sichtbar zu werden.
+
 ## [0.98.1] - 2026-08-25
 - Bugfix Wareneingang-Scan: nach einer erfolgreichen Buchung erkannte die Kamera denselben Barcode oft noch ein zweites Mal (falls der Artikel auch nur kurz weiter im Bild war) und buchte ihn dadurch versehentlich doppelt. Derselbe Code wird jetzt für 2,5 Sekunden nach einer Buchung/Zuweisung ignoriert.
 

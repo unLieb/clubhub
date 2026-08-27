@@ -121,7 +121,7 @@
 </div>
 {% endif %}
 
-<div class="space-y-3">
+<div class="space-y-3" id="pending-tasks-list">
   {% for task in pending_tasks %}
   {{ task_row(task, statuses[task.id]) }}
   {% else %}
@@ -132,6 +132,12 @@
   {% endif %}
   {% endfor %}
 </div>
+{% if pending_tasks %}
+<!-- Erscheint automatisch, sobald die letzte Aufgabe per Fetch (siehe Skript
+     unten) abgehakt wird - ohne Reload waere die Liste sonst einfach leer,
+     ohne dass sichtbar wird, dass wirklich alles erledigt ist. -->
+<p id="pending-tasks-empty" class="hidden text-slate-500 italic mt-3">Keine offenen Aufgaben – alles erledigt.</p>
+{% endif %}
 
 {% if done_tasks %}
 <details class="mt-4 group">
@@ -231,6 +237,23 @@
       setTimeout(function () { card.style.transition = ''; }, 300);
     }
 
+    // Prueft nach jedem Abhaken/Rückgängig, ob innerhalb der offenen Liste
+    // (nicht der eingeklappten "Bereits erledigt"-Sektion) noch sichtbare
+    // Aufgaben-Karten stehen, und blendet die "Alles erledigt"-Meldung
+    // entsprechend ein/aus - ohne Reload sind das die einzigen beiden
+    // Zustaende, die #pending-tasks-list nach dem ersten Server-Render
+    // clientseitig noch annehmen kann.
+    function checkPendingEmptyState() {
+      var list = document.getElementById('pending-tasks-list');
+      var emptyMsg = document.getElementById('pending-tasks-empty');
+      if (!list || !emptyMsg) return;
+      var anyLeft = Array.prototype.some.call(list.querySelectorAll('.task-complete-form'), function (f) {
+        var card = document.getElementById('task-' + f.dataset.taskId);
+        return card && card.style.display !== 'none';
+      });
+      emptyMsg.classList.toggle('hidden', anyLeft);
+    }
+
     document.querySelectorAll('.task-complete-form').forEach(function (form) {
       form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -258,6 +281,7 @@
           .then(function (data) {
             setTimeout(function () {
               if (card) collapseCard(card);
+              setTimeout(checkPendingEmptyState, 330);
               showToast('„' + taskName + '“ als erledigt markiert.', 'success', function () {
                 fetch('/room/' + roomId + '/task/' + taskId + '/complete/' + data.completion_id + '/undo', {
                   method: 'POST',
@@ -269,6 +293,7 @@
                     btn.disabled = false;
                     textEl.textContent = originalText;
                     if (card) card.classList.remove('ring-2', 'ring-go');
+                    checkPendingEmptyState();
                   })
                   .catch(function () {
                     showToast('Rückgängig machen fehlgeschlagen.', 'error');
