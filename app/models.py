@@ -51,11 +51,23 @@ appointment_group = Table(
 # Persönliche Sichtbarkeits-Einstellung (kein Recht, keine Admin-Vergabe):
 # jeder Nutzer kann für sich selbst Gruppen im Inventar ausblenden, die ihn
 # nicht interessieren (z.B. eine Führungskraft, die andere Gruppen verwaltet,
-# blendet Technik/Hausmeister-Artikel für sich aus). Betrifft aktuell nur
-# das Inventar - bei Bedarf später um weitere Tabellen für andere Seiten
-# erweiterbar, statt eine Seite fest zu verdrahten.
+# blendet Technik/Hausmeister-Artikel für sich aus). Eigene Tabelle je Seite
+# statt einer gemeinsamen, generischen - siehe user_hidden_room_group direkt
+# darunter fürs analoge Pendant bei den Bereichen.
 user_hidden_inventory_group = Table(
     "user_hidden_inventory_group",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
+)
+
+# Gleiches Prinzip wie user_hidden_inventory_group, nur für die Bereichs-
+# Übersicht (/rooms) statt fürs Inventar - z.B. blendet ein Schichtleiter, der
+# vor allem seine eigenen Bereiche im Blick behalten will, die Bereiche
+# fremder Gruppen aus, kann sie sich aber jederzeit wieder einblenden, um dort
+# nach dem Rechten zu sehen (siehe filter_rooms_for_user in main.py).
+user_hidden_room_group = Table(
+    "user_hidden_room_group",
     Base.metadata,
     Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
     Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
@@ -154,6 +166,7 @@ class User(Base):
 
     groups = relationship("Group", secondary=user_group, back_populates="users")
     hidden_inventory_groups = relationship("Group", secondary=user_hidden_inventory_group)
+    hidden_room_groups = relationship("Group", secondary=user_hidden_room_group)
     completions = relationship("Completion", back_populates="user", cascade="all, delete-orphan")
     time_entries = relationship(
         "TimeEntry", back_populates="user", cascade="all, delete-orphan",

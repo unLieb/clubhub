@@ -8,6 +8,32 @@
   <p class="text-slate-400 text-sm mt-1">Alle Bereiche im Überblick</p>
 </div>
 
+{% if visible_groups_for_filter %}
+<details class="rounded-lg border border-line bg-panel mb-5 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-3 py-2 text-sm text-slate-400 hover:text-slate-100">
+    <span class="flex items-center gap-1.5">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      Sichtbarkeit anpassen
+      {% if hidden_group_ids %}<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400">{{ hidden_group_ids|length }} ausgeblendet</span>{% endif %}
+    </span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-3 pb-3 pt-1 border-t border-line">
+    <form method="post" action="/rooms/hidden-groups">
+      <p class="text-[11px] text-slate-500 mt-2 mb-1.5">Ausgeblendete Gruppen tauchen für dich persönlich nicht mehr in den Bereichen auf - nur für dich, ändert nichts für andere. Ein Bereich mehrerer Gruppen bleibt sichtbar, solange mindestens eine davon nicht ausgeblendet ist.</p>
+      <div class="flex flex-wrap gap-1.5">
+        {% for g in visible_groups_for_filter %}
+        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-late/15 has-checked:border-late has-checked:text-late">
+          <input type="checkbox" name="hidden_group_ids" value="{{ g.id }}" class="sr-only" {% if g.id in hidden_group_ids %}checked{% endif %}>{{ g.name }}
+        </label>
+        {% endfor %}
+      </div>
+      <button class="mt-2 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
 <div class="rounded-xl border border-line bg-panel p-4">
   {% if not rooms %}
   <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">

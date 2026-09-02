@@ -841,7 +841,19 @@ def user_can_see_room(user, room) -> bool:
 
 
 def filter_rooms_for_user(rooms, user):
-    return [r for r in rooms if user_can_see_room(user, r)]
+    visible = [r for r in rooms if user_can_see_room(user, r)]
+    # Persönliche Ausblendung (siehe User.hidden_room_groups, analog zu
+    # hidden_inventory_groups) - kein Recht, nur eine Deckelung der ohnehin
+    # schon erlaubten Sicht nach unten. Ein Bereich mit mehreren Gruppen
+    # (gemeinsam genutzt) bleibt sichtbar, solange mindestens eine seiner
+    # Gruppen NICHT ausgeblendet ist - erst wenn wirklich jede zugeordnete
+    # Gruppe ausgeblendet wurde, verschwindet der Bereich. Ein Bereich ganz
+    # ohne Gruppe (fuer alle gemeinsam) ist von dieser Einstellung nie
+    # betroffen, da er keiner ausblendbaren Gruppe zugeordnet ist.
+    if user and user.hidden_room_groups:
+        hidden_ids = {g.id for g in user.hidden_room_groups}
+        visible = [r for r in visible if not r.groups or not all(g.id in hidden_ids for g in r.groups)]
+    return visible
 
 
 def compute_room_statuses(rooms, now):
@@ -1056,6 +1068,14 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
         # Überfällig (rot) zuerst, dann bald fällig (gelb), erledigt (grün)
         # zuletzt; innerhalb desselben Status alphabetisch nach Name.
         rooms.sort(key=lambda r: (-STATUS_RANK[room_status[r.id]["status"]], r.name.lower()))
+    # Für die "Sichtbarkeit anpassen"-Auswahl: nur Gruppen, die für den Nutzer
+    # ohnehin sichtbar wären (siehe user_can_see_room) - Ausblenden ist eine
+    # Einschränkung der eigenen Sicht, kein Freischalten fremder Daten.
+    visible_groups_for_filter = (
+        db.query(models.Group).order_by(models.Group.name).all() if user and (user.is_admin or user.is_shift_lead)
+        else sorted(user.groups, key=lambda g: g.name) if user else []
+    )
+    hidden_group_ids = {g.id for g in user.hidden_room_groups} if user else set()
     return templates.TemplateResponse("rooms.html", {
         "request": request,
         "user": user,
@@ -1063,7 +1083,26 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
         "room_status": room_status,
         "daily_due_room_ids": daily_due_room_ids,
         "sort": sort,
+        "visible_groups_for_filter": visible_groups_for_filter,
+        "hidden_group_ids": hidden_group_ids,
     })
+
+
+@app.post("/rooms/hidden-groups")
+def rooms_set_hidden_groups(
+    request: Request,
+    hidden_group_ids: list[int] = Form([]),
+    db: Session = Depends(get_db),
+):
+    # Persönliche Einstellung, kein Admin-Recht - jeder angemeldete Nutzer
+    # darf seine eigene Sicht anpassen (siehe inventory_set_hidden_groups,
+    # identisches Muster fürs Inventar).
+    user = require_login(request, db)
+    user.hidden_room_groups = (
+        db.query(models.Group).filter(models.Group.id.in_(hidden_group_ids)).all() if hidden_group_ids else []
+    )
+    db.commit()
+    return RedirectResponse("/rooms", status_code=302)
 
 
 # ---------- Raum / Scan ----------

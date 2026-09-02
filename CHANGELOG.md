@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.2.0] - 2026-09-02
+- Bereiche-Übersicht (`/rooms`): neue "Sichtbarkeit anpassen"-Klappe, analog zur bereits bestehenden Funktion im Inventar. Damit jeder Nutzer – gerade jetzt, wo Schichtleiter alle Bereiche sehen – gezielt Gruppen ausblenden kann, die ihn nicht interessieren (z.B. ein Gastro-Schichtleiter blendet die Bereiche der Hausmeister-Gruppe aus, kann sie sich aber jederzeit wieder einblenden, um dort nach dem Rechten zu sehen). Rein persönliche Einstellung, ändert nichts für andere; wirkt auch auf das Dashboard, da beide dieselbe Filterfunktion nutzen. Ein Bereich mehrerer Gruppen bleibt sichtbar, solange mindestens eine seiner Gruppen nicht ausgeblendet ist.
+
 ## [1.1.1] - 2026-09-02
 - Bugfix Rollenkonzept: ein Schichtleiter ohne eigene Gruppen-Mitgliedschaft (oder ohne Überschneidung mit den Gruppen eines Bereichs) sah bisher weder die bereits angelegten Bereiche noch das zugehörige Inventar, Kühlzellen oder Meldungen – die Sichtbarkeits-Prüfung für diese Inhalte kannte bislang nur "Admin sieht alles", nicht "Schichtleiter sieht alles" (unabhängig von der eigenen Rollen-Rechte-Überarbeitung, die nur die Verwaltungsseiten selbst betraf). Schichtleiter sehen jetzt wie vorgesehen wirklich alle Bereiche, Inventar, Kühlzellen, Meldungen und betrieblichen Termine – als privat markierte Termine von Kollegen bleiben davon bewusst ausgenommen.
 
