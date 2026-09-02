@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.4.0] - 2026-09-02
+- Inventar: die Artikel-Liste ist jetzt nach Zuständigkeits-Gruppe gegliedert (z.B. "Hausmeister", "Küche", "Gastronomie" als eigene, einklappbare Abschnitte mit Artikel-Anzahl im Header, Artikel ohne Gruppe als "Ohne Gruppe" am Ende). Vor allem für Admins/Schichtleiter gedacht, die standardmäßig das Inventar aller Gruppen sehen – bisher eine einzige, rein alphabetische Liste ohne erkennbare Trennung zwischen den Gruppen. Suche und Status-Filter funktionieren weiterhin wie gewohnt, leere Abschnitte blenden sich beim Filtern automatisch mit aus.
+
 ## [1.3.1] - 2026-09-02
 - Meldungen: dieselbe Einschränkung wie bei den Bereichen (siehe 1.3.0) jetzt auch hier – normale Mitarbeiter sehen bei einer Meldung zu einem geteilten Bereich (z.B. Küche + Gastronomie) nur die eigene Gruppe als Badge bzw. unter "Bereichsgruppe", nicht die volle Liste. Admin/Schichtleiter unverändert vollständig.
 - Bugfix: die Sidebar zeigte unter dem eigenen Namen fälschlich "Mitglied" statt der tatsächlichen Rolle – zeigt jetzt korrekt "Mitarbeiter" bzw. "Pauschalkraft".

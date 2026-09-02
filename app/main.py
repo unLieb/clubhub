@@ -2062,6 +2062,40 @@ def filter_inventory_for_user(items, user):
     return visible
 
 
+def group_inventory_items(items: list) -> list[dict]:
+    """Buendelt eine bereits gefilterte Artikel-Liste (siehe
+    filter_inventory_for_user) fuer die Abschnitts-Gliederung in der
+    Inventar-Uebersicht: ein Eintrag je Gruppe, alphabetisch nach
+    Gruppenname, Artikel ohne Gruppe als eigener Abschnitt "Ohne Gruppe" am
+    Ende (bewusst zuletzt statt zuerst - die eigentlichen Zustaendigkeits-
+    Gruppen sind die primaere Ordnung, der Sammel-Abschnitt nur der
+    Auffangbecken-Rest). Innerhalb eines Abschnitts bleibt die Reihenfolge
+    der uebergebenen Liste erhalten (dort bereits alphabetisch nach
+    Artikelname sortiert, siehe inventory_overview).
+
+    ACHTUNG im Template: der Schluessel "items" kollidiert mit der
+    eingebauten dict.items()-Methode - Jinja loest `section.items` deshalb
+    NICHT auf den Listen-Wert auf, sondern liefert die gebundene Methode
+    zurueck (kein TypeError beim Rendern, aber falsches Ergebnis bzw.
+    `|length` schlaegt fehl). Im Template daher immer `section['items']`
+    (Bracket-Notation) statt `section.items` verwenden."""
+    by_group: dict[int, dict] = {}
+    ungrouped: list = []
+    for item in items:
+        if item.group:
+            bucket = by_group.setdefault(item.group.id, {"group": item.group, "items": []})
+            bucket["items"].append(item)
+        else:
+            ungrouped.append(item)
+    sections = [
+        by_group[gid] for gid in
+        sorted(by_group, key=lambda gid: by_group[gid]["group"].name.lower())
+    ]
+    if ungrouped:
+        sections.append({"group": None, "items": ungrouped})
+    return sections
+
+
 def user_can_access_cooling(user) -> bool:
     """Grobkoerniger Zugriff aufs Kuehlungen-Modul als Ganzes (Navigation +
     direkter Routen-Aufruf) - unabhaengig von user_can_see_cooling_device
@@ -2357,6 +2391,7 @@ def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session
         "request": request,
         "user": user,
         "items": items,
+        "inventory_sections": group_inventory_items(items),
         "inventory_status": inventory_status,
         "inventory_consumption": inventory_consumption,
         "inventory_chart": inventory_chart,
