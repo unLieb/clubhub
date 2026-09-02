@@ -113,16 +113,20 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     # Schichtleiter: darf in der Verwaltung fast alles außer löschen und darf
     # niemandem Admin-/Schichtleiter-Rechte zuweisen (nur ein Admin darf das).
+    # Schichtleiter sehen/verwalten praktisch alles wie ein Admin (siehe
+    # require_admin_or_shift_lead in auth.py), duerfen aber gezielt NICHT
+    # loeschen: keine Nutzer deaktivieren (require_admin), keine Stammdaten
+    # wie Bereiche/Gruppen/Inventar/Aufgaben loeschen (die entsprechenden
+    # /delete-Routen sind require_admin) und keine fremden erledigten
+    # Aufgaben aus der Historie entfernen (nur die eigenen, siehe
+    # delete_completion in main.py) - das gilt uebrigens fuer jede Rolle
+    # ausser Admin, nicht nur Schichtleiter.
     is_shift_lead = Column(Boolean, default=False)
-    # Entwickler: technischer Vollzugriff auf die Anwendungsebene (Bereiche,
-    # Aufgaben, Inventar, Meldungen, Termine, Gruppen, System-Status usw.),
-    # aber explizit KEIN Zugriff auf Benutzerverwaltung oder Zeiterfassung
-    # (weder Einsicht noch Bearbeitung) - für den Fall, dass der Entwickler
-    # der App selbst als Mitarbeiter im Betrieb arbeitet und bewusst keinen
-    # Zugriff auf Kollegen-Personal-/Lohndaten haben will/soll.
-    is_developer = Column(Boolean, default=False)
-    # Pauschalkraft: eigene Rolle (schließt sich mit Admin/Schichtleiter/
-    # Entwickler gegenseitig aus, siehe "Rolle"-Auswahl in admin_users.html) -
+    # Die vormalige separate "Entwickler"-Rolle (technischer Vollzugriff ohne
+    # Personal-/Zeiterfassungsdaten) wurde wieder entfernt - ein Admin, der
+    # alles kann, reicht aus (siehe Git-Historie fuer den frueheren Zustand).
+    # Pauschalkraft: eigene Rolle (schließt sich mit Admin/Schichtleiter
+    # gegenseitig aus, siehe "Rolle"-Auswahl in admin_users.html) -
     # verhindert aktuell das Anlegen von Aufbauten (siehe RoomSetup).
     is_flat_rate = Column(Boolean, default=False)
     # Stundensatz pflegt jeder Nutzer selbst im eigenen Profil (siehe /profile) -

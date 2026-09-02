@@ -54,7 +54,7 @@
     </p>
   </section>
 
-  {% if user.is_admin or user.is_developer %}
+  {% if user.is_admin %}
   <!-- Karte 2 (oben rechts): Automatische Sicherungen -->
   <section class="rounded-xl border border-line bg-panel p-4">
     <h2 class="font-display font-medium mb-3">Automatische Sicherungen</h2>
@@ -202,7 +202,7 @@
     </div>
   </section>
   {% else %}
-  <p class="text-[11px] text-slate-500 md:col-span-2">Backup &amp; Wiederherstellung sind nur für Admins/Entwickler sichtbar.</p>
+  <p class="text-[11px] text-slate-500 md:col-span-2">Backup &amp; Wiederherstellung sind nur für Admins sichtbar.</p>
   {% endif %}
 </div>
 

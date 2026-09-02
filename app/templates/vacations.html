@@ -28,7 +28,7 @@
           <label class="block text-[11px] text-slate-400 mb-1">Bis</label>
           <input name="end_date" type="date" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
         </div>
-        {% if user.is_admin or user.is_shift_lead or user.is_developer %}
+        {% if user.is_admin or user.is_shift_lead %}
         <div class="flex-1">
           <label class="block text-[11px] text-slate-400 mb-1">Für wen</label>
           <select name="user_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
@@ -66,7 +66,7 @@
           </div>
         </div>
       </div>
-      {% if user and (user.id == v.user_id or user.is_admin or user.is_shift_lead or user.is_developer) %}
+      {% if user and (user.id == v.user_id or user.is_admin or user.is_shift_lead) %}
       <div class="relative vac-kebab-wrap shrink-0">
         <button type="button" class="vac-kebab-btn w-7 h-7 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für Urlaub von {{ v.user.name }}" aria-haspopup="true" aria-expanded="false">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
@@ -86,13 +86,13 @@
       </div>
       {% endif %}
     </div>
-    {% if user and (user.id == v.user_id or user.is_admin or user.is_shift_lead or user.is_developer) %}
+    {% if user and (user.id == v.user_id or user.is_admin or user.is_shift_lead) %}
     <div id="vac-edit-{{ v.id }}" class="hidden mt-3">
       <form method="post" action="/vacations/{{ v.id }}/edit" class="space-y-2 w-full sm:w-auto">
         <div class="flex flex-col sm:flex-row gap-2">
           <input name="start_date" type="date" value="{{ e.start_local.strftime('%Y-%m-%d') }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           <input name="end_date" type="date" value="{{ e.end_local.strftime('%Y-%m-%d') }}" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          {% if user.is_admin or user.is_shift_lead or user.is_developer %}
+          {% if user.is_admin or user.is_shift_lead %}
           <select name="user_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
             {% for u in users %}<option value="{{ u.id }}" {% if u.id == v.user_id %}selected{% endif %}>{{ u.name }}</option>{% endfor %}
           </select>

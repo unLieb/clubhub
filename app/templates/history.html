@@ -37,7 +37,7 @@
           <th class="text-left px-4 py-2.5">Bereich</th>
           <th class="text-left px-4 py-2.5">Aufgabe</th>
           <th class="text-left px-4 py-2.5">Erledigt von</th>
-          {% if user and (user.is_admin or user.is_developer) %}<th class="px-4 py-2.5"></th>{% endif %}
+          {% if user %}<th class="px-4 py-2.5"></th>{% endif %}
         </tr>
       </thead>
       <tbody class="divide-y divide-line">
@@ -52,12 +52,14 @@
               <span class="flex items-center justify-end gap-1.5 flex-wrap min-w-0">{{ gm.group_badges(c.user.groups) }}</span>
             </div>
           </td>
-          {% if user and (user.is_admin or user.is_developer) %}
+          {% if user %}
           <td class="px-4 py-2.5 text-right">
+            {% if user.is_admin or user.id == c.user_id %}
             <form method="post" action="/history/{{ c.id }}/delete" class="hist-delete-form">
               <input type="hidden" name="return_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
               <button class="text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-late whitespace-nowrap">Rückgängig</button>
             </form>
+            {% endif %}
           </td>
           {% endif %}
         </tr>

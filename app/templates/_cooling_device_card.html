@@ -100,7 +100,7 @@
           </div>
           <ul class="divide-y divide-line">
             {% for r in ctx.recent_readings %}
-            {% set can_edit = user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
+            {% set can_edit = user and (user.is_admin or user.is_shift_lead) %}
             <li class="py-2 text-sm">
               <div class="flex items-center justify-between gap-2">
                 <div class="min-w-0">
@@ -152,7 +152,7 @@
           </div>
         </div>
 
-        {% if user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
+        {% if user and (user.is_admin or user.is_shift_lead) %}
         <div class="rounded-lg border border-line bg-ink/40 p-3">
           <h4 class="text-sm font-medium mb-2">Stammdaten bearbeiten</h4>
           <form method="post" action="/kuehlungen/{{ device.id }}/edit" class="space-y-2">
@@ -179,7 +179,7 @@
             </div>
             <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
           </form>
-          {% if user.is_admin or user.is_developer %}
+          {% if user.is_admin %}
           <form method="post" action="/kuehlungen/{{ device.id }}/delete" class="mt-2" onsubmit="return confirm('„{{ device.name }}“ wirklich löschen? Alle erfassten Messwerte gehen unwiderruflich verloren.')">
             <button type="submit" class="px-3 py-1.5 rounded-md border border-late/40 text-late hover:bg-late/10 text-sm font-medium">Kühlzelle löschen</button>
           </form>

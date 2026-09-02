@@ -3,8 +3,8 @@
 {% block content %}
 {% import "_dropzone_macros.html" as dz %}
 
-{% set can_manage_tasks = user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
-{% set can_delete_tasks = user and (user.is_admin or user.is_developer) %}
+{% set can_manage_tasks = user and (user.is_admin or user.is_shift_lead) %}
+{% set can_delete_tasks = user and (user.is_admin) %}
 
 <!-- Toast fuer das asynchrone Abhaken von Aufgaben (siehe .task-complete-form
      weiter unten) - eigener, von base.html's #bulk-toast unabhaengiger
@@ -160,7 +160,7 @@
   // POST, optimistische Karte-verschwindet-Animation + Toast mit "Rückgängig"
   // (siehe complete_task/undo_complete_task in main.py). Bewusst NICHT im
   // can_manage_tasks-Block weiter unten, da jeder eingeloggte Nutzer Aufgaben
-  // abhaken darf, nicht nur Admin/Schichtleiter/Entwickler.
+  // abhaken darf, nicht nur Admin/Schichtleiter.
   (function () {
     var toast = document.getElementById('task-toast');
     var toastBox = document.getElementById('task-toast-box');
@@ -415,7 +415,7 @@
           </form>
           {% endif %}
         </div>
-        {% if user and (user.id == s.created_by_id or user.is_admin or user.is_shift_lead or user.is_developer) %}
+        {% if user and (user.id == s.created_by_id or user.is_admin or user.is_shift_lead) %}
         <div class="flex items-center gap-2 mt-3">
           <details>
             <summary class="cursor-pointer list-none inline-block text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-slate-100">Bearbeiten</summary>
@@ -441,7 +441,7 @@
 
 {% if can_manage_tasks %}
 <!-- Slide-Over Drawer: gemeinsames Formular fuer Anlegen und Bearbeiten von
-     Aufgaben dieses Bereichs, nur fuer Admins/Schichtleiter/Entwickler. -->
+     Aufgaben dieses Bereichs, nur fuer Admins/Schichtleiter. -->
 <div id="task-drawer-overlay" class="hidden fixed inset-0 bg-black/50 z-40"></div>
 <div id="task-drawer" class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-panel border-l border-line z-50 translate-x-full transition-transform duration-200 overflow-y-auto">
   <div class="flex items-center justify-between px-4 py-3.5 border-b border-line sticky top-0 bg-panel z-10">

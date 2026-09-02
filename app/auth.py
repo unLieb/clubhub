@@ -51,6 +51,11 @@ def require_login(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
+    """Neben den klassischen Personal-/Zeiterfassungsbereichen auch das Gate
+    für alle Löschen-Routen von Stammdaten (Bereiche, Gruppen, Inventar,
+    Aufgaben, Kanäle, Kühlzellen) sowie Backup/Restore/Struktur-Import -
+    bewusst NICHT für Schichtleiter geöffnet, siehe Nutzer-Feedback: sehen
+    und anlegen/bearbeiten ja, löschen nur der Admin."""
     user = require_login(request, db)
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Nur für Admins")
@@ -58,31 +63,13 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 def require_admin_or_shift_lead(request: Request, db: Session = Depends(get_db)) -> User:
+    """Deckt praktisch alle Verwaltungsbereiche ab (Bereiche, Gruppen,
+    Inventar, Aufgaben, Kühlungen, Benachrichtigungskanäle, Nutzer anlegen/
+    bearbeiten usw.) - ein Schichtleiter sieht/verwaltet damit fast alles wie
+    ein Admin. Löschen von Stammdaten (Bereiche/Gruppen/Inventar/Aufgaben/
+    Kanäle/Kühlzellen), Nutzer deaktivieren und Zeiterfassungs-Verwaltung
+    bleiben bewusst bei require_admin - siehe dort."""
     user = require_login(request, db)
     if not (user.is_admin or user.is_shift_lead):
         raise HTTPException(status_code=403, detail="Nur für Admins oder Schichtleiter")
-    return user
-
-
-def require_admin_or_developer(request: Request, db: Session = Depends(get_db)) -> User:
-    """Für Aktionen, die bisher Admin-only waren (meist Löschen), aber keinen
-    Bezug zu Personal-/Zeiterfassungsdaten haben - Entwickler dürfen hier
-    ran, damit sie die App technisch vollständig testen können, ohne
-    Zugriff auf Benutzerverwaltung oder Zeiterfassung zu bekommen (siehe
-    require_admin, das für genau diese beiden Bereiche bewusst weiterhin
-    Entwickler ausschließt)."""
-    user = require_login(request, db)
-    if not (user.is_admin or user.is_developer):
-        raise HTTPException(status_code=403, detail="Nur für Admins oder Entwickler")
-    return user
-
-
-def require_staff_or_developer(request: Request, db: Session = Depends(get_db)) -> User:
-    """Wie require_admin_or_shift_lead, zusätzlich für Entwickler geöffnet -
-    für alle Verwaltungsbereiche außer Benutzerverwaltung und Zeiterfassung
-    (die bleiben bewusst bei require_admin_or_shift_lead bzw. require_admin,
-    damit ein Entwicklerkonto dort technisch keinen Zugriff bekommt)."""
-    user = require_login(request, db)
-    if not (user.is_admin or user.is_shift_lead or user.is_developer):
-        raise HTTPException(status_code=403, detail="Nur für Admins, Schichtleiter oder Entwickler")
     return user

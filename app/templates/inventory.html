@@ -83,7 +83,7 @@
   {% for u in pack_units %}<option value="{{ u }}">{% endfor %}
 </datalist>
 
-{% if user and (user.is_admin or user.is_shift_lead or user.is_developer) %}
+{% if user and (user.is_admin or user.is_shift_lead) %}
 <details class="rounded-xl border border-line bg-panel mb-6 group">
   <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3 rounded-xl bg-go/90 hover:bg-go text-oncolor group-open:rounded-b-none">
     <span class="font-medium flex items-center gap-2">
@@ -159,7 +159,7 @@
   {% else %}
   <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
     Noch keine Artikel angelegt.
-    {% if user and (user.is_admin or user.is_developer) %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
+    {% if user and (user.is_admin or user.is_shift_lead) %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
   </div>
   {% endfor %}
   <p id="inventory-empty" class="hidden rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">Keine Artikel gefunden.</p>

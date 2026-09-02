@@ -37,7 +37,6 @@
         <label class="block text-[11px] text-slate-400 mb-1">Rolle</label>
         <select name="role" class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           <option value="admin">Admin</option>
-          <option value="entwickler">Entwickler</option>
           <option value="mitarbeiter" selected>Mitarbeiter</option>
           <option value="pauschalkraft">Pauschalkraft</option>
           <option value="schichtleiter">Schichtleiter</option>
@@ -62,7 +61,7 @@
     {% for u in users %}
     <li class="text-slate-300 border-b border-line/50 last:border-0 py-1 {% if not u.is_active %}opacity-60{% endif %}">
       <div class="flex justify-between items-center gap-2">
-        <span>{{ u.name }}{% if not u.is_active %} <span class="text-xs px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400">Deaktiviert</span>{% endif %}{% if u.is_admin %} <span class="text-go text-xs">(Admin)</span>{% elif u.is_shift_lead %} <span class="text-accent text-xs">(Schichtleiter)</span>{% elif u.is_developer %} <span class="text-violet text-xs">(Entwickler)</span>{% elif u.is_flat_rate %} <span class="text-slate-500 text-xs">(Pauschalkraft)</span>{% endif %}{% if u.personnel_number %} <span class="text-slate-500 text-xs">#{{ u.personnel_number }}</span>{% endif %}</span>
+        <span>{{ u.name }}{% if not u.is_active %} <span class="text-xs px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400">Deaktiviert</span>{% endif %}{% if u.is_admin %} <span class="text-go text-xs">(Admin)</span>{% elif u.is_shift_lead %} <span class="text-accent text-xs">(Schichtleiter)</span>{% elif u.is_flat_rate %} <span class="text-slate-500 text-xs">(Pauschalkraft)</span>{% endif %}{% if u.personnel_number %} <span class="text-slate-500 text-xs">#{{ u.personnel_number }}</span>{% endif %}</span>
         <span class="flex items-center gap-2 shrink-0">
           <span class="flex items-center gap-1 flex-wrap justify-end">{{ gm.group_badges(u.groups) }}{% if not u.groups %}<span class="text-slate-500 text-xs">keine Gruppen</span>{% endif %}</span>
           <div class="relative user-kebab-wrap">
@@ -133,8 +132,7 @@
             <label class="block text-[11px] text-slate-400 mb-1">Rolle</label>
             <select name="role" class="w-full sm:w-48 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
               <option value="admin" {% if u.is_admin %}selected{% endif %}>Admin</option>
-              <option value="entwickler" {% if u.is_developer %}selected{% endif %}>Entwickler</option>
-              <option value="mitarbeiter" {% if not u.is_admin and not u.is_shift_lead and not u.is_developer and not u.is_flat_rate %}selected{% endif %}>Mitarbeiter</option>
+              <option value="mitarbeiter" {% if not u.is_admin and not u.is_shift_lead and not u.is_flat_rate %}selected{% endif %}>Mitarbeiter</option>
               <option value="pauschalkraft" {% if u.is_flat_rate %}selected{% endif %}>Pauschalkraft</option>
               <option value="schichtleiter" {% if u.is_shift_lead %}selected{% endif %}>Schichtleiter</option>
             </select>

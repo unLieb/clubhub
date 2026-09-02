@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.0.0] - 2026-09-02
+- Rollenkonzept überarbeitet: die separate "Entwickler"-Rolle wurde wieder entfernt – ein Admin, der alles kann, reicht aus. Der Schichtleiter sieht/verwaltet dafür jetzt wieder praktisch alles wie ein Admin (Bereiche, Gruppen, Inventar, Aufgaben, Kühlungen, Benachrichtigungskanäle, Nutzer anlegen/bearbeiten), darf aber gezielt nicht löschen: keine Nutzer deaktivieren, keine Stammdaten (Bereiche/Gruppen/Inventar/Aufgaben/Kanäle/Kühlzellen) löschen und keine Backups wiederherstellen/importieren – das bleibt Admin-only.
+- Erledigte Aufgaben in der Historie: ab sofort darf jede Rolle (außer Admin) nur noch die eigene Erledigung zurückziehen, nicht mehr die von Kollegen. Der Admin kann weiterhin jede beliebige zurückziehen.
+
 ## [0.99.0] - 2026-08-27
 - Überfällige Aufgaben lassen sich jetzt auch direkt vom Dashboard aus abhaken (Handy-Block "Heute anstehend" + Desktop-Widget "Überfällige Aufgaben"), ohne erst in den Bereich wechseln zu müssen: die Karte blendet sich flüssig aus, der Zähler "Heute stehen X Reinigungen an" sowie die Kennzahlen "Erledigt heute"/"Überfällig" aktualisieren sich live, und sobald nichts mehr überfällig ist, erscheint automatisch "Aktuell nichts überfällig 🎉" – alles ohne Neuladen der Seite.
 - Bereichs-Ansicht (`/room/<id>`): die "Alles erledigt"-Meldung erscheint jetzt ebenfalls automatisch, sobald die letzte offene Aufgabe per Klick abgehakt wird, statt erst nach einem Neuladen sichtbar zu werden.
