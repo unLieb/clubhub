@@ -2,6 +2,7 @@
 {% import "_report_macros.html" as rb %}
 {% block title %}Dashboard – ClubHUB{% endblock %}
 {% block content %}
+{% set modules = app_module_flags() %}
 
 <!-- Verhindert ein kurzes Aufblitzen bereits ausgeblendeter Widgets: laeuft
      synchron ganz am Anfang des Bodys, noch bevor irgendein Widget geparst
@@ -93,7 +94,7 @@
 {% endif %}
 {% endif %}
 
-{% if user and (device_authorized or timeclock_user_mode) %}
+{% if user and modules.time_tracking and (device_authorized or timeclock_user_mode) %}
 <!-- Ein-/Ausstempeln: im Terminal-Modus nur auf dem autorisierten Gerät,
      im Nutzer-Modus auf jedem eigenen, eingeloggten Gerät sichtbar -->
 <div class="rounded-xl border {% if timeclock_open_entry %}border-go/40 bg-go/10{% else %}border-line bg-panel{% endif %} p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
@@ -229,7 +230,7 @@
 {% endif %}
 
 {% if user %}
-{% if currently_clocked_in %}
+{% if modules.time_tracking and currently_clocked_in %}
 <!-- Wer ist gerade da: nur für Admin/Schichtleiter (siehe main.py) -->
 <div class="rounded-xl border border-line bg-panel p-4 mb-6">
   <h3 class="font-display font-medium flex items-center gap-2 mb-3">
@@ -248,7 +249,7 @@
 </div>
 {% endif %}
 
-{% if on_vacation_now %}
+{% if modules.vacation and on_vacation_now %}
 <!-- Wer hat gerade Urlaub: für alle eingeloggten Nutzer sichtbar, anders als
      "Wer ist gerade da" (das bleibt Admin/Schichtleiter vorbehalten) -->
 <div class="rounded-xl border border-line bg-panel p-4 mb-6">

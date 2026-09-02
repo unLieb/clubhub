@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Profil – ClubHUB{% endblock %}
 {% block content %}
+{% set modules = app_module_flags() %}
 
 <a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">Profil</h1>
@@ -10,7 +11,7 @@
   <!-- Karte 1: Konto & Sicherheit (Profilbild, Passwort, Passkeys) - ein
        Card-Rahmen statt drei, Abschnitte per border-t getrennt statt jeweils
        ein eigenes rounded-xl-Element zu rendern. -->
-  <section class="rounded-xl border border-line bg-panel p-4">
+  <section class="rounded-xl border border-line bg-panel p-4 {% if not modules.time_tracking %}md:col-span-2{% endif %}">
     <h2 class="font-display font-medium mb-3">Konto &amp; Sicherheit</h2>
 
     <div>
@@ -112,7 +113,10 @@
     </div>
   </section>
 
-  <!-- Karte 2: Lohn & Arbeitszeit -->
+  {% if modules.time_tracking %}
+  <!-- Karte 2: Lohn & Arbeitszeit - ohne Zeiterfassung sinnlos (Stundensatz/
+       Sollzeit dienen nur der Verdienst-/Überstundenberechnung dort), daher
+       an dasselbe Modul-Flag gekoppelt. -->
   <section class="rounded-xl border border-line bg-panel p-4">
     <h2 class="font-display font-medium mb-3">Lohn &amp; Sollzeit</h2>
     <form method="post" action="/profile/pay" class="space-y-2">
@@ -140,6 +144,7 @@
       wer zuletzt speichert, gilt. Beide Felder leer lassen, um sie zu entfernen.
     </p>
   </section>
+  {% endif %}
 
   <!-- Karte 3: Benachrichtigungen & Geräte - Opt-in-Checkbox als Kopfzeile
        direkt in dieselbe Karte wie die Geräteliste integriert, statt einer

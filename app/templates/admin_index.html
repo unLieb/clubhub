@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Verwaltung – ClubHUB{% endblock %}
 {% block content %}
+{% set modules = app_module_flags() %}
 
 <a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
 <div class="mb-6 mt-2">
@@ -87,7 +88,7 @@
     </span>
   </a>
 
-  {% if user.is_admin %}
+  {% if user.is_admin and modules.time_tracking %}
   <a href="/admin/timeclock" class="flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
     <div class="w-12 h-12 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>

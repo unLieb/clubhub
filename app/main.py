@@ -525,6 +525,18 @@ def _migrate_audit_log_drop_ip(db: Session):
         db.commit()
 
 
+def _migrate_app_settings_module_flags(db: Session):
+    """Neue globale Modul-Schalter Zeiterfassung/Urlaub (siehe AppSettings,
+    "Module & Features" unter /admin/system). SQL-Default hier bewusst TRUE -
+    anders als der Python-Modell-Default False, der nur fuer eine komplett
+    neu angelegte app_settings-Zeile gilt (siehe get_app_settings) - damit
+    ein Upgrade einer bereits produktiv genutzten Installation (z.B. eine
+    bestehende app_settings-Zeile mit gesetztem timeclock_user_mode) diese
+    Module nicht stillschweigend deaktiviert."""
+    _ensure_column(db, "app_settings", "enable_time_tracking", "INTEGER DEFAULT 1")
+    _ensure_column(db, "app_settings", "enable_vacation", "INTEGER DEFAULT 1")
+
+
 def _migrate_remove_timeclock_nfc_tags(db: Session):
     """Das Ein-/Ausstempeln lief anfangs über einen gemeinsamen NFC-Tag
     (/timeclock/scan), wurde aber durch ein autorisiertes Terminal ersetzt
@@ -615,6 +627,7 @@ def _startup():
         _migrate_detach_task_groups(db)
         _migrate_user_notify_on_completion(db)
         _migrate_audit_log_drop_ip(db)
+        _migrate_app_settings_module_flags(db)
     finally:
         db.close()
 
@@ -1142,6 +1155,20 @@ def _with_toast(path: str, message: str, kind: str = "success") -> str:
     return target
 
 
+def _module_gate(enabled: bool, module_label: str, fallback: str = "/"):
+    """Bricht eine Route ab und leitet mit Info-Toast weiter, wenn das
+    jeweilige Modul global deaktiviert ist (siehe AppSettings.enable_time_tracking/
+    enable_vacation, "Module & Features" unter /admin/system) - deckt den
+    direkten Aufruf einer ausgeblendeten Route ab (z.B. alter Bookmark), nicht
+    nur die versteckte Navigation. Aufrufer: `blocked = _module_gate(...);
+    if blocked: return blocked`."""
+    if enabled:
+        return None
+    return RedirectResponse(
+        _with_toast(fallback, f"{module_label} ist aktuell deaktiviert.", "error"), status_code=302
+    )
+
+
 def _complete_tasks(db: Session, tasks: list, user_id: int):
     """Markiert mehrere Aufgaben auf einmal als erledigt (gleiche Effekte wie
     complete_task pro Aufgabe: Completion anlegen, Gruppen-Benachrichtigungs-
@@ -1615,6 +1642,9 @@ def timeclock_view(
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
+    blocked = _module_gate(get_app_settings(db).enable_time_tracking, "Zeiterfassung")
+    if blocked:
+        return blocked
     context = _build_timeclock_self_context(request, user, db, mode, month, date_from, date_to)
     # Monats-/Zeitraum-/Moduswechsel laeuft clientseitig ueber fetch() statt
     # einer echten Navigation (siehe timeclock.html, analog zu
@@ -1750,6 +1780,9 @@ def device_is_authorized(request: Request, db: Session) -> bool:
 
 @app.get("/timeclock/kiosk")
 def timeclock_kiosk(request: Request, db: Session = Depends(get_db)):
+    blocked = _module_gate(get_app_settings(db).enable_time_tracking, "Zeiterfassung")
+    if blocked:
+        return blocked
     if not device_is_authorized(request, db):
         return templates.TemplateResponse("timeclock_kiosk.html", {
             "request": request, "user": None, "authorized": False,
@@ -1767,6 +1800,9 @@ def timeclock_kiosk_punch(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    blocked = _module_gate(get_app_settings(db).enable_time_tracking, "Zeiterfassung")
+    if blocked:
+        return blocked
     if not device_is_authorized(request, db):
         return templates.TemplateResponse("timeclock_kiosk.html", {
             "request": request, "user": None, "authorized": False,
@@ -1819,7 +1855,11 @@ def timeclock_punch(request: Request, db: Session = Depends(get_db)):
     Nutzer-Modus darf jeder von jedem eigenen, eingeloggten Gerät aus
     stempeln - siehe AppSettings.timeclock_user_mode."""
     user = require_login(request, db)
-    if not device_is_authorized(request, db) and not get_app_settings(db).timeclock_user_mode:
+    settings = get_app_settings(db)
+    blocked = _module_gate(settings.enable_time_tracking, "Zeiterfassung")
+    if blocked:
+        return blocked
+    if not device_is_authorized(request, db) and not settings.timeclock_user_mode:
         return RedirectResponse("/", status_code=302)
 
     open_entry = (
@@ -2130,6 +2170,24 @@ def nav_badges(request: Request) -> dict:
 
 
 templates.env.globals["nav_badges"] = nav_badges
+
+
+def app_module_flags() -> dict:
+    """Globale Modul-Schalter (Zeiterfassung/Urlaub, siehe "Module & Features"
+    unter /admin/system) - läuft wie nav_badges als Jinja-Global mit eigener
+    kurzlebiger DB-Session, damit Navigation (base.html) und Dashboard-Widgets
+    sie ohne eigenen Kontext-Eintrag abfragen können, ganz ohne Login-Bezug
+    (anders als nav_badges gilt das auch für ausgeloggte Besucher, z.B. auf
+    der Login-Seite selbst schon die Nav gar nicht erst anzuzeigen)."""
+    db = SessionLocal()
+    try:
+        settings = get_app_settings(db)
+        return {"time_tracking": settings.enable_time_tracking, "vacation": settings.enable_vacation}
+    finally:
+        db.close()
+
+
+templates.env.globals["app_module_flags"] = app_module_flags
 
 
 def compute_inventory_consumption(item, now, months: int = 6) -> list[dict]:
@@ -3452,6 +3510,9 @@ def appointments_delete(appointment_id: int, request: Request, db: Session = Dep
 
 @app.get("/vacations")
 def vacations_page(request: Request, db: Session = Depends(get_db)):
+    blocked = _module_gate(get_app_settings(db).enable_vacation, "Urlaub")
+    if blocked:
+        return blocked
     user = get_current_user(request, db)
     now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
     today = now_local.date()
@@ -3499,6 +3560,9 @@ def vacations_create(
     db: Session = Depends(get_db),
 ):
     actor = require_login(request, db)
+    blocked = _module_gate(get_app_settings(db).enable_vacation, "Urlaub")
+    if blocked:
+        return blocked
     start = _parse_local_date(start_date)
     end = _parse_local_date(end_date)
     if not start or not end:
@@ -4377,6 +4441,9 @@ def admin_timeclock_page(
     # berechneten Verdienst eines Nutzers aus (dieselbe Einschränkung wie
     # beim Stundensatz/Sollzeit selbst).
     admin = require_admin(request, db)
+    blocked = _module_gate(get_app_settings(db).enable_time_tracking, "Zeiterfassung", "/admin")
+    if blocked:
+        return blocked
     context = _build_timeclock_context(request, admin, mode, month, date_from, date_to, db)
     # Monatswechsel per Klick/Auswahl läuft clientseitig über fetch() statt
     # einer echten Navigation (siehe admin_timeclock.html) - der Header
@@ -4949,13 +5016,14 @@ def _backup_health(scheduled_backups: list[dict]) -> bool:
 
 
 def _admin_system_context(
-    request: Request, admin, restore_error: str | None = None,
+    request: Request, admin, db: Session, restore_error: str | None = None,
     import_error: str | None = None, import_summary: dict | None = None,
 ) -> dict:
     scheduled_backups = [
         {**b, "timestamp_local": b["timestamp"].astimezone(APP_TIMEZONE)}
         for b in backup.list_scheduled_backups()
     ]
+    settings = get_app_settings(db)
     return {
         "request": request,
         "user": admin,
@@ -4970,13 +5038,39 @@ def _admin_system_context(
         "import_category_labels": data_export.CATEGORY_LABELS,
         "import_error": import_error,
         "import_summary": import_summary,
+        "enable_time_tracking": settings.enable_time_tracking,
+        "enable_vacation": settings.enable_vacation,
     }
 
 
 @app.get("/admin/system")
 def admin_system_page(request: Request, db: Session = Depends(get_db)):
     admin = require_admin_or_shift_lead(request, db)
-    return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin))
+    return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, db))
+
+
+@app.post("/admin/system/modules")
+def admin_system_modules(
+    request: Request,
+    enable_time_tracking: str = Form(""),
+    enable_vacation: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Globale Modul-Schalter (siehe AppSettings, Karte "Module & Features")
+    - bewusst require_admin statt require_admin_or_shift_lead: das schaltet
+    Funktionsumfang fuer den gesamten Betrieb um, keine alltaegliche
+    Verwaltungsaufgabe wie Bereiche/Nutzer anlegen."""
+    admin = require_admin(request, db)
+    settings = get_app_settings(db)
+    settings.enable_time_tracking = bool(enable_time_tracking)
+    settings.enable_vacation = bool(enable_vacation)
+    log_audit(
+        db, admin, "UPDATE", "System",
+        f"Module aktualisiert: Zeiterfassung {'an' if settings.enable_time_tracking else 'aus'}, "
+        f"Urlaub {'an' if settings.enable_vacation else 'aus'}.",
+    )
+    db.commit()
+    return RedirectResponse(_with_toast("/admin/system", "Module gespeichert."), status_code=302)
 
 
 @app.post("/admin/system/resync-ntp")
@@ -5040,14 +5134,14 @@ async def admin_import_data(
     except json.JSONDecodeError:
         return templates.TemplateResponse(
             "admin_system.html",
-            _admin_system_context(request, admin, import_error="Keine gültige JSON-Datei (Struktur-Export erwartet, kein .db-Backup)."),
+            _admin_system_context(request, admin, db, import_error="Keine gültige JSON-Datei (Struktur-Export erwartet, kein .db-Backup)."),
         )
     selected = {c for c in categories if c in data_export.CATEGORIES}
     summary = data_export.import_data_json(db, data, selected, admin)
     total_created = sum(s.get("created", 0) for s in summary.values())
     log_audit(db, admin, "CREATE", "System", f"Struktur-Import ausgeführt ({total_created} Datensätze angelegt, Kategorien: {', '.join(sorted(selected)) or '–'}).")
     db.commit()
-    return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, import_summary=summary))
+    return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, db, import_summary=summary))
 
 
 def _trigger_restart():
@@ -5082,7 +5176,7 @@ async def admin_restore_backup(
     data = await file.read()
     error = backup.restore_from_bytes(data)
     if error:
-        return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, error))
+        return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, db, restore_error=error))
     # Bewusst kein log_audit(): die Wiederherstellung tauscht die komplette
     # Datenbankdatei aus, ein kurz zuvor committeter Log-Eintrag ginge dabei
     # sofort wieder verloren (siehe Kommentar an AuditLog in models.py) -
@@ -5102,7 +5196,7 @@ def admin_restore_scheduled_backup(
         raise HTTPException(status_code=404)
     error = backup.restore_from_path(path)
     if error:
-        return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, error))
+        return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, db, restore_error=error))
     # Siehe Kommentar in admin_restore_backup - kein log_audit(), da die
     # Datenbankdatei komplett ausgetauscht wird.
     logger.warning(f"Datenbank-Wiederherstellung (Sicherung „{filename}“) durch „{admin.name}“ (id={admin.id})")

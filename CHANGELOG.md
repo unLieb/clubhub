@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.1.0] - 2026-09-02
+- Module "Zeiterfassung" und "Urlaub" sind jetzt global deaktivierbar – z.B. für Betriebe, die diese beiden Funktionen nicht brauchen. Neue Karte "Module & Features" unter Verwaltung → System (nur Admin): je ein Schalter pro Modul. Deaktiviert verschwinden die Menüpunkte aus Desktop-Sidebar und mobiler Navigation, die zugehörigen Dashboard-Widgets ("Einstempeln", "Wer ist gerade da?", "Wer hat gerade Urlaub?") sowie die Lohn/Sollzeit-Karte im Profil blenden sich aus, und ein direkter Aufruf von `/timeclock`/`/vacations` (Bookmark o.ä.) leitet mit Hinweis aufs Dashboard um. Bereits erfasste Daten bleiben dabei vollständig erhalten und sind sofort wieder da, sobald ein Modul erneut aktiviert wird. Bestehende Installationen, die diese Module schon aktiv nutzen, bleiben beim Update automatisch aktiviert – nur eine komplett neue Installation startet standardmäßig ohne beide Module.
+
 ## [1.0.1] - 2026-09-02
 - Löschen-Rechte weiter angeglichen: wie schon bei erledigten Aufgaben darf jetzt auch bei Kühlungs-Messwerten, Meldungen, Terminen und Urlaubsanträgen jede Rolle außer Admin nur noch den eigenen Eintrag löschen, nicht mehr die von Kollegen. Anlegen und Bearbeiten (auch fremder Einträge) bleibt für Schichtleiter unverändert möglich – nur das Löschen ist jetzt enger gefasst.
 

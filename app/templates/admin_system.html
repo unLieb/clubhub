@@ -204,6 +204,43 @@
   {% else %}
   <p class="text-[11px] text-slate-500 md:col-span-2">Backup &amp; Wiederherstellung sind nur für Admins sichtbar.</p>
   {% endif %}
+
+  {% if user.is_admin %}
+  <!-- Karte 5 (eigene, volle Breite): Module & Features - globale Schalter
+       fuer Module, die nicht jeder Betrieb braucht (siehe AppSettings.
+       enable_time_tracking/enable_vacation). Deaktiviert blendet Navigation
+       UND Dashboard-Widgets aus und blockiert den direkten Routen-Aufruf
+       (siehe _module_gate in main.py) - die zugrunde liegenden Daten (z.B.
+       bereits erfasste Zeiten) bleiben dabei unangetastet erhalten, falls
+       ein Modul spaeter wieder gebraucht wird. -->
+  <section class="rounded-xl border border-line bg-panel p-4 md:col-span-2">
+    <h2 class="font-display font-medium mb-3">Module &amp; Features</h2>
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
+      Manche Betriebe brauchen nicht jedes Modul. Deaktivierte Module verschwinden aus Navigation und Dashboard,
+      bereits vorhandene Daten (z.B. erfasste Zeiten oder Urlaubseinträge) bleiben dabei vollständig erhalten und
+      sind sofort wieder da, sobald das Modul erneut aktiviert wird.
+    </p>
+    <form method="post" action="/admin/system/modules" class="space-y-3">
+      <label class="flex items-center justify-between gap-3 py-1.5 border-b border-line/60 cursor-pointer">
+        <span class="text-sm text-slate-200">Zeiterfassung</span>
+        <span class="relative inline-flex items-center cursor-pointer shrink-0">
+          <input type="checkbox" name="enable_time_tracking" class="sr-only peer" {% if enable_time_tracking %}checked{% endif %}>
+          <span class="block w-9 h-5 bg-panel2 border border-line rounded-full peer-checked:bg-go peer-checked:border-go transition-colors"></span>
+          <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></span>
+        </span>
+      </label>
+      <label class="flex items-center justify-between gap-3 py-1.5 border-b border-line/60 cursor-pointer">
+        <span class="text-sm text-slate-200">Urlaub</span>
+        <span class="relative inline-flex items-center cursor-pointer shrink-0">
+          <input type="checkbox" name="enable_vacation" class="sr-only peer" {% if enable_vacation %}checked{% endif %}>
+          <span class="block w-9 h-5 bg-panel2 border border-line rounded-full peer-checked:bg-go peer-checked:border-go transition-colors"></span>
+          <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></span>
+        </span>
+      </label>
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+    </form>
+  </section>
+  {% endif %}
 </div>
 
 {% endblock %}

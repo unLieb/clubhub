@@ -585,6 +585,17 @@ class AppSettings(Base):
     # Gerät, keine Selbstbearbeitung. True = Nutzer-Modus: jeder stempelt auf
     # seinem eigenen (beliebigen) Gerät und darf eigene Buchungen bearbeiten.
     timeclock_user_mode = Column(Boolean, nullable=False, default=False)
+    # Globale Modul-Schalter (Systemverwaltung -> "Module & Features"): steuern
+    # Navigation UND direkten Routen-Aufruf von Zeiterfassung/Urlaub (siehe
+    # app_module_flags/_module_gate in main.py). Der Python-Default False gilt
+    # nur fuer eine komplett NEUE app_settings-Zeile (frisch installierter
+    # Betrieb ohne Zeiterfassungs-/Urlaubs-Historie); die SQL-Migration, die
+    # diese Spalten bei einem Upgrade nachtraeglich ergaenzt, backfillt
+    # bestehende Zeilen bewusst mit TRUE, damit ein bereits produktiv
+    # genutzter Betrieb (z.B. der Verein) durch das Upgrade nicht
+    # stillschweigend die Module verliert, die er schon aktiv nutzt.
+    enable_time_tracking = Column(Boolean, nullable=False, default=False)
+    enable_vacation = Column(Boolean, nullable=False, default=False)
 
 
 class PushSubscription(Base):
