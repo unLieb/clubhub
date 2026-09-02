@@ -668,3 +668,19 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 
 ## [0.1.0] - 2026-07-22
 - SemVer-Versionsverfolgung mit Git-Build-Hash eingeführt
+
+## Vor der Versionierung – Ursprungsversion (2026-07-22)
+Entstanden im normalen Claude-Chat (claude.ai), bevor das Projekt in dieses
+Repo und die formale Versionierung überging. Rekonstruiert aus dem
+"Initial commit" (Stand direkt vor Einführung von `VERSION`/`CHANGELOG.md`),
+da für diesen Zeitraum naturgemäß keine einzelnen Versions-Schritte
+existieren:
+- Bereiche & Aufgaben: Dashboard, Bereichsübersicht, Bereichs-Detailansicht, Aufgaben abhaken
+- Inventar: Übersicht mit Bestandsanpassung
+- Meldungen: Fotos, Auflösen/Erledigt-Markierung
+- Historie-Ansicht
+- Benutzerverwaltung: Login/Logout, Rollen Admin und Schichtleiter, Gruppen
+- Verwaltungsbereich (Admin): Nutzer, Gruppen, Bereiche, Aufgaben, Inventar, Benachrichtigungskanäle, System
+- Benachrichtigungskanäle: ntfy, Gotify, Signal
+- System: NTP-Zeitkorrektur, Backup/Restore
+- Design: Light-/Dark-/Auto-Theme, mobile-responsive
