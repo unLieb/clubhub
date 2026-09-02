@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.1.1] - 2026-09-02
+- Bugfix Rollenkonzept: ein Schichtleiter ohne eigene Gruppen-Mitgliedschaft (oder ohne Überschneidung mit den Gruppen eines Bereichs) sah bisher weder die bereits angelegten Bereiche noch das zugehörige Inventar, Kühlzellen oder Meldungen – die Sichtbarkeits-Prüfung für diese Inhalte kannte bislang nur "Admin sieht alles", nicht "Schichtleiter sieht alles" (unabhängig von der eigenen Rollen-Rechte-Überarbeitung, die nur die Verwaltungsseiten selbst betraf). Schichtleiter sehen jetzt wie vorgesehen wirklich alle Bereiche, Inventar, Kühlzellen, Meldungen und betrieblichen Termine – als privat markierte Termine von Kollegen bleiben davon bewusst ausgenommen.
+
 ## [1.1.0] - 2026-09-02
 - Module "Zeiterfassung" und "Urlaub" sind jetzt global deaktivierbar – z.B. für Betriebe, die diese beiden Funktionen nicht brauchen. Neue Karte "Module & Features" unter Verwaltung → System (nur Admin): je ein Schalter pro Modul. Deaktiviert verschwinden die Menüpunkte aus Desktop-Sidebar und mobiler Navigation, die zugehörigen Dashboard-Widgets ("Einstempeln", "Wer ist gerade da?", "Wer hat gerade Urlaub?") sowie die Lohn/Sollzeit-Karte im Profil blenden sich aus, und ein direkter Aufruf von `/timeclock`/`/vacations` (Bookmark o.ä.) leitet mit Hinweis aufs Dashboard um. Bereits erfasste Daten bleiben dabei vollständig erhalten und sind sofort wieder da, sobald ein Modul erneut aktiviert wird. Bestehende Installationen, die diese Module schon aktiv nutzen, bleiben beim Update automatisch aktiviert – nur eine komplett neue Installation startet standardmäßig ohne beide Module.
 

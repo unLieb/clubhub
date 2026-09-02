@@ -825,11 +825,12 @@ def greeting_for_now(now) -> str:
 
 
 def user_can_see_room(user, room) -> bool:
-    """Nur Admin sieht alle Bereiche; alle anderen (auch Schichtleiter) nur
-    Bereiche ohne Gruppe (gemeinsam genutzt) sowie Bereiche der eigenen
-    Gruppe(n) - analog zu user_can_see_inventory_item, dasselbe Muster fuer
-    Bereiche statt Inventar-Artikel."""
-    if user and user.is_admin:
+    """Admin und Schichtleiter sehen alle Bereiche (siehe Rollenkonzept -
+    Schichtleiter soll "alles sehen" können); alle anderen nur Bereiche ohne
+    Gruppe (gemeinsam genutzt) sowie Bereiche der eigenen Gruppe(n) - analog
+    zu user_can_see_inventory_item, dasselbe Muster fuer Bereiche statt
+    Inventar-Artikel."""
+    if user and (user.is_admin or user.is_shift_lead):
         return True
     if not room.groups:
         return True
@@ -1970,10 +1971,10 @@ def distinct_inventory_values(db: Session, column: str) -> list[str]:
 
 
 def user_can_see_inventory_item(user, item) -> bool:
-    """Nur Admin sieht das komplette Inventar; alle anderen (auch Schichtleiter)
-    nur Artikel ohne Gruppe (gemeinsames Inventar) sowie Artikel der eigenen
+    """Admin und Schichtleiter sehen das komplette Inventar; alle anderen nur
+    Artikel ohne Gruppe (gemeinsames Inventar) sowie Artikel der eigenen
     Gruppe(n) - so sieht z.B. die Küche nicht das Inventar der Gastronomie."""
-    if user and user.is_admin:
+    if user and (user.is_admin or user.is_shift_lead):
         return True
     if item.group_id is None:
         return True
@@ -1995,8 +1996,8 @@ def filter_inventory_for_user(items, user):
 def user_can_see_cooling_device(user, device) -> bool:
     """Identisches Sichtbarkeits-Schema wie user_can_see_inventory_item -
     Kuehlzellen ohne Gruppe sind gemeinsam sichtbar, sonst nur fuer die
-    eigene(n) Gruppe(n) bzw. Admins."""
-    if user and user.is_admin:
+    eigene(n) Gruppe(n) bzw. Admins/Schichtleiter."""
+    if user and (user.is_admin or user.is_shift_lead):
         return True
     if device.group_id is None:
         return True
@@ -2260,7 +2261,7 @@ def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session
     # ohnehin sichtbar wären (siehe user_can_see_inventory_item) - Ausblenden
     # ist eine Einschränkung der eigenen Sicht, kein Freischalten fremder Daten.
     visible_groups_for_filter = (
-        db.query(models.Group).order_by(models.Group.name).all() if user and user.is_admin
+        db.query(models.Group).order_by(models.Group.name).all() if user and (user.is_admin or user.is_shift_lead)
         else sorted(user.groups, key=lambda g: g.name) if user else []
     )
     hidden_group_ids = {g.id for g in user.hidden_inventory_groups} if user else set()
@@ -2854,12 +2855,12 @@ def _sort_reports(reports):
 
 
 def user_can_see_report(user, report) -> bool:
-    """Nur Admin sieht alle Meldungen; alle anderen (auch Schichtleiter) nur
+    """Admin und Schichtleiter sehen alle Meldungen; alle anderen nur
     Meldungen mit "Alle (Betriebsweit)" sowie Meldungen der eigenen
     Gruppe(n) - entweder explizit zugewiesen (assigned_group) oder über die
     Bereichsgruppen abgeleitet (Bereich ohne Gruppe = gemeinsam genutzt,
     analog zu user_can_see_room/user_can_see_inventory_item)."""
-    if user and user.is_admin:
+    if user and (user.is_admin or user.is_shift_lead):
         return True
     if report.is_company_wide:
         return True
@@ -3356,15 +3357,18 @@ APPOINTMENT_RECURRENCE_LABELS = {7: "Wöchentlich", 14: "Alle 2 Wochen", 30: "Mo
 
 
 def user_can_see_appointment(user, appointment) -> bool:
-    """Nur Admin sieht alle Termine. "Alle (Betriebsweit)" ist fuer jeden
-    sichtbar. Mit einer oder mehreren ausgewaehlten Gruppen ("Gastro +
-    Küche" etc.) sichtbar nur fuer Mitglieder einer dieser Gruppen (auch
-    Schichtleiter, analog zu user_can_see_room/user_can_see_report) - anders
-    als frueher (jede Gruppen-Zuweisung war fuer alle sichtbar) steuert die
-    Gruppe jetzt tatsaechlich die Sichtbarkeit, nicht nur die Erinnerung.
+    """Admin und Schichtleiter sehen alle betrieblichen Termine. "Alle
+    (Betriebsweit)" ist fuer jeden sichtbar. Mit einer oder mehreren
+    ausgewaehlten Gruppen ("Gastro + Küche" etc.) sichtbar fuer Mitglieder
+    einer dieser Gruppen sowie zusaetzlich fuer Schichtleiter, analog zu
+    user_can_see_room/user_can_see_report - anders als frueher (jede
+    Gruppen-Zuweisung war fuer alle sichtbar) steuert die Gruppe jetzt
+    tatsaechlich die Sichtbarkeit, nicht nur die Erinnerung.
     Ganz ohne Gruppe und ohne "Alle" ('- Nur ich (Privat) -' im Formular)
     ist der Termin reine Privatsache - sichtbar nur fuer den Ersteller
-    selbst (und Admins, siehe oben)."""
+    selbst (und Admins, siehe oben) - bewusst NICHT zusaetzlich fuer
+    Schichtleiter geoeffnet, "alles sehen" bezieht sich auf betriebliche
+    Inhalte, nicht auf als privat markierte Eintraege von Kollegen."""
     if user and user.is_admin:
         return True
     if appointment.is_company_wide:
@@ -3372,6 +3376,8 @@ def user_can_see_appointment(user, appointment) -> bool:
     if appointment.groups:
         if not user:
             return False
+        if user.is_shift_lead:
+            return True
         appt_group_ids = {g.id for g in appointment.groups}
         return any(g.id in appt_group_ids for g in user.groups)
     return bool(user) and user.id == appointment.user_id
