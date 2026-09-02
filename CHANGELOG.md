@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.4.1] - 2026-09-02
+- "Sichtbarkeit anpassen" (Bereiche + Inventar) ist jetzt nur noch für Admins/Schichtleiter sichtbar. Für alle anderen Rollen ergab die Funktion keinen Sinn – sie sehen ohnehin nur die eigene (einzige) Gruppe, es gäbe also nichts sinnvoll auszublenden außer der eigenen, gesamten Sicht.
+
 ## [1.4.0] - 2026-09-02
 - Inventar: die Artikel-Liste ist jetzt nach Zuständigkeits-Gruppe gegliedert (z.B. "Hausmeister", "Küche", "Gastronomie" als eigene, einklappbare Abschnitte mit Artikel-Anzahl im Header, Artikel ohne Gruppe als "Ohne Gruppe" am Ende). Vor allem für Admins/Schichtleiter gedacht, die standardmäßig das Inventar aller Gruppen sehen – bisher eine einzige, rein alphabetische Liste ohne erkennbare Trennung zwischen den Gruppen. Suche und Status-Filter funktionieren weiterhin wie gewohnt, leere Abschnitte blenden sich beim Filtern automatisch mit aus.
 

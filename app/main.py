@@ -853,13 +853,19 @@ def filter_rooms_for_user(rooms, user):
     visible = [r for r in rooms if user_can_see_room(user, r)]
     # Persönliche Ausblendung (siehe User.hidden_room_groups, analog zu
     # hidden_inventory_groups) - kein Recht, nur eine Deckelung der ohnehin
-    # schon erlaubten Sicht nach unten. Ein Bereich mit mehreren Gruppen
-    # (gemeinsam genutzt) bleibt sichtbar, solange mindestens eine seiner
-    # Gruppen NICHT ausgeblendet ist - erst wenn wirklich jede zugeordnete
-    # Gruppe ausgeblendet wurde, verschwindet der Bereich. Ein Bereich ganz
-    # ohne Gruppe (fuer alle gemeinsam) ist von dieser Einstellung nie
-    # betroffen, da er keiner ausblendbaren Gruppe zugeordnet ist.
-    if user and user.hidden_room_groups:
+    # schon erlaubten Sicht nach unten. Nur fuer Admin/Schichtleiter relevant:
+    # die sehen (anders als alle anderen Rollen) grundsaetzlich Bereiche
+    # JEDER Gruppe, koennen also tatsaechlich etwas ausblenden. Ein normaler
+    # Mitarbeiter/eine Pauschalkraft sieht ohnehin nur Bereiche der eigenen
+    # (einzigen) Gruppe - fuer die gaebe es nichts sinnvoll auszublenden,
+    # ausser der eigene, einzige sichtbare Bereich komplett.
+    if user and (user.is_admin or user.is_shift_lead) and user.hidden_room_groups:
+        # Ein Bereich mit mehreren Gruppen (gemeinsam genutzt) bleibt
+        # sichtbar, solange mindestens eine seiner Gruppen NICHT ausgeblendet
+        # ist - erst wenn wirklich jede zugeordnete Gruppe ausgeblendet
+        # wurde, verschwindet der Bereich. Ein Bereich ganz ohne Gruppe (fuer
+        # alle gemeinsam) ist von dieser Einstellung nie betroffen, da er
+        # keiner ausblendbaren Gruppe zugeordnet ist.
         hidden_ids = {g.id for g in user.hidden_room_groups}
         visible = [r for r in visible if not r.groups or not all(g.id in hidden_ids for g in r.groups)]
     return visible
@@ -1097,12 +1103,14 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
         # Überfällig (rot) zuerst, dann bald fällig (gelb), erledigt (grün)
         # zuletzt; innerhalb desselben Status alphabetisch nach Name.
         rooms.sort(key=lambda r: (-STATUS_RANK[room_status[r.id]["status"]], r.name.lower()))
-    # Für die "Sichtbarkeit anpassen"-Auswahl: nur Gruppen, die für den Nutzer
-    # ohnehin sichtbar wären (siehe user_can_see_room) - Ausblenden ist eine
-    # Einschränkung der eigenen Sicht, kein Freischalten fremder Daten.
+    # "Sichtbarkeit anpassen" nur für Admin/Schichtleiter sinnvoll - die
+    # sehen grundsätzlich Bereiche jeder Gruppe, können also tatsächlich
+    # etwas ausblenden. Alle anderen Rollen sehen ohnehin nur die eigene
+    # (einzige) Gruppe - leere Liste hier lässt die Klappe im Template
+    # (bedingt auf visible_groups_for_filter) automatisch verschwinden.
     visible_groups_for_filter = (
         db.query(models.Group).order_by(models.Group.name).all() if user and (user.is_admin or user.is_shift_lead)
-        else sorted(user.groups, key=lambda g: g.name) if user else []
+        else []
     )
     hidden_group_ids = {g.id for g in user.hidden_room_groups} if user else set()
     return templates.TemplateResponse("rooms.html", {
@@ -2056,7 +2064,10 @@ def filter_inventory_for_user(items, user):
     visible = [i for i in items if user_can_see_inventory_item(user, i)]
     # Persönliche Ausblendung (siehe User.hidden_inventory_groups) - kein
     # Recht, nur eine Deckelung der ohnehin schon erlaubten Sicht nach unten.
-    if user and user.hidden_inventory_groups:
+    # Nur fuer Admin/Schichtleiter relevant, siehe filter_rooms_for_user fuer
+    # die ausfuehrliche Begruendung (analoge Situation): alle anderen Rollen
+    # sehen ohnehin nur Artikel der eigenen (einzigen) Gruppe.
+    if user and (user.is_admin or user.is_shift_lead) and user.hidden_inventory_groups:
         hidden_ids = {g.id for g in user.hidden_inventory_groups}
         visible = [i for i in visible if i.group_id not in hidden_ids]
     return visible
@@ -2379,12 +2390,11 @@ def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session
     inventory_status = {item.id: compute_inventory_status(item) for item in items}
     inventory_consumption = {item.id: compute_inventory_consumption(item, now) for item in items}
     inventory_chart = {item.id: build_consumption_chart(inventory_consumption[item.id]) for item in items}
-    # Für die "Sichtbarkeit anpassen"-Auswahl: nur Gruppen, die für den Nutzer
-    # ohnehin sichtbar wären (siehe user_can_see_inventory_item) - Ausblenden
-    # ist eine Einschränkung der eigenen Sicht, kein Freischalten fremder Daten.
+    # "Sichtbarkeit anpassen" nur für Admin/Schichtleiter sinnvoll - siehe
+    # rooms_overview für die ausführliche Begründung (analoge Situation).
     visible_groups_for_filter = (
         db.query(models.Group).order_by(models.Group.name).all() if user and (user.is_admin or user.is_shift_lead)
-        else sorted(user.groups, key=lambda g: g.name) if user else []
+        else []
     )
     hidden_group_ids = {g.id for g in user.hidden_inventory_groups} if user else set()
     return templates.TemplateResponse("inventory.html", {
