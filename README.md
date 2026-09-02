@@ -1,7 +1,9 @@
 # ClubHUB
 
-Selbstgehostete App zur Verwaltung von Reinigungsplänen mit NFC-Abhaken,
-Gruppen-Benachrichtigungen (ntfy/Gotify) und Ampel-Dashboard.
+Selbstgehostete App zur Verwaltung von Reinigungsplänen, Inventar,
+Meldungen, Zeiterfassung und Kühlungs-Temperaturdokumentation – mit
+NFC-/Barcode-Abhaken, rollenbasierten Zugriffsrechten, Gruppen-
+Benachrichtigungen (ntfy/Gotify/Signal/Web-Push) und Ampel-Dashboard.
 
 Änderungshistorie: siehe [CHANGELOG.md](CHANGELOG.md). Übergabe-Checkliste für
 eine Erstinstallation auf einem fremdadministrierten Server: siehe
@@ -27,6 +29,30 @@ eine Erstinstallation auf einem fremdadministrierten Server: siehe
   **Arbeitszeit** (Start-/Endstunde) hinterlegen: außerhalb dieses Fensters wird
   nichts zugestellt, die Nachricht kommt automatisch nach, sobald die Arbeitszeit
   beginnt (Zeitzone: `APP_TIMEZONE`, Standard `Europe/Berlin`).
+- Überschneiden sich Bereiche mehrerer Gruppen (z.B. eine Küchenaufgabe, die
+  auch die Gastronomie betrifft), sehen normale Mitarbeitende dort nur die
+  eigene Gruppe als Zuständigkeit – nicht die volle Liste. Das verhindert, dass
+  sich Gruppen bei geteilter Verantwortung gegenseitig auf die jeweils andere
+  verlassen. Admins und Schichtleitungen sehen weiterhin alle zugeordneten Gruppen.
+- Über "Sichtbarkeit anpassen" (Bereiche und Inventar, nur für Admin/Schichtleitung)
+  lässt sich die eigene Ansicht persönlich um einzelne Gruppen kürzen – rein
+  individuelle Einstellung, ändert nichts für andere Nutzer:innen.
+
+## Rollen & Rechte
+
+- **Admin** – uneingeschränkter Zugriff, inklusive Löschen von Stammdaten
+  (Bereiche/Gruppen/Inventar/Aufgaben/Kanäle/Kühlgeräte), Nutzerverwaltung
+  und Backup-Wiederherstellung/-Import.
+- **Schichtleitung** – praktisch gleichberechtigt mit Admin in der Verwaltung
+  (sieht alle Bereiche/Gruppen unabhängig von der eigenen Gruppenzugehörigkeit,
+  kann Stammdaten anlegen/bearbeiten), darf aber keine Stammdaten oder Nutzer
+  löschen und keine Backups wiederherstellen/importieren.
+- **Mitarbeiter** / **Pauschalkraft** – sehen nur Bereiche, Inventar und
+  Kühlgeräte der eigenen Gruppe(n); können eigene Erledigungen/Einträge
+  löschen, aber keine fremden.
+- Unabhängig von der Rolle gilt für Erledigungen, Meldungen, Kühlungs-Messwerte,
+  Termine und Urlaubseinträge: Löschen kann jede:r nur den eigenen Eintrag –
+  außer Admin, der/die kann jeden Eintrag löschen.
 
 ## Start
 
@@ -44,6 +70,12 @@ und unter **Verwaltung** eigene Gruppen, Nutzer, Bereiche und Aufgaben anlegen.
 **Wichtig:** `SECRET_KEY` in der `docker-compose.yml` vor dem produktiven
 Einsatz auf einen zufälligen Wert setzen (z.B. `openssl rand -hex 32`),
 sonst sind Login-Sessions nicht sicher.
+
+Zusätzlich zu Benutzername/Passwort lässt sich pro Account ein **Passkey**
+(WebAuthn, z.B. Gerät-PIN, Fingerabdruck oder Sicherheitsschlüssel) unter
+**Profil** hinterlegen – danach schlägt der Browser den Passkey im
+Benutzernamen-Feld automatisch vor bzw. bietet ihn als Alternative zum
+Passwort-Login an.
 
 ## Als App installieren (PWA)
 
@@ -114,29 +146,19 @@ rückgängig gemacht werden muss.
 
 ## Deployment ohne eigenen Server-Zugriff (fertiges Image)
 
-Für einen Server, den nicht du selbst administrierst (z.B. eine Firmen-IT
-oder ein Kollege), eignet sich `deploy-nas.sh` nicht – das setzt eigenen
-SSH-Zugriff voraus. Stattdessen landet bei jedem Release zusätzlich ein
-fertig gebautes Image in der **privaten** GitHub Container Registry
-(`ghcr.io/unlieb/clubhub`), das jeder mit Docker und einem Zugriffs-Token
-ohne Quellcode/Build-Toolchain starten kann.
-
-**Einmalig auf dem Zielserver:**
-
-```bash
-# Einmalig einloggen (Token braucht mindestens read:packages, von dir als
-# Repo-Besitzer über GitHub → Settings → Developer settings → Personal
-# access tokens vergeben und dem jeweiligen Account Lesezugriff aufs
-# private Package "clubhub" gewähren).
-echo "<TOKEN>" | docker login ghcr.io -u <github-nutzername> --password-stdin
-```
+Für einen Server, der nicht selbst administriert wird (z.B. eine Firmen-IT
+oder externe Kolleg:innen), eignet sich `deploy-nas.sh` nicht – das setzt
+eigenen SSH-Zugriff voraus. Stattdessen landet bei jedem Release zusätzlich
+ein fertig gebautes Image in der **öffentlichen** GitHub Container Registry
+(`ghcr.io/unlieb/clubhub`), das sich mit Docker direkt starten lässt – ohne
+Login, ohne Zugriffs-Token, ohne Quellcode/Build-Toolchain.
 
 `docker-compose.yml` wie gewohnt, nur `build: .` durch `image:` ersetzt:
 
 ```yaml
 services:
   clubhub:
-    image: ghcr.io/unlieb/clubhub:latest   # oder eine feste Version, z.B. :0.42.0
+    image: ghcr.io/unlieb/clubhub:latest   # oder eine feste Version, z.B. :1.4.3
     container_name: ClubHUB
     restart: unless-stopped
     ports:
@@ -154,16 +176,16 @@ volumes:
 docker compose up -d
 ```
 
-**Ein Update einspielen** (durch wen auch immer den Server betreut):
+**Ein Update einspielen** (unabhängig davon, wer den Server betreut):
 
 ```bash
 docker compose pull && docker compose up -d
 ```
 
-Neue Versionen lande ich (der Entwickler) selbst per `docker push` in der
-Registry – dafür braucht es keinen Zugriff auf den Zielserver, nur auf die
-eigene lokale Docker-Umgebung. Wer den Server betreut, entscheidet dann
-selbst, wann er `docker compose pull` ausführt.
+Neue Versionen werden bei jedem Release in die Registry gepusht – dafür ist
+kein Zugriff auf den Zielserver nötig, nur auf die eigene lokale
+Docker-Umgebung. Wer den Server betreut, entscheidet selbst, wann
+`docker compose pull` ausgeführt wird.
 
 ## NFC-Tags beschreiben
 
@@ -193,6 +215,21 @@ Ohne HTTPS/Chrome-Android zeigt die Seite einen Hinweis und lässt Tags weiterhi
 Scan anlegen (URL manuell mit einer Dritt-App aufschreiben, UID optional von Hand eintragen).
 Die Registrierung ist reine Verwaltungs-Übersicht – die Scan-URLs selbst funktionieren
 immer unabhängig davon, ob ein Tag hier eingetragen ist.
+
+## Inventar
+
+Artikel mit Soll-/Ist-Bestand, Verpackungseinheit (z.B. "Kanister à 10 Liter")
+und optionalem automatischen Produktbild (aus dem hinterlegten Kauflink).
+Wareneingang lässt sich per **Barcode-Scan** über die Handykamera direkt
+verbuchen. Kamera-Zugriff im Browser setzt wie bei der NFC-Tag-Verwaltung
+oben einen sicheren Kontext (HTTPS) voraus, funktioniert dann aber
+browserübergreifend (nicht auf Chrome/Android beschränkt).
+
+Für Admin/Schichtleitung, die typischerweise das Inventar aller Gruppen sehen,
+ist die Liste nach Verantwortlichkeits-Gruppe gegliedert (einklappbare
+Abschnitte mit Artikel-Anzahl, z.B. "Küche (14 Artikel)"; Artikel ohne Gruppe
+unter "Ohne Gruppe"). Für alle anderen Rollen entfällt diese Gliederung, da sie
+ohnehin nur die eigene Gruppe sehen.
 
 ## Zeiterfassung
 
@@ -225,6 +262,15 @@ praktisch, wenn das autorisierte Gerät z.B. ein gemeinsam genutzter PC ist,
 an dem sich jeder mit seinem eigenen Account anmeldet. Der Button erscheint
 ausschließlich auf dem autorisierten Gerät, auf jedem anderen bleibt er
 unsichtbar.
+
+## Kühlungen (HACCP-Temperaturdokumentation)
+
+Für Kühlgeräte (Kühlschrank, Tiefkühltruhe etc.) lassen sich Temperatur-
+Messwerte erfassen – mit Verlaufsdiagramm sowie CSV-/PDF-Export für die
+HACCP-Dokumentation. Das Modul ist standardmäßig für keine Gruppe aktiv;
+Zugriff wird pro Gruppe unter **Verwaltung → Gruppen** freigeschaltet
+("Zugriff auf Kühlungen"). Admin und Schichtleitung sehen das Modul davon
+unabhängig immer, ohne Gruppen-Zuordnung.
 
 ## Backups
 
