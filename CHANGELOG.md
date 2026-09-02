@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.3.1] - 2026-09-02
+- Meldungen: dieselbe Einschränkung wie bei den Bereichen (siehe 1.3.0) jetzt auch hier – normale Mitarbeiter sehen bei einer Meldung zu einem geteilten Bereich (z.B. Küche + Gastronomie) nur die eigene Gruppe als Badge bzw. unter "Bereichsgruppe", nicht die volle Liste. Admin/Schichtleiter unverändert vollständig.
+- Bugfix: die Sidebar zeigte unter dem eigenen Namen fälschlich "Mitglied" statt der tatsächlichen Rolle – zeigt jetzt korrekt "Mitarbeiter" bzw. "Pauschalkraft".
+
 ## [1.3.0] - 2026-09-02
 - Kühlungen ist jetzt pro Gruppe freischaltbar statt für jeden sichtbar: neuer Schalter "Zugriff auf Kühlungen" bei den Gruppen (Verwaltung → Gruppen), standardmäßig für alle Gruppen aus. Admins/Schichtleiter sehen das Modul davon unabhängig immer. Ohne Zugriff verschwindet der Menüpunkt aus Navigation und mobiler "Mehr"-Ansicht, ein direkter Aufruf leitet mit Hinweis aufs Dashboard um.
 - Bereichs-Ansicht: die "Zuständigkeiten"-Zeile unter dem Bereichsnamen zeigt normalen Mitarbeitern jetzt nur noch die eigene(n) Gruppe(n) statt aller einem Bereich zugeordneten Gruppen. Bei Bereichen, die sich mehrere Gruppen teilen (z.B. Küche + Gastronomie), soll so vermieden werden, dass sich eine Gruppe auf die andere verlässt ("das kann ja auch die Gastro machen"). Admins/Schichtleiter sehen weiterhin alle zugeordneten Gruppen.

@@ -34,8 +34,9 @@
         </span>
         {% elif r.assigned_group %}
         {{ gm.group_badge(r.assigned_group) }}
-        {% elif r.room and r.room.groups %}
-        {{ gm.group_badges(r.room.groups) }}
+        {% elif r.room %}
+        {% set visible_groups = visible_room_groups_for_user(user, r.room) %}
+        {% if visible_groups %}{{ gm.group_badges(visible_groups) }}{% endif %}
         {% endif %}
       </div>
       <p class="text-xs text-slate-500 mt-1">
@@ -140,8 +141,11 @@
                 <span class="text-slate-300">{{ "Alle (Betriebsweit)" if r.is_company_wide else (r.assigned_group.name if r.assigned_group else "–") }}</span>
                 {% endif %}
               </li>
-              {% if r.room and r.room.groups %}
-              <li class="flex justify-between gap-4"><span class="text-slate-500">Bereichsgruppe</span><span class="text-slate-300">{{ r.room.groups | map(attribute="name") | join(", ") }}</span></li>
+              {% if r.room %}
+              {% set visible_groups = visible_room_groups_for_user(user, r.room) %}
+              {% if visible_groups %}
+              <li class="flex justify-between gap-4"><span class="text-slate-500">Bereichsgruppe</span><span class="text-slate-300">{{ visible_groups | map(attribute="name") | join(", ") }}</span></li>
+              {% endif %}
               {% endif %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Erstellt am</span><span class="text-slate-300">{{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>
               <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ (meta.last_modified|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>

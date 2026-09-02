@@ -882,6 +882,9 @@ def visible_room_groups_for_user(user, room):
     return [g for g in room.groups if g.id in user_group_ids]
 
 
+templates.env.globals["visible_room_groups_for_user"] = visible_room_groups_for_user
+
+
 def compute_room_statuses(rooms, now):
     """Berechnet Ampel-Status pro Bereich sowie global überfällige/bald fällige
     Aufgaben. Von Dashboard und Bereiche-Übersicht gemeinsam genutzt."""
