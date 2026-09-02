@@ -120,30 +120,6 @@ echten `SECRET_KEY` enthält (im Repo steht nur ein Platzhalter). Änderungen
 an der `docker-compose.yml` (neue Env-Variablen o.ä.) müssen daher bei
 Bedarf einmalig manuell auf dem NAS nachgezogen werden.
 
-### Dockhand-Integration
-
-`/volume6/docker/clubhub/docker-compose.yml` ist auf dem NAS ein **Symlink**
-auf `/volume6/docker/dockhand/stacks/Compose/ClubHUB/docker-compose.yml` -
-Dockhand (die auf dem NAS genutzte Compose-Verwaltungs-GUI) trackt Stacks
-grundsätzlich über eine eigene Kopie unter diesem Pfad, unabhängig vom
-Projektordner. Ohne den Symlink würden Änderungen über Dockhand nie beim
-tatsächlich laufenden Container ankommen (ist bereits so passiert - z.B.
-Env-Variablen, die über Dockhand gesetzt wurden, kamen nie im Container an).
-Durch den Symlink ist Dockhands Kopie jetzt die einzige, echte Datei.
-
-Damit funktioniert über Dockhand: Env-Variablen ändern (Tokens, URLs, ...)
-und den Container neu starten/erzeugen (`docker compose up -d` braucht kein
-Rebuild, solange nur Env-Variablen sich geändert haben und das zuletzt
-gebaute Image noch existiert). **Nicht** über Dockhand möglich: ein echtes
-Rebuild nach Code-Änderungen - Dockhands Verzeichnis enthält nur die
-Compose-Datei, keinen Quellcode/Dockerfile. Dafür weiterhin `deploy-nas.sh`
-nutzen (das die `docker-compose.yml` wie gehabt ausspart und den Symlink
-dadurch unangetastet lässt).
-
-Backup der vorherigen eigenständigen Datei liegt unter
-`docker-compose.yml.bak` im selben Ordner, falls der Symlink jemals
-rückgängig gemacht werden muss.
-
 ## Deployment ohne eigenen Server-Zugriff (fertiges Image)
 
 Für einen Server, der nicht selbst administriert wird (z.B. eine Firmen-IT
