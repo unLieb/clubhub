@@ -3,7 +3,9 @@
 Selbstgehostete App zur Verwaltung von Reinigungsplänen mit NFC-Abhaken,
 Gruppen-Benachrichtigungen (ntfy/Gotify) und Ampel-Dashboard.
 
-Änderungshistorie: siehe [CHANGELOG.md](CHANGELOG.md).
+Änderungshistorie: siehe [CHANGELOG.md](CHANGELOG.md). Übergabe-Checkliste für
+eine Erstinstallation auf einem fremdadministrierten Server: siehe
+[HANDOFF.md](HANDOFF.md).
 
 ## Konzept
 
