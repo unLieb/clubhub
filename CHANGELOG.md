@@ -669,12 +669,36 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 ## [0.1.0] - 2026-07-22
 - SemVer-Versionsverfolgung mit Git-Build-Hash eingeführt
 
-## Vor der Versionierung – Ursprungsversion (2026-07-22)
-Entstanden im normalen Claude-Chat (claude.ai), bevor das Projekt in dieses
-Repo und die formale Versionierung überging. Rekonstruiert aus dem
-"Initial commit" (Stand direkt vor Einführung von `VERSION`/`CHANGELOG.md`),
-da für diesen Zeitraum naturgemäß keine einzelnen Versions-Schritte
-existieren:
+## Vor der Versionierung – Entstehungsgeschichte (2026-07-21/22)
+Bevor das Projekt in dieses Repo und die formale Versionierung (`VERSION`/
+`CHANGELOG.md`, ab [0.1.0]) überging, entstand ClubHUB (damals noch
+"Reinigungsplan") auf claude.ai und in einer frühen, lokalen Claude-Code-
+Sitzung. Für diesen Zeitraum existieren naturgemäß keine einzelnen
+Versions-Schritte; rekonstruiert so vollständig wie noch möglich:
+
+**21. Juli – Konzept & erstes Grundgerüst (claude.ai-Chat)**
+- Konzept entwickelt: Räume mit Aufgaben, Abhaken per NFC-Tag (Nutzer + Datum automatisch erfasst), grafische Übersicht wer/wann/was erledigt hat, Erinnerungen per ntfy/Gotify, turnusabhängige Fälligkeit mit Ampel-Status (grün/gelb/rot) auf dem Dashboard.
+- Datenmodell im Dialog verfeinert: rollierende Fälligkeit (letzte Erledigung + Intervall) statt fixem Wochentag; Gelb-Warnfenster als Prozentsatz des Intervalls; NFC-Tag pro Raum (nicht pro Aufgabe) mit Aufgabenauswahl beim Scan; PIN-Login pro Person, öffentlich einsehbares Dashboard ohne Login, Login nur zum Abhaken; Gruppen (Hausmeister/Küche/Gastronomie) mit Räumen in n:m-Beziehung, Benachrichtigungen an alle Gruppenmitglieder; eigene Admin-Rolle für Verwaltung.
+- Erstes Grundgerüst gebaut und lokal getestet: FastAPI-Backend, SQLite, Datenmodell (Groups/Users/Rooms/Tasks/Completions), PIN-Login, öffentliches Dashboard, Scan-Seite pro Raum mit Ampel-Status, Historie-Liste, responsives UI, automatische Admin-Anlage beim ersten Start.
+- Deploy auf die Synology-NAS eingerichtet (Docker Compose, über Dockhand), inkl. Fehlersuche bei Build-Kontext/Mounts und Port-Mapping (fest auf Host-Port 8055).
+- Erstes echtes Dashboard-Redesign (Stat-Karten, Raum-Kacheln, Aktivitäts-Panels statt unstyled HTML); Bugfix Styling (Tailwind lief instabil über externes CDN → fest im Docker-Image mitgebautes CSS).
+- Raumkarten erweitert: Icon, Status mit Zeitangabe ("seit 43 Minuten"), "Letzte Reinigung: Uhrzeit • Name".
+- Turnus als Dropdown (Täglich/Wöchentlich/Monatlich/Quartalsweise) statt freier Zahleneingabe; Gelb-Warnprozentsatz-Feld beschriftet ("Warnung vorher (%)") und mit Richtwert-Erklärung pro Turnus versehen.
+- Icons neben den Raumnamen auf Wunsch wieder entfernt.
+- Entscheidung, das Projekt an Claude Code zu übergeben, um den Zyklus "Code ändern → ZIP schicken → entpacken → NAS neu bauen" zu vermeiden.
+
+**Lücke: 21./22. Juli – frühe Claude-Code-Sitzung (nicht mehr rekonstruierbar)**
+In dieser Sitzung (noch ohne Git) entstanden nachweislich (siehe folgender
+Abschnitt) NFC-Scan, Inventar, Meldungen, weitere Benachrichtigungskanäle
+(zusätzlich Signal), NTP-Zeitkorrektur, Backup/Restore und die
+Schichtleiter-Rolle. Das zugehörige Sitzungsprotokoll existiert lokal nicht
+mehr (Claude Code löscht Sitzungen standardmäßig nach 30 Tagen automatisch)
+und konnte auch sonst nicht wiedergefunden werden – die einzelnen
+Zwischenschritte dieser Phase sind damit unwiederbringlich verloren.
+
+**22. Juli – Stand beim Umzug ins Git-Repo ("Initial commit")**
+Rekonstruiert direkt aus dem Code dieses Commits, als erster tatsächlich
+belegter Gesamtstand nach der Lücke:
 - Bereiche & Aufgaben: Dashboard, Bereichsübersicht, Bereichs-Detailansicht, Aufgaben abhaken
 - Inventar: Übersicht mit Bestandsanpassung
 - Meldungen: Fotos, Auflösen/Erledigt-Markierung
