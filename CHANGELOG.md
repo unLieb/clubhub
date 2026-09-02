@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.0.1] - 2026-09-02
+- Löschen-Rechte weiter angeglichen: wie schon bei erledigten Aufgaben darf jetzt auch bei Kühlungs-Messwerten, Meldungen, Terminen und Urlaubsanträgen jede Rolle außer Admin nur noch den eigenen Eintrag löschen, nicht mehr die von Kollegen. Anlegen und Bearbeiten (auch fremder Einträge) bleibt für Schichtleiter unverändert möglich – nur das Löschen ist jetzt enger gefasst.
+
 ## [1.0.0] - 2026-09-02
 - Rollenkonzept überarbeitet: die separate "Entwickler"-Rolle wurde wieder entfernt – ein Admin, der alles kann, reicht aus. Der Schichtleiter sieht/verwaltet dafür jetzt wieder praktisch alles wie ein Admin (Bereiche, Gruppen, Inventar, Aufgaben, Kühlungen, Benachrichtigungskanäle, Nutzer anlegen/bearbeiten), darf aber gezielt nicht löschen: keine Nutzer deaktivieren, keine Stammdaten (Bereiche/Gruppen/Inventar/Aufgaben/Kanäle/Kühlzellen) löschen und keine Backups wiederherstellen/importieren – das bleibt Admin-only.
 - Erledigte Aufgaben in der Historie: ab sofort darf jede Rolle (außer Admin) nur noch die eigene Erledigung zurückziehen, nicht mehr die von Kollegen. Der Admin kann weiterhin jede beliebige zurückziehen.

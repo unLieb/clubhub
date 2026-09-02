@@ -2644,7 +2644,10 @@ def cooling_reading_delete(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    user = require_admin_or_shift_lead(request, db)
+    """Wie delete_completion: nur die eigene Messung (jede Rolle außer Admin)
+    oder, als Admin, jede beliebige - ein Schichtleiter soll fremde Messwerte
+    nicht entfernen können, nur seine eigenen."""
+    user = require_login(request, db)
     is_fetch = request.headers.get("X-Requested-With") == "fetch"
     device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
     reading = (
@@ -2657,6 +2660,8 @@ def cooling_reading_delete(
         if is_fetch:
             raise HTTPException(status_code=404)
         return RedirectResponse("/kuehlungen", status_code=302)
+    if not (user.is_admin or reading.user_id == user.id):
+        raise HTTPException(status_code=403, detail="Nur eigene Messungen oder als Admin")
 
     db.delete(reading)
     _recompute_cooling_notified(db, device)
@@ -3215,11 +3220,13 @@ def reports_set_status(
 @app.post("/reports/{report_id}/delete")
 def reports_delete(report_id: int, request: Request, db: Session = Depends(get_db)):
     """Meldung endgültig löschen - nur für den Melder selbst (z.B. um Test-
-    Meldungen aufzuräumen) oder Admin/Schichtleiter, nicht für beliebige
-    eingeloggte Nutzer wie beim Statuswechsel/Kommentieren."""
+    Meldungen aufzuräumen) oder Admin, nicht für beliebige eingeloggte Nutzer
+    wie beim Statuswechsel/Kommentieren - ein Schichtleiter soll fremde
+    Meldungen nicht löschen können, nur seine eigenen (wie bei erledigten
+    Aufgaben/Kühlungs-Messungen)."""
     user = require_login(request, db)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
-    if report and (report.user_id == user.id or user.is_admin or user.is_shift_lead):
+    if report and (report.user_id == user.id or user.is_admin):
         for photo in report.photos:
             try:
                 os.remove(os.path.join(REPORT_PHOTOS_DIR, photo.filename))
@@ -3428,9 +3435,14 @@ def appointments_edit(
 
 @app.post("/appointments/{appointment_id}/delete")
 def appointments_delete(appointment_id: int, request: Request, db: Session = Depends(get_db)):
+    """Nur der eigene Termin (jede Rolle außer Admin) oder, als Admin, jeder
+    beliebige - ein Schichtleiter soll fremde Termine nicht löschen können,
+    nur seine eigenen (wie bei erledigten Aufgaben/Meldungen/Messungen).
+    Bearbeiten (siehe appointments_edit) bleibt bewusst unverändert auch für
+    Schichtleiter auf fremde Termine möglich."""
     user = require_login(request, db)
     appt = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
-    if appt and (appt.user_id == user.id or user.is_admin or user.is_shift_lead):
+    if appt and (appt.user_id == user.id or user.is_admin):
         db.delete(appt)
         db.commit()
     return RedirectResponse("/appointments", status_code=302)
@@ -3532,9 +3544,14 @@ def vacations_edit(
 
 @app.post("/vacations/{vacation_id}/delete")
 def vacations_delete(vacation_id: int, request: Request, db: Session = Depends(get_db)):
+    """Nur der eigene Eintrag (jede Rolle außer Admin) oder, als Admin, jeder
+    beliebige - ein Schichtleiter soll fremden Urlaub nicht löschen können,
+    nur seinen eigenen (wie bei erledigten Aufgaben/Meldungen/Terminen/
+    Messungen). Anlegen/Bearbeiten für andere bleibt bewusst unverändert
+    für Schichtleiter möglich (siehe vacations_create/vacations_edit)."""
     actor = require_login(request, db)
     vac = db.query(models.Vacation).filter(models.Vacation.id == vacation_id).first()
-    if vac and (vac.user_id == actor.id or actor.is_admin or actor.is_shift_lead):
+    if vac and (vac.user_id == actor.id or actor.is_admin):
         db.delete(vac)
         db.commit()
     return RedirectResponse("/vacations", status_code=302)
