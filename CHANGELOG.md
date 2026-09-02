@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.4.3] - 2026-09-02
+- Passkey-Login: der vollwandige, hellgrüne Riesen-Balken über dem Anmeldeformular (Dashboard, nicht angemeldet) ist weg. Passkey-Anmeldung steht jetzt als dezenter, kleiner Link unterhalb des normalen Formulars ("oder mit Passkey anmelden"), statt als aufdringliche Option davor. Conditional UI (Passkey-Vorschlag direkt im Browser-Autofill des Benutzernamen-Felds) war bereits korrekt eingerichtet und bleibt unverändert bestehen.
+
 ## [1.4.2] - 2026-09-02
 - Inventar: die "Box-in-Box"-Optik der Gruppen-Abschnitte (siehe 1.4.0) entfernt – kein umschließender Card-Rahmen mehr um eine Gruppe, stattdessen ein schlanker, freistehender Header mit dünner Trennlinie; die Artikel-Karten stehen wie vor der Gliederung direkt im normalen Seiten-Stack.
 - Die Gruppen-Gliederung selbst ist jetzt ebenfalls nur für Admins/Schichtleiter aktiv. Für alle anderen Rollen (die ohnehin immer nur die eigene, einzige Gruppe sehen) gibt es keinen Gruppen-Header mehr, sondern wieder die flache Liste wie vor dem ursprünglichen Umbau.
