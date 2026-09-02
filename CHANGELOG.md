@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.4.2] - 2026-09-02
+- Inventar: die "Box-in-Box"-Optik der Gruppen-Abschnitte (siehe 1.4.0) entfernt – kein umschließender Card-Rahmen mehr um eine Gruppe, stattdessen ein schlanker, freistehender Header mit dünner Trennlinie; die Artikel-Karten stehen wie vor der Gliederung direkt im normalen Seiten-Stack.
+- Die Gruppen-Gliederung selbst ist jetzt ebenfalls nur für Admins/Schichtleiter aktiv. Für alle anderen Rollen (die ohnehin immer nur die eigene, einzige Gruppe sehen) gibt es keinen Gruppen-Header mehr, sondern wieder die flache Liste wie vor dem ursprünglichen Umbau.
+- Bugfix dabei entdeckt und behoben: die Such-/Status-Filterung griff für Nicht-Admin/Schichtleiter-Rollen nicht mehr, weil die Filterlogik ausschließlich über Gruppen-Abschnitte iterierte, die für diese Rollen gar nicht existieren.
+
 ## [1.4.1] - 2026-09-02
 - "Sichtbarkeit anpassen" (Bereiche + Inventar) ist jetzt nur noch für Admins/Schichtleiter sichtbar. Für alle anderen Rollen ergab die Funktion keinen Sinn – sie sehen ohnehin nur die eigene (einzige) Gruppe, es gäbe also nichts sinnvoll auszublenden außer der eigenen, gesamten Sicht.
 

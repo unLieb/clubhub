@@ -150,20 +150,24 @@
 </details>
 {% endif %}
 
-<div class="space-y-4" id="inventory-list">
+<div class="{% if user and (user.is_admin or user.is_shift_lead) %}space-y-6{% else %}space-y-3{% endif %}" id="inventory-list">
+  {% if user and (user.is_admin or user.is_shift_lead) %}
   {% for section in inventory_sections %}
   <!-- Abschnitt je Zuständigkeits-Gruppe (siehe group_inventory_items in
-       main.py) - vor allem für Admins/Schichtleiter relevant, die (anders
-       als normales Personal) standardmäßig das Inventar aller Gruppen sehen
-       und sonst nicht erkennen könnten, wo eine Gruppe endet und die
-       nächste beginnt. Offen per Standard, einzeln einklappbar. -->
+       main.py) - nur für Admins/Schichtleiter, die (anders als normales
+       Personal) standardmäßig das Inventar aller Gruppen sehen und sonst
+       nicht erkennen könnten, wo eine Gruppe endet und die nächste beginnt.
+       Bewusst schlank statt als eigene Card: nur eine dünne Trennlinie
+       unter dem Header, keine umschließende Box - die Artikel-Karten
+       stehen weiterhin direkt im normalen Seiten-Stack. Offen per Standard,
+       einzeln einklappbar. -->
   <!-- Benannte Tailwind-Gruppe (group/section) statt der unbenannten "group" -
        jede Artikel-Karte hat selbst schon ein eigenes group-open:-Details
        ("Mehr Details" weiter unten in _inventory_card.html), eine unbenannte
        äußere Gruppe würde deren Pfeil beim Auf-/Zuklappen dieses Abschnitts
        mit verdrehen. -->
-  <details class="inventory-group-section rounded-xl border border-line bg-panel group/section" open>
-    <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3 rounded-xl hover:bg-panel2 group-open/section:rounded-b-none">
+  <details class="inventory-group-section group/section" open>
+    <summary class="cursor-pointer list-none flex items-center justify-between gap-2 py-2 mb-3 border-b border-line text-slate-300 hover:text-slate-100">
       <span class="font-display font-medium flex items-center gap-2">
         {% if section.group %}
         <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ section.group.color or group_default_color }}"></span>
@@ -176,7 +180,7 @@
       </span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 shrink-0 transition-transform group-open/section:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
     </summary>
-    <div class="px-4 pb-4 pt-1 border-t border-line space-y-3">
+    <div class="space-y-4 pb-2">
       {% for item in section['items'] %}
       {% set st = inventory_status[item.id] %}
       {% set chart = inventory_chart[item.id] %}
@@ -188,9 +192,25 @@
   {% else %}
   <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
     Noch keine Artikel angelegt.
-    {% if user and (user.is_admin or user.is_shift_lead) %}<a href="/admin" class="text-go underline">Jetzt anlegen</a>{% endif %}
+    <a href="/admin" class="text-go underline">Jetzt anlegen</a>
   </div>
   {% endfor %}
+  {% else %}
+  <!-- Kein Gruppen-Header/Akkordeon fuer alle anderen Rollen - die sehen
+       ohnehin immer nur die eigene (einzige) Gruppe (siehe
+       filter_inventory_for_user), eine Gliederung waere dort reine
+       Staffage ohne Nutzen. Genau die flache Liste wie vor dem Umbau. -->
+  {% for item in items %}
+  {% set st = inventory_status[item.id] %}
+  {% set chart = inventory_chart[item.id] %}
+  {% set consumption = inventory_consumption[item.id] %}
+  {% include "_inventory_card.html" %}
+  {% else %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine Artikel angelegt.
+  </div>
+  {% endfor %}
+  {% endif %}
   <p id="inventory-empty" class="hidden rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">Keine Artikel gefunden.</p>
 </div>
 
@@ -469,28 +489,32 @@
     function applyFilter() {
       var q = (search.value || '').trim().toLowerCase();
       var status = statusFilter.value;
-      var sections = list.querySelectorAll('.inventory-group-section');
-      var totalCards = 0;
+      // Karten direkt filtern, unabhaengig davon, ob sie (Admin/Schichtleiter)
+      // in Gruppen-Abschnitten oder (alle anderen Rollen) flach direkt im
+      // Stack stehen - siehe inventory_overview in main.py fuer die Rollen-
+      // Weiche, die hier keine Rolle spielt.
+      var cards = list.querySelectorAll('.inventory-card');
       var visible = 0;
-      sections.forEach(function (section) {
-        var cards = section.querySelectorAll('.inventory-card');
-        var sectionVisible = 0;
-        cards.forEach(function (card) {
-          var matchesSearch = !q || card.dataset.search.indexOf(q) !== -1;
-          var matchesStatus = !status || card.dataset.status === status;
-          var show = matchesSearch && matchesStatus;
-          card.classList.toggle('hidden', !show);
-          if (show) sectionVisible++;
-        });
-        // Abschnitt selbst ausblenden statt nur eine leere Kopfzeile mit
-        // "(0 Artikel gefiltert)" stehen zu lassen - die Kopfzeile zeigt
-        // bewusst weiterhin die GESAMT-Anzahl der Gruppe, nicht die
-        // gefilterte, daher hier separat pruefen statt sich darauf zu verlassen.
-        section.classList.toggle('hidden', sectionVisible === 0);
-        totalCards += cards.length;
-        visible += sectionVisible;
+      cards.forEach(function (card) {
+        var matchesSearch = !q || card.dataset.search.indexOf(q) !== -1;
+        var matchesStatus = !status || card.dataset.status === status;
+        var show = matchesSearch && matchesStatus;
+        card.classList.toggle('hidden', !show);
+        if (show) visible++;
       });
-      if (empty) empty.classList.toggle('hidden', visible !== 0 || totalCards === 0);
+      // Nur relevant, wenn ueberhaupt Gruppen-Abschnitte existieren (Admin/
+      // Schichtleiter): einen Abschnitt ausblenden, sobald keine seiner
+      // Karten mehr sichtbar ist, statt nur eine leere Kopfzeile stehen zu
+      // lassen - die Kopfzeile zeigt bewusst weiterhin die GESAMT-Anzahl der
+      // Gruppe, nicht die gefilterte, daher hier separat pruefen.
+      list.querySelectorAll('.inventory-group-section').forEach(function (section) {
+        var sectionVisible = Array.prototype.some.call(
+          section.querySelectorAll('.inventory-card'),
+          function (card) { return !card.classList.contains('hidden'); }
+        );
+        section.classList.toggle('hidden', !sectionVisible);
+      });
+      if (empty) empty.classList.toggle('hidden', visible !== 0 || cards.length === 0);
     }
     if (search) search.addEventListener('input', applyFilter);
     if (statusFilter) statusFilter.addEventListener('change', applyFilter);

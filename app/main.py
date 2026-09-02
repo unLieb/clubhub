@@ -2401,7 +2401,11 @@ def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session
         "request": request,
         "user": user,
         "items": items,
-        "inventory_sections": group_inventory_items(items),
+        # Gruppen-Gliederung nur fuer Admin/Schichtleiter berechnen - fuer
+        # alle anderen Rollen (die ohnehin immer nur die eigene, einzige
+        # Gruppe sehen) rendert das Template stattdessen die flache Liste
+        # wie vor der Gliederung, siehe inventory.html.
+        "inventory_sections": group_inventory_items(items) if user and (user.is_admin or user.is_shift_lead) else None,
         "inventory_status": inventory_status,
         "inventory_consumption": inventory_consumption,
         "inventory_chart": inventory_chart,
