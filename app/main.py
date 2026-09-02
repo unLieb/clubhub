@@ -525,6 +525,14 @@ def _migrate_audit_log_drop_ip(db: Session):
         db.commit()
 
 
+def _migrate_group_cooling_access(db: Session):
+    """Neuer Zugriffs-Schalter fuers Kuehlungen-Modul je Gruppe (siehe
+    Group.cooling_access) - SQL-Default 0 (aus) fuer alle bestehenden
+    Gruppen, ein Admin schaltet die betroffenen Gruppen (z.B. Kueche,
+    Hausmeister) anschliessend gezielt frei."""
+    _ensure_column(db, "groups", "cooling_access", "INTEGER DEFAULT 0")
+
+
 def _migrate_app_settings_module_flags(db: Session):
     """Neue globale Modul-Schalter Zeiterfassung/Urlaub (siehe AppSettings,
     "Module & Features" unter /admin/system). SQL-Default hier bewusst TRUE -
@@ -628,6 +636,7 @@ def _startup():
         _migrate_user_notify_on_completion(db)
         _migrate_audit_log_drop_ip(db)
         _migrate_app_settings_module_flags(db)
+        _migrate_group_cooling_access(db)
     finally:
         db.close()
 
@@ -854,6 +863,23 @@ def filter_rooms_for_user(rooms, user):
         hidden_ids = {g.id for g in user.hidden_room_groups}
         visible = [r for r in visible if not r.groups or not all(g.id in hidden_ids for g in r.groups)]
     return visible
+
+
+def visible_room_groups_for_user(user, room):
+    """Welche der einem Bereich zugeordneten Gruppen einem Nutzer als
+    "Zuständigkeiten" angezeigt werden - Admin/Schichtleiter sehen bewusst
+    immer alle (brauchen die volle Übersicht), ein normaler Mitarbeiter nur
+    die eigene(n) Gruppe(n) unter den Bereichs-Gruppen, keine fremden.
+    Hintergrund: bei Bereichen, die sich mehrere Gruppen teilen (z.B. Küche +
+    Gastro), soll die Küche nicht sehen "das kann ja auch die Gastro machen"
+    und umgekehrt - Verantwortungsdiffusion vermeiden, indem jede Gruppe nur
+    ihre eigene Zuständigkeit angezeigt bekommt, nicht die der anderen."""
+    if user and (user.is_admin or user.is_shift_lead):
+        return room.groups
+    if not user:
+        return []
+    user_group_ids = {g.id for g in user.groups}
+    return [g for g in room.groups if g.id in user_group_ids]
 
 
 def compute_room_statuses(rooms, now):
@@ -1177,6 +1203,7 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
         # Für die Inline-Aufgabenverwaltung (Anlegen/Bearbeiten-Drawer),
         # sichtbar nur für Admins/Schichtleiter (siehe room.html).
         "groups": db.query(models.Group).order_by(models.Group.name).all(),
+        "visible_room_groups": visible_room_groups_for_user(user, room),
     })
 
 
@@ -2032,6 +2059,25 @@ def filter_inventory_for_user(items, user):
     return visible
 
 
+def user_can_access_cooling(user) -> bool:
+    """Grobkoerniger Zugriff aufs Kuehlungen-Modul als Ganzes (Navigation +
+    direkter Routen-Aufruf) - unabhaengig von user_can_see_cooling_device
+    weiter unten, das erst INNERHALB des Moduls steuert, welche einzelnen
+    Kuehlzellen sichtbar sind. Admin/Schichtleiter immer, sonst nur wenn
+    mindestens eine eigene Gruppe cooling_access hat (siehe Group.cooling_access -
+    per Gruppe in der Verwaltung schaltbar, nicht global wie enable_time_tracking/
+    enable_vacation, da idR nur ein Teil der Gruppen (z.B. Kueche, Hausmeister)
+    tatsaechlich mit Kuehlketten zu tun hat)."""
+    if not user:
+        return False
+    if user.is_admin or user.is_shift_lead:
+        return True
+    return any(g.cooling_access for g in user.groups)
+
+
+templates.env.globals["user_can_access_cooling"] = user_can_access_cooling
+
+
 def user_can_see_cooling_device(user, device) -> bool:
     """Identisches Sichtbarkeits-Schema wie user_can_see_inventory_item -
     Kuehlzellen ohne Gruppe sind gemeinsam sichtbar, sonst nur fuer die
@@ -2522,6 +2568,9 @@ def cooling_overview(request: Request, db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
     if redirect:
         return redirect
+    blocked = _module_gate(user_can_access_cooling(user), "Kühlungen")
+    if blocked:
+        return blocked
     now = ntptime.now_utc()
     devices = filter_cooling_devices_for_user(
         db.query(models.CoolingDevice).order_by(models.CoolingDevice.name).all(), user
@@ -5257,6 +5306,7 @@ def admin_add_group(
     work_start_hour: str = Form(""),
     work_end_hour: str = Form(""),
     color: str = Form(GROUP_DEFAULT_COLOR),
+    cooling_access: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -5269,6 +5319,7 @@ def admin_add_group(
         # Nur Werte aus der festen Palette akzeptieren (siehe GROUP_COLOR_PALETTE) -
         # sonst faellt ein manipulierter/unbekannter Wert auf die Standardfarbe zurueck.
         color=color if color in GROUP_COLOR_VALUES else GROUP_DEFAULT_COLOR,
+        cooling_access=bool(cooling_access),
     ))
     log_audit(db, actor, "CREATE", "Gruppe", f"Gruppe „{name}“ angelegt.")
     db.commit()
@@ -5284,6 +5335,7 @@ def admin_edit_group(
     work_start_hour: str = Form(""),
     work_end_hour: str = Form(""),
     color: str = Form(GROUP_DEFAULT_COLOR),
+    cooling_access: str = Form(""),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -5294,6 +5346,7 @@ def admin_edit_group(
         group.work_start_hour = int(work_start_hour) if work_start_hour else None
         group.work_end_hour = int(work_end_hour) if work_end_hour else None
         group.color = color if color in GROUP_COLOR_VALUES else GROUP_DEFAULT_COLOR
+        group.cooling_access = bool(cooling_access)
         log_audit(db, actor, "UPDATE", "Gruppe", f"Gruppe „{name}“ bearbeitet.")
         db.commit()
     return RedirectResponse("/admin/groups", status_code=302)

@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.3.0] - 2026-09-02
+- Kühlungen ist jetzt pro Gruppe freischaltbar statt für jeden sichtbar: neuer Schalter "Zugriff auf Kühlungen" bei den Gruppen (Verwaltung → Gruppen), standardmäßig für alle Gruppen aus. Admins/Schichtleiter sehen das Modul davon unabhängig immer. Ohne Zugriff verschwindet der Menüpunkt aus Navigation und mobiler "Mehr"-Ansicht, ein direkter Aufruf leitet mit Hinweis aufs Dashboard um.
+- Bereichs-Ansicht: die "Zuständigkeiten"-Zeile unter dem Bereichsnamen zeigt normalen Mitarbeitern jetzt nur noch die eigene(n) Gruppe(n) statt aller einem Bereich zugeordneten Gruppen. Bei Bereichen, die sich mehrere Gruppen teilen (z.B. Küche + Gastronomie), soll so vermieden werden, dass sich eine Gruppe auf die andere verlässt ("das kann ja auch die Gastro machen"). Admins/Schichtleiter sehen weiterhin alle zugeordneten Gruppen.
+
 ## [1.2.0] - 2026-09-02
 - Bereiche-Übersicht (`/rooms`): neue "Sichtbarkeit anpassen"-Klappe, analog zur bereits bestehenden Funktion im Inventar. Damit jeder Nutzer – gerade jetzt, wo Schichtleiter alle Bereiche sehen – gezielt Gruppen ausblenden kann, die ihn nicht interessieren (z.B. ein Gastro-Schichtleiter blendet die Bereiche der Hausmeister-Gruppe aus, kann sie sich aber jederzeit wieder einblenden, um dort nach dem Rechten zu sehen). Rein persönliche Einstellung, ändert nichts für andere; wirkt auch auf das Dashboard, da beide dieselbe Filterfunktion nutzen. Ein Bereich mehrerer Gruppen bleibt sichtbar, solange mindestens eine seiner Gruppen nicht ausgeblendet ist.
 

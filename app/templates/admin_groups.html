@@ -48,6 +48,11 @@
           {% endfor %}
         </div>
       </div>
+      <label class="flex items-center gap-2 cursor-pointer w-fit">
+        <input type="checkbox" name="cooling_access" class="w-4 h-4 rounded border-line accent-go">
+        <span class="text-sm text-slate-200">Zugriff auf Kühlungen</span>
+      </label>
+      <p class="text-[11px] text-slate-500">Admins/Schichtleiter sehen das Modul davon unabhängig immer.</p>
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Gruppe anlegen</button>
     </form>
   </div>
@@ -119,6 +124,10 @@
               {% endfor %}
             </div>
           </div>
+          <label class="flex items-center gap-2 cursor-pointer w-fit">
+            <input type="checkbox" name="cooling_access" class="w-4 h-4 rounded border-line accent-go" {% if g.cooling_access %}checked{% endif %}>
+            <span class="text-sm text-slate-200">Zugriff auf Kühlungen</span>
+          </label>
           <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
         </form>
       </div>

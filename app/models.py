@@ -93,6 +93,17 @@ class Group(Base):
     # _group_macros.html) fallen dann auf eine neutrale Standardfarbe zurueck.
     color = Column(String, nullable=True)
 
+    # Zugriff aufs Kühlungen-Modul (Temperaturdokumentation) - anders als bei
+    # den übrigen Modulen interessiert das nicht jede Gruppe (z.B. Küche/
+    # Hausmeister ja, Gastro/Toilettenbetreuung eher nicht), daher pro Gruppe
+    # statt global schaltbar (siehe AppSettings.enable_time_tracking/
+    # enable_vacation für den globalen Fall). Admin/Schichtleiter sehen das
+    # Modul davon unabhängig immer (siehe user_can_access_cooling in main.py).
+    # Default False (auch für neue Gruppen) - bewusst eine Positivliste statt
+    # "alle außer den explizit ausgeschlossenen", da eine neu angelegte
+    # Gruppe in aller Regel nicht automatisch etwas mit Kühlketten zu tun hat.
+    cooling_access = Column(Boolean, nullable=False, default=False)
+
     users = relationship("User", secondary=user_group, back_populates="groups")
     rooms = relationship("Room", secondary=room_group, back_populates="groups")
     channels = relationship("NotificationChannel", secondary=group_channel, back_populates="groups")
