@@ -441,6 +441,12 @@ def _migrate_task_active_weekdays(db: Session):
     _ensure_column(db, "tasks", "active_weekdays", "TEXT")
 
 
+def _migrate_task_snoozed_until(db: Session):
+    """Neues optionales "Später erinnern"-Feld je Aufgabe (kein Altdaten-
+    Bezug, NULL = keine Pause aktiv wie bisher)."""
+    _ensure_column(db, "tasks", "snoozed_until", "TIMESTAMP")
+
+
 def _migrate_detach_task_groups(db: Session):
     """Einmalige Migration: Aufgabenverwaltung ist jetzt raumzentriert
     (Kopieren statt Verlinken, siehe admin_rooms.html) statt über verlinkte
@@ -632,6 +638,7 @@ def _startup():
         _migrate_task_note(db)
         _migrate_task_group_key(db)
         _migrate_task_active_weekdays(db)
+        _migrate_task_snoozed_until(db)
         _migrate_detach_task_groups(db)
         _migrate_user_notify_on_completion(db)
         _migrate_audit_log_drop_ip(db)
@@ -1164,6 +1171,11 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
             s["duration_text"] = f"Fällig in {format_duration_de(s['due_at'] - now)}"
         else:
             s["duration_text"] = None
+        # "Später erinnern" (siehe snooze_task) - nur fuer die Anzeige einer
+        # aktiven Pause, beeinflusst Status/Ampel oben bewusst nicht.
+        snoozed_until = _aware(t.snoozed_until) if t.snoozed_until else None
+        s["is_snoozed"] = bool(snoozed_until and snoozed_until > now)
+        s["snoozed_until"] = snoozed_until if s["is_snoozed"] else None
         statuses[t.id] = s
     # Erledigte (grüne) Aufgaben aus der Hauptliste ausblenden, damit man beim
     # Abarbeiten nicht an bereits Erledigtem vorbeischeitzen muss - sie tauchen
@@ -1293,6 +1305,61 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
     # kleine Textzeile, die leicht übersehen wird (siehe Nutzer-Feedback: ohne
     # sichtbare Bestätigung wurde "Erledigt" mehrfach hintereinander gedrückt).
     return RedirectResponse(f"/room/{room_id}?done={task_id}", status_code=302)
+
+
+@app.post("/room/{room_id}/task/{task_id}/snooze")
+def snooze_task(
+    room_id: int, task_id: int, request: Request,
+    days: str = Form(""), until_date: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """"Später erinnern": verschiebt nur die naechste Push-Benachrichtigung
+    fuer GENAU diese Aufgabe (siehe check_tasks_job in scheduler.py), ohne
+    sie als erledigt zu markieren - Status/Ampel bleiben unveraendert
+    sichtbar. Fuer jeden eingeloggten Nutzer verfuegbar wie der "Erledigt"-
+    Button auch, nicht nur Admin/Schichtleiter: die Zielgruppe hierfuer ist
+    z.B. gerade eine normale Reinigungskraft, die eine seit laengerem
+    bekannte, bewusst aufgeschobene Grundreinigung nicht mehr alle paar
+    Stunden gemeldet bekommen will. `days` (Preset-Buttons: 3/7/14) hat
+    Vorrang vor `until_date` (freies Datum), falls versehentlich beides
+    gesetzt waere."""
+    user = require_login(request, db)
+    task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.room_id == room_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Aufgabe nicht gefunden")
+    now = ntptime.now_utc()
+    if days.strip():
+        try:
+            snoozed_until = now + timedelta(days=int(days))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ungültige Anzahl Tage")
+    elif until_date.strip():
+        try:
+            snoozed_until = _parse_local_date(until_date.strip())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ungültiges Datum")
+    else:
+        raise HTTPException(status_code=400, detail="Kein Zeitpunkt angegeben")
+    task.snoozed_until = snoozed_until
+    db.commit()
+    # Bewusst OHNE "?done=" - das würde den "erledigt!"-Toast/die Hervorhebung
+    # für abgeschlossene Aufgaben auslösen (siehe complete_task oben), was hier
+    # falsch wäre: die Aufgabe ist ja nicht erledigt, nur die Erinnerung pausiert.
+    return RedirectResponse(f"/room/{room_id}", status_code=302)
+
+
+@app.post("/room/{room_id}/task/{task_id}/snooze/cancel")
+def cancel_snooze_task(room_id: int, task_id: int, request: Request, db: Session = Depends(get_db)):
+    """Hebt eine aktive "Später erinnern"-Pause vorzeitig wieder auf -
+    Benachrichtigungen fuer diese Aufgabe greifen dann ab dem naechsten
+    Scheduler-Tick wieder normal."""
+    user = require_login(request, db)
+    task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.room_id == room_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Aufgabe nicht gefunden")
+    task.snoozed_until = None
+    db.commit()
+    return RedirectResponse(f"/room/{room_id}", status_code=302)
 
 
 @app.post("/room/{room_id}/task/{task_id}/complete/{completion_id}/undo")

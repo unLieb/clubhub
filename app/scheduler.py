@@ -73,6 +73,18 @@ def check_tasks_job():
         overdue_by_room = {}
 
         for task in tasks:
+            snoozed_until = _aware(task.snoozed_until)
+            if snoozed_until and now < snoozed_until:
+                # "Später erinnern" (siehe snooze_task in main.py): weder die
+                # sofortige Gelb-Push noch die gebündelte Rot-Sammel-Push für
+                # GENAU diese Aufgabe auslösen, solange die Pause läuft - der
+                # Status/die Ampel selbst (task_status oben) bleibt davon
+                # unberührt, nur die Benachrichtigung wird unterdrückt. Auch
+                # TaskGroupNotice bewusst NICHT nachziehen, damit nach Ablauf
+                # der Pause wieder ein "echter" Statuswechsel erkannt wird,
+                # falls sich davor schon mal etwas geändert hatte.
+                continue
+
             result = task_status(task)
             new_status = result["status"]
             task_groups = task.groups or task.room.groups

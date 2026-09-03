@@ -282,6 +282,16 @@ class Task(Base):
     # Aufgabe/demselben Bereich, aber unterschiedlichen Gruppen + Wochentagen an.
     active_weekdays = Column(String, nullable=True)
 
+    # "Später erinnern": unterdrückt Push-Benachrichtigungen (gelb/rot) für
+    # GENAU diese Aufgabe bis zu diesem Zeitpunkt, ohne den Status/die
+    # Ampel-Anzeige selbst zu beeinflussen - die Aufgabe bleibt in Dashboard/
+    # Bereichs-Ansicht ganz normal rot/gelb sichtbar, es kommt nur keine Push
+    # mehr dazu (siehe check_tasks_job in scheduler.py). Gedacht für bewusst
+    # aufgeschobene, seit längerem bekannte Arbeiten (z.B. eine noch nicht
+    # begonnene Grundreinigung), die sonst bei jedem Drossel-Fenster erneut
+    # nerven, obwohl nichts Neues passiert ist. None = keine aktive Pause.
+    snoozed_until = Column(DateTime(timezone=True), nullable=True)
+
     # Explizit zuständige Gruppen ("Wer?", zusätzlich zum Bereich als "Wo?").
     # Leer = keine Einschränkung, es gelten automatisch alle Gruppen, die dem
     # Bereich zugeordnet sind (bisheriges Verhalten, keine Nacharbeit an
