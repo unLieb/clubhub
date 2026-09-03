@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.5.2] - 2026-09-03
+- Systemseite (Verwaltung → System) final aufgeräumt: "Module & Features" steht jetzt in der linken Spalte direkt unter "System & Status" statt als eigene volle Zeile ganz unten. Das Datei-Feld bei "Struktur importieren" nutzt jetzt dieselbe moderne Upload-Dropzone wie die DB-Sicherungen statt des nackten Standard-Datei-Inputs. Dabei nebenbei behoben: alle vier Karten behalten jetzt ihre eigene natürliche Höhe (kein sinnloser Leerraum mehr, wenn eine Karte deutlich kürzer ist als ihre Nachbarin in derselben Zeile).
+
 ## [1.5.1] - 2026-09-03
 - Backup-Verwaltung (Verwaltung → System) übersichtlicher gemacht: die bisher getrennten Karten "Automatische Sicherungen" und "Backup & Wiederherstellung" sind zu einer Karte "Datenbank-Sicherungen" zusammengefasst (Kopf: manueller Download + Auto-Backup-Einstellungen, Mittelteil: Liste der automatischen Sicherungen, Fuß: optisch klar abgesetztes manuelles Wiedereinspielen mit neu gestylter Datei-Dropzone statt nacktem Datei-Feld).
 
