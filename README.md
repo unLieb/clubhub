@@ -5,9 +5,11 @@ Meldungen, Zeiterfassung und Kühlungs-Temperaturdokumentation – mit
 NFC-/Barcode-Abhaken, rollenbasierten Zugriffsrechten, Gruppen-
 Benachrichtigungen (ntfy/Gotify/Signal/Web-Push) und Ampel-Dashboard.
 
-Änderungshistorie: siehe [CHANGELOG.md](CHANGELOG.md). Übergabe-Checkliste für
-eine Erstinstallation auf einem fremdadministrierten Server: siehe
-[HANDOFF.md](HANDOFF.md).
+Änderungshistorie: siehe [CHANGELOG.md](CHANGELOG.md).
+
+> **Hinweis für IT-Administratoren:** Eine Schritt-für-Schritt-Anleitung zur
+> Erstinstallation auf einem fremdadministrierten Server sowie die benötigte
+> `docker-compose.yml` befinden sich in [HANDOFF.md](HANDOFF.md).
 
 ## Konzept
 
@@ -60,7 +62,8 @@ eine Erstinstallation auf einem fremdadministrierten Server: siehe
 docker compose up -d --build
 ```
 
-Die App läuft danach unter `http://<server>:8000`.
+Die App läuft danach unter `http://<server>:8055` (Standard-Host-Port, siehe
+`ports:` in der `docker-compose.yml` – dort auch änderbar).
 
 Beim allerersten Start wird automatisch ein Admin-Account angelegt
 (Name/Passwort aus `INITIAL_ADMIN_NAME` / `INITIAL_ADMIN_PASSWORD` in der
@@ -134,16 +137,17 @@ Login, ohne Zugriffs-Token, ohne Quellcode/Build-Toolchain.
 ```yaml
 services:
   clubhub:
-    image: ghcr.io/unlieb/clubhub:latest   # oder eine feste Version, z.B. :1.4.3
+    image: ghcr.io/unlieb/clubhub:latest   # oder eine feste Version, z.B. :1.7.1
     container_name: ClubHUB
     restart: unless-stopped
     ports:
-      - "8055:8000"
+      - "8055:8000"   # links = Host-Port (frei änderbar, App dann unter :<neuer-Port>), rechts = fest (Container-Port)
     volumes:
       - clubhub_data:/data
     environment:
       SECRET_KEY: "..."
       # ... (Rest wie in der Haupt-docker-compose.yml)
+
 volumes:
   clubhub_data:
 ```
@@ -165,7 +169,7 @@ Docker-Umgebung. Wer den Server betreut, entscheidet selbst, wann
 
 ## NFC-Tags beschreiben
 
-Jeder Bereich bekommt eine eigene URL: `http://<server>:8000/room/<bereich-id>`
+Jeder Bereich bekommt eine eigene URL: `http://<server>:8055/room/<bereich-id>`
 (die ID ist in der Verwaltung ersichtlich). Diese URL auf einen
 NFC-Tag (z.B. NTAG213-Sticker) schreiben – z.B. mit der kostenlosen App
 "NFC Tools" (Android/iOS). Tag am Bereich anbringen (z.B. neben der Tür).
@@ -225,7 +229,7 @@ werden soll (Button "Dieses Gerät autorisieren", ausgeführt direkt auf diesem
 Gerät). Ein neu autorisiertes Gerät ersetzt automatisch ein zuvor autorisiertes
 – es kann immer nur eines gleichzeitig aktiv sein.
 
-Auf dem autorisierten Gerät läuft unter `http://<server>:8000/timeclock/kiosk`
+Auf dem autorisierten Gerät läuft unter `http://<server>:8055/timeclock/kiosk`
 ein einfaches Terminal: Benutzername/Personalnummer und Passwort eingeben,
 stempeln – ohne dass dabei ein Login stattfindet (kein bleibender
 Session-Zustand auf dem gemeinsam genutzten Gerät). Auf jedem anderen, nicht
