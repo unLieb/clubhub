@@ -6,20 +6,18 @@
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">System</h1>
 
-<!-- Zwei ECHTE, unabhaengige Spalten (je ein eigener space-y-6-Container)
-     statt eines einzelnen 4-Item-Grids mit Auto-Placement: bei Auto-
-     Placement bestimmt die hoechste Karte einer Zeile die Zeilenhoehe, egal
-     ob die eigentlichen Karten-Boxen selbst stretchen (items-start half
-     dagegen nichts - die zweite Karte einer Spalte konnte trotzdem erst
-     starten, wenn die GESAMTE erste Zeile - inkl. der viel laengeren
-     Datenbank-Sicherungen-Karte in Spalte 2 - durch war, mit einem
-     sinnlosen Loch darunter als Folge). Mit zwei eigenstaendigen Spalten
-     ruecken die Karten stattdessen rein nach ihrer eigenen Spalten-Hoehe
-     nahtlos untereinander. -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+<!-- Zwei getrennte Grid-Zeilen statt eines einzelnen 4-Item-Grids oder
+     zweier durchlaufender Spalten: Reihe 1 buendelt die beiden kompakten
+     System-Optionen-Karten (System & Status + Module & Features) und
+     streckt sie per items-stretch auf gleiche Hoehe - sie sind sich in der
+     natuerlichen Groesse aehnlich genug, dass das stimmig aussieht statt
+     ein Loch zu reissen. Reihe 2 buendelt die beiden deutlich laengeren
+     Werkzeug-Karten (Datenbank-Sicherungen + Struktur-Export & -Import) mit
+     items-start, damit keine der beiden sinnlos auf die Hoehe der anderen
+     gestreckt wird. -->
 
-  <!-- Linke Spalte: System & Status, direkt darunter Module & Features. -->
-  <div class="space-y-6">
+<!-- Reihe 1: kompakte System-Optionen. -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch mb-6">
 
   <!-- Karte 1: System & Status - Version/Build kompakt als Badges im
        Karten-Kopf statt eigener Card, Zeitsynchronisation darunter. -->
@@ -59,7 +57,7 @@
   </section>
 
   {% if user.is_admin %}
-  <!-- Karte 3 (unter System & Status): Module & Features - globale Schalter
+  <!-- Karte 2 (neben System & Status): Module & Features - globale Schalter
        fuer Module, die nicht jeder Betrieb braucht (siehe AppSettings.
        enable_time_tracking/enable_vacation). Deaktiviert blendet Navigation
        UND Dashboard-Widgets aus und blockiert den direkten Routen-Aufruf
@@ -94,13 +92,13 @@
     </form>
   </section>
   {% endif %}
-  </div>
 
-  <!-- Rechte Spalte: Datenbank-Sicherungen, direkt darunter Struktur-Export
-       & -Import. -->
-  <div class="space-y-6">
+</div>
+
+<!-- Reihe 2: die beiden laengeren Werkzeug-Karten. -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
   {% if user.is_admin %}
-  <!-- Karte 2: Datenbank-Sicherungen - zusammengefuehrt aus den ehemals
+  <!-- Karte 3: Datenbank-Sicherungen - zusammengefuehrt aus den ehemals
        getrennten Karten "Automatische Sicherungen" und "Backup &
        Wiederherstellung" (beide drehten sich letztlich um dasselbe Thema).
        Kopf: manueller Download + Auto-Backup-Einstellungen. Mittelteil:
@@ -266,17 +264,15 @@
       {% else %}
       <p class="text-sm text-slate-500 italic">Noch keine Export-/Import-Aktion protokolliert.</p>
       {% endif %}
-      <a href="/admin/audit-log?q=Struktur" class="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-100 mt-2">
+      <a href="/admin/audit-log?q=Struktur" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-xs font-medium text-slate-300 mt-2">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
         Vollständiges Audit-Log ansehen
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </a>
     </div>
   </section>
   {% else %}
-  <p class="text-[11px] text-slate-500">Datenbank-Sicherungen, Module &amp; Features sowie Struktur-Export/-Import sind nur für Admins sichtbar.</p>
+  <p class="text-[11px] text-slate-500 md:col-span-2">Datenbank-Sicherungen, Module &amp; Features sowie Struktur-Export/-Import sind nur für Admins sichtbar.</p>
   {% endif %}
-  </div>
-
 </div>
 
 {% endblock %}

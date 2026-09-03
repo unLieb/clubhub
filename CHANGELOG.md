@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.6.1] - 2026-09-03
+- Systemseite-Grid nochmal umstrukturiert: statt zwei durchlaufender Spalten jetzt zwei getrennte, symmetrische Zeilen – Zeile 1 (System & Status + Module & Features, gleiche Höhe) und Zeile 2 (Datenbank-Sicherungen + Struktur-Export & -Import, jeweils eigene natürliche Höhe). Homogeneres Layout ohne Lücken.
+- Der Link zur Historie bei Struktur-Export & -Import ist jetzt ein richtiger, klar erkennbarer Button (wie "Herunterladen" gestylt) statt eines dezenten Text-Links.
+
 ## [1.6.0] - 2026-09-03
 - Systemseite-Layout richtig repariert: das 4-Karten-Grid mit Auto-Placement wich einem "Loch" unter "System & Status", weil bei CSS-Grid die Zeilenhöhe von der jeweils höchsten Karte einer Zeile bestimmt wird – die kürzere Spalte konnte also nicht einfach nach oben rücken, egal ob die einzelne Karte selbst stretchte oder nicht. Jetzt zwei echte, unabhängige Spalten-Container statt eines einzelnen Grids – jede Spalte rückt nur nach ihrer eigenen Höhe zusammen.
 - Struktur-Export & -Import: neue "Historie"-Sektion zeigt die letzten Export-/Import-Aktionen direkt auf der Karte (nutzt das bestehende Aktivitätsprotokoll, keine neue Tabelle), mit Link aufs vollständige Audit-Log. Dabei auch den Export selbst erstmals protokolliert – bisher loggte nur der Import.
