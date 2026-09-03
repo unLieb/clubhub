@@ -8,22 +8,9 @@ stehen im [README](README.md).
 
 ## 1. Vor dem ersten Start (Pflicht)
 
-Ohne diese vier Punkte läuft der Container entweder gar nicht erst, oder er
-läuft mit unsicheren Standardwerten. Alle vier gehören in die eigene
+Ohne diese drei Punkte läuft der Container entweder gar nicht erst, oder er
+läuft mit unsicheren Standardwerten. Alle drei gehören in die eigene
 `docker-compose.yml` auf dem Zielserver.
-
-### Zugriff auf die Image-Registry einrichten
-
-Das fertige Image liegt in der GitHub Container Registry
-(`ghcr.io/unlieb/clubhub`). Falls die Registry (weiterhin) privat ist, braucht
-es vorher ein Zugriffs-Token (Scope `read:packages`) für den Account, der den
-Server betreut – zu vergeben vom Repo-Besitzer über GitHub → Settings →
-Developer settings → Personal access tokens.
-
-```bash
-# einmalig, auf dem Zielserver
-echo "<TOKEN>" | docker login ghcr.io -u <github-nutzername> --password-stdin
-```
 
 ### Eigene `docker-compose.yml` anlegen
 
