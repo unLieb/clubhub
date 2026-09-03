@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.5.1] - 2026-09-03
+- Backup-Verwaltung (Verwaltung → System) übersichtlicher gemacht: die bisher getrennten Karten "Automatische Sicherungen" und "Backup & Wiederherstellung" sind zu einer Karte "Datenbank-Sicherungen" zusammengefasst (Kopf: manueller Download + Auto-Backup-Einstellungen, Mittelteil: Liste der automatischen Sicherungen, Fuß: optisch klar abgesetztes manuelles Wiedereinspielen mit neu gestylter Datei-Dropzone statt nacktem Datei-Feld).
+
 ## [1.5.0] - 2026-09-03
 - Neue "Später erinnern"-Funktion bei bald fälligen/überfälligen Aufgaben (Bereichs-Ansicht): verschiebt gezielt nur die nächste Push-Benachrichtigung für genau diese Aufgabe (in 3 Tagen / 1 Woche / 2 Wochen / eigenes Datum), ohne sie als erledigt zu markieren – sie bleibt in Dashboard und Bereich weiterhin ganz normal gelb/rot sichtbar. Gedacht für seit längerem bekannte, bewusst aufgeschobene Arbeiten (z.B. eine noch nicht begonnene Grundreinigung), die sonst bei jedem Ablauf des 4-Stunden-Drossel-Fensters erneut eine Sammel-Push auslösen, obwohl sich nichts geändert hat. Für jeden eingeloggten Nutzer verfügbar, nicht nur Admin/Schichtleiter. Auslöser: Aufgaben, die noch nie abgehakt wurden, gelten sofort als überfällig (Absicht, damit sie nicht unsichtbar bleiben) – bei länger aufgeschobenen Grundreinigungen führte das zu wiederholten, verwirrenden Erinnerungen an bereits bekannte offene Punkte.
 

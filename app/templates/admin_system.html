@@ -1,19 +1,21 @@
 {% extends "base.html" %}
 {% block title %}System – Verwaltung{% endblock %}
 {% block content %}
+{% import "_dropzone_macros.html" as dz %}
 
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-6">System</h1>
 
-<!-- Kein items-start auf dem Grid selbst: die Karten 1+2 (oben) sollen sich
-     bewusst auf gleiche Hoehe strecken (Standard-Grid-Verhalten "stretch"),
-     damit ihre Unterkanten exakt fluchten - der Hoehenunterschied dort ist
-     durch die Mindesthoehe der Kennzahlen-Liste (min-h-[124px] oben) ohnehin
-     nur noch wenige Pixel. Karten 3+4 (unten) haben dagegen deutlich
-     unterschiedlich viel Inhalt (siehe Struktur-Import mit Kategorie-
-     Auswahl) - self-start dort haelt sie bewusst bei ihrer eigenen
-     natuerlichen Hoehe, sonst wuerde die kuerzere Karte mit viel Leerraum
-     auf die Hoehe der laengeren gestreckt. -->
+<!-- Kein items-start auf dem Grid selbst: Karte 1 (System & Status) und
+     Karte 2 (Datenbank-Sicherungen, oben) sollen sich bewusst auf gleiche
+     Hoehe strecken (Standard-Grid-Verhalten "stretch"), damit ihre
+     Unterkanten exakt fluchten. Karte 3 (Struktur-Export & -Import, unten)
+     hat dagegen deutlich mehr variablen Inhalt (Kategorie-Auswahl) und
+     steht allein in ihrer Zeile - self-start haelt sie bei ihrer eigenen
+     natuerlichen Hoehe statt sich sinnlos zu strecken. Ehemals 4 Karten:
+     "Automatische Sicherungen" und "Backup & Wiederherstellung" wurden zu
+     einer gemeinsamen Karte "Datenbank-Sicherungen" zusammengefasst, da
+     beide letztlich dasselbe Thema (Backups) aus zwei Blickwinkeln zeigten. -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
   <!-- Karte 1 (oben links): System & Status - Version/Build kompakt als
@@ -55,13 +57,25 @@
   </section>
 
   {% if user.is_admin %}
-  <!-- Karte 2 (oben rechts): Automatische Sicherungen -->
+  <!-- Karte 2 (oben rechts): Datenbank-Sicherungen - zusammengefuehrt aus den
+       ehemals getrennten Karten "Automatische Sicherungen" und "Backup &
+       Wiederherstellung" (beide drehten sich letztlich um dasselbe Thema).
+       Kopf: manueller Download + Auto-Backup-Einstellungen. Mittelteil:
+       Liste der automatischen Sicherungen. Fuss: manuelles Wiedereinspielen,
+       optisch abgesetzt (border-t + roter Button), da klar destruktiver als
+       alles darueber. -->
   <section class="rounded-xl border border-line bg-panel p-4">
-    <h2 class="font-display font-medium mb-3">Automatische Sicherungen</h2>
-    <ul class="text-sm space-y-1.5 min-h-[124px]">
-      <li class="flex justify-between gap-4"><span class="text-slate-500">Zeitpunkte (lokal)</span><span class="text-slate-300">{{ backup_schedule_hours }} Uhr</span></li>
+    <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+      <h2 class="font-display font-medium">Datenbank-Sicherungen</h2>
+      <a href="/admin/system/backup" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Aktuelles Backup herunterladen
+      </a>
+    </div>
+
+    <ul class="text-sm space-y-1.5">
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Automatisch zu</span><span class="text-slate-300">{{ backup_schedule_hours }} Uhr</span></li>
       <li class="flex justify-between gap-4"><span class="text-slate-500">Aufbewahrung</span><span class="text-slate-300">{{ backup_retention_days }} Tage</span></li>
-      <li class="flex justify-between gap-4"><span class="text-slate-500">Vorhanden</span><span class="text-slate-300">{{ scheduled_backups|length }}</span></li>
       {% if scheduled_backups %}
       <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Sicherung</span><span class="{{ 'text-warn' if backup_stale else 'text-go' }}">{{ scheduled_backups[0].timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</span></li>
       {% endif %}
@@ -69,25 +83,24 @@
     {% if backup_stale %}
     <div class="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 text-warn text-xs px-3 py-2.5 mt-3">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
-      <span>{% if scheduled_backups %}Die letzte automatische Sicherung ist ungewöhnlich lange her - der Scheduler könnte ausgesetzt haben.{% else %}Noch keine automatische Sicherung vorhanden.{% endif %} Manuelles Backup unten als Zwischenlösung möglich.</span>
+      <span>{% if scheduled_backups %}Die letzte automatische Sicherung ist ungewöhnlich lange her - der Scheduler könnte ausgesetzt haben.{% else %}Noch keine automatische Sicherung vorhanden.{% endif %} Manueller Download oben als Zwischenlösung möglich.</span>
     </div>
     {% endif %}
     <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
-      Läuft automatisch im Hintergrund und landet unter <code class="bg-ink border border-line rounded px-1">backups/</code>
+      Automatische Sicherungen laufen im Hintergrund und landen unter <code class="bg-ink border border-line rounded px-1">backups/</code>
       im Datenverzeichnis - schützt vor Bedienfehlern oder einer fehlgeschlagenen Änderung, aber nicht vor
-      Verlust des kompletten Datenverzeichnisses. Für eine zusätzliche Kopie außerhalb des Servers weiterhin
-      hin und wieder den Download unten nutzen. Zeitpunkte/Aufbewahrung lassen sich über
+      Verlust des kompletten Datenverzeichnisses. Für eine zusätzliche Kopie außerhalb des Servers oben
+      hin und wieder den manuellen Download nutzen. Zeitpunkte/Aufbewahrung lassen sich über
       <code class="bg-ink border border-line rounded px-1">BACKUP_SCHEDULE_HOURS</code> /
       <code class="bg-ink border border-line rounded px-1">BACKUP_RETENTION_DAYS</code> in der
       <code class="bg-ink border border-line rounded px-1">docker-compose.yml</code> anpassen.
     </p>
-    {% if scheduled_backups %}
-    <details class="mt-3">
-      <summary class="cursor-pointer list-none flex items-center gap-1 text-sm text-slate-400 hover:text-slate-100">
-        Einzelne Sicherungen ({{ scheduled_backups|length }})
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-      </summary>
-      <ul class="mt-2 space-y-1 text-sm max-h-64 overflow-y-auto pr-2">
+
+    <!-- Mittelteil: Liste der automatischen Sicherungen -->
+    <div class="mt-4 pt-3 border-t border-line">
+      <h3 class="text-sm font-medium mb-2">Einzelne Sicherungen ({{ scheduled_backups|length }})</h3>
+      {% if scheduled_backups %}
+      <ul class="space-y-1 text-sm max-h-64 overflow-y-auto pr-2">
         {% for b in scheduled_backups %}
         <li class="flex items-center justify-between gap-3 border-b border-line/50 last:border-0 py-2">
           <div class="min-w-0">
@@ -104,33 +117,23 @@
         </li>
         {% endfor %}
       </ul>
-    </details>
-    {% endif %}
-  </section>
+      {% else %}
+      <p class="text-sm text-slate-500 italic">Noch keine automatische Sicherung vorhanden.</p>
+      {% endif %}
+    </div>
 
-  <!-- Karte 3 (unten links): Backup & Wiederherstellung -->
-  <section class="rounded-xl border border-line bg-panel p-4 self-start">
-    <h2 class="font-display font-medium mb-3">Backup &amp; Wiederherstellung</h2>
-    <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
-      Die Datenbank enthält alle Nutzer, Gruppen, Bereiche, Aufgaben, Historie und das Inventar in einer
-      einzelnen Datei. Regelmäßig herunterladen und sicher aufbewahren.
-    </p>
-    <a href="/admin/system/backup" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Backup herunterladen
-    </a>
-
-    <div class="mt-5 pt-4 border-t border-line">
-      <h3 class="text-sm font-medium mb-2">Backup wiederherstellen</h3>
+    <!-- Fussbereich: manuelles Wiedereinspielen - optisch klar abgesetzt, da
+         mit Abstand die folgenreichste Aktion auf dieser Karte. -->
+    <div class="mt-4 pt-4 border-t border-line">
+      <h3 class="text-sm font-medium mb-2">Manuelles Backup einspielen</h3>
       {% if restore_error %}
       <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">{{ restore_error }}</div>
       {% endif %}
       <form method="post" action="/admin/system/restore" enctype="multipart/form-data"
             onsubmit="return confirm('Die aktuelle Datenbank wird komplett durch diese Datei ersetzt. Vorher wird automatisch eine Sicherheitskopie angelegt, danach startet die Anwendung neu. Wirklich fortfahren?')"
-            class="flex flex-col sm:flex-row gap-2">
-        <input type="file" name="file" accept=".db,application/octet-stream" required
-               class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-300">
-        <button class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium whitespace-nowrap">Wiederherstellen</button>
+            class="space-y-2">
+        {{ dz.dropzone('file', 'backup-restore', accept='.db,application/octet-stream', label='Backup-Datei (.db) hierher ziehen oder auswählen', required=True) }}
+        <button class="w-full sm:w-auto px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium whitespace-nowrap">Wiederherstellen</button>
       </form>
       <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
         Ersetzt alle aktuellen Daten durch den Inhalt der hochgeladenen Datei. Vor der Wiederherstellung wird
@@ -140,7 +143,7 @@
     </div>
   </section>
 
-  <!-- Karte 4 (unten rechts): Struktur-Export & -Import -->
+  <!-- Karte 3 (unten links, allein in ihrer Zeile): Struktur-Export & -Import -->
   <section class="rounded-xl border border-line bg-panel p-4 self-start">
     <h2 class="font-display font-medium mb-3">Struktur-Export &amp; -Import</h2>
     <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
@@ -202,11 +205,11 @@
     </div>
   </section>
   {% else %}
-  <p class="text-[11px] text-slate-500 md:col-span-2">Backup &amp; Wiederherstellung sind nur für Admins sichtbar.</p>
+  <p class="text-[11px] text-slate-500 md:col-span-2">Datenbank-Sicherungen sowie Struktur-Export/-Import sind nur für Admins sichtbar.</p>
   {% endif %}
 
   {% if user.is_admin %}
-  <!-- Karte 5 (eigene, volle Breite): Module & Features - globale Schalter
+  <!-- Karte 4 (eigene, volle Breite): Module & Features - globale Schalter
        fuer Module, die nicht jeder Betrieb braucht (siehe AppSettings.
        enable_time_tracking/enable_vacation). Deaktiviert blendet Navigation
        UND Dashboard-Widgets aus und blockiert den direkten Routen-Aufruf
