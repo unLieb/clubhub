@@ -5237,6 +5237,35 @@ def _admin_system_context(
         for b in backup.list_scheduled_backups()
     ]
     settings = get_app_settings(db)
+    # Historie fuer die Karte "Struktur-Export & -Import": nutzt das
+    # bestehende Aktivitaetsprotokoll (siehe AuditLog/log_audit) statt einer
+    # eigenen Tabelle - Import loggt bereits (admin_import_data), Export
+    # jetzt ebenfalls (siehe admin_export_data). target_type="System" allein
+    # reicht nicht als Filter, da darunter auch Login/Backup/Module-Aktionen
+    # fallen - daher zusaetzlich auf die Struktur-Export/-Import-Texte
+    # eingegrenzt. Auf die letzten 10 begrenzt; fuer aeltere Eintraege
+    # verlinkt die Karte auf das volle Audit-Log.
+    struct_audit_entries = (
+        db.query(models.AuditLog)
+        .filter(
+            models.AuditLog.target_type == "System",
+            or_(
+                models.AuditLog.details.ilike("%Struktur-Export%"),
+                models.AuditLog.details.ilike("%Struktur-Import%"),
+            ),
+        )
+        .order_by(models.AuditLog.timestamp.desc())
+        .limit(10)
+        .all()
+    )
+    struct_history = [
+        {
+            "timestamp_local": _aware(e.timestamp).astimezone(APP_TIMEZONE),
+            "user_name": e.user_name,
+            "details": e.details,
+        }
+        for e in struct_audit_entries
+    ]
     return {
         "request": request,
         "user": admin,
@@ -5251,6 +5280,7 @@ def _admin_system_context(
         "import_category_labels": data_export.CATEGORY_LABELS,
         "import_error": import_error,
         "import_summary": import_summary,
+        "struct_history": struct_history,
         "enable_time_tracking": settings.enable_time_tracking,
         "enable_vacation": settings.enable_vacation,
     }
@@ -5323,9 +5353,11 @@ def admin_download_scheduled_backup(filename: str, request: Request, db: Session
 
 @app.get("/admin/system/export-data")
 def admin_export_data(request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    admin = require_admin(request, db)
     data = data_export.export_data_json(db)
     filename = f"clubhub-daten-{ntptime.now_utc().strftime('%Y%m%d-%H%M%S')}.json"
+    log_audit(db, admin, "READ", "System", "Struktur-Export (JSON) heruntergeladen.")
+    db.commit()
     return Response(
         content=json.dumps(data, ensure_ascii=False, indent=2),
         media_type="application/json",
