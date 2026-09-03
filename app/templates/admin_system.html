@@ -229,7 +229,7 @@
         <div class="flex flex-wrap gap-2">
           {% for cat in import_categories %}
           <label class="cursor-pointer text-xs px-2.5 py-1.5 rounded-full border border-line has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-            <input type="checkbox" name="categories" value="{{ cat }}" class="sr-only" {% if cat != "users" %}checked{% endif %}>
+            <input type="checkbox" name="categories" value="{{ cat }}" class="sr-only" {% if cat not in ("users", "history") %}checked{% endif %}>
             {{ import_category_labels[cat] }}
           </label>
           {% endfor %}
@@ -238,9 +238,11 @@
       </form>
       <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
         Bereits vorhandene Namen (Gruppe/Bereich/Kanal/Artikel) werden wiederverwendet statt dupliziert; bereits
-        vorhandene Nutzernamen werden übersprungen. Gefahrlos mehrfach ausführbar. "Nutzer" ist standardmäßig
-        abgewählt, da beim Umzug auf einen neuen Server meist neue, echte Accounts statt der bisherigen
-        Test-Nutzer angelegt werden sollen – bei Bedarf einfach mit anhaken.
+        vorhandene Nutzernamen werden übersprungen. Gefahrlos mehrfach ausführbar. "Nutzer" und "Historie" sind
+        standardmäßig abgewählt – "Nutzer", da beim Umzug auf einen neuen Server meist neue, echte Accounts statt
+        der bisherigen Test-Nutzer angelegt werden sollen; "Historie" (wer hat wann welche Aufgabe abgehakt), da sie
+        Aufgaben und Nutzer per Name voraussetzt und selbst für einen Umzug meist nicht gebraucht wird – bei Bedarf
+        aber einfach gezielt mit anhaken, z.B. um ausschließlich die Historie zu übernehmen.
       </p>
     </div>
 

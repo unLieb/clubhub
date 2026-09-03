@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.7.0] - 2026-09-03
+- Struktur-Export & -Import: neue Kategorie "Historie" (wer hat wann welche Aufgabe abgehakt) als zusätzliche Auswahl-Chip. Löst ein Missverständnis von letztem Mal auf – gemeint war nicht das Aktivitätsprotokoll der Karte selbst, sondern eine eigene, gezielt wähl- und importierbare Kategorie innerhalb von "Struktur importieren" (z.B. um ausschließlich die Erledigungs-Historie auf eine andere Instanz zu übertragen). Wie "Nutzer" standardmäßig abgewählt, da sie Aufgaben/Nutzer per Name voraussetzt und für einen reinen Struktur-Umzug meist nicht gebraucht wird.
+
 ## [1.6.1] - 2026-09-03
 - Systemseite-Grid nochmal umstrukturiert: statt zwei durchlaufender Spalten jetzt zwei getrennte, symmetrische Zeilen – Zeile 1 (System & Status + Module & Features, gleiche Höhe) und Zeile 2 (Datenbank-Sicherungen + Struktur-Export & -Import, jeweils eigene natürliche Höhe). Homogeneres Layout ohne Lücken.
 - Der Link zur Historie bei Struktur-Export & -Import ist jetzt ein richtiger, klar erkennbarer Button (wie "Herunterladen" gestylt) statt eines dezenten Text-Links.

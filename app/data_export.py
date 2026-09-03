@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from . import models
 from . import version
 
-CATEGORIES = ["groups", "channels", "users", "rooms", "tasks", "inventory_items", "appointments"]
+CATEGORIES = ["groups", "channels", "users", "rooms", "tasks", "inventory_items", "appointments", "history"]
 
 CATEGORY_LABELS = {
     "groups": "Gruppen",
@@ -31,6 +31,7 @@ CATEGORY_LABELS = {
     "tasks": "Aufgaben",
     "inventory_items": "Inventar",
     "appointments": "Termine",
+    "history": "Historie",
 }
 
 
@@ -106,6 +107,16 @@ def export_data_json(db: Session) -> dict:
                 "created_by": a.user.name if a.user else None,
             }
             for a in db.query(models.Appointment).all()
+        ],
+        # Erledigungen (wer hat wann welche Aufgabe abgehakt, siehe /history).
+        "history": [
+            {
+                "task": c.task.name,
+                "room": c.task.room.name,
+                "user": c.user.name if c.user else None,
+                "timestamp": _aware(c.timestamp).isoformat(),
+            }
+            for c in db.query(models.Completion).all()
         ],
     }
 
@@ -257,6 +268,37 @@ def import_data_json(db: Session, data: dict, selected: set, importing_user) -> 
             db.add(appt)
             existing_appts.add((row["name"], date))
             summary["appointments"]["created"] += 1
+
+    if "history" in selected:
+        # Nach Bereichen/Aufgaben/Nutzern importiert, da eine Erledigung
+        # beide zwingend braucht - fehlt die referenzierte Aufgabe oder der
+        # Nutzer in der Ziel-Instanz (weil deren Kategorie nicht mitgewaehlt
+        # wurde oder der Name dort abweicht), wird die Zeile uebersprungen
+        # statt sie faelschlich einem anderen Nutzer zuzuschreiben.
+        task_by_key = {(t.name, t.room_id): t for t in db.query(models.Task).all()}
+        existing_history = {
+            (c.task_id, c.user_id, _aware(c.timestamp)) for c in db.query(models.Completion).all()
+        }
+        for row in data.get("history", []):
+            room = room_by_name.get(row["room"])
+            task = task_by_key.get((row["task"], room.id)) if room else None
+            if not task:
+                summary["history"]["skipped"] += 1
+                summary["history"]["skip_reasons"].append(f'{row["task"]} ({row["room"]}): Aufgabe nicht gefunden')
+                continue
+            user = user_by_name.get(row.get("user"))
+            if not user:
+                summary["history"]["skipped"] += 1
+                summary["history"]["skip_reasons"].append(f'{row["task"]}: Nutzer "{row.get("user")}" nicht gefunden')
+                continue
+            timestamp = datetime.fromisoformat(row["timestamp"])
+            key = (task.id, user.id, timestamp)
+            if key in existing_history:
+                summary["history"]["matched"] += 1
+                continue
+            db.add(models.Completion(task_id=task.id, user_id=user.id, timestamp=timestamp))
+            existing_history.add(key)
+            summary["history"]["created"] += 1
 
     db.commit()
     return summary
