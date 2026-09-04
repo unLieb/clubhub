@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.7.2] - 2026-09-04
+- "Export-/Import-Verlauf"-Vorschau auf der Struktur-Export & -Import-Karte wieder entfernt – überflüssig, da die eigene "Audit-Log"-Kachel in der Verwaltung (mit Nutzer-/Kategorie-Filter) dieselben Einträge bereits vollständig abdeckt. Das Protokollieren der Export-/Import-Aktionen selbst (log_audit) bleibt unverändert, landet weiterhin im allgemeinen Audit-Log.
+
 ## [1.7.1] - 2026-09-03
 - Namenskollision auf der Struktur-Export & -Import-Karte behoben: die kleine Protokoll-Sektion (wer hat wann exportiert/importiert) hieß bisher ebenfalls "Historie" wie die neue Auswahl-Kategorie von eben – jetzt umbenannt in "Export-/Import-Verlauf" zur klaren Unterscheidung. Zusätzlich als einklappbaren Bereich (eingeklappt per Standard) umgesetzt, damit sie die Karte nicht unnötig in die Länge zieht.
 

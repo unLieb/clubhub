@@ -245,44 +245,6 @@
         aber einfach gezielt mit anhaken, z.B. um ausschließlich die Historie zu übernehmen.
       </p>
     </div>
-
-    <!-- Export-/Import-Verlauf: nutzt das bestehende Aktivitaetsprotokoll
-         (AuditLog), gefiltert auf Struktur-Export/-Import (siehe
-         struct_history in _admin_system_context, main.py) - keine eigene
-         Tabelle noetig. Bewusst NICHT "Historie" genannt (wie frueher) -
-         das heisst jetzt die Auswahl-Kategorie oben bei "Struktur
-         importieren" (die tatsaechlichen Erledigungs-Datensaetze), diese
-         Sektion hier protokolliert dagegen nur die Export-/Import-AKTION
-         selbst (wer hat wann exportiert/importiert). Als <details>
-         eingeklappt, damit die Karte dadurch nicht unnoetig laenger wird -
-         nur bei Bedarf aufklappen. -->
-    <details class="group mt-5 pt-4 border-t border-line">
-      <summary class="cursor-pointer list-none flex items-center gap-1.5 text-sm font-medium text-slate-300 hover:text-slate-100">
-        Export-/Import-Verlauf
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
-      </summary>
-      <div class="mt-2">
-      {% if struct_history %}
-      <ul class="space-y-1 text-sm max-h-64 overflow-y-auto pr-2">
-        {% for h in struct_history %}
-        <li class="border-b border-line/50 last:border-0 py-2">
-          <div class="flex items-center justify-between gap-3">
-            <span class="text-slate-300">{{ h.timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</span>
-            <span class="text-[11px] text-slate-500 whitespace-nowrap">{{ h.user_name or "System" }}</span>
-          </div>
-          <div class="text-[11px] text-slate-500 mt-0.5">{{ h.details }}</div>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="text-sm text-slate-500 italic">Noch keine Export-/Import-Aktion protokolliert.</p>
-      {% endif %}
-      <a href="/admin/audit-log?q=Struktur" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-xs font-medium text-slate-300 mt-2">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
-        Vollständiges Audit-Log ansehen
-      </a>
-      </div>
-    </details>
   </section>
   {% else %}
   <p class="text-[11px] text-slate-500 md:col-span-2">Datenbank-Sicherungen, Module &amp; Features sowie Struktur-Export/-Import sind nur für Admins sichtbar.</p>
