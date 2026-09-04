@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.8.0] - 2026-09-04
+- "Später erinnern" (Snooze) bei Aufgaben läuft jetzt komplett über `fetch()` statt Formular-Reload: Pausieren und "aufheben" aktualisieren nur noch den betroffenen kleinen Bereich der Aufgaben-Zeile, keine ganze Seite mehr. Serverseitig teilen sich Anzeige und Fetch-Antwort jetzt dasselbe Fragment-Template (`_task_snooze_area.html`), keine doppelte Markup-Pflege mehr.
+
 ## [1.7.2] - 2026-09-04
 - "Export-/Import-Verlauf"-Vorschau auf der Struktur-Export & -Import-Karte wieder entfernt – überflüssig, da die eigene "Audit-Log"-Kachel in der Verwaltung (mit Nutzer-/Kategorie-Filter) dieselben Einträge bereits vollständig abdeckt. Das Protokollieren der Export-/Import-Aktionen selbst (log_audit) bleibt unverändert, landet weiterhin im allgemeinen Audit-Log.
 

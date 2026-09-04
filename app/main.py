@@ -1151,6 +1151,30 @@ def rooms_set_hidden_groups(
 
 # ---------- Raum / Scan ----------
 
+def _task_display_status(task: models.Task, now) -> dict:
+    """task_status() plus die abgeleiteten Anzeige-Felder (duration_text,
+    is_snoozed/snoozed_until) fuer room.html/_task_snooze_area.html - ein
+    Ort statt Duplikation zwischen room_view und snooze_task/
+    cancel_snooze_task (letztere brauchen dieselbe Berechnung, um nach dem
+    Setzen/Aufheben einer Pause das Snooze-Fragment fuer die Fetch-Antwort
+    neu zu rendern, siehe dort)."""
+    s = task_status(task, now)
+    if s["status"] == "red" and s["last_completed"] is None:
+        s["duration_text"] = "Noch nie erledigt"
+    elif s["status"] == "red":
+        s["duration_text"] = f"Überfällig seit {format_duration_de(now - s['due_at'])}"
+    elif s["status"] == "yellow":
+        s["duration_text"] = f"Fällig in {format_duration_de(s['due_at'] - now)}"
+    else:
+        s["duration_text"] = None
+    # "Später erinnern" (siehe snooze_task) - nur fuer die Anzeige einer
+    # aktiven Pause, beeinflusst Status/Ampel oben bewusst nicht.
+    snoozed_until = _aware(task.snoozed_until) if task.snoozed_until else None
+    s["is_snoozed"] = bool(snoozed_until and snoozed_until > now)
+    s["snoozed_until"] = snoozed_until if s["is_snoozed"] else None
+    return s
+
+
 @app.get("/room/{room_id}")
 def room_view(room_id: int, request: Request, done: str = "", db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
@@ -1160,23 +1184,7 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     if not room or not user_can_see_room(user, room):
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
-    statuses = {}
-    for t in room.tasks:
-        s = task_status(t, now)
-        if s["status"] == "red" and s["last_completed"] is None:
-            s["duration_text"] = "Noch nie erledigt"
-        elif s["status"] == "red":
-            s["duration_text"] = f"Überfällig seit {format_duration_de(now - s['due_at'])}"
-        elif s["status"] == "yellow":
-            s["duration_text"] = f"Fällig in {format_duration_de(s['due_at'] - now)}"
-        else:
-            s["duration_text"] = None
-        # "Später erinnern" (siehe snooze_task) - nur fuer die Anzeige einer
-        # aktiven Pause, beeinflusst Status/Ampel oben bewusst nicht.
-        snoozed_until = _aware(t.snoozed_until) if t.snoozed_until else None
-        s["is_snoozed"] = bool(snoozed_until and snoozed_until > now)
-        s["snoozed_until"] = snoozed_until if s["is_snoozed"] else None
-        statuses[t.id] = s
+    statuses = {t.id: _task_display_status(t, now) for t in room.tasks}
     # Erledigte (grüne) Aufgaben aus der Hauptliste ausblenden, damit man beim
     # Abarbeiten nicht an bereits Erledigtem vorbeischeitzen muss - sie tauchen
     # erst beim nächsten Turnus-Alarm (gelb/rot) wieder auf. "Nach Bedarf"-
@@ -1322,8 +1330,13 @@ def snooze_task(
     bekannte, bewusst aufgeschobene Grundreinigung nicht mehr alle paar
     Stunden gemeldet bekommen will. `days` (Preset-Buttons: 3/7/14) hat
     Vorrang vor `until_date` (freies Datum), falls versehentlich beides
-    gesetzt waere."""
+    gesetzt waere. Fuer JS-Clients (X-Requested-With: fetch, siehe room.html)
+    liefert die Route statt eines Redirects JSON mit dem frisch gerenderten
+    Snooze-Fragment (_task_snooze_area.html) zurueck, damit der Bereich ohne
+    Full-Page-Reload aktualisiert werden kann - Ampel/Status der Aufgabe
+    aendern sich dabei nicht, nur dieser eine kleine Bereich."""
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.room_id == room_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Aufgabe nicht gefunden")
@@ -1342,6 +1355,12 @@ def snooze_task(
         raise HTTPException(status_code=400, detail="Kein Zeitpunkt angegeben")
     task.snoozed_until = snoozed_until
     db.commit()
+    if is_fetch:
+        s = _task_display_status(task, now)
+        html = templates.env.get_template("_task_snooze_area.html").render(
+            request=request, task=task, s=s, room=task.room, user=user,
+        )
+        return {"ok": True, "html": html}
     # Bewusst OHNE "?done=" - das würde den "erledigt!"-Toast/die Hervorhebung
     # für abgeschlossene Aufgaben auslösen (siehe complete_task oben), was hier
     # falsch wäre: die Aufgabe ist ja nicht erledigt, nur die Erinnerung pausiert.
@@ -1352,13 +1371,21 @@ def snooze_task(
 def cancel_snooze_task(room_id: int, task_id: int, request: Request, db: Session = Depends(get_db)):
     """Hebt eine aktive "Später erinnern"-Pause vorzeitig wieder auf -
     Benachrichtigungen fuer diese Aufgabe greifen dann ab dem naechsten
-    Scheduler-Tick wieder normal."""
+    Scheduler-Tick wieder normal. Fetch-Antwort analog zu snooze_task
+    (JSON + neu gerendertes Snooze-Fragment statt Redirect)."""
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.room_id == room_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Aufgabe nicht gefunden")
     task.snoozed_until = None
     db.commit()
+    if is_fetch:
+        s = _task_display_status(task, ntptime.now_utc())
+        html = templates.env.get_template("_task_snooze_area.html").render(
+            request=request, task=task, s=s, room=task.room, user=user,
+        )
+        return {"ok": True, "html": html}
     return RedirectResponse(f"/room/{room_id}", status_code=302)
 
 

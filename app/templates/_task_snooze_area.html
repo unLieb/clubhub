@@ -1,0 +1,53 @@
+{#
+  "Später erinnern"-Bereich einer Aufgaben-Zeile (siehe task_row-Makro in
+  room.html). Eigenes Sub-Template statt Inline-Markup im Makro, damit
+  snooze_task/cancel_snooze_task in main.py exakt dasselbe Markup als
+  HTML-Fragment fuer die Fetch-Antwort rendern koennen (gleiches Muster wie
+  complete_due_tasks -> _room_grid_row_mobile.html) - kein doppelt
+  gepflegtes Markup zwischen Server und Client.
+
+  Erwartet im Kontext: task, s (Status-Dict aus task_status/
+  _compute_task_display_status), room, user.
+#}
+{% if s.is_snoozed %}
+<!-- Aktive "Später erinnern"-Pause (siehe snooze_task in main.py) - der
+     Status oben bleibt bewusst unveraendert rot/gelb, es wird nur
+     angezeigt, dass die Push-Benachrichtigung dafuer bis zu diesem
+     Zeitpunkt ausgesetzt ist. -->
+<div class="flex items-center gap-1.5 text-xs text-slate-500 mt-1.5">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+  <span>Erinnerung pausiert bis {{ (s.snoozed_until|localtime).strftime('%d.%m.%Y') }}</span>
+  {% if user %}
+  <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/snooze/cancel" class="snooze-cancel-form" data-task-id="{{ task.id }}" data-room-id="{{ room.id }}">
+    <button type="submit" class="underline hover:text-slate-300">aufheben</button>
+  </form>
+  {% endif %}
+</div>
+{% elif user and not s.on_demand and s.status in ('yellow', 'red') %}
+<!-- Noch keine aktive Pause: Aufgabe ist gerade gelb/rot, jeder
+     eingeloggte Nutzer kann die naechste Erinnerung dafuer gezielt
+     verschieben (z.B. bei einer seit laengerem bekannten, bewusst
+     aufgeschobenen Grundreinigung), ohne sie faelschlich als erledigt
+     zu markieren. -->
+<details class="snooze-details relative inline-block mt-1.5">
+  <summary class="cursor-pointer list-none inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    Später erinnern
+  </summary>
+  <div class="absolute left-0 top-full mt-1 w-44 rounded-md border border-line bg-panel shadow-lg z-20 py-1">
+    {% for d, label in [(3, 'in 3 Tagen'), (7, 'in 1 Woche'), (14, 'in 2 Wochen')] %}
+    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/snooze" class="snooze-set-form" data-task-id="{{ task.id }}" data-room-id="{{ room.id }}">
+      <input type="hidden" name="days" value="{{ d }}">
+      <button type="submit" class="w-full text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2">{{ label }}</button>
+    </form>
+    {% endfor %}
+    <form method="post" action="/room/{{ room.id }}/task/{{ task.id }}/snooze" class="snooze-set-form px-3 py-1.5 border-t border-line mt-1" data-task-id="{{ task.id }}" data-room-id="{{ room.id }}">
+      <label class="block text-[10px] text-slate-500 mb-1">Eigenes Datum</label>
+      <div class="flex gap-1">
+        <input type="date" name="until_date" required class="min-w-0 flex-1 rounded-md bg-ink border border-line px-1.5 py-1 text-xs">
+        <button type="submit" class="shrink-0 px-2 py-1 rounded-md bg-panel2 hover:bg-line text-xs text-slate-200">OK</button>
+      </div>
+    </form>
+  </div>
+</details>
+{% endif %}
