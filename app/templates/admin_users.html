@@ -59,9 +59,9 @@
 <div class="rounded-xl border border-line bg-panel p-4">
   <ul class="space-y-1 text-sm">
     {% for u in users %}
-    <li class="text-slate-300 border-b border-line/50 last:border-0 py-1 {% if not u.is_active %}opacity-60{% endif %}">
+    <li data-user-active-row class="text-slate-300 border-b border-line/50 last:border-0 py-1 {% if not u.is_active %}opacity-60{% endif %}">
       <div class="flex justify-between items-center gap-2">
-        <span>{{ u.name }}{% if not u.is_active %} <span class="text-xs px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400">Deaktiviert</span>{% endif %}{% if u.is_admin %} <span class="text-go text-xs">(Admin)</span>{% elif u.is_shift_lead %} <span class="text-accent text-xs">(Schichtleiter)</span>{% elif u.is_flat_rate %} <span class="text-slate-500 text-xs">(Pauschalkraft)</span>{% endif %}{% if u.personnel_number %} <span class="text-slate-500 text-xs">#{{ u.personnel_number }}</span>{% endif %}</span>
+        <span>{{ u.name }}<span class="user-inactive-badge text-xs px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 {% if u.is_active %}hidden{% endif %}">Deaktiviert</span>{% if u.is_admin %} <span class="text-go text-xs">(Admin)</span>{% elif u.is_shift_lead %} <span class="text-accent text-xs">(Schichtleiter)</span>{% elif u.is_flat_rate %} <span class="text-slate-500 text-xs">(Pauschalkraft)</span>{% endif %}{% if u.personnel_number %} <span class="text-slate-500 text-xs">#{{ u.personnel_number }}</span>{% endif %}</span>
         <span class="flex items-center gap-2 shrink-0">
           <span class="flex items-center gap-1 flex-wrap justify-end">{{ gm.group_badges(u.groups) }}{% if not u.groups %}<span class="text-slate-500 text-xs">keine Gruppen</span>{% endif %}</span>
           <div class="relative user-kebab-wrap">
@@ -74,21 +74,19 @@
                 Bearbeiten
               </button>
               {% if user.is_admin and u.id != user.id %}
-              {% if u.is_active %}
-              <form method="post" action="/admin/users/{{ u.id }}/toggle-active" onsubmit="return confirm('„{{ u.name }}“ wirklich deaktivieren? Login und Einstempeln sind danach gesperrt, Historie und Zeiterfassung bleiben vollständig erhalten.')">
-                <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
-                  Deaktivieren
+              <form method="post" action="/admin/users/{{ u.id }}/toggle-active" class="ajax-toggle-form user-toggle-form"
+                    data-confirm="{% if u.is_active %}„{{ u.name }}“ wirklich deaktivieren? Login und Einstempeln sind danach gesperrt, Historie und Zeiterfassung bleiben vollständig erhalten.{% endif %}">
+                <button type="submit" class="user-toggle-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm {% if u.is_active %}text-late hover:bg-late/10{% else %}text-go hover:bg-go/10{% endif %}">
+                  <span class="user-toggle-icon shrink-0">
+                    {% if u.is_active %}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
+                    {% else %}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    {% endif %}
+                  </span>
+                  <span class="user-toggle-label">{{ 'Deaktivieren' if u.is_active else 'Aktivieren' }}</span>
                 </button>
               </form>
-              {% else %}
-              <form method="post" action="/admin/users/{{ u.id }}/toggle-active">
-                <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-go hover:bg-go/10">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                  Aktivieren
-                </button>
-              </form>
-              {% endif %}
               {% endif %}
             </div>
           </div>
@@ -98,9 +96,9 @@
         {% if u.push_subscriptions %}
         <div class="mt-2 space-y-1">
           {% for sub in u.push_subscriptions|sort(attribute="created_at", reverse=True) %}
-          <div class="flex items-center justify-between gap-3 rounded-md border border-line bg-ink/40 px-2.5 py-1.5 text-xs">
+          <div data-ajax-row class="flex items-center justify-between gap-3 rounded-md border border-line bg-ink/40 px-2.5 py-1.5 text-xs">
             <span class="text-slate-300">{{ device_label(sub.user_agent) }} <span class="text-slate-500">– seit {{ (sub.created_at|localtime).strftime("%d.%m.%Y") }}</span></span>
-            <form method="post" action="/push/subscriptions/{{ sub.id }}/delete" onsubmit="return confirm('Gerät wirklich entfernen? Push-Benachrichtigungen kommen dort danach nicht mehr an, bis neu abonniert wird.')">
+            <form method="post" action="/push/subscriptions/{{ sub.id }}/delete" class="ajax-delete-form" data-confirm="Gerät wirklich entfernen? Push-Benachrichtigungen kommen dort danach nicht mehr an, bis neu abonniert wird.">
               <button class="px-2 py-0.5 rounded border border-line text-slate-500 hover:text-late hover:border-late/50 whitespace-nowrap">Entfernen</button>
             </form>
           </div>
@@ -185,6 +183,40 @@
         var panel = document.getElementById(btn.dataset.target);
         if (panel) panel.classList.toggle('hidden');
       });
+    });
+
+    // Aktivieren/Deaktivieren per fetch() (siehe .ajax-toggle-form, generisch
+    // behandelt von ajax_actions.js) - passt Button-Text/-Icon/-Farbe, das
+    // "Deaktiviert"-Badge und die Zeilen-Transparenz direkt an, ohne Reload.
+    var ICON_DEACTIVATE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>';
+    var ICON_ACTIVATE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    document.addEventListener('ajax-form-success', function (e) {
+      var form = e.target;
+      if (!form.classList || !form.classList.contains('user-toggle-form')) return;
+      var isActive = !!(e.detail && e.detail.is_active);
+      var row = form.closest('[data-user-active-row]');
+      var btn = form.querySelector('.user-toggle-btn');
+      var icon = form.querySelector('.user-toggle-icon');
+      var label = form.querySelector('.user-toggle-label');
+      if (row) {
+        row.classList.toggle('opacity-60', !isActive);
+        var badge = row.querySelector('.user-inactive-badge');
+        if (badge) badge.classList.toggle('hidden', isActive);
+      }
+      if (btn) {
+        btn.classList.toggle('text-late', isActive);
+        btn.classList.toggle('hover:bg-late/10', isActive);
+        btn.classList.toggle('text-go', !isActive);
+        btn.classList.toggle('hover:bg-go/10', !isActive);
+      }
+      if (icon) icon.innerHTML = isActive ? ICON_DEACTIVATE : ICON_ACTIVATE;
+      if (label) label.textContent = isActive ? 'Deaktivieren' : 'Aktivieren';
+      // Name nicht erneut aus dem DOM auslesen (fragil, da der Namens-Span
+      // auch das "Deaktiviert"-Badge als Text enthaelt) - generische Formulierung
+      // ohne Namen reicht fuer den Bestaetigungsdialog voellig aus.
+      form.dataset.confirm = isActive
+        ? 'Diesen Nutzer wirklich deaktivieren? Login und Einstempeln sind danach gesperrt, Historie und Zeiterfassung bleiben vollständig erhalten.'
+        : '';
     });
   })();
 </script>

@@ -56,7 +56,7 @@
     <ul class="space-y-1 text-sm">
       {% for entry in tags %}
       {% set t = entry.tag %}
-      <li class="border-b border-line/50 last:border-0 py-2.5">
+      <li data-ajax-row class="border-b border-line/50 last:border-0 py-2.5">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
           <div class="min-w-0">
             <div class="text-slate-200">
@@ -77,7 +77,7 @@
             <div class="flex gap-2">
               <button type="button" class="tag-rescan-btn px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-xs font-medium whitespace-nowrap"
                       data-form-id="rescan-form-{{ t.id }}" data-status-id="rescan-status-{{ t.id }}">Erneut scannen</button>
-              <form method="post" action="/admin/nfc-tags/{{ t.id }}/delete" onsubmit="return confirm('Registrierungs-Eintrag wirklich löschen? Der physische Tag selbst bleibt unverändert und funktioniert weiter.')">
+              <form method="post" action="/admin/nfc-tags/{{ t.id }}/delete" class="ajax-delete-form" data-confirm="Registrierungs-Eintrag wirklich löschen? Der physische Tag selbst bleibt unverändert und funktioniert weiter.">
                 <button class="px-2.5 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-xs font-medium">Löschen</button>
               </form>
             </div>

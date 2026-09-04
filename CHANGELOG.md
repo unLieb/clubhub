@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.9.0] - 2026-09-04
+- Großes AJAX-Refactoring: Löschen, Statuswechsel und Aktivieren/Deaktivieren laufen jetzt app-weit über `fetch()` statt Formular-Reload, mit flüssigem Karten-/Zeilen-Ausblenden und live mitlaufenden Zählern (Header-Badges, Offen-/Erledigt-Zähler) statt vollständigem Neuladen der Seite. Betroffen: Meldungen (Löschen + Statuswechsel, inkl. Verschieben zwischen "Offen"/"Erledigt" und Sync der Navigations-Badges), Gruppen/Bereiche/NFC-Tags/Benachrichtigungskanäle löschen, Nutzer aktivieren/deaktivieren, Push-Geräte und Passkeys entfernen, Termine/Urlaub löschen, Zeiterfassungs-Buchungen löschen (Nutzer- und Admin-Ansicht), Kühlgerät löschen, Aufgaben/Aufbauten löschen.
+- Neues gemeinsames Modul `static/ajax_actions.js` für den Standardfall (Löschen mit Bestätigung + Zeilen-Entfernung + Zähler-Update; Toggle/Status mit generischem Erfolgs-Event) – künftige einfache Lösch-/Toggle-Buttons brauchen dafür kein eigenes JS mehr, nur die passenden `data-*`-Attribute im Markup.
+- Bewusst unverändert (klassischer Reload) belassen: Datenbank-Wiederherstellung (Neustart der Anwendung ohnehin nötig), Zeiterfassungs-Geräteautorisierung (seltene Einmal-Einrichtung), bereichsübergreifendes Sammel-Abhaken auf dem Dashboard (Bulk-Aktion über viele Karten hinweg, kein einzelner Datensatz).
+
 ## [1.8.0] - 2026-09-04
 - "Später erinnern" (Snooze) bei Aufgaben läuft jetzt komplett über `fetch()` statt Formular-Reload: Pausieren und "aufheben" aktualisieren nur noch den betroffenen kleinen Bereich der Aufgaben-Zeile, keine ganze Seite mehr. Serverseitig teilen sich Anzeige und Fetch-Antwort jetzt dasselbe Fragment-Template (`_task_snooze_area.html`), keine doppelte Markup-Pflege mehr.
 

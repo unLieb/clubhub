@@ -6,7 +6,7 @@
 {% block content %}
 
 {% macro report_card(r, meta) %}
-<div id="report-{{ r.id }}" class="rounded-xl border border-line border-l-4 {{ rb.priority_border(r.priority) }} bg-panel p-4 {% if r.status == 'done' %}opacity-75{% endif %}">
+<div id="report-{{ r.id }}" data-ajax-row data-report-status="{{ r.status }}" class="rounded-xl border border-line border-l-4 {{ rb.priority_border(r.priority) }} bg-panel p-4 {% if r.status == 'done' %}opacity-75{% endif %}">
 
   <!-- Kopfzeile: immer sichtbar -->
   <div class="flex items-start gap-4 flex-wrap">
@@ -46,9 +46,9 @@
     </div>
     <div class="shrink-0 flex items-center gap-2 w-full sm:w-auto justify-end">
       {% if user %}
-      <form method="post" action="/reports/{{ r.id }}/status" class="contents">
-        <select name="status" onchange="this.form.submit()"
-                class="text-xs font-medium rounded-full pl-3 py-1.5 border-0 cursor-pointer {{ rb.status_pill_class(r.status) }}">
+      <form method="post" action="/reports/{{ r.id }}/status" class="ajax-status-form contents">
+        <select name="status" onchange="this.form.requestSubmit()"
+                class="report-status-select text-xs font-medium rounded-full pl-3 py-1.5 border-0 cursor-pointer {{ rb.status_pill_class(r.status) }}">
           <option value="open" {% if r.status == "open" %}selected{% endif %}>Offen</option>
           <option value="in_progress" {% if r.status == "in_progress" %}selected{% endif %}>In Bearbeitung</option>
           <option value="done" {% if r.status == "done" %}selected{% endif %}>Erledigt</option>
@@ -58,7 +58,7 @@
       {{ rb.status_badge(r.status) }}
       {% endif %}
       {% if user and (user.id == r.user_id or user.is_admin) %}
-      <form method="post" action="/reports/{{ r.id }}/delete" onsubmit="return confirm('Meldung wirklich unwiderruflich löschen?')">
+      <form method="post" action="/reports/{{ r.id }}/delete" class="ajax-delete-form" data-confirm="Meldung wirklich unwiderruflich löschen?" data-counter="{{ '#done-reports-count' if r.status == 'done' else '#open-reports-count, #nav-badge-reports, #nav-badge-reports-mobile' }}">
         <button type="submit" class="w-7 h-7 rounded-md border border-line flex items-center justify-center text-slate-500 hover:text-late hover:border-late/50 shrink-0" aria-label="Meldung löschen" title="Meldung löschen">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
         </button>
@@ -304,30 +304,28 @@
 
 <div class="flex items-center gap-2 mb-3">
   <h2 class="font-display font-medium">Offene Meldungen</h2>
-  {% if open_reports %}<span class="text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium">{{ open_reports|length }}</span>{% endif %}
+  <span id="open-reports-count" class="text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium {% if not open_reports %}hidden{% endif %}">{{ open_reports|length }}</span>
 </div>
-<div class="space-y-3 mb-8">
+<div id="open-reports-list" class="space-y-3 mb-8">
   {% for r in open_reports %}
   {{ report_card(r, report_meta[r.id]) }}
-  {% else %}
-  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
-    Keine offenen Meldungen 🎉
-  </div>
   {% endfor %}
+</div>
+<div id="open-reports-empty" class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm mb-8 {% if open_reports %}hidden{% endif %}">
+  Keine offenen Meldungen 🎉
 </div>
 
 <div class="flex items-center gap-2 mb-3">
   <h2 class="font-display font-medium">Erledigte Meldungen</h2>
-  {% if done_reports %}<span class="text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium">{{ done_reports|length }}</span>{% endif %}
+  <span id="done-reports-count" class="text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium {% if not done_reports %}hidden{% endif %}">{{ done_reports|length }}</span>
 </div>
-<div class="space-y-3">
+<div id="done-reports-list" class="space-y-3">
   {% for r in done_reports %}
   {{ report_card(r, report_meta[r.id]) }}
-  {% else %}
-  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
-    Noch keine erledigten Meldungen.
-  </div>
   {% endfor %}
+</div>
+<div id="done-reports-empty" class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm {% if done_reports %}hidden{% endif %}">
+  Noch keine erledigten Meldungen.
 </div>
 
 <script>
@@ -464,6 +462,95 @@
       });
     });
   });
+
+  // Statuswechsel per fetch() (siehe .ajax-status-form, behandelt generisch
+  // von ajax_actions.js: das Formular sendet per fetch, wir reagieren hier
+  // auf das "ajax-form-success"-Event) - verschiebt die Karte bei Bedarf
+  // zwischen "Offene" und "Erledigte Meldungen", aktualisiert Zähler,
+  // Leer-Platzhalter und die Farbe der Status-Pille, ganz ohne Reload.
+  (function () {
+    function pillClassFor(status) {
+      if (status === 'in_progress') return 'bg-warn/15 text-warn';
+      if (status === 'done') return 'bg-go/15 text-go';
+      return 'bg-panel2 text-slate-300';
+    }
+
+    function bumpCount(id, delta) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var v = parseInt(el.textContent, 10);
+      el.textContent = String((isNaN(v) ? 0 : v) + delta);
+      el.classList.toggle('hidden', el.textContent === '0');
+    }
+
+    // Offene-Meldungen-Zaehler nicht nur auf dieser Seite, sondern auch die
+    // beiden Navigations-Badges (Desktop-Sidebar + mobile "Mehr"-Ansicht,
+    // siehe base.html) mitziehen - beide zaehlen global alle Meldungen mit
+    // status != "done" (siehe nav_badges() in main.py), also 1:1 wie
+    // "open-reports-count" hier.
+    function bumpOpenCount(delta) {
+      bumpCount('open-reports-count', delta);
+      bumpCount('nav-badge-reports', delta);
+      bumpCount('nav-badge-reports-mobile', delta);
+    }
+
+    function refreshEmptyState(listId, emptyId) {
+      var list = document.getElementById(listId);
+      var empty = document.getElementById(emptyId);
+      if (!list || !empty) return;
+      empty.classList.toggle('hidden', list.children.length > 0);
+    }
+
+    document.addEventListener('ajax-form-success', function (e) {
+      var form = e.target;
+      if (!form.classList || !form.classList.contains('ajax-status-form')) return;
+      var newStatus = e.detail && e.detail.status;
+      var card = form.closest('[data-ajax-row]');
+      if (!card || !newStatus) return;
+      var oldStatus = card.dataset.reportStatus;
+      var wasDone = oldStatus === 'done';
+      var isDone = newStatus === 'done';
+      card.dataset.reportStatus = newStatus;
+      card.classList.toggle('opacity-75', isDone);
+
+      var select = form.querySelector('.report-status-select');
+      if (select) {
+        select.className = 'report-status-select text-xs font-medium rounded-full pl-3 py-1.5 border-0 cursor-pointer ' + pillClassFor(newStatus);
+      }
+      // Löschen-Zähler-Ziel (data-counter) muss mitwandern, falls die Karte
+      // die Liste wechselt - sonst würde ein späteres Löschen den falschen
+      // Zähler dekrementieren.
+      var delForm = card.querySelector('.ajax-delete-form');
+      if (delForm) {
+        delForm.dataset.counter = isDone
+          ? '#done-reports-count'
+          : '#open-reports-count, #nav-badge-reports, #nav-badge-reports-mobile';
+      }
+
+      if (wasDone !== isDone) {
+        var targetList = document.getElementById(isDone ? 'done-reports-list' : 'open-reports-list');
+        if (targetList) targetList.prepend(card);
+        if (isDone) {
+          bumpOpenCount(-1);
+          bumpCount('done-reports-count', 1);
+        } else {
+          bumpOpenCount(1);
+          bumpCount('done-reports-count', -1);
+        }
+        refreshEmptyState('open-reports-list', 'open-reports-empty');
+        refreshEmptyState('done-reports-list', 'done-reports-empty');
+      }
+    });
+
+    // Nach einer Löschung (siehe ajax_actions.js) ggf. den "Liste leer"-
+    // Platzhalter der jeweils betroffenen Liste einblenden.
+    document.addEventListener('ajax-row-removed', function (e) {
+      var parent = e.detail && e.detail.parent;
+      if (!parent) return;
+      if (parent.id === 'open-reports-list') refreshEmptyState('open-reports-list', 'open-reports-empty');
+      if (parent.id === 'done-reports-list') refreshEmptyState('done-reports-list', 'done-reports-empty');
+    });
+  })();
 </script>
 
 {% endblock %}

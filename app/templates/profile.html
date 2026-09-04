@@ -54,7 +54,7 @@
       {% if user.webauthn_credentials %}
       <ul class="space-y-2 mb-3">
         {% for pk in user.webauthn_credentials %}
-        <li class="flex items-center justify-between gap-3 rounded-lg border border-line bg-ink/40 px-3 py-2 text-sm">
+        <li data-ajax-row class="flex items-center justify-between gap-3 rounded-lg border border-line bg-ink/40 px-3 py-2 text-sm">
           <div class="min-w-0 flex-1">
             <form method="post" action="/profile/passkeys/{{ pk.id }}/rename">
               <input type="text" name="name" value="{{ pk.name }}"
@@ -66,7 +66,7 @@
               {% if pk.last_used_at %} &middot; zuletzt genutzt {{ (pk.last_used_at|localtime)|reldate }}{% endif %}
             </div>
           </div>
-          <form method="post" action="/profile/passkeys/{{ pk.id }}/delete" onsubmit="return confirm('Passkey wirklich entfernen?')">
+          <form method="post" action="/profile/passkeys/{{ pk.id }}/delete" class="ajax-delete-form" data-confirm="Passkey wirklich entfernen?">
             <button class="px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-late hover:border-late/50 text-xs font-medium whitespace-nowrap">Entfernen</button>
           </form>
         </li>
@@ -169,12 +169,12 @@
       {% if user.push_subscriptions %}
       <ul class="space-y-2">
         {% for sub in user.push_subscriptions|sort(attribute="created_at", reverse=True) %}
-        <li class="flex items-center justify-between gap-3 rounded-lg border border-line bg-ink/40 px-3 py-2 text-sm">
+        <li data-ajax-row class="flex items-center justify-between gap-3 rounded-lg border border-line bg-ink/40 px-3 py-2 text-sm">
           <div class="min-w-0">
             <div class="text-slate-200">{{ device_label(sub.user_agent) }}</div>
             <div class="text-[11px] text-slate-500">aktiviert am {{ (sub.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr</div>
           </div>
-          <form method="post" action="/push/subscriptions/{{ sub.id }}/delete" onsubmit="return confirm('Gerät wirklich entfernen? Push-Benachrichtigungen kommen dort danach nicht mehr an, bis neu abonniert wird.')">
+          <form method="post" action="/push/subscriptions/{{ sub.id }}/delete" class="ajax-delete-form" data-confirm="Gerät wirklich entfernen? Push-Benachrichtigungen kommen dort danach nicht mehr an, bis neu abonniert wird.">
             <button class="px-2.5 py-1 rounded-md border border-line text-slate-400 hover:text-late hover:border-late/50 text-xs font-medium whitespace-nowrap">Entfernen</button>
           </form>
         </li>

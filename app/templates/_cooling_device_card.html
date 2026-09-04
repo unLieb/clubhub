@@ -5,7 +5,7 @@
    Erwartet im Kontext: device, ctx (_build_cooling_device_context: latest,
    is_over_limit, chart_data, recent_readings, groups, now_month), user. #}
 {% import "_group_macros.html" as gm %}
-<div id="cooling-device-{{ device.id }}" class="cooling-device-card rounded-xl border border-line border-l-4 {{ 'border-l-late' if ctx.is_over_limit else 'border-l-go' }} bg-panel p-4">
+<div id="cooling-device-{{ device.id }}" data-ajax-row class="cooling-device-card rounded-xl border border-line border-l-4 {{ 'border-l-late' if ctx.is_over_limit else 'border-l-go' }} bg-panel p-4">
 
   <!-- Kopfzeile: immer sichtbar. Messwert steht rechts neben Name/Badges,
        oberhalb der Soll-/Grenzwert-Zeile - Erfassungszeitpunkt/-person
@@ -185,7 +185,7 @@
             <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
           </form>
           {% if user.is_admin %}
-          <form method="post" action="/kuehlungen/{{ device.id }}/delete" class="mt-2" onsubmit="return confirm('„{{ device.name }}“ wirklich löschen? Alle erfassten Messwerte gehen unwiderruflich verloren.')">
+          <form method="post" action="/kuehlungen/{{ device.id }}/delete" class="ajax-delete-form mt-2" data-confirm="„{{ device.name }}“ wirklich löschen? Alle erfassten Messwerte gehen unwiderruflich verloren.">
             <button type="submit" class="px-3 py-1.5 rounded-md border border-late/40 text-late hover:bg-late/10 text-sm font-medium">Kühlzelle löschen</button>
           </form>
           {% endif %}

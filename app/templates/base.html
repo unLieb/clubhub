@@ -16,6 +16,11 @@
 <link rel="icon" type="image/png" href="/static/favicon.png">
 <link rel="stylesheet" href="/static/style.css?v={{ app_build_hash }}">
 <script src="/static/dropzone.js?v={{ app_build_hash }}" defer></script>
+<!-- Gemeinsame Loeschen-/Toggle-Handler fuer Verwaltungsseiten u.ae., siehe
+     Kommentar in ajax_actions.js. Defer reicht: registriert nur einen
+     delegierten submit-Listener auf document, keine synchronen
+     Abhaengigkeiten wie bei webauthn.js/timeclock_period.js unten. -->
+<script src="/static/ajax_actions.js?v={{ app_build_hash }}" defer></script>
 <!-- Kein defer: die Inline-Scripts in dashboard.html/profile.html rufen die
      webauthnXxx()-Funktionen synchron beim Parsen auf (siehe
      timeclock_period.js oben fuer denselben Grund). -->
@@ -256,7 +261,7 @@
         <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         Meldungen
-        {% if badges.reports %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none">{{ badges.reports }}</span>{% endif %}
+        <span id="nav-badge-reports" class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none {% if not badges.reports %}hidden{% endif %}">{{ badges.reports }}</span>
       </a>
       <a href="/appointments" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/appointments' %}active{% endif %}">
         <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
@@ -340,7 +345,7 @@
   <a href="/reports" class="tab-link {% if request.url.path == '/reports' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
     <span class="relative">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      {% if badges.reports %}<span class="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-late text-white text-[8px] font-semibold flex items-center justify-center leading-none">{{ badges.reports }}</span>{% endif %}
+      <span id="nav-badge-reports-mobile" class="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-late text-white text-[8px] font-semibold flex items-center justify-center leading-none {% if not badges.reports %}hidden{% endif %}">{{ badges.reports }}</span>
     </span>
     Meldungen
   </a>

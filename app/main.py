@@ -1610,6 +1610,7 @@ def room_setup_delete(setup_id: int, request: Request, db: Session = Depends(get
     des Events, wird das EventSetup gleich mit aufgeräumt, damit keine leeren
     Aufbauten in der "Zu bestehendem Aufbau hinzufügen"-Auswahl übrig bleiben."""
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     setup = db.query(models.RoomSetup).filter(models.RoomSetup.id == setup_id).first()
     if setup and (setup.created_by_id == user.id or user.is_admin or user.is_shift_lead):
         room_id = setup.room_id
@@ -1624,7 +1625,11 @@ def room_setup_delete(setup_id: int, request: Request, db: Session = Depends(get
         if event and len(event.room_setups) == 0:
             db.delete(event)
             db.commit()
+        if is_fetch:
+            return {"ok": True}
         return RedirectResponse(f"/room/{room_id}", status_code=302)
+    if is_fetch:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung")
     return RedirectResponse("/", status_code=302)
 
 
@@ -1919,8 +1924,11 @@ def timeclock_self_delete(
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     target = _timeclock_self_redirect(mode, month, date_from, date_to)
     if not get_app_settings(db).timeclock_user_mode:
+        if is_fetch:
+            raise HTTPException(status_code=403, detail="Zeiterfassung im Nutzer-Modus ist deaktiviert")
         return RedirectResponse(target, status_code=302)
     entry = db.query(models.TimeEntry).filter(
         models.TimeEntry.id == entry_id, models.TimeEntry.user_id == user.id
@@ -1929,6 +1937,10 @@ def timeclock_self_delete(
         _log_timeclock_change(db, entry, "deleted", user.id, entry.clock_in, entry.clock_out)
         db.delete(entry)
         db.commit()
+    elif is_fetch:
+        raise HTTPException(status_code=404, detail="Buchung nicht gefunden")
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse(target, status_code=302)
 
 
@@ -2127,10 +2139,13 @@ def admin_nfc_tags_edit(tag_id: int, request: Request, label: str = Form(""), db
 @app.post("/admin/nfc-tags/{tag_id}/delete")
 def admin_nfc_tags_delete(tag_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     tag = db.query(models.NfcTag).filter(models.NfcTag.id == tag_id).first()
     if tag:
         db.delete(tag)
         db.commit()
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse("/admin/nfc-tags", status_code=302)
 
 
@@ -2776,10 +2791,13 @@ def cooling_device_edit(
 @app.post("/kuehlungen/{device_id}/delete")
 def cooling_device_delete(device_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
     if device:
         db.delete(device)
         db.commit()
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse("/kuehlungen", status_code=302)
 
 
@@ -3453,7 +3471,10 @@ def reports_set_status(
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     if status not in REPORT_STATUSES:
+        if is_fetch:
+            raise HTTPException(status_code=400, detail="Ungültiger Status")
         return RedirectResponse("/reports", status_code=302)
 
     # Gruppen inkl. Kanäle + Mitglieder/Push-Abos hier bereits vollständig laden
@@ -3507,6 +3528,8 @@ def reports_set_status(
         if report.user.id != user.id and not already_reached:
             background_tasks.add_task(notify_user, report.user, title, msg, focus_url)
 
+    if is_fetch:
+        return {"ok": True, "status": status}
     return RedirectResponse("/reports", status_code=302)
 
 
@@ -3518,6 +3541,7 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
     Meldungen nicht löschen können, nur seine eigenen (wie bei erledigten
     Aufgaben/Kühlungs-Messungen)."""
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report and (report.user_id == user.id or user.is_admin):
         for photo in report.photos:
@@ -3527,6 +3551,10 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
                 pass
         db.delete(report)
         db.commit()
+    elif is_fetch:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung")
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse("/reports", status_code=302)
 
 
@@ -3739,10 +3767,15 @@ def appointments_delete(appointment_id: int, request: Request, db: Session = Dep
     Bearbeiten (siehe appointments_edit) bleibt bewusst unverändert auch für
     Schichtleiter auf fremde Termine möglich."""
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     appt = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
     if appt and (appt.user_id == user.id or user.is_admin):
         db.delete(appt)
         db.commit()
+    elif is_fetch:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung")
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse("/appointments", status_code=302)
 
 
@@ -3854,10 +3887,15 @@ def vacations_delete(vacation_id: int, request: Request, db: Session = Depends(g
     Messungen). Anlegen/Bearbeiten für andere bleibt bewusst unverändert
     für Schichtleiter möglich (siehe vacations_create/vacations_edit)."""
     actor = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     vac = db.query(models.Vacation).filter(models.Vacation.id == vacation_id).first()
     if vac and (vac.user_id == actor.id or actor.is_admin):
         db.delete(vac)
         db.commit()
+    elif is_fetch:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung")
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse("/vacations", status_code=302)
 
 
@@ -3912,12 +3950,17 @@ def push_delete_subscription(sub_id: int, request: Request, db: Session = Depend
     aus der Ferne über die "Meine Geräte"-Übersicht in /profile bzw. für
     Admins auch für andere Nutzer in der Nutzerverwaltung."""
     user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     sub = db.query(models.PushSubscription).filter(models.PushSubscription.id == sub_id).first()
     if sub and (sub.user_id == user.id or user.is_admin):
         next_url = "/admin/users" if sub.user_id != user.id else "/profile"
         db.delete(sub)
         db.commit()
+        if is_fetch:
+            return {"ok": True}
         return RedirectResponse(next_url, status_code=302)
+    if is_fetch:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung")
     return RedirectResponse("/profile", status_code=302)
 
 
@@ -4240,6 +4283,8 @@ def profile_passkeys_delete(credential_id: int, request: Request, db: Session = 
         models.WebauthnCredential.id == credential_id, models.WebauthnCredential.user_id == user.id,
     ).delete()
     db.commit()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return {"ok": True}
     return RedirectResponse("/profile", status_code=302)
 
 
@@ -5221,11 +5266,16 @@ def admin_timeclock_delete(
     db: Session = Depends(get_db),
 ):
     admin = require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     entry = db.query(models.TimeEntry).filter(models.TimeEntry.id == entry_id).first()
     if entry:
         _log_timeclock_change(db, entry, "deleted", admin.id, entry.clock_in, entry.clock_out)
         db.delete(entry)
         db.commit()
+    elif is_fetch:
+        raise HTTPException(status_code=404, detail="Buchung nicht gefunden")
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse(_timeclock_redirect(mode, month, date_from, date_to, "Buchung gelöscht."), status_code=302)
 
 
@@ -5508,11 +5558,14 @@ def admin_edit_group(
 @app.post("/admin/groups/{group_id}/delete")
 def admin_delete_group(group_id: int, request: Request, db: Session = Depends(get_db)):
     actor = require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if group:
         log_audit(db, actor, "DELETE", "Gruppe", f"Gruppe „{group.name}“ gelöscht.")
         db.delete(group)
         db.commit()
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse("/admin/groups", status_code=302)
 
 
@@ -5552,10 +5605,13 @@ def admin_edit_channel(
 @app.post("/admin/channels/{channel_id}/delete")
 def admin_delete_channel(channel_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     channel = db.query(models.NotificationChannel).filter(models.NotificationChannel.id == channel_id).first()
     if channel:
         db.delete(channel)
         db.commit()
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse("/admin/notifications", status_code=302)
 
 
@@ -5668,6 +5724,7 @@ def admin_toggle_user_active(user_id: int, request: Request, db: Session = Depen
     vollständig erhalten, nur Login/Einstempeln und "aktive" Auswahllisten
     (z.B. Urlaub für jemand anderen eintragen) sind betroffen."""
     admin = require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     target = db.query(models.User).filter(models.User.id == user_id).first()
     if target and target.id != admin.id:
         if target.is_active:
@@ -5685,6 +5742,10 @@ def admin_toggle_user_active(user_id: int, request: Request, db: Session = Depen
             target.is_active = True
             log_audit(db, admin, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ reaktiviert.")
             db.commit()
+    if is_fetch:
+        if not target:
+            raise HTTPException(status_code=404, detail="Nutzer nicht gefunden")
+        return {"ok": True, "is_active": target.is_active}
     return RedirectResponse("/admin/users", status_code=302)
 
 
@@ -5724,11 +5785,14 @@ def admin_edit_room(
 @app.post("/admin/rooms/{room_id}/delete")
 def admin_delete_room(room_id: int, request: Request, db: Session = Depends(get_db)):
     actor = require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if room:
         log_audit(db, actor, "DELETE", "Bereich", f"Bereich „{room.name}“ gelöscht.")
         db.delete(room)
         db.commit()
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse("/admin/rooms", status_code=302)
 
 
@@ -5808,11 +5872,14 @@ def admin_edit_task(
 @app.post("/admin/tasks/{task_id}/delete")
 def admin_delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     room_id = task.room_id if task else None
     if task:
         db.delete(task)
         db.commit()
+    if is_fetch:
+        return {"ok": True}
     return RedirectResponse(f"/room/{room_id}" if room_id else "/rooms", status_code=302)
 
 
