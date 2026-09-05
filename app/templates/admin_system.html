@@ -226,16 +226,35 @@
       {% endif %}
       <form method="post" action="/admin/system/import-data" enctype="multipart/form-data" class="space-y-3">
         {{ dz.dropzone('file', 'struct-import', accept='.json,application/json', label='Struktur-Datei (.json) hierher ziehen oder auswählen', required=True) }}
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2" id="struct-import-categories">
           {% for cat in import_categories %}
           <label class="cursor-pointer text-xs px-2.5 py-1.5 rounded-full border border-line has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
-            <input type="checkbox" name="categories" value="{{ cat }}" class="sr-only" {% if cat not in ("users", "history") %}checked{% endif %}>
+            <input type="checkbox" name="categories" value="{{ cat }}" class="sr-only struct-import-cat-checkbox" {% if cat not in ("users", "history") %}checked{% endif %}>
             {{ import_category_labels[cat] }}
           </label>
           {% endfor %}
         </div>
+        <p id="struct-import-history-hint" class="hidden text-[11px] text-warn bg-warn/10 border border-warn/40 rounded-md px-2.5 py-1.5">
+          Hinweis: Erledigungshistorie wird nur für Nutzer importiert, die bereits im System existieren (Namensabgleich).
+        </p>
         <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Importieren</button>
       </form>
+      <script>
+        (function () {
+          var checkboxes = document.querySelectorAll('#struct-import-categories .struct-import-cat-checkbox');
+          var hint = document.getElementById('struct-import-history-hint');
+          function refresh() {
+            var historyOn = false, usersOn = false;
+            checkboxes.forEach(function (cb) {
+              if (cb.value === 'history') historyOn = cb.checked;
+              if (cb.value === 'users') usersOn = cb.checked;
+            });
+            hint.classList.toggle('hidden', !(historyOn && !usersOn));
+          }
+          checkboxes.forEach(function (cb) { cb.addEventListener('change', refresh); });
+          refresh();
+        })();
+      </script>
       <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
         Bereits vorhandene Namen (Gruppe/Bereich/Kanal/Artikel) werden wiederverwendet statt dupliziert; bereits
         vorhandene Nutzernamen werden übersprungen. Gefahrlos mehrfach ausführbar. "Nutzer" und "Historie" sind

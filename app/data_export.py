@@ -258,7 +258,22 @@ def import_data_json(db: Session, data: dict, selected: set, importing_user) -> 
             # Mehrfach-Gruppenauswahl.
             group_names = row.get("groups") or ([row["group"]] if row.get("group") else [])
             groups = [group_by_name[n] for n in group_names if n in group_by_name]
-            creator = user_by_name.get(row.get("created_by")) or importing_user
+            # Wie bei der Historie: ist ein Ersteller-Name angegeben, aber in der
+            # Ziel-Instanz nicht vorhanden, wird der Termin uebersprungen statt
+            # ihn faelschlich dem importierenden Admin zuzuschreiben. Nur wenn
+            # die Export-Datei gar keinen Ersteller kennt (aeltere Exports vor
+            # diesem Feld), greift importing_user als Ersatzwert.
+            creator_name = row.get("created_by")
+            if creator_name:
+                creator = user_by_name.get(creator_name)
+                if not creator:
+                    summary["appointments"]["skipped"] += 1
+                    summary["appointments"]["skip_reasons"].append(
+                        f'{row["name"]}: Ersteller "{creator_name}" nicht gefunden'
+                    )
+                    continue
+            else:
+                creator = importing_user
             appt = models.Appointment(
                 name=row["name"], date=date, recurrence_days=row.get("recurrence_days"),
                 notify_days_before=row.get("notify_days_before", 1.0),

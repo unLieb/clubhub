@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.9.1] - 2026-09-05
+- Struktur-Import: Hinweistext unter der Kategorie-Auswahl, sobald "Historie" angehakt, aber "Nutzer" abgewählt ist – macht sichtbar, dass Erledigungen dann nur für bereits im System vorhandene Nutzer (Namensabgleich) übernommen werden.
+- Struktur-Import "Termine": Ersteller-Zuordnung an das Verhalten der Historie angeglichen – ist der ursprüngliche Ersteller-Name in der Ziel-Instanz nicht vorhanden, wird der Termin jetzt übersprungen statt ihn stillschweigend dem importierenden Admin zuzuschreiben (nur bei Export-Dateien ganz ohne Ersteller-Feld greift weiterhin der importierende Admin als Ersatzwert).
+
 ## [1.9.0] - 2026-09-04
 - Großes AJAX-Refactoring: Löschen, Statuswechsel und Aktivieren/Deaktivieren laufen jetzt app-weit über `fetch()` statt Formular-Reload, mit flüssigem Karten-/Zeilen-Ausblenden und live mitlaufenden Zählern (Header-Badges, Offen-/Erledigt-Zähler) statt vollständigem Neuladen der Seite. Betroffen: Meldungen (Löschen + Statuswechsel, inkl. Verschieben zwischen "Offen"/"Erledigt" und Sync der Navigations-Badges), Gruppen/Bereiche/NFC-Tags/Benachrichtigungskanäle löschen, Nutzer aktivieren/deaktivieren, Push-Geräte und Passkeys entfernen, Termine/Urlaub löschen, Zeiterfassungs-Buchungen löschen (Nutzer- und Admin-Ansicht), Kühlgerät löschen, Aufgaben/Aufbauten löschen.
 - Neues gemeinsames Modul `static/ajax_actions.js` für den Standardfall (Löschen mit Bestätigung + Zeilen-Entfernung + Zähler-Update; Toggle/Status mit generischem Erfolgs-Event) – künftige einfache Lösch-/Toggle-Buttons brauchen dafür kein eigenes JS mehr, nur die passenden `data-*`-Attribute im Markup.
