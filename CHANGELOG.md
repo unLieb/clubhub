@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.10.1] - 2026-09-07
+- PWA-/Mobile-Icons nachgezogen, damit der "App installieren"-Dialog (Android/Chrome/Vivaldi) und Browser-Tab-Icons das neue Logo sofort zeigen statt eines gecachten alten Stands: `manifest.json` verweist jetzt auf zwei eigens erzeugte, standardgerechte Icon-Größen (192×192, 512×512) statt eines einzelnen 750×750-Icons; alle Icon-Referenzen im HTML-Kopf (`link rel="icon"`, `link rel="apple-touch-icon"`, `link rel="manifest"`) tragen jetzt Cache-Busting (`?v={{ app_build_hash }}`), analog zu CSS/JS. Der Service Worker (`sw.js`) hält bewusst keinen Asset-Cache (reiner Passthrough für Push/Installierbarkeit, siehe Kommentar dort) – hier gab es also keine Cache-Version zum Erhöhen.
+
 ## [1.10.0] - 2026-09-07
 - Neues Logo (CH-Monogramm) app-weit eingeführt: mintgrünes Logo (`logo-icon.png`) ersetzt das bisherige handgezeichnete SVG-Monogramm in der Desktop-Sidebar sowie das Icon in der mobilen Kopfzeile – bester Kontrast auf dem in beiden Themes dunklen Sidebar-Hintergrund (Frannz-Petrol im Light-, Fast-Schwarz im Dark-Theme). Das dunkelgrüne Logo ersetzt `favicon.png` und versorgt darüber automatisch Browser-Favicon, Apple-Touch-Icon, PWA-Icon (`manifest.json`) sowie Push-Icon/Badge.
 - Beide neuen Logo-Dateien auf eine kleine Farbpalette optimiert (Favicon 356 KB → 49 KB, Sidebar-Logo 375 KB → 77 KB) ohne sichtbaren Qualitätsverlust.

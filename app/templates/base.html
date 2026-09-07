@@ -13,7 +13,7 @@
   })();
 </script>
 <title>{% block title %}ClubHUB{% endblock %}</title>
-<link rel="icon" type="image/png" href="/static/favicon.png">
+<link rel="icon" type="image/png" href="/static/favicon.png?v={{ app_build_hash }}">
 <link rel="stylesheet" href="/static/style.css?v={{ app_build_hash }}">
 <script src="/static/dropzone.js?v={{ app_build_hash }}" defer></script>
 <!-- Gemeinsame Loeschen-/Toggle-Handler fuer Verwaltungsseiten u.ae., siehe
@@ -29,7 +29,12 @@
      von timeclock.html/admin_timeclock.html aufgerufen, muss also vor deren
      Ausführung bereits definiert sein (siehe timeclock_period.js). -->
 <script src="/static/timeclock_period.js?v={{ app_build_hash }}"></script>
-<link rel="manifest" href="/static/manifest.json">
+<!-- ?v=... hier zusaetzlich zum Cache-Busting: Chrome/Android prueft ein
+     bereits geladenes Manifest nur selten neu (laut Google-Doku ca. einmal
+     taeglich) - eine geaenderte Manifest-URL pro Build erzwingt den
+     sofortigen Neuabruf inkl. der darin verlinkten Icons, statt auf diesen
+     Zyklus zu warten (relevant fuer den "App installieren"-Dialog). -->
+<link rel="manifest" href="/static/manifest.json?v={{ app_build_hash }}">
 <meta name="theme-color" content="#12161f">
 <!-- iOS unterstützt den Web-App-Manifest-Standard nur teilweise - diese
      Tags sorgen dort zusätzlich für "Zum Home-Bildschirm"-Icon und ein
@@ -37,7 +42,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ClubHUB">
-<link rel="apple-touch-icon" href="/static/favicon.png">
+<link rel="apple-touch-icon" href="/static/favicon.png?v={{ app_build_hash }}">
 <script>
   // Nur auf echten http(s)-Aufrufen laden, nie bei lokalem/Datei-Vorschau-
   // Kontext (file:/data:) und nie auf localhost - verhindert, dass Test-
