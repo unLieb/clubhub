@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.10.0] - 2026-09-07
+- Neues Logo (CH-Monogramm) app-weit eingeführt: mintgrünes Logo (`logo-icon.png`) ersetzt das bisherige handgezeichnete SVG-Monogramm in der Desktop-Sidebar sowie das Icon in der mobilen Kopfzeile – bester Kontrast auf dem in beiden Themes dunklen Sidebar-Hintergrund (Frannz-Petrol im Light-, Fast-Schwarz im Dark-Theme). Das dunkelgrüne Logo ersetzt `favicon.png` und versorgt darüber automatisch Browser-Favicon, Apple-Touch-Icon, PWA-Icon (`manifest.json`) sowie Push-Icon/Badge.
+- Beide neuen Logo-Dateien auf eine kleine Farbpalette optimiert (Favicon 356 KB → 49 KB, Sidebar-Logo 375 KB → 77 KB) ohne sichtbaren Qualitätsverlust.
+
 ## [1.9.1] - 2026-09-05
 - Struktur-Import: Hinweistext unter der Kategorie-Auswahl, sobald "Historie" angehakt, aber "Nutzer" abgewählt ist – macht sichtbar, dass Erledigungen dann nur für bereits im System vorhandene Nutzer (Namensabgleich) übernommen werden.
 - Struktur-Import "Termine": Ersteller-Zuordnung an das Verhalten der Historie angeglichen – ist der ursprüngliche Ersteller-Name in der Ziel-Instanz nicht vorhanden, wird der Termin jetzt übersprungen statt ihn stillschweigend dem importierenden Admin zuzuschreiben (nur bei Export-Dateien ganz ohne Ersteller-Feld greift weiterhin der importierende Admin als Ersatzwert).

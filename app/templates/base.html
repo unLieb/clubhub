@@ -165,7 +165,7 @@
 <!-- Mobile-Kopfzeile (nur < lg) -->
 <header class="lg:hidden sticky top-0 z-40 bg-sidebar/95 border-b border-sidebar-line px-4 py-3 flex items-center justify-between">
   <a href="/" class="flex items-center gap-2">
-    <img src="/static/favicon.png" alt="ClubHUB" class="w-8 h-8 shrink-0 object-contain">
+    <img src="/static/logo-icon.png?v={{ app_build_hash }}" alt="ClubHUB" class="w-8 h-8 shrink-0 object-contain">
     <div class="font-display font-semibold text-sm leading-tight text-sidebar-text-strong">ClubHUB</div>
   </a>
   <div class="flex items-center gap-2 shrink-0">
@@ -209,16 +209,7 @@
   <aside class="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto w-60 shrink-0 bg-sidebar border-r border-sidebar-line flex-col">
     <div class="flex items-center gap-2 px-5 py-5">
       <a href="/" class="w-8 h-8 shrink-0 flex items-center justify-center">
-        <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="44" fill="none" stroke="#34D399" stroke-width="6" />
-          <path d="M 45 32 H 34 C 26.26 32 20 38.26 20 46 V 54 C 20 61.74 26.26 68 34 68 H 45"
-                fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" />
-          <path d="M 45 28 V 72 M 45 50 H 70 M 70 28 V 72"
-                fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" />
-          <rect x="51" y="38" width="3" height="5" fill="#34D399" />
-          <rect x="56.5" y="34" width="3" height="9" fill="#34D399" />
-          <rect x="62" y="30" width="3" height="13" fill="#34D399" />
-        </svg>
+        <img src="/static/logo-icon.png?v={{ app_build_hash }}" alt="" class="w-8 h-8 object-contain">
       </a>
       <div class="flex flex-col leading-tight">
         <a href="/" class="font-display font-semibold text-sidebar-text-strong">ClubHUB</a>
