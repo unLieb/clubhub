@@ -635,6 +635,15 @@ class AppSettings(Base):
     # stillschweigend die Module verliert, die er schon aktiv nutzt.
     enable_time_tracking = Column(Boolean, nullable=False, default=False)
     enable_vacation = Column(Boolean, nullable=False, default=False)
+    # Basis-URLs/Zugangsdaten fuer die Benachrichtigungskanal-Typen (ntfy/
+    # Gotify/Signal) - in der Verwaltung direkt pflegbar, statt zwingend per
+    # Umgebungsvariable im Docker-Stack gesetzt werden zu muessen (siehe
+    # notifications.py:_channel_config). NULL/leer = es gilt weiterhin die
+    # gleichnamige Umgebungsvariable als Fallback (bisheriges Verhalten).
+    ntfy_base_url = Column(String, nullable=True)
+    gotify_base_url = Column(String, nullable=True)
+    signal_base_url = Column(String, nullable=True)
+    signal_sender_number = Column(String, nullable=True)
 
 
 class PushSubscription(Base):

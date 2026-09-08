@@ -281,18 +281,40 @@ Rechner, NAS, Cloud-Speicher) ablegen.
 Kanäle werden in der Verwaltung unter **Benachrichtigungskanäle** unabhängig
 von Gruppen angelegt (Name, Typ, Ziel) und dann einer oder mehreren Gruppen
 zugeordnet. Ein Kanal kann so auch für mehrere Gruppen wiederverwendet werden.
+Jeder Kanal lässt sich außerdem einzeln deaktivieren (Aktiv/Inaktiv-Schalter
+in der Kanal-Karte) – z.B. während einer Wartung, ohne die Gruppen-Zuordnung
+zu verlieren.
+
+Wohin ein Kanal-Typ tatsächlich sendet, legt eine gemeinsame Basis-URL je Typ
+fest (ntfy-/Gotify-/Signal-Server). Diese lässt sich **direkt in der
+Verwaltung** unter „Verbindungen“ auf derselben Seite eintragen – eine
+Änderung an `docker-compose.yml`/den Umgebungsvariablen (siehe unten) ist
+dafür nicht mehr zwingend nötig. Praktisch z.B., wenn eine externe IT-Firma
+den Server betreut und nicht für jede Änderung extra kontaktiert werden soll.
+Wird in der Verwaltung nichts eingetragen, gilt weiterhin die gleichnamige
+Umgebungsvariable als Fallback (bisheriges Verhalten, unverändert nutzbar).
 
 - **ntfy:** Kanal vom Typ `ntfy` mit dem Topic-Namen anlegen
   (z.B. `putzplan-hausmeister`). Mitglieder abonnieren dieses Topic in
-  ihrer ntfy-App.
+  ihrer ntfy-App. Ohne eigenen ntfy-Server geht es auch ganz ohne
+  Infrastruktur: `https://ntfy.sh` (kostenloser, öffentlich gehosteter
+  ntfy-Dienst) als Basis-URL, dazu ein schwer erratbarer Themenname als
+  Kanal-Ziel – rein ausgehender Traffic vom Server, kein eigenes Hosting,
+  kein Reverse-Proxy nötig.
 - **Gotify:** Kanal vom Typ `gotify` mit dem App-Token aus Gotify anlegen.
 - **Signal:** Kanal vom Typ `signal` mit der Empfängernummer (E.164, z.B.
   `+49151…`) anlegen. Signal hat bewusst keine offizielle Bot-API – der
   gängige Weg ist ein selbst betriebener [signal-cli-rest-api](https://github.com/bbernhard/signal-cli-rest-api)-
   Container mit einer eigenen, per SMS/Anruf registrierten Absendernummer.
-  `SIGNAL_BASE_URL` in der `docker-compose.yml` zeigt auf diesen Dienst,
-  `SIGNAL_SENDER_NUMBER` ist die dort registrierte Absendernummer. Ohne
-  diese beiden Variablen werden Signal-Kanäle beim Versand einfach übersprungen.
+  Die Signal-Basis-URL (zeigt auf diesen Dienst) und die dort registrierte
+  Absendernummer gehören ebenfalls zu den zwei Werten unter „Verbindungen“
+  bzw. `SIGNAL_BASE_URL`/`SIGNAL_SENDER_NUMBER`. Ohne diese beiden Werte
+  werden Signal-Kanäle beim Versand einfach übersprungen.
+
+Weder ntfy/Gotify/Signal noch die zugehörige Basis-URL benötigen HTTPS oder
+einen Reverse-Proxy auf der ClubHUB-Seite – das sind rein ausgehende Anfragen
+vom Server selbst. Nur der Browser-Push unten ist zwingend auf HTTPS für
+ClubHUB selbst angewiesen (Vorgabe der Browser, nicht dieser App).
 
 ### Browser-Push (Web Push)
 

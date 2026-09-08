@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.12.0] - 2026-09-08
+- Verbindungseinstellungen für Benachrichtigungskanäle (ntfy-/Gotify-/Signal-Basis-URL, Signal-Absendernummer) sind jetzt direkt in der Verwaltung pflegbar (Benachrichtigungen → „Verbindungen“, nur für Admins) statt zwingend per Umgebungsvariable im Docker-Stack gesetzt werden zu müssen – relevant z.B. wenn eine externe IT-Firma den Server betreut. Bereits per Umgebungsvariable gesetzte Werte bleiben unverändert als Fallback gültig, solange in der App nichts eingetragen ist (Hinweistext zeigt, welcher Wert dann aktiv wäre). README ergänzt: HTTPS/Reverse-Proxy sind nur für Browser-Push zwingend nötig, nicht für ntfy/Gotify/Signal (reiner ausgehender Traffic); `https://ntfy.sh` als Basis-URL funktioniert komplett ohne eigene Infrastruktur.
+
 ## [1.11.0] - 2026-09-08
 - Benachrichtigungskanäle deaktivierbar: neuer Aktiv/Inaktiv-Schalter je Kanal (`NotificationChannel.is_active`, Standard aktiv) – deaktivierte Kanäle werden beim automatischen Versand (Überfällig-/Erledigt-Pushs, Termine, Meldungsstatus …) übersprungen, bleiben aber inklusive Gruppen-Zuordnung erhalten statt gelöscht werden zu müssen. Schalter läuft per `fetch()` ohne Reload (Karte graut sich beim Deaktivieren leicht aus, „Inaktiv“-Badge erscheint), analog zum bestehenden Nutzer-Aktivieren/Deaktivieren. Struktur-Export/-Import berücksichtigt den Status ebenfalls.
 

@@ -558,6 +558,19 @@ def _migrate_app_settings_module_flags(db: Session):
     _ensure_column(db, "app_settings", "enable_vacation", "INTEGER DEFAULT 1")
 
 
+def _migrate_app_settings_channel_config(db: Session):
+    """Basis-URLs/Zugangsdaten fuer ntfy/Gotify/Signal neu direkt in der
+    Verwaltung pflegbar statt zwingend per Umgebungsvariable (siehe
+    AppSettings.ntfy_base_url & Nachbarspalten, notifications.py:
+    _channel_config). NULL bei allen bestehenden Zeilen ist hier
+    ausdruecklich richtig, nicht nachtraeglich zu befuellen - bedeutet
+    "es gilt weiterhin die Umgebungsvariable", nicht "nicht konfiguriert"."""
+    _ensure_column(db, "app_settings", "ntfy_base_url", "TEXT")
+    _ensure_column(db, "app_settings", "gotify_base_url", "TEXT")
+    _ensure_column(db, "app_settings", "signal_base_url", "TEXT")
+    _ensure_column(db, "app_settings", "signal_sender_number", "TEXT")
+
+
 def _migrate_remove_timeclock_nfc_tags(db: Session):
     """Das Ein-/Ausstempeln lief anfangs über einen gemeinsamen NFC-Tag
     (/timeclock/scan), wurde aber durch ein autorisiertes Terminal ersetzt
@@ -655,6 +668,7 @@ def _startup():
         _migrate_user_notify_on_completion(db)
         _migrate_audit_log_drop_ip(db)
         _migrate_app_settings_module_flags(db)
+        _migrate_app_settings_channel_config(db)
         _migrate_group_cooling_access(db)
     finally:
         db.close()
@@ -5294,10 +5308,21 @@ def admin_timeclock_delete(
 @app.get("/admin/notifications")
 def admin_notifications_page(request: Request, db: Session = Depends(get_db)):
     admin = require_admin_or_shift_lead(request, db)
+    settings = get_app_settings(db)
     return templates.TemplateResponse("admin_notifications.html", {
         "request": request,
         "user": admin,
         "channels": db.query(models.NotificationChannel).all(),
+        "connection_settings": settings,
+        # Fuer die Platzhalter/Hinweistexte im Formular: zeigt an, welcher
+        # Wert ohne eigene Eingabe aus der Umgebungsvariable greifen wuerde
+        # (siehe notifications.py:_channel_config fuer dieselbe Fallback-Logik).
+        "channel_env_defaults": {
+            "ntfy_base_url": os.environ.get("NTFY_BASE_URL", "").strip(),
+            "gotify_base_url": os.environ.get("GOTIFY_BASE_URL", "").strip(),
+            "signal_base_url": os.environ.get("SIGNAL_BASE_URL", "").strip(),
+            "signal_sender_number": os.environ.get("SIGNAL_SENDER_NUMBER", "").strip(),
+        },
     })
 
 
@@ -5647,6 +5672,36 @@ def admin_toggle_channel_active(channel_id: int, request: Request, db: Session =
             raise HTTPException(status_code=404, detail="Kanal nicht gefunden")
         return {"ok": True, "is_active": channel.is_active}
     return RedirectResponse("/admin/notifications", status_code=302)
+
+
+@app.post("/admin/notifications/connection-settings")
+def admin_notifications_connection_settings(
+    request: Request,
+    ntfy_base_url: str = Form(""),
+    gotify_base_url: str = Form(""),
+    signal_base_url: str = Form(""),
+    signal_sender_number: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Basis-URLs/Zugangsdaten fuer ntfy/Gotify/Signal direkt in der App
+    pflegbar statt zwingend per Umgebungsvariable im Docker-Stack (siehe
+    AppSettings.ntfy_base_url & Nachbarspalten, notifications.py:
+    _channel_config) - z.B. relevant, wenn eine externe IT-Firma den
+    Docker-Stack betreut und fuer jede Aenderung extra kontaktiert werden
+    muesste. Bewusst require_admin statt require_admin_or_shift_lead, analog
+    zu den Modul-Schaltern: globale Infrastruktur-Einstellung fuer den
+    gesamten Betrieb, keine alltaegliche Verwaltungsaufgabe. Leeres Feld
+    loescht den Wert wieder (= Fallback auf die Umgebungsvariable greift
+    erneut), statt einen leeren String zu erzwingen."""
+    admin = require_admin(request, db)
+    settings = get_app_settings(db)
+    settings.ntfy_base_url = ntfy_base_url.strip() or None
+    settings.gotify_base_url = gotify_base_url.strip() or None
+    settings.signal_base_url = signal_base_url.strip() or None
+    settings.signal_sender_number = signal_sender_number.strip() or None
+    log_audit(db, admin, "UPDATE", "System", "Verbindungseinstellungen für Benachrichtigungen aktualisiert.")
+    db.commit()
+    return RedirectResponse(_with_toast("/admin/notifications", "Verbindungseinstellungen gespeichert."), status_code=302)
 
 
 @app.post("/admin/users")

@@ -2,30 +2,58 @@ import os
 import logging
 import httpx
 
+from sqlalchemy.orm import object_session
+
 from .database import SessionLocal
-from .models import PushSubscription
+from .models import PushSubscription, AppSettings
 from . import push as webpush_module
 
-NTFY_BASE_URL = os.environ.get("NTFY_BASE_URL", "").rstrip("/")
-GOTIFY_BASE_URL = os.environ.get("GOTIFY_BASE_URL", "").rstrip("/")
-SIGNAL_BASE_URL = os.environ.get("SIGNAL_BASE_URL", "").rstrip("/")
-SIGNAL_SENDER_NUMBER = os.environ.get("SIGNAL_SENDER_NUMBER", "")
-
 logger = logging.getLogger("reinigungsplan.notifications")
+
+
+def _resolve_setting(db_value, env_name: str, strip_trailing_slash: bool = False) -> str:
+    value = (db_value or "").strip()
+    if not value:
+        value = os.environ.get(env_name, "").strip()
+    return value.rstrip("/") if strip_trailing_slash else value
+
+
+def _channel_config(db) -> dict:
+    """Basis-URLs/Zugangsdaten fuer ntfy/Gotify/Signal: primaer aus der
+    Verwaltung (Benachrichtigungen -> Verbindungen, siehe AppSettings),
+    ansonsten Fallback auf die gleichnamige Umgebungsvariable - deckt sowohl
+    frisch per docker-compose konfigurierte Installationen als auch den
+    Fall ab, dass jemand keinen Zugriff auf den Docker-Stack hat und alles
+    direkt in der App eintragen will. db darf None sein (z.B. bei fehlender
+    Session), dann greift ausschliesslich die Umgebungsvariable."""
+    settings = db.query(AppSettings).first() if db is not None else None
+    return {
+        "ntfy_base_url": _resolve_setting(settings.ntfy_base_url if settings else None, "NTFY_BASE_URL", True),
+        "gotify_base_url": _resolve_setting(settings.gotify_base_url if settings else None, "GOTIFY_BASE_URL", True),
+        "signal_base_url": _resolve_setting(settings.signal_base_url if settings else None, "SIGNAL_BASE_URL", True),
+        "signal_sender_number": _resolve_setting(settings.signal_sender_number if settings else None, "SIGNAL_SENDER_NUMBER"),
+    }
 
 
 def notify_group(group, title: str, message: str, priority: str = "default", url: str = "/"):
     """Schickt eine Push-Nachricht über alle Benachrichtigungskanäle einer
     Gruppe sowie zusätzlich per Browser-Push (Web Push) an alle Mitglieder,
     die das in ihrem Browser aktiviert haben - kein extra Kanal nötig."""
-    for channel in group.channels:
+    channels = list(group.channels)
+    # group kann auch das nicht an eine Session gebundene _MergedGroup-
+    # Platzhalterobjekt aus notify_groups sein - die Session daher ueber
+    # einen der (echten, gemappten) Kanaele selbst ermitteln.
+    db = next((s for s in (object_session(c) for c in channels) if s is not None), None)
+    config = _channel_config(db)
+
+    for channel in channels:
         if not channel.is_active:
             continue
 
-        if channel.type == "ntfy" and channel.target and NTFY_BASE_URL:
+        if channel.type == "ntfy" and channel.target and config["ntfy_base_url"]:
             try:
                 resp = httpx.post(
-                    f"{NTFY_BASE_URL}/{channel.target}",
+                    f"{config['ntfy_base_url']}/{channel.target}",
                     content=message.encode("utf-8"),
                     headers={"Title": title, "Priority": priority},
                     timeout=10,
@@ -35,10 +63,10 @@ def notify_group(group, title: str, message: str, priority: str = "default", url
             except Exception as e:
                 logger.warning(f"ntfy-Benachrichtigung fehlgeschlagen ({channel.name}): {e}")
 
-        elif channel.type == "gotify" and channel.target and GOTIFY_BASE_URL:
+        elif channel.type == "gotify" and channel.target and config["gotify_base_url"]:
             try:
                 resp = httpx.post(
-                    f"{GOTIFY_BASE_URL}/message",
+                    f"{config['gotify_base_url']}/message",
                     params={"token": channel.target},
                     data={"title": title, "message": message, "priority": 5},
                     timeout=10,
@@ -48,13 +76,13 @@ def notify_group(group, title: str, message: str, priority: str = "default", url
             except Exception as e:
                 logger.warning(f"Gotify-Benachrichtigung fehlgeschlagen ({channel.name}): {e}")
 
-        elif channel.type == "signal" and channel.target and SIGNAL_BASE_URL and SIGNAL_SENDER_NUMBER:
+        elif channel.type == "signal" and channel.target and config["signal_base_url"] and config["signal_sender_number"]:
             try:
                 resp = httpx.post(
-                    f"{SIGNAL_BASE_URL}/v2/send",
+                    f"{config['signal_base_url']}/v2/send",
                     json={
                         "message": f"{title}\n{message}",
-                        "number": SIGNAL_SENDER_NUMBER,
+                        "number": config["signal_sender_number"],
                         "recipients": [channel.target],
                     },
                     timeout=10,
