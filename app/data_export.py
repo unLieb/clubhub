@@ -52,7 +52,10 @@ def export_data_json(db: Session) -> dict:
             for g in db.query(models.Group).all()
         ],
         "channels": [
-            {"name": c.name, "type": c.type, "target": c.target, "groups": [g.name for g in c.groups]}
+            {
+                "name": c.name, "type": c.type, "target": c.target,
+                "is_active": c.is_active, "groups": [g.name for g in c.groups],
+            }
             for c in db.query(models.NotificationChannel).all()
         ],
         "users": [
@@ -157,7 +160,10 @@ def import_data_json(db: Session, data: dict, selected: set, importing_user) -> 
             if row["name"] in existing_channels:
                 summary["channels"]["matched"] += 1
                 continue
-            channel = models.NotificationChannel(name=row["name"], type=row["type"], target=row.get("target"))
+            channel = models.NotificationChannel(
+                name=row["name"], type=row["type"], target=row.get("target"),
+                is_active=row.get("is_active", True),
+            )
             db.add(channel)
             db.flush()
             for gname in row.get("groups", []):

@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.11.0] - 2026-09-08
+- Benachrichtigungskanäle deaktivierbar: neuer Aktiv/Inaktiv-Schalter je Kanal (`NotificationChannel.is_active`, Standard aktiv) – deaktivierte Kanäle werden beim automatischen Versand (Überfällig-/Erledigt-Pushs, Termine, Meldungsstatus …) übersprungen, bleiben aber inklusive Gruppen-Zuordnung erhalten statt gelöscht werden zu müssen. Schalter läuft per `fetch()` ohne Reload (Karte graut sich beim Deaktivieren leicht aus, „Inaktiv“-Badge erscheint), analog zum bestehenden Nutzer-Aktivieren/Deaktivieren. Struktur-Export/-Import berücksichtigt den Status ebenfalls.
+
 ## [1.10.1] - 2026-09-07
 - PWA-/Mobile-Icons nachgezogen, damit der "App installieren"-Dialog (Android/Chrome/Vivaldi) und Browser-Tab-Icons das neue Logo sofort zeigen statt eines gecachten alten Stands: `manifest.json` verweist jetzt auf zwei eigens erzeugte, standardgerechte Icon-Größen (192×192, 512×512) statt eines einzelnen 750×750-Icons; alle Icon-Referenzen im HTML-Kopf (`link rel="icon"`, `link rel="apple-touch-icon"`, `link rel="manifest"`) tragen jetzt Cache-Busting (`?v={{ app_build_hash }}`), analog zu CSS/JS. Der Service Worker (`sw.js`) hält bewusst keinen Asset-Cache (reiner Passthrough für Push/Installierbarkeit, siehe Kommentar dort) – hier gab es also keine Cache-Version zum Erhöhen.
 

@@ -531,6 +531,13 @@ def _migrate_audit_log_drop_ip(db: Session):
         db.commit()
 
 
+def _migrate_notification_channel_active(db: Session):
+    """Neues Aktiv/Deaktiviert-Flag fuer Benachrichtigungskanaele (siehe
+    NotificationChannel.is_active) - bestehende Kanaele gelten per DEFAULT 1
+    weiterhin als aktiv, unveraendertes Versandverhalten."""
+    _ensure_column(db, "notification_channels", "is_active", "INTEGER DEFAULT 1")
+
+
 def _migrate_group_cooling_access(db: Session):
     """Neuer Zugriffs-Schalter fuers Kuehlungen-Modul je Gruppe (siehe
     Group.cooling_access) - SQL-Default 0 (aus) fuer alle bestehenden
@@ -608,6 +615,11 @@ def _startup():
 
     db = next(get_db())
     try:
+        # Muss vor _migrate_legacy_group_channels laufen: die dortige ORM-
+        # Abfrage auf NotificationChannel selektiert per SQLAlchemy-Standard
+        # alle gemappten Spalten (inkl. is_active) - ohne vorherige ALTER
+        # TABLE schlaegt das mit "no such column" fehl.
+        _migrate_notification_channel_active(db)
         _migrate_task_warn_hours(db)
         _migrate_group_work_hours(db)
         _migrate_group_color(db)
@@ -5612,6 +5624,28 @@ def admin_delete_channel(channel_id: int, request: Request, db: Session = Depend
         db.commit()
     if is_fetch:
         return {"ok": True}
+    return RedirectResponse("/admin/notifications", status_code=302)
+
+
+@app.post("/admin/channels/{channel_id}/toggle-active")
+def admin_toggle_channel_active(channel_id: int, request: Request, db: Session = Depends(get_db)):
+    """Deaktivieren/Reaktivieren statt Loeschen (siehe NotificationChannel.
+    is_active) - Gruppen-Zuordnung bleibt erhalten, der Kanal wird beim
+    Versand (notify_group) nur uebersprungen."""
+    actor = require_admin_or_shift_lead(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    channel = db.query(models.NotificationChannel).filter(models.NotificationChannel.id == channel_id).first()
+    if channel:
+        channel.is_active = not channel.is_active
+        log_audit(
+            db, actor, "UPDATE", "Kanal",
+            f"Kanal „{channel.name}“ {'aktiviert' if channel.is_active else 'deaktiviert'}.",
+        )
+        db.commit()
+    if is_fetch:
+        if not channel:
+            raise HTTPException(status_code=404, detail="Kanal nicht gefunden")
+        return {"ok": True, "is_active": channel.is_active}
     return RedirectResponse("/admin/notifications", status_code=302)
 
 

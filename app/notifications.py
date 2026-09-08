@@ -19,6 +19,9 @@ def notify_group(group, title: str, message: str, priority: str = "default", url
     Gruppe sowie zusätzlich per Browser-Push (Web Push) an alle Mitglieder,
     die das in ihrem Browser aktiviert haben - kein extra Kanal nötig."""
     for channel in group.channels:
+        if not channel.is_active:
+            continue
+
         if channel.type == "ntfy" and channel.target and NTFY_BASE_URL:
             try:
                 resp = httpx.post(

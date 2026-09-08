@@ -37,9 +37,9 @@
 <div class="rounded-xl border border-line bg-panel p-4">
   <ul class="space-y-1 text-sm">
     {% for c in channels %}
-    <li data-ajax-row class="text-slate-300 border-b border-line/50 last:border-0 py-1">
+    <li data-ajax-row data-channel-active-row class="text-slate-300 border-b border-line/50 last:border-0 py-1 {% if not c.is_active %}opacity-60{% endif %}">
       <div class="flex justify-between items-center gap-2">
-        <span>{{ c.name }}</span>
+        <span>{{ c.name }}<span class="channel-inactive-badge text-xs px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 {% if c.is_active %}hidden{% endif %}">Inaktiv</span></span>
         <span class="flex items-center gap-2 shrink-0">
           <span class="text-slate-500 text-xs">{{ c.type }}</span>
           <div class="relative channel-kebab-wrap">
@@ -51,6 +51,18 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 Bearbeiten
               </button>
+              <form method="post" action="/admin/channels/{{ c.id }}/toggle-active" class="ajax-status-form channel-toggle-form">
+                <button type="submit" class="channel-toggle-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm {% if c.is_active %}text-late hover:bg-late/10{% else %}text-go hover:bg-go/10{% endif %}">
+                  <span class="channel-toggle-icon shrink-0">
+                    {% if c.is_active %}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
+                    {% else %}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    {% endif %}
+                  </span>
+                  <span class="channel-toggle-label">{{ 'Deaktivieren' if c.is_active else 'Aktivieren' }}</span>
+                </button>
+              </form>
               {% if user.is_admin %}
               <form method="post" action="/admin/channels/{{ c.id }}/delete" class="ajax-delete-form" data-confirm="„{{ c.name }}“ wirklich löschen?">
                 <button type="submit" class="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-late hover:bg-late/10">
@@ -115,6 +127,35 @@
         var panel = document.getElementById(btn.dataset.target);
         if (panel) panel.classList.toggle('hidden');
       });
+    });
+
+    // Aktivieren/Deaktivieren per fetch() (siehe .ajax-status-form, generisch
+    // behandelt von ajax_actions.js) - passt Button-Text/-Icon/-Farbe, das
+    // "Inaktiv"-Badge und die Zeilen-Transparenz direkt an, ohne Reload.
+    var ICON_DEACTIVATE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>';
+    var ICON_ACTIVATE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    document.addEventListener('ajax-form-success', function (e) {
+      var form = e.target;
+      if (!form.classList || !form.classList.contains('channel-toggle-form')) return;
+      var isActive = !!(e.detail && e.detail.is_active);
+      var row = form.closest('[data-channel-active-row]');
+      var btn = form.querySelector('.channel-toggle-btn');
+      var icon = form.querySelector('.channel-toggle-icon');
+      var label = form.querySelector('.channel-toggle-label');
+      if (row) {
+        row.classList.toggle('opacity-60', !isActive);
+        var badge = row.querySelector('.channel-inactive-badge');
+        if (badge) badge.classList.toggle('hidden', isActive);
+      }
+      if (btn) {
+        btn.classList.toggle('text-late', isActive);
+        btn.classList.toggle('hover:bg-late/10', isActive);
+        btn.classList.toggle('text-go', !isActive);
+        btn.classList.toggle('hover:bg-go/10', !isActive);
+      }
+      if (icon) icon.innerHTML = isActive ? ICON_DEACTIVATE : ICON_ACTIVATE;
+      if (label) label.textContent = isActive ? 'Deaktivieren' : 'Aktivieren';
+      closeAllKebabMenus();
     });
   })();
 </script>

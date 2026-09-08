@@ -117,6 +117,11 @@ class NotificationChannel(Base):
     name = Column(String, nullable=False)           # freier Anzeigename, z.B. "Hausmeister ntfy"
     type = Column(String, nullable=False)            # "ntfy" | "gotify" | "signal"
     target = Column(String, nullable=True)           # ntfy-Topic / Gotify-Token / Signal-Empfängernummer
+    # Deaktivierbar statt nur loeschbar - z.B. um einen Kanal voruebergehend
+    # stillzulegen (Wartung, falscher Token), ohne die Gruppen-Zuordnung zu
+    # verlieren. Deaktivierte Kanaele werden beim Versand uebersprungen
+    # (siehe notify_group in notifications.py), bleiben aber bestehen.
+    is_active = Column(Boolean, default=True)
 
     groups = relationship("Group", secondary=group_channel, back_populates="channels")
 
