@@ -2,9 +2,8 @@
 
 Kurzer Fahrplan für die Erstinstallation auf einem Server, den nicht du selbst
 administrierst (z.B. eine Firmen-IT). Was vor dem ersten Start zwingend
-passieren muss, was für den echten Betrieb empfohlen ist, und was sich in
-Ruhe später klären lässt. Ausführlichere Hintergründe zu einzelnen Punkten
-stehen im [README](README.md).
+passieren muss und was für den echten Betrieb empfohlen ist. Ausführlichere
+Hintergründe zu einzelnen Punkten stehen im [README](README.md).
 
 ## 1. Vor dem ersten Start (Pflicht)
 
@@ -101,16 +100,6 @@ vor dem Rollout an alle Mitarbeiter klären.
   diese beiden Module automatisch aus; die entsprechenden Menüpunkte fehlen
   dann absichtlich. Falls doch gebraucht: *Verwaltung → System → Module &
   Features*.
-
-## 3. Danach, in Ruhe
-
-Nichts hiervon blockiert den Start – lohnt sich aber, sobald ClubHUB läuft.
-
-- **Push-Benachrichtigungen per ntfy / Gotify / Signal**, nur falls gewünscht.
-  Zusätzlich zur eingebauten Browser-Push-Benachrichtigung lassen sich Gruppen
-  an externe Kanäle koppeln (`NTFY_BASE_URL`, `GOTIFY_BASE_URL`, optional
-  Signal über einen eigenen `signal-cli-rest-api`-Container). Ohne Bedarf
-  einfach weglassen – die App funktioniert vollständig ohne sie.
 
 ---
 

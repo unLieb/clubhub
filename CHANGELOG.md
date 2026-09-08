@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.12.1] - 2026-09-08
+- HANDOFF.md/docker-compose.yml an die neuen Verbindungseinstellungen (siehe 1.12.0) angepasst: ntfy/Gotify/Signal sind jetzt reine In-App-Konfiguration und daher aus der Server-Übergabe-Checkliste entfernt (Abschnitt "Danach, in Ruhe" ersatzlos gestrichen, da er nur noch diesen einen Punkt enthielt) sowie im Stack-Template als optionaler, auskommentierter Fallback statt aktiver Standardwerte hinterlegt.
+
 ## [1.12.0] - 2026-09-08
 - Verbindungseinstellungen für Benachrichtigungskanäle (ntfy-/Gotify-/Signal-Basis-URL, Signal-Absendernummer) sind jetzt direkt in der Verwaltung pflegbar (Benachrichtigungen → „Verbindungen“, nur für Admins) statt zwingend per Umgebungsvariable im Docker-Stack gesetzt werden zu müssen – relevant z.B. wenn eine externe IT-Firma den Server betreut. Bereits per Umgebungsvariable gesetzte Werte bleiben unverändert als Fallback gültig, solange in der App nichts eingetragen ist (Hinweistext zeigt, welcher Wert dann aktiv wäre). README ergänzt: HTTPS/Reverse-Proxy sind nur für Browser-Push zwingend nötig, nicht für ntfy/Gotify/Signal (reiner ausgehender Traffic); `https://ntfy.sh` als Basis-URL funktioniert komplett ohne eigene Infrastruktur.
 

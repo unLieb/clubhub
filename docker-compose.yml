@@ -31,16 +31,13 @@ services:
       # BACKUP_SCHEDULE_HOURS: "0,6,12,18"
       # BACKUP_RETENTION_DAYS: "3"
 
-      # ntfy: Basis-URL deines ntfy-Servers (z.B. https://ntfy.sh oder eigene Instanz)
-      NTFY_BASE_URL: "https://ntfy.sh"
-
-      # Gotify: Basis-URL deiner Gotify-Instanz (App-Token wird pro Kanal in der Verwaltung hinterlegt)
-      GOTIFY_BASE_URL: "https://gotify.example.com"
-
-      # Signal (optional): braucht einen eigenen signal-cli-rest-api-Sidecar
-      # (z.B. Image bbernhard/signal-cli-rest-api) mit eigener, registrierter
-      # Absendernummer. SIGNAL_BASE_URL zeigt auf diesen Dienst, SIGNAL_SENDER_NUMBER
-      # ist die dort registrierte Nummer. Siehe README für Details.
+      # ntfy/Gotify/Signal: Basis-URLs + Signal-Absendernummer muessen hier
+      # nicht mehr gesetzt werden - direkt in der Verwaltung unter
+      # Benachrichtigungen -> "Verbindungen" pflegbar (siehe README). Diese
+      # Variablen bleiben nur als Fallback nutzbar, falls dort nichts
+      # eingetragen ist.
+      # NTFY_BASE_URL: "https://ntfy.sh"
+      # GOTIFY_BASE_URL: "https://gotify.example.com"
       # SIGNAL_BASE_URL: "http://signal-cli-rest-api:8080"
       # SIGNAL_SENDER_NUMBER: "+49123456789"
 
