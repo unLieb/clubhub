@@ -3704,6 +3704,17 @@ def appointments_page(request: Request, db: Session = Depends(get_db)):
             ),
         })
 
+    # Anstehende Termine (inkl. heute) zuerst, aufsteigend nach Datum - der
+    # naechste bevorstehende Termin steht so ganz oben im Blickfeld.
+    # Vergangene Termine folgen danach, absteigend (juengster zuerst). Die
+    # DB-Abfrage oben liefert bereits aufsteigend sortiert, daher reicht ein
+    # simples Aufteilen + Umkehren der vergangenen Haelfte, statt eine
+    # zweite Abfrage oder eine SQL-CASE-Sortierung zu bauen.
+    entries_upcoming = [e for e in entries if not e["past"]]
+    entries_past = [e for e in entries if e["past"]]
+    entries_past.reverse()
+    entries = entries_upcoming + entries_past
+
     return templates.TemplateResponse("appointments.html", {
         "request": request,
         "user": user,

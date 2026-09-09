@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.12.2] - 2026-09-09
+- Termine-Sortierung angepasst: anstehende Termine (inkl. heute) stehen jetzt aufsteigend nach Datum oben (der nächste bevorstehende Termin an erster Stelle), vergangene Termine folgen danach absteigend (jüngster zuerst). Bisher waren alle Termine schlicht chronologisch aufsteigend sortiert, wodurch lange vergangene Termine ganz oben standen statt der nächste anstehende.
+
 ## [1.12.1] - 2026-09-08
 - HANDOFF.md/docker-compose.yml an die neuen Verbindungseinstellungen (siehe 1.12.0) angepasst: ntfy/Gotify/Signal sind jetzt reine In-App-Konfiguration und daher aus der Server-Übergabe-Checkliste entfernt (Abschnitt "Danach, in Ruhe" ersatzlos gestrichen, da er nur noch diesen einen Punkt enthielt) sowie im Stack-Template als optionaler, auskommentierter Fallback statt aktiver Standardwerte hinterlegt.
 
