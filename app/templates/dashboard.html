@@ -224,9 +224,18 @@
     // webauthn"), ganz ohne eigenen Button-Klick. Ein Fehlschlag bleibt
     // bewusst unsichtbar, da der Nutzer diesen Hintergrund-Vorgang nie aktiv
     // gestartet hat - nur ein Erfolg loest die Weiterleitung aus.
-    webauthnStartConditionalLogin(nextUrl, function (result) {
-      if (result.ok) handleResult(result);
-    });
+    //
+    // Im lokalen Dev (localhost) uebersprungen: dort ist kein Plattform-Passkey
+    // fuer die RP-ID "localhost" hinterlegt, weshalb Chrome/Windows die stille
+    // Conditional-Anfrage bei jedem Seitenaufruf in den nativen
+    // "Windows-Sicherheit"-Dialog (QR / Sicherheitsschluessel) eskaliert. Der
+    // explizite Button oben bleibt auch lokal nutzbar.
+    var isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '[::1]';
+    if (!isLocalDev) {
+      webauthnStartConditionalLogin(nextUrl, function (result) {
+        if (result.ok) handleResult(result);
+      });
+    }
   })();
 </script>
 {% endif %}
