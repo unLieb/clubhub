@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.13.0] - 2026-09-11
+- Live-Update per Polling für Dashboard, Bereichs-Übersicht, einzelne Bereichs-Seite und Meldungen: erledigt z.B. eine Kollegin eine Aufgabe auf dem Handy, aktualisiert sich die auf dem Laptop offene Ansicht innerhalb weniger Sekunden von selbst – kein manuelles Neuladen mehr nötig, um den aktuellen Stand zu sehen. Bewusst per periodischem Abfragen (kein WebSocket/Server-Sent-Events) umgesetzt, da ClubHUB je nach Kunde hinter unterschiedlichen, teils nicht selbst kontrollierten Reverse-Proxies/Portfreigaben läuft – ein normaler wiederholter Seitenaufruf funktioniert dort garantiert, ein WebSocket-Upgrade oder eine dauerhaft offene Verbindung könnte dagegen unbemerkt hängenbleiben. Neuer, sehr leichtgewichtiger `/api/live-version`-Endpunkt (ein einzelner In-Memory-Zähler) wird alle 15 Sekunden abgefragt; nur bei tatsächlicher Änderung wird der betroffene Seiteninhalt ohne echten Reload nachgeladen (Scroll-Position bleibt erhalten). Pausiert automatisch, während der Tab im Hintergrund ist oder gerade ein Textfeld fokussiert ist.
+
 ## [1.12.2] - 2026-09-09
 - Termine-Sortierung angepasst: anstehende Termine (inkl. heute) stehen jetzt aufsteigend nach Datum oben (der nächste bevorstehende Termin an erster Stelle), vergangene Termine folgen danach absteigend (jüngster zuerst). Bisher waren alle Termine schlicht chronologisch aufsteigend sortiert, wodurch lange vergangene Termine ganz oben standen statt der nächste anstehende.
 

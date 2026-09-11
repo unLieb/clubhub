@@ -229,6 +229,41 @@ templates.env.globals["dashboard_widgets"] = DASHBOARD_WIDGETS
 
 scheduler = None
 
+# In-Memory-Zaehler fuer das Live-Update per Polling (Dashboard, Bereichs-
+# Ansicht, Meldungen - siehe /api/live-version und _bump_live_version()
+# weiter unten). Bewusst KEIN WebSocket/SSE: die App laeuft je nach Kunde
+# hinter unterschiedlichen, teils nicht selbst kontrollierten Reverse-
+# Proxies/Portfreigaben - ein simpler periodischer GET-Request verhaelt
+# sich fuer jeden Proxy exakt wie ein normaler Seitenaufruf, waehrend
+# WebSocket-Upgrades oder lang offene SSE-Verbindungen dort im Zweifel
+# stillschweigend haengenbleiben koennten, ohne dass man das selbst pruefen
+# kann. Ein einzelner In-Memory-Int reicht, da die App als ein einzelner
+# uvicorn-Prozess ohne mehrere Worker laeuft (siehe Dockerfile CMD) - bei
+# mehreren Worker-Prozessen waere das NICHT mehr geteilter Zustand und
+# muesste stattdessen z.B. ueber die DB laufen. Ein einziger globaler
+# Zaehler statt einem je Seite/Bereich: legt bewusst leicht "zu oft" aus
+# (z.B. bumpt eine Meldung auch das Dashboard mit), kostet aber nur einen
+# zusaetzlichen, sehr billigen Fragment-Refetch alle paar Sekunden - deutlich
+# einfacher und robuster als pro Aenderungs-Ort exakt nachzuhalten, was wo
+# betroffen ist.
+_live_version = 0
+
+
+def _bump_live_version():
+    global _live_version
+    _live_version += 1
+
+
+@app.get("/api/live-version")
+def live_version():
+    """Wird von live_refresh.js alle paar Sekunden abgefragt (Dashboard,
+    Bereichs-Ansicht, Meldungen) - wenn sich der Wert seit dem letzten Abruf
+    geaendert hat, laedt die Seite die betroffenen Inhalte neu nach. Bewusst
+    ohne Login-Pflicht: der Zaehler selbst ist ein bedeutungsloser Zaehlerwert
+    ohne jeden Rueckschluss auf Inhalte, und das Dashboard ist auch fuer
+    nicht angemeldete Besucher sichtbar."""
+    return {"v": _live_version}
+
 
 def _ensure_column(db: Session, table: str, column: str, coltype: str):
     """Legt eine fehlende Spalte per ALTER TABLE an – create_all() legt nur
@@ -1304,6 +1339,7 @@ def _complete_tasks(db: Session, tasks: list, user_id: int):
         )
     db.commit()
     if tasks:
+        _bump_live_version()
         user = db.query(models.User).filter(models.User.id == user_id).first()
         for task in tasks:
             notification_batching.queue_task_completion(task.room, task.groups or task.room.groups, user)
@@ -1330,6 +1366,7 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
         {"last_status": "green"}
     )
     db.commit()
+    _bump_live_version()
     notification_batching.queue_task_completion(task.room, task.groups or task.room.groups, user)
     if is_fetch:
         db.refresh(completion)
@@ -1381,6 +1418,7 @@ def snooze_task(
         raise HTTPException(status_code=400, detail="Kein Zeitpunkt angegeben")
     task.snoozed_until = snoozed_until
     db.commit()
+    _bump_live_version()
     if is_fetch:
         s = _task_display_status(task, now)
         html = templates.env.get_template("_task_snooze_area.html").render(
@@ -1406,6 +1444,7 @@ def cancel_snooze_task(room_id: int, task_id: int, request: Request, db: Session
         raise HTTPException(status_code=404, detail="Aufgabe nicht gefunden")
     task.snoozed_until = None
     db.commit()
+    _bump_live_version()
     if is_fetch:
         s = _task_display_status(task, ntptime.now_utc())
         html = templates.env.get_template("_task_snooze_area.html").render(
@@ -1441,6 +1480,7 @@ def undo_complete_task(room_id: int, task_id: int, completion_id: int, request: 
         raise HTTPException(status_code=400, detail="Rückgängig ist nur kurz nach dem Abhaken möglich")
     db.delete(completion)
     db.commit()
+    _bump_live_version()
     return {"ok": True}
 
 
@@ -3423,6 +3463,7 @@ async def reports_create(
         if os.path.isfile(os.path.join(REPORT_PHOTOS_DIR, link_preview_image)):
             db.add(models.ReportPhoto(report_id=report.id, filename=link_preview_image))
     db.commit()
+    _bump_live_version()
 
     # Gruppen inkl. Kanäle + Mitglieder/Push-Abos hier bereits vollständig laden
     # (nicht erst lazy in notify_group) - die Session ist geschlossen, sobald
@@ -3532,6 +3573,7 @@ def reports_set_status(
             report.resolved_by_id = None
         report.status = status
         db.commit()
+        _bump_live_version()
 
         # Nur der Melder und die zuständige(n) Gruppe(n) informieren (nicht
         # alle Nutzer) - z.B. damit man mitbekommt, dass sich schon jemand
@@ -3577,6 +3619,7 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
                 pass
         db.delete(report)
         db.commit()
+        _bump_live_version()
     elif is_fetch:
         raise HTTPException(status_code=403, detail="Keine Berechtigung")
     if is_fetch:
@@ -4104,6 +4147,7 @@ def delete_completion(
     if completion:
         db.delete(completion)
         db.commit()
+        _bump_live_version()
     if is_fetch:
         return {"ok": True}
     # Nur ein eigener, relativer Pfad ist erlaubt (kein "//evil.com" o.ä.),

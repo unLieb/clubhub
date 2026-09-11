@@ -21,6 +21,12 @@
      delegierten submit-Listener auf document, keine synchronen
      Abhaengigkeiten wie bei webauthn.js/timeclock_period.js unten. -->
 <script src="/static/ajax_actions.js?v={{ app_build_hash }}" defer></script>
+<!-- Live-Update per Polling (nur auf Seiten mit data-live-refresh="1" auf
+     <body>, siehe Kommentar in live_refresh.js). Defer reicht: liest das
+     body-Attribut erst nach DOM-Parse aus, startet dann selbststaendig
+     ein Intervall - keine synchronen Abhaengigkeiten wie bei webauthn.js
+     unten. -->
+<script src="/static/live_refresh.js?v={{ app_build_hash }}" defer></script>
 <!-- Kein defer: die Inline-Scripts in dashboard.html/profile.html rufen die
      webauthnXxx()-Funktionen synchron beim Parsen auf (siehe
      timeclock_period.js oben fuer denselben Grund). -->
@@ -80,7 +86,7 @@
   }
 </style>
 </head>
-<body class="bg-bg text-slate-100 font-body min-h-screen" data-vapid-key="{{ vapid_public_key() if user else '' }}">
+<body class="bg-bg text-slate-100 font-body min-h-screen" data-vapid-key="{{ vapid_public_key() if user else '' }}" data-live-refresh="{% block live_refresh %}{% endblock %}">
 {% set badges = nav_badges(request) %}
 {% set modules = app_module_flags() %}
 
@@ -308,7 +314,7 @@
 
   <!-- Main -->
   <div class="flex-1 min-w-0">
-    <main class="max-w-7xl mx-auto px-6 py-6 pb-24 lg:pt-16 lg:pb-6">
+    <main id="live-content" class="max-w-7xl mx-auto px-6 py-6 pb-24 lg:pt-16 lg:pb-6">
       {% block content %}{% endblock %}
     </main>
   </div>

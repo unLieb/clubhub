@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_report_macros.html" as rb %}
 {% block title %}Dashboard – ClubHUB{% endblock %}
+{% block live_refresh %}1{% endblock %}
 {% block content %}
 {% set modules = app_module_flags() %}
 
