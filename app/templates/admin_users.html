@@ -124,7 +124,10 @@
           {% if not groups %}
           <p class="text-slate-500 text-xs italic">Noch keine Gruppen angelegt.</p>
           {% endif %}
-          <input type="password" name="password" placeholder="Neues Passwort (leer = unverändert)" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input type="password" name="password" placeholder="Neues Passwort (leer = unverändert)" class="user-edit-password flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <input type="password" name="password_confirm" placeholder="Neues Passwort bestätigen" class="user-edit-password-confirm flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          </div>
           {% if user.is_admin %}
           <div>
             <label class="block text-[11px] text-slate-400 mb-1">Rolle</label>
@@ -217,6 +220,20 @@
       form.dataset.confirm = isActive
         ? 'Diesen Nutzer wirklich deaktivieren? Login und Einstempeln sind danach gesperrt, Historie und Zeiterfassung bleiben vollständig erhalten.'
         : '';
+    });
+
+    // Passwort-Reset-Bestaetigung je Bearbeiten-Formular (rein clientseitiges
+    // Vorab-Feedback ueber die native Browser-Validierung - der serverseitige
+    // Abgleich in admin_edit_user greift in jedem Fall). Leer+leer gilt als
+    // "match" (= unveraendert lassen), kein Sonderfall noetig.
+    document.querySelectorAll('.user-edit-password-confirm').forEach(function (confirmInput) {
+      var form = confirmInput.closest('form');
+      var pwInput = form.querySelector('.user-edit-password');
+      function checkMatch() {
+        confirmInput.setCustomValidity(pwInput.value !== confirmInput.value ? 'Die Passwörter stimmen nicht überein.' : '');
+      }
+      pwInput.addEventListener('input', checkMatch);
+      confirmInput.addEventListener('input', checkMatch);
     });
   })();
 </script>

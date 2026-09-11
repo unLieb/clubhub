@@ -42,11 +42,30 @@
       {% elif password_success %}
       <div class="rounded-md border border-go/40 bg-go/10 text-go text-sm px-3 py-2 mb-3">Passwort geändert.</div>
       {% endif %}
-      <form method="post" action="/profile/password" class="flex flex-col sm:flex-row gap-2">
-        <input type="password" name="password" required autocomplete="new-password" placeholder="Neues Passwort" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <input type="password" name="password_confirm" required autocomplete="new-password" placeholder="Passwort wiederholen" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <button class="px-3 py-1.5 sm:w-40 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Ändern</button>
+      <form id="password-change-form" method="post" action="/profile/password" class="space-y-2">
+        <input type="password" name="current_password" required autocomplete="current-password" placeholder="Aktuelles Passwort" class="w-full sm:max-w-xs rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input type="password" name="password" required autocomplete="new-password" placeholder="Neues Passwort" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <input type="password" name="password_confirm" required autocomplete="new-password" placeholder="Neues Passwort bestätigen" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <button class="px-3 py-1.5 sm:w-40 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Ändern</button>
+        </div>
       </form>
+      <script>
+        (function () {
+          // Rein clientseitiges Vorab-Feedback ueber die native Browser-
+          // Validierung (Constraint Validation API) - ersetzt nicht den
+          // serverseitigen Abgleich in profile_change_password, der greift
+          // in jedem Fall (auch ohne JS/bei deaktiviertem JS).
+          var form = document.getElementById('password-change-form');
+          var pw = form.querySelector('[name="password"]');
+          var confirm = form.querySelector('[name="password_confirm"]');
+          function checkMatch() {
+            confirm.setCustomValidity(pw.value !== confirm.value ? 'Die Passwörter stimmen nicht überein.' : '');
+          }
+          pw.addEventListener('input', checkMatch);
+          confirm.addEventListener('input', checkMatch);
+        })();
+      </script>
     </div>
 
     <div class="pt-4 mt-4 border-t border-line">

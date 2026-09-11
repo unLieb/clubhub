@@ -4280,13 +4280,21 @@ async def profile_set_avatar(
 @app.post("/profile/password")
 def profile_change_password(
     request: Request,
+    current_password: str = Form(...),
     password: str = Form(...),
     password_confirm: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Selbst das eigene Passwort aendern - anders als beim Admin-Reset
+    unten (siehe admin_edit_user) wird hier zusaetzlich das aktuelle
+    Passwort verlangt: wer schon eingeloggt ist, koennte sonst z.B. an
+    einem kurz unbeaufsichtigten Geraet eines Kollegen dessen Passwort
+    faktisch kapern, ohne es je gekannt zu haben."""
     user = require_login(request, db)
     error = None
-    if not password.strip():
+    if not verify_password(current_password, user.password_hash):
+        error = "Aktuelles Passwort ist falsch."
+    elif not password.strip():
         error = "Passwort darf nicht leer sein."
     elif password != password_confirm:
         error = "Die Passwörter stimmen nicht überein."
@@ -5812,6 +5820,7 @@ def admin_edit_user(
     request: Request,
     name: str = Form(...),
     password: str = Form(""),
+    password_confirm: str = Form(""),
     personnel_number: str = Form(""),
     group_id: str = Form(""),
     role: str = Form(""),
@@ -5825,6 +5834,17 @@ def admin_edit_user(
         # sich per Passwort-Reset eines Admin-Kontos faktisch selbst zum Admin machen.
         if target.is_admin and not actor.is_admin:
             return RedirectResponse("/admin/users", status_code=302)
+
+        # Anders als bei der eigenen Passwort-Aenderung (siehe
+        # profile_change_password) wird hier bewusst NICHT das bisherige
+        # Passwort des Ziel-Nutzers verlangt - ein Admin/Schichtleiter setzt
+        # hier ja gerade ein neues, weil z.B. das alte vergessen wurde, kann
+        # es also gar nicht kennen. Nur die Bestaetigung wird geprueft, damit
+        # kein Tippfehler unbemerkt ein falsches Passwort setzt.
+        if password and password != password_confirm:
+            return RedirectResponse(
+                _with_toast("/admin/users", "Die Passwörter stimmen nicht überein.", "error"), status_code=302,
+            )
 
         # Wie beim Anlegen: mindestens eine Gruppe ist Pflicht, damit ein
         # Nutzer nicht nachtraeglich "gruppenlos" wird und dadurch ploetzlich

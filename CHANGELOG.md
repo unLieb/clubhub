@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.14.0] - 2026-09-11
+- Passwort-Sicherheitsabfragen ergänzt: Beim eigenen Passwort ändern (Profil) muss jetzt zusätzlich das aktuelle Passwort korrekt eingegeben werden, bevor eine Änderung möglich ist – verhindert, dass an einem kurz unbeaufsichtigten, eingeloggten Gerät faktisch das Passwort gekapert werden kann. Neues Passwort und Bestätigung werden sowohl clientseitig (native Browser-Validierung) als auch serverseitig auf Übereinstimmung geprüft. Beim Admin-Passwort-Reset für andere Nutzer (Verwaltung → Nutzer) wird bewusst weiterhin kein altes Passwort verlangt (der Admin kennt es ja nicht), aber jetzt ebenfalls eine Bestätigung des neuen Passworts abgefragt, um Tippfehler zu verhindern.
+
 ## [1.13.0] - 2026-09-11
 - Live-Update per Polling für Dashboard, Bereichs-Übersicht, einzelne Bereichs-Seite und Meldungen: erledigt z.B. eine Kollegin eine Aufgabe auf dem Handy, aktualisiert sich die auf dem Laptop offene Ansicht innerhalb weniger Sekunden von selbst – kein manuelles Neuladen mehr nötig, um den aktuellen Stand zu sehen. Bewusst per periodischem Abfragen (kein WebSocket/Server-Sent-Events) umgesetzt, da ClubHUB je nach Kunde hinter unterschiedlichen, teils nicht selbst kontrollierten Reverse-Proxies/Portfreigaben läuft – ein normaler wiederholter Seitenaufruf funktioniert dort garantiert, ein WebSocket-Upgrade oder eine dauerhaft offene Verbindung könnte dagegen unbemerkt hängenbleiben. Neuer, sehr leichtgewichtiger `/api/live-version`-Endpunkt (ein einzelner In-Memory-Zähler) wird alle 15 Sekunden abgefragt; nur bei tatsächlicher Änderung wird der betroffene Seiteninhalt ohne echten Reload nachgeladen (Scroll-Position bleibt erhalten). Pausiert automatisch, während der Tab im Hintergrund ist oder gerade ein Textfeld fokussiert ist.
 
