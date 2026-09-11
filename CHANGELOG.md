@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.15.0] - 2026-09-11
+- Admins können jetzt ohne Gruppen-Zuordnung existieren (Verwaltung → Nutzer, Anlegen und Bearbeiten): neue Option "Keine Gruppe" – sinnvoll, damit ein Admin nicht versehentlich operative Aufgaben einer Team-Gruppe (z.B. Büro-Reinigungen) zugewiesen bekommt. Für alle anderen Rollen bleibt eine Gruppe weiterhin Pflicht, da nur Admin/Schichtleiter unabhängig von der Gruppen-Zuordnung alles sehen. Geprüft, dass ein gruppenloser Nutzer nirgends (Dashboard, Verwaltung, Bereiche, Meldungen) zu Fehlern führt – Gruppen-Badges/-Listen sind bereits durchgängig leer-sicher gebaut.
+
 ## [1.14.0] - 2026-09-11
 - Passwort-Sicherheitsabfragen ergänzt: Beim eigenen Passwort ändern (Profil) muss jetzt zusätzlich das aktuelle Passwort korrekt eingegeben werden, bevor eine Änderung möglich ist – verhindert, dass an einem kurz unbeaufsichtigten, eingeloggten Gerät faktisch das Passwort gekapert werden kann. Neues Passwort und Bestätigung werden sowohl clientseitig (native Browser-Validierung) als auch serverseitig auf Übereinstimmung geprüft. Beim Admin-Passwort-Reset für andere Nutzer (Verwaltung → Nutzer) wird bewusst weiterhin kein altes Passwort verlangt (der Admin kennt es ja nicht), aber jetzt ebenfalls eine Bestätigung des neuen Passworts abgefragt, um Tippfehler zu verhindern.
 

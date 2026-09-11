@@ -5779,17 +5779,23 @@ def admin_add_user(
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
-    # Jeder Nutzer braucht mindestens eine Gruppe (siehe user_can_see_room/
-    # user_can_see_report/user_can_see_appointment) - sonst sieht er nach dem
-    # Anlegen ohne weiteres Zutun ploetzlich gar keine Bereiche/Meldungen/
-    # Termine mehr, was wie ein kaputtes Konto wirkt.
+    # Fuer alle Rollen ausser Admin weiterhin Pflicht (siehe user_can_see_room/
+    # user_can_see_report/user_can_see_appointment) - sonst sieht der Nutzer
+    # nach dem Anlegen ohne weiteres Zutun ploetzlich gar keine Bereiche/
+    # Meldungen/Termine mehr, was wie ein kaputtes Konto wirkt. Admins sind
+    # ausgenommen: die sehen ohnehin unabhaengig von jeder Gruppen-Zuordnung
+    # alles (is_admin-Bypass in genau diesen drei Funktionen) - ein Admin,
+    # der keine operativen Aufgaben zugewiesen bekommen soll (z.B. Buero-
+    # Reinigungen einer Team-Gruppe), muss sich nicht kuenstlich irgendeiner
+    # Gruppe zuordnen.
+    will_be_admin = actor.is_admin and role == "admin"
     group = db.query(models.Group).filter(models.Group.id == int(group_id)).first() if group_id.strip() else None
-    if not group:
+    if not group and not will_be_admin:
         return RedirectResponse(
             _with_toast("/admin/users", "Bitte eine Gruppe auswählen – jeder Nutzer braucht mindestens eine Gruppe.", "error"),
             status_code=302,
         )
-    groups = [group]
+    groups = [group] if group else []
     # Nur Admins dürfen beim Anlegen direkt Admin-/Schichtleiter-/
     # Pauschalkraft-Rechte vergeben; ein Schichtleiter legt immer nur normale
     # Mitarbeiter-Konten an, auch wenn im Formular (z.B. per direktem POST)
@@ -5805,8 +5811,10 @@ def admin_add_user(
     )
     # Hier nur beim Anlegen durch einen vollen Admin setzbar (Schichtleiter
     # legen nur einfache Konten an) - der Nutzer selbst kann sie danach jederzeit
-    # im eigenen Profil anpassen, Stundensatz sowieso nur dort.
-    if actor.is_admin:
+    # im eigenen Profil anpassen, Stundensatz sowieso nur dort. Nur bei
+    # aktivierter Zeiterfassung uebernommen - das Formularfeld ist sonst im
+    # Template ausgeblendet (siehe modules.time_tracking in admin_users.html).
+    if actor.is_admin and get_app_settings(db).enable_time_tracking:
         user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
     db.add(user)
     log_audit(db, actor, "CREATE", "Nutzer", f"Nutzer „{name}“ angelegt (Rolle: {role}).")
@@ -5846,11 +5854,31 @@ def admin_edit_user(
                 _with_toast("/admin/users", "Die Passwörter stimmen nicht überein.", "error"), status_code=302,
             )
 
-        # Wie beim Anlegen: mindestens eine Gruppe ist Pflicht, damit ein
-        # Nutzer nicht nachtraeglich "gruppenlos" wird und dadurch ploetzlich
-        # keine Bereiche/Meldungen/Termine mehr sieht.
+        # Vorab ermitteln, welche Rolle der Nutzer NACH dem Speichern haben
+        # wird - dieselbe Logik wie weiter unten, nur schon hier gebraucht,
+        # um zu wissen, ob die Gruppen-Pflicht unten greifen muss (siehe
+        # will_be_admin). Bei einem Schichtleiter als Akteur bleibt die Rolle
+        # ohnehin unveraendert, egal was im Formular ankommt.
+        if actor.is_admin:
+            desired_role = role if role in ("mitarbeiter", "schichtleiter", "admin", "pauschalkraft") else "mitarbeiter"
+            other_admins = db.query(models.User).filter(models.User.is_admin == True, models.User.id != user_id).count()
+            if target.is_admin and desired_role != "admin" and other_admins == 0:
+                desired_role = "admin"  # letzten Admin nicht versehentlich entmachten
+        else:
+            desired_role = "admin" if target.is_admin else ("schichtleiter" if target.is_shift_lead else ("pauschalkraft" if target.is_flat_rate else "mitarbeiter"))
+        will_be_admin = desired_role == "admin"
+
+        # Fuer alle anderen Rollen weiterhin Pflicht (siehe
+        # user_can_see_room/user_can_see_report/user_can_see_appointment) -
+        # sonst sieht der Nutzer nach dem Speichern ploetzlich gar keine
+        # Bereiche/Meldungen/Termine mehr, was wie ein kaputtes Konto wirkt.
+        # Admins sind davon ausgenommen: die sehen ohnehin unabhaengig von
+        # jeder Gruppen-Zuordnung alles (is_admin-Bypass in genau diesen drei
+        # Funktionen) - ein Admin, der keine operativen Aufgaben zugewiesen
+        # bekommen soll (z.B. Buero-Reinigungen einer Team-Gruppe), muss sich
+        # daher nicht kuenstlich irgendeiner Gruppe zuordnen.
         group = db.query(models.Group).filter(models.Group.id == int(group_id)).first() if group_id.strip() else None
-        if not group:
+        if not group and not will_be_admin:
             return RedirectResponse(
                 _with_toast("/admin/users", "Bitte eine Gruppe auswählen – jeder Nutzer braucht mindestens eine Gruppe.", "error"),
                 status_code=302,
@@ -5859,23 +5887,24 @@ def admin_edit_user(
         target.personnel_number = personnel_number.strip() or None
         if password:
             target.password_hash = hash_password(password)
-        target.groups = [group]
+        target.groups = [group] if group else []
 
         # Nur ein Admin darf Rollen ändern (Admin/Schichtleiter/Pauschalkraft
-        # vergeben oder entziehen); bei einem Schichtleiter als Akteur bleibt
-        # die Rolle des bearbeiteten Nutzers unverändert, egal was im
-        # Formular ankommt.
+        # vergeben oder entziehen).
         if actor.is_admin:
-            desired_role = role if role in ("mitarbeiter", "schichtleiter", "admin", "pauschalkraft") else "mitarbeiter"
-            other_admins = db.query(models.User).filter(models.User.is_admin == True, models.User.id != user_id).count()
-            if target.is_admin and desired_role != "admin" and other_admins == 0:
-                desired_role = "admin"  # letzten Admin nicht versehentlich entmachten
             target.is_admin = desired_role == "admin"
             target.is_shift_lead = desired_role == "schichtleiter"
             target.is_flat_rate = desired_role == "pauschalkraft"
             # Hier nur von einem vollen Admin änderbar; der Nutzer selbst kann sie
             # zusätzlich im eigenen Profil anpassen - beide pflegen denselben Wert.
-            target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
+            # Nur bei aktivierter Zeiterfassung uebernommen: das Formularfeld
+            # ist sonst im Template ausgeblendet (siehe modules.time_tracking
+            # in admin_users.html) und kaeme daher leer an - ohne dieses Gate
+            # wuerde ein bereits gesetzter Wert beim naechsten Speichern
+            # faelschlich auf None geloescht statt wie gewuenscht erhalten
+            # zu bleiben.
+            if get_app_settings(db).enable_time_tracking:
+                target.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month else None
         log_audit(db, actor, "UPDATE", "Nutzer", f"Nutzer „{target.name}“ bearbeitet.")
         db.commit()
     return RedirectResponse("/admin/users", status_code=302)
