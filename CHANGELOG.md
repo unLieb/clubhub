@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.15.1] - 2026-09-12
+- Logo-Farbe angepasst: Sidebar/mobile Kopfzeile zeigen jetzt einen sanften diagonalen Verlauf von Minzgrün zu Teal statt des bisherigen einfarbigen Grüntons, der optisch an ein Haltestellenschild erinnerte. Favicon/Apple-Touch-Icon/PWA-Icon (dunkelgrün, für Browser-Tab/Startbildschirm) bleiben bewusst unverändert – andere Farbentscheidung aus einem separaten Kontext.
+
 ## [1.15.0] - 2026-09-11
 - Admins können jetzt ohne Gruppen-Zuordnung existieren (Verwaltung → Nutzer, Anlegen und Bearbeiten): neue Option "Keine Gruppe" – sinnvoll, damit ein Admin nicht versehentlich operative Aufgaben einer Team-Gruppe (z.B. Büro-Reinigungen) zugewiesen bekommt. Für alle anderen Rollen bleibt eine Gruppe weiterhin Pflicht, da nur Admin/Schichtleiter unabhängig von der Gruppen-Zuordnung alles sehen. Geprüft, dass ein gruppenloser Nutzer nirgends (Dashboard, Verwaltung, Bereiche, Meldungen) zu Fehlern führt – Gruppen-Badges/-Listen sind bereits durchgängig leer-sicher gebaut.
 
