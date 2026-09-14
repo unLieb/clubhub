@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.19.0] - 2026-09-14
+- Meldungen: Zuständigkeit kann jetzt mit mehreren Gruppen gleichzeitig markiert werden statt nur einer – hilfreich, wenn beim Melden nicht klar ist, wer genau zuständig ist. Sowohl im "Neue Meldung"-Formular (Gruppen-Chips jetzt einzeln antippbar, mehrere gleichzeitig möglich) als auch nachträglich im Details-Tab einer bestehenden Meldung. Alle ausgewählten Gruppen werden benachrichtigt und sehen die Meldung.
+- Meldungen: Es wird jetzt angezeigt, wer eine Meldung auf "In Bearbeitung" gestellt hat (Name + Zeitpunkt, in der Kopfzeile und im Verlauf-Tab) – bisher war nur erkennbar, wer sie erstellt bzw. wer sie als erledigt markiert hat. Bleibt auch nach "Erledigt" als Verlaufs-Eintrag sichtbar, wird nur beim erneuten Öffnen (zurück auf "Offen") zurückgesetzt.
+
 ## [1.18.0] - 2026-09-14
 - Bereichs-Übersicht (Mobil): dieselbe Gruppenfarben-Hervorhebung wie seit 1.17.3/1.17.4 auf Desktop jetzt auch auf dem Handy – bisher blieb die mobile Zeilenansicht unverändert und zeigte weiterhin überall das textuelle Gruppen-Badge (z.B. "Hausmeister") statt der neuen farblichen Hervorhebung. Badge entfernt, Bereichs-Name in Gruppenfarbe + fett, dezenter Hintergrund-Tint in der Zeile, farbiger linker Rahmenstreifen bleibt zusätzlich erhalten.
 

@@ -48,6 +48,13 @@ appointment_group = Table(
     Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
 )
 
+report_group = Table(
+    "report_group",
+    Base.metadata,
+    Column("report_id", Integer, ForeignKey("reports.id"), primary_key=True),
+    Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
+)
+
 # Persönliche Sichtbarkeits-Einstellung (kein Recht, keine Admin-Vergabe):
 # jeder Nutzer kann für sich selbst Gruppen im Inventar ausblenden, die ihn
 # nicht interessieren (z.B. eine Führungskraft, die andere Gruppen verwaltet,
@@ -473,9 +480,10 @@ class Report(Base):
     priority = Column(String)                            # "critical" | "high" | "normal" | "low" | None
     category = Column(String, default="sonstiges")      # "defekt" | "material" | "reinigung" | "anschaffung" | "sonstiges"
     status = Column(String, default="open")             # "open" | "in_progress" | "done"
-    # Zuständige Gruppe für diese konkrete Meldung (z.B. "Technik" bei einem
-    # Defekt), unabhängig von den Gruppen des Bereichs - None = wie bisher an
-    # die Bereichsgruppen melden ("Automatisch (Bereich)" im Formular).
+    # Veraltet seit der Mehrfach-Gruppenauswahl (siehe groups/report_group
+    # unten) - bleibt nur als Grundlage fuer die einmalige Backfill-Migration
+    # (_migrate_report_groups_backfill in main.py) stehen, wird von neuem
+    # Code nie wieder geschrieben oder gelesen.
     assigned_group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     # "Alle (Betriebsweit)" im Formular - explizit an ALLE Gruppen statt nur
     # an die zuständige/Bereichsgruppe, unabhängig von assigned_group_id (bei
@@ -491,11 +499,24 @@ class Report(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Wer die Meldung auf "in Bearbeitung" gestellt hat (Nutzer-Wunsch: bisher
+    # war nur erkennbar, wer gemeldet bzw. wer als erledigt markiert hat, aber
+    # nicht, wer sich currently/schon einmal darum kuemmert). Wird - wie
+    # resolved_at/resolved_by_id beim Verlassen von "done" - beim Zuruecksetzen
+    # auf "open" wieder geleert (siehe reports_set_status), bleibt aber beim
+    # Wechsel in_progress -> done bewusst erhalten (voller Verlauf sichtbar).
+    in_progress_at = Column(DateTime(timezone=True), nullable=True)
+    in_progress_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     room = relationship("Room")
     user = relationship("User", foreign_keys=[user_id])
     resolved_by = relationship("User", foreign_keys=[resolved_by_id])
-    assigned_group = relationship("Group")
+    in_progress_by = relationship("User", foreign_keys=[in_progress_by_id])
+    # Mehrfachauswahl zustaendiger Gruppen (z.B. wenn beim Melden unklar ist,
+    # wer zustaendig ist) - ersetzt das fruehere assigned_group_id/
+    # assigned_group (siehe oben). Leer = wie bisher automatisch ueber die
+    # Bereichsgruppen melden ("Automatisch (Bereich)" im Formular).
+    groups = relationship("Group", secondary=report_group)
     photos = relationship(
         "ReportPhoto", back_populates="report", cascade="all, delete-orphan", order_by="ReportPhoto.id"
     )

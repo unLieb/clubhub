@@ -382,6 +382,37 @@ def _migrate_report_product_url(db: Session):
     _ensure_column(db, "reports", "product_url", "TEXT")
 
 
+def _migrate_report_groups_backfill(db: Session):
+    """Uebertraegt die alte Einzel-Gruppe (reports.assigned_group_id) einmalig
+    in die neue report_group-Verknuepfungstabelle (Mehrfachauswahl, siehe
+    models.Report.groups) - analog zu _migrate_appointment_groups_backfill.
+    Die report_group-Tabelle selbst legt bereits create_all() an (neue m:n-
+    Tabelle, kein ALTER TABLE noetig), hier wird nur ihr Inhalt einmalig aus
+    assigned_group_id befuellt. Idempotenz global geprueft (Tabelle noch
+    leer?), nicht pro Meldung - siehe Kommentar im Termine-Pendant fuer die
+    Begruendung (sonst wuerde eine spaeter bewusst umgestellte Zustaendigkeit
+    bei jedem Neustart faelschlich zurueckgesetzt)."""
+    already_migrated = db.execute(text("SELECT COUNT(*) FROM report_group")).scalar()
+    if already_migrated:
+        return
+    rows = db.execute(text("SELECT id, assigned_group_id FROM reports WHERE assigned_group_id IS NOT NULL")).fetchall()
+    for report_id, group_id in rows:
+        db.execute(
+            text("INSERT INTO report_group (report_id, group_id) VALUES (:rid, :gid)"),
+            {"rid": report_id, "gid": group_id},
+        )
+    db.commit()
+
+
+def _migrate_report_in_progress(db: Session):
+    """Neue Spalten: wer eine Meldung auf "in Bearbeitung" gestellt hat (kein
+    Altdaten-Bezug - fuer Alt-Meldungen bleibt unbekannt, wer sie ggf. schon
+    einmal in Bearbeitung hatte, siehe models.Report.in_progress_at/
+    in_progress_by_id)."""
+    _ensure_column(db, "reports", "in_progress_at", "DATETIME")
+    _ensure_column(db, "reports", "in_progress_by_id", "INTEGER")
+
+
 def _migrate_appointment_company_wide(db: Session):
     """Neue Option "Alle (Betriebsweit)" fuer Termine (kein Altdaten-Bezug,
     Standard: False)."""
@@ -698,6 +729,8 @@ def _startup():
         _migrate_report_room_optional(db)
         _migrate_report_company_wide(db)
         _migrate_report_product_url(db)
+        _migrate_report_groups_backfill(db)
+        _migrate_report_in_progress(db)
         _migrate_appointment_company_wide(db)
         _migrate_appointment_groups_backfill(db)
         _migrate_report_photos(db)
@@ -2902,8 +2935,10 @@ def _create_cooling_alert(db: Session, background_tasks: BackgroundTasks, device
     )
     report = models.Report(
         room_id=None, user_id=user.id, comment=comment, priority="critical", category="kuehlung",
-        assigned_group_id=device.group_id, is_company_wide=device.group_id is None,
+        is_company_wide=device.group_id is None,
     )
+    if device.group_id is not None:
+        report.groups = db.query(models.Group).filter(models.Group.id == device.group_id).all()
     db.add(report)
     db.commit()
 
@@ -3195,17 +3230,19 @@ def _sort_reports(reports):
 def user_can_see_report(user, report) -> bool:
     """Admin und Schichtleiter sehen alle Meldungen; alle anderen nur
     Meldungen mit "Alle (Betriebsweit)" sowie Meldungen der eigenen
-    Gruppe(n) - entweder explizit zugewiesen (assigned_group) oder über die
-    Bereichsgruppen abgeleitet (Bereich ohne Gruppe = gemeinsam genutzt,
-    analog zu user_can_see_room/user_can_see_inventory_item)."""
+    Gruppe(n) - entweder explizit zugewiesen (report.groups, seit der
+    Mehrfachauswahl auch mehrere moeglich) oder über die Bereichsgruppen
+    abgeleitet (Bereich ohne Gruppe = gemeinsam genutzt, analog zu
+    user_can_see_room/user_can_see_inventory_item)."""
     if user and (user.is_admin or user.is_shift_lead):
         return True
     if report.is_company_wide:
         return True
     if not user:
         return False
-    if report.assigned_group_id is not None:
-        return any(g.id == report.assigned_group_id for g in user.groups)
+    if report.groups:
+        assigned_ids = {g.id for g in report.groups}
+        return any(g.id in assigned_ids for g in user.groups)
     if report.room:
         if not report.room.groups:
             return True
@@ -3402,7 +3439,8 @@ async def reports_create(
     comment: str = Form(""),
     priority: str = Form("normal"),
     category: str = Form("sonstiges"),
-    assigned_group_id: str = Form(""),
+    group_mode: str = Form("auto"),
+    assigned_group_ids: list[str] = Form([]),
     photos: list[UploadFile] = File([]),
     link_preview_image: str = Form(""),
     product_url: str = Form(""),
@@ -3418,7 +3456,7 @@ async def reports_create(
     # durchgesetzt (bekannte WebKit-Eigenheit, v.a. als installierte PWA
     # ohne Browser-Chrome fuer die native Validierungs-Sprechblase) - die
     # Anfrage kam also tatsaechlich ganz ohne comment-Feld an. Jetzt wie die
-    # anderen Pflichtfelder in dieser Route (room_id, assigned_group_id
+    # anderen Pflichtfelder in dieser Route (room_id, assigned_group_ids
     # unten) mit sicherem Leer-Default plus eigener, freundlicher Meldung.
     comment = comment.strip()
     if not comment:
@@ -3429,11 +3467,16 @@ async def reports_create(
     if category not in REPORT_CATEGORIES:
         category = "sonstiges"
     roomless = category in REPORT_ROOMLESS_CATEGORIES
-    # Gruppen-Auswahl kennt drei Zustaende: "" = automatisch (Bereich, nur
-    # bei nicht-roomless moeglich), "all" = Alle (Betriebsweit), sonst eine
-    # konkrete Gruppen-ID (siehe Report.is_company_wide in models.py).
-    is_company_wide = assigned_group_id == "all"
-    assigned_group_id = int(assigned_group_id) if assigned_group_id.strip() and not is_company_wide else None
+    # Gruppen-Auswahl kennt drei Zustaende: "automatisch" (Bereich, nur bei
+    # nicht-roomless moeglich, group_mode="auto"), "Alle" (Betriebsweit,
+    # group_mode="all") oder eine oder mehrere konkrete Gruppen (Checkboxen,
+    # siehe Report.groups in models.py - Mehrfachauswahl fuer den Fall, dass
+    # beim Melden unklar ist, wer zustaendig ist). assigned_group_ids
+    # entscheidet server-seitig unabhaengig von group_mode, sobald es echte
+    # IDs enthaelt - robust gegenueber der client-seitigen Chip-Logik in
+    # reports.html, die group_mode beim Ankreuzen einer Gruppe zuruecksetzt.
+    selected_group_ids = sorted({int(g) for g in assigned_group_ids if g.strip().isdigit()})
+    is_company_wide = group_mode == "all" and not selected_group_ids
     room_id_int = int(room_id) if room_id.strip() else None
 
     # "Anschaffung" hängt an keinem Bereich, sondern an einer zuständigen
@@ -3443,7 +3486,7 @@ async def reports_create(
     if roomless:
         priority = None
         room_id_int = None
-        if not assigned_group_id and not is_company_wide:
+        if not selected_group_ids and not is_company_wide:
             return RedirectResponse(
                 _with_toast("/reports", "Für „Anschaffung“ bitte eine zuständige Gruppe auswählen.", "error"),
                 status_code=302,
@@ -3472,9 +3515,10 @@ async def reports_create(
 
     report = models.Report(
         room_id=room_id_int, user_id=user.id, comment=comment, priority=priority, category=category,
-        assigned_group_id=assigned_group_id, is_company_wide=is_company_wide,
-        product_url=product_url or None,
+        is_company_wide=is_company_wide, product_url=product_url or None,
     )
+    if selected_group_ids:
+        report.groups = db.query(models.Group).filter(models.Group.id.in_(selected_group_ids)).all()
     db.add(report)
     db.commit()
 
@@ -3516,15 +3560,15 @@ async def reports_create(
             all_groups = db.query(models.Group).options(*group_loaders).all()
             if all_groups:
                 background_tasks.add_task(notify_groups, all_groups, "Neuer Materialwunsch", msg, "default", focus_url)
-        else:
-            # Kein Bereich -> immer genau die (Pflicht-)Zuständigkeitsgruppe
+        elif selected_group_ids:
+            # Kein Bereich -> immer genau die (Pflicht-)Zuständigkeitsgruppe(n)
             # benachrichtigen, keine Bereichsgruppen-Ableitung möglich.
-            assigned_group = (
-                db.query(models.Group).options(*group_loaders).filter(models.Group.id == assigned_group_id).first()
+            assigned_groups = (
+                db.query(models.Group).options(*group_loaders).filter(models.Group.id.in_(selected_group_ids)).all()
             )
-            if assigned_group:
+            if assigned_groups:
                 background_tasks.add_task(
-                    notify_group, assigned_group, "Neuer Materialwunsch", msg, "default", focus_url
+                    notify_groups, assigned_groups, "Neuer Materialwunsch", msg, "default", focus_url
                 )
     else:
         room = (
@@ -3539,18 +3583,18 @@ async def reports_create(
                 all_groups = db.query(models.Group).options(*group_loaders).all()
                 if all_groups:
                     background_tasks.add_task(notify_groups, all_groups, title, msg, "default", focus_url)
-            elif assigned_group_id:
-                # Explizite Zuständigkeit gewählt (z.B. "Technik") - nur diese
-                # Gruppe benachrichtigen, unabhängig davon, welche Gruppen dem
-                # Bereich zugeordnet sind.
-                assigned_group = (
+            elif selected_group_ids:
+                # Explizite Zuständigkeit(en) gewählt (z.B. "Technik") - nur
+                # diese Gruppe(n) benachrichtigen, unabhängig davon, welche
+                # Gruppen dem Bereich zugeordnet sind.
+                assigned_groups = (
                     db.query(models.Group)
                     .options(*group_loaders)
-                    .filter(models.Group.id == assigned_group_id)
-                    .first()
+                    .filter(models.Group.id.in_(selected_group_ids))
+                    .all()
                 )
-                if assigned_group:
-                    background_tasks.add_task(notify_group, assigned_group, title, msg, "default", focus_url)
+                if assigned_groups:
+                    background_tasks.add_task(notify_groups, assigned_groups, title, msg, "default", focus_url)
             else:
                 for group in room.groups:
                     background_tasks.add_task(notify_group, group, title, msg, "default", focus_url)
@@ -3591,7 +3635,7 @@ def reports_set_status(
         db.query(models.Report)
         .options(
             joinedload(models.Report.room).joinedload(models.Room.groups).options(*group_loaders),
-            joinedload(models.Report.assigned_group).options(*group_loaders),
+            joinedload(models.Report.groups).options(*group_loaders),
             joinedload(models.Report.user).joinedload(models.User.push_subscriptions),
         )
         .filter(models.Report.id == report_id)
@@ -3607,6 +3651,15 @@ def reports_set_status(
             # ein "erledigt am"-Datum.
             report.resolved_at = None
             report.resolved_by_id = None
+        if status == "in_progress":
+            report.in_progress_at = ntptime.now_utc()
+            report.in_progress_by_id = user.id
+        elif status == "open":
+            # Zurueck auf Anfang - wie bei resolved_at/resolved_by_id oben
+            # gilt eine vorherige "in Bearbeitung"-Angabe dann nicht mehr,
+            # sonst wuerde sie faelschlich als noch aktuell angezeigt.
+            report.in_progress_at = None
+            report.in_progress_by_id = None
         report.status = status
         db.commit()
         _bump_live_version()
@@ -3621,8 +3674,8 @@ def reports_set_status(
         msg = f"{user.name}: „{comment_preview}“"
         if report.is_company_wide:
             target_groups = db.query(models.Group).options(*group_loaders).all()
-        elif report.assigned_group:
-            target_groups = [report.assigned_group]
+        elif report.groups:
+            target_groups = list(report.groups)
         else:
             target_groups = list(report.room.groups) if report.room else []
         focus_url = f"/reports?focus=report-{report.id}"
@@ -3675,22 +3728,30 @@ def reports_add_comment(report_id: int, request: Request, text: str = Form(...),
 
 @app.post("/reports/{report_id}/assign")
 def reports_assign(
-    report_id: int, request: Request, assigned_group_id: str = Form(""), db: Session = Depends(get_db)
+    report_id: int, request: Request, assigned_group_ids: list[str] = Form([]), db: Session = Depends(get_db)
 ):
+    """Zustaendigkeit nachtraeglich aendern (Details-Tab, Mehrfachauswahl per
+    <select multiple>). Wie in reports_create entscheiden echte Gruppen-IDs
+    server-seitig unabhaengig vom "all"-Sentinel, sobald welche dabei sind -
+    robust gegen eine (bei einem nativen multi-select moegliche) gleichzeitige
+    Auswahl von "Alle" und einzelnen Gruppen."""
     require_login(request, db)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report:
-        is_company_wide = assigned_group_id == "all"
-        new_group_id = int(assigned_group_id) if assigned_group_id.strip() and not is_company_wide else None
+        new_group_ids = sorted({int(g) for g in assigned_group_ids if g.strip().isdigit()})
+        is_company_wide = "all" in assigned_group_ids and not new_group_ids
         # Ohne Bereich (Anschaffung) gibt es keine Bereichsgruppen-Ableitung
         # als Rückfallebene - eine leere Zuständigkeit würde die Meldung ohne
         # jeden Benachrichtigungsweg zurücklassen, daher hier nicht zulassen
         # (Alle (Betriebsweit) zaehlt als gueltiger Benachrichtigungsweg).
-        if report.room_id is None and new_group_id is None and not is_company_wide:
+        if report.room_id is None and not new_group_ids and not is_company_wide:
             return RedirectResponse("/reports", status_code=302)
-        report.assigned_group_id = new_group_id
+        report.groups = (
+            db.query(models.Group).filter(models.Group.id.in_(new_group_ids)).all() if new_group_ids else []
+        )
         report.is_company_wide = is_company_wide
         db.commit()
+        _bump_live_version()
     return RedirectResponse("/reports", status_code=302)
 
 

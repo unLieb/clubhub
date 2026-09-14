@@ -33,8 +33,8 @@
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>
           Alle (Betriebsweit)
         </span>
-        {% elif r.assigned_group %}
-        {{ gm.group_badge(r.assigned_group) }}
+        {% elif r.groups %}
+        {{ gm.group_badges(r.groups) }}
         {% elif r.room %}
         {% set visible_groups = visible_room_groups_for_user(user, r.room) %}
         {% if visible_groups %}{{ gm.group_badges(visible_groups) }}{% endif %}
@@ -42,6 +42,7 @@
       </div>
       <p class="text-xs text-slate-500 mt-1">
         vor {{ meta.created_rel }} &middot; gemeldet von {{ r.user.name }}
+        {% if r.in_progress_by %} &middot; in Bearbeitung von {{ r.in_progress_by.name }}{% endif %}
         {% if r.status == "done" and meta.resolved_rel %} &middot; erledigt vor {{ meta.resolved_rel }}{% if r.resolved_by %} von {{ r.resolved_by.name }}{% endif %}{% endif %}
       </p>
     </div>
@@ -125,21 +126,21 @@
               {% endif %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Gemeldet von</span><span class="text-slate-300">{{ r.user.name }}</span></li>
               <li class="flex justify-between items-center gap-4">
-                <span class="text-slate-500">Gruppe</span>
+                <span class="text-slate-500">Zuständigkeit</span>
                 {% if user %}
                 <form method="post" action="/reports/{{ r.id }}/assign" class="contents">
-                  <select name="assigned_group_id" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2 py-1 text-xs text-slate-300">
+                  <select name="assigned_group_ids" multiple size="4" onchange="this.form.submit()" title="Strg/Cmd gedrückt halten für mehrere Gruppen" class="rounded-md bg-ink border border-line px-2 py-1 text-xs text-slate-300">
                     {% if r.room %}
-                    <option value="" {% if not r.assigned_group_id and not r.is_company_wide %}selected{% endif %}>– automatisch (Bereich) –</option>
+                    <option value="" {% if not r.groups and not r.is_company_wide %}selected{% endif %}>– automatisch (Bereich) –</option>
                     {% endif %}
                     <option value="all" {% if r.is_company_wide %}selected{% endif %}>Alle (Betriebsweit)</option>
                     {% for g in groups %}
-                    <option value="{{ g.id }}" {% if r.assigned_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                    <option value="{{ g.id }}" {% if g in r.groups %}selected{% endif %}>{{ g.name }}</option>
                     {% endfor %}
                   </select>
                 </form>
                 {% else %}
-                <span class="text-slate-300">{{ "Alle (Betriebsweit)" if r.is_company_wide else (r.assigned_group.name if r.assigned_group else "–") }}</span>
+                <span class="text-slate-300">{{ "Alle (Betriebsweit)" if r.is_company_wide else (r.groups|map(attribute="name")|join(", ") if r.groups else "–") }}</span>
                 {% endif %}
               </li>
               {% if r.room %}
@@ -187,6 +188,20 @@
                 <div class="text-xs text-slate-500">{{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }} &middot; {{ r.user.name }}</div>
               </div>
             </li>
+            {% if r.in_progress_by_id and r.in_progress_at %}
+            <li class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-warn mt-1.5 shrink-0"></div>
+              <div>
+                <div class="text-sm">Auf „In Bearbeitung“ gestellt</div>
+                <div class="text-xs text-slate-500">{{ (r.in_progress_at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if r.in_progress_by %} &middot; {{ r.in_progress_by.name }}{% endif %}</div>
+              </div>
+            </li>
+            {% elif r.status == "in_progress" %}
+            <li class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-warn mt-1.5 shrink-0"></div>
+              <div class="text-sm text-warn">In Bearbeitung</div>
+            </li>
+            {% endif %}
             {% if r.status == "done" %}
             <li class="flex gap-3">
               <div class="w-2 h-2 rounded-full bg-go mt-1.5 shrink-0"></div>
@@ -195,12 +210,7 @@
                 <div class="text-xs text-slate-500">{{ (r.resolved_at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if r.resolved_by %} &middot; {{ r.resolved_by.name }}{% endif %}</div>
               </div>
             </li>
-            {% elif r.status == "in_progress" %}
-            <li class="flex gap-3">
-              <div class="w-2 h-2 rounded-full bg-warn mt-1.5 shrink-0"></div>
-              <div class="text-sm text-warn">In Bearbeitung</div>
-            </li>
-            {% else %}
+            {% elif r.status == "open" %}
             <li class="flex gap-3">
               <div class="w-2 h-2 rounded-full bg-panel2 border border-line mt-1.5 shrink-0"></div>
               <div class="text-sm text-slate-500">Noch nicht erledigt</div>
@@ -259,17 +269,20 @@
         </div>
       </div>
       <div>
-        <label class="block text-[11px] text-slate-400 mb-1">Gruppe<span id="report-f-group-hint" class="hidden text-late"> * (Pflicht bei Anschaffung)</span></label>
+        <label class="block text-[11px] text-slate-400 mb-1">
+          Zuständigkeit<span id="report-f-group-hint" class="hidden text-late"> * (Pflicht bei Anschaffung)</span>
+          <span class="text-slate-500 font-normal">– bei Unsicherheit mehrere Gruppen anklicken</span>
+        </label>
         <div class="flex flex-wrap gap-1.5" id="report-f-group">
           <label id="report-f-group-auto-label" class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
-            <input type="radio" name="assigned_group_id" value="" id="report-f-group-auto" class="sr-only" checked>– automatisch (Bereich) –
+            <input type="radio" name="group_mode" value="auto" id="report-f-group-auto" class="sr-only" checked>– automatisch (Bereich) –
           </label>
           <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
-            <input type="radio" name="assigned_group_id" value="all" class="sr-only">Alle (Betriebsweit)
+            <input type="radio" name="group_mode" value="all" class="sr-only">Alle (Betriebsweit)
           </label>
           {% for g in groups %}
           <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
-            <input type="radio" name="assigned_group_id" value="{{ g.id }}" class="sr-only">{{ g.name }}
+            <input type="checkbox" name="assigned_group_ids" value="{{ g.id }}" class="sr-only report-f-group-checkbox">{{ g.name }}
           </label>
           {% endfor %}
         </div>
@@ -342,7 +355,8 @@
     var priorityField = document.getElementById('report-f-priority-field');
     var groupAutoLabel = document.getElementById('report-f-group-auto-label');
     var groupAutoRadio = document.getElementById('report-f-group-auto');
-    var groupRadios = document.querySelectorAll('input[name="assigned_group_id"]');
+    var groupRadios = document.querySelectorAll('input[name="group_mode"]');
+    var groupCheckboxes = document.querySelectorAll('.report-f-group-checkbox');
     var groupHint = document.getElementById('report-f-group-hint');
     var commentField = document.getElementById('report-f-comment');
     var PLACEHOLDER_DEFAULT = 'Was ist los? Z.B. „Seifenspender leer“ oder „Fliese in der Ecke kaputt“…';
@@ -392,6 +406,26 @@
     }
     categorySelect.addEventListener('change', applyCategoryMode);
     applyCategoryMode();
+
+    // Zuständigkeit: "automatisch (Bereich)"/"Alle (Betriebsweit)" bleiben
+    // sich gegenseitig ausschliessende Radios, einzelne Gruppen sind per
+    // Checkbox mehrfach waehlbar (Nutzer-Wunsch: bei Unsicherheit, wer
+    // zustaendig ist, mehrere Gruppen gleichzeitig markieren koennen). Beide
+    // Auswahlarten schliessen sich gegenseitig aus, rein optisch/clientseitig
+    // - reports_create/reports_assign in main.py werten serverseitig ohnehin
+    // echte Gruppen-IDs immer vorrangig vor group_mode aus.
+    groupRadios.forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        groupCheckboxes.forEach(function (cb) { cb.checked = false; });
+      });
+    });
+    groupCheckboxes.forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        if (cb.checked) {
+          groupRadios.forEach(function (radio) { radio.checked = false; });
+        }
+      });
+    });
 
     // Explizite Pflichtfeld-Pruefung vor dem Absenden: iOS Safari setzt
     // "required" auf <textarea> nicht zuverlaessig durch (bekannte WebKit-
