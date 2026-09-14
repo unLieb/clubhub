@@ -4193,6 +4193,45 @@ def delete_completion(
     return RedirectResponse(target, status_code=302)
 
 
+@app.post("/history/{completion_id}/reassign")
+def reassign_completion(
+    completion_id: int, request: Request, user_id: int = Form(...),
+    return_to: str = Form("/history"), db: Session = Depends(get_db),
+):
+    """Admin kann nachtraeglich aendern, wer eine Aufgabe tatsaechlich
+    erledigt hat - z.B. wenn ein Admin waehrend einer Reinigungsrunde selbst
+    eingeloggt blieb und mehrere Erledigungen faelschlich unter dem eigenen
+    statt dem tatsaechlich putzenden Account landeten (Nutzer-Feedback: 20
+    Faelle auf einmal, delete+neu-anlegen waere viel zu umstaendlich).
+    Bewusst admin-only, anders als delete_completion oben (das auch die
+    eigene Erledigung jeder Rolle erlaubt) - das Umbiegen einer Erledigung
+    auf eine andere Person ist eine Korrektur der Aufzeichnung, keine
+    "eigene Rueckgaengig"-Aktion, die man versehentlich fuer fremde
+    Erledigungen missbrauchen koennte."""
+    admin = require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    completion = db.query(models.Completion).filter(models.Completion.id == completion_id).first()
+    target_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not completion or not target_user:
+        if is_fetch:
+            raise HTTPException(status_code=404, detail="Erledigung oder Nutzer nicht gefunden")
+        return RedirectResponse("/history", status_code=302)
+    if completion.user_id != target_user.id:
+        old_user_name = completion.user.name if completion.user else "unbekannt"
+        completion.user_id = target_user.id
+        log_audit(
+            db, admin, "UPDATE", "Historie",
+            f"Erledigung von „{completion.task.name}“ ({completion.task.room.name}) "
+            f"von „{old_user_name}“ auf „{target_user.name}“ übertragen.",
+        )
+        db.commit()
+        _bump_live_version()
+    if is_fetch:
+        return {"ok": True, "user_id": target_user.id, "user_name": target_user.name}
+    target = return_to if return_to.startswith("/") and not return_to.startswith("//") else "/history"
+    return RedirectResponse(target, status_code=302)
+
+
 # ---------- Login / Logout ----------
 
 @app.post("/login")

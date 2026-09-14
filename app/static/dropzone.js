@@ -127,7 +127,18 @@
       e.stopPropagation();
     });
     input.addEventListener('change', function () {
-      setFiles(input.files);
+      // NICHT setFiles(input.files) aufrufen: der native Datei-Dialog hat
+      // input.files bereits gesetzt, bevor dieser Handler laeuft. setFiles()
+      // wuerde dann "bereits vorhandene" (= input.files, die neu gewaehlten
+      // Dateien) UND "neu hinzukommende" (= derselbe fileList-Parameter,
+      // ebenfalls input.files) in ein frisches DataTransfer kopieren - macht
+      // jede gerade ausgewaehlte Datei doppelt (Bug: Foto bei Meldungen kam
+      // zweimal an). Bei drag/drop und paste (siehe unten) ist das anders:
+      // dort haelt input.files zum Zeitpunkt des Aufrufs noch die VORHERIGE
+      // Auswahl, waehrend fileList/pasted eine echte, davon getrennte neue
+      // Liste ist - da ist das Zusammenfuehren in setFiles() korrekt und
+      // sorgt fuer das gewuenschte Aufsummieren ueber mehrere Interaktionen.
+      renderPreviews();
     });
 
     ['dragenter', 'dragover'].forEach(function (evt) {

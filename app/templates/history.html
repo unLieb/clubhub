@@ -49,8 +49,19 @@
           <td class="px-4 py-2.5">{{ c.task.name }}</td>
           <td class="px-4 py-2.5 text-slate-300">
             <div class="flex items-center justify-between gap-2">
+              {% if user and user.is_admin %}
+              <form method="post" action="/history/{{ c.id }}/reassign" class="ajax-status-form hist-reassign-form shrink-0">
+                <input type="hidden" name="return_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                <select name="user_id" onchange="this.form.requestSubmit()" class="bg-transparent border border-line rounded-md pl-1.5 pr-1 py-0.5 text-xs text-slate-300 hover:border-go/50 focus:border-go/60 focus:outline-none">
+                  {% for hu in history_users %}
+                  <option value="{{ hu.id }}" data-badges="{{ gm.group_badges(hu.groups)|forceescape }}" {% if hu.id == c.user_id %}selected{% endif %}>{{ hu.name }}</option>
+                  {% endfor %}
+                </select>
+              </form>
+              {% else %}
               <span class="whitespace-nowrap shrink-0">{{ c.user.name }}</span>
-              <span class="flex items-center justify-end gap-1.5 flex-wrap min-w-0">{{ gm.group_badges(c.user.groups) }}</span>
+              {% endif %}
+              <span id="hist-badges-{{ c.id }}" class="flex items-center justify-end gap-1.5 flex-wrap min-w-0">{{ gm.group_badges(c.user.groups) }}</span>
             </div>
           </td>
           {% if user %}
@@ -177,6 +188,27 @@
           btn.disabled = false;
           showErrorToast('Rückgängig machen fehlgeschlagen - bitte erneut versuchen.');
         });
+    });
+
+    // "Erledigt von" per Dropdown umtragen (Admin) - generisch per
+    // ajax-status-form behandelt (siehe ajax_actions.js), hier nur die
+    // Gruppen-Badges auf die neu ausgewaehlte Person aktualisieren (jede
+    // <option> trägt ihre eigenen, bereits fertig gerenderten Badges als
+    // data-badges - vermeidet einen zweiten Request nur für die Badges)
+    // und die Zeile kurz aufblitzen lassen, als Bestaetigung beim schnellen
+    // Korrigieren mehrerer Zeilen hintereinander.
+    document.addEventListener('ajax-form-success', function (e) {
+      var form = e.target;
+      if (!form.classList || !form.classList.contains('hist-reassign-form')) return;
+      var select = form.querySelector('select[name="user_id"]');
+      var option = select.options[select.selectedIndex];
+      var row = form.closest('tr');
+      var badges = row ? row.querySelector('[id^="hist-badges-"]') : null;
+      if (badges) badges.innerHTML = option.dataset.badges || '';
+      if (row) {
+        row.classList.add('bg-go/10');
+        setTimeout(function () { row.classList.remove('bg-go/10'); }, 500);
+      }
     });
   })();
 </script>

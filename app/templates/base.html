@@ -615,7 +615,38 @@ if ('serviceWorker' in navigator) {
 (function () {
   var buttons = document.querySelectorAll('.push-toggle-btn');
   if (!buttons.length) return;
-  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  var supportsPush = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+
+  if (!supportsPush) {
+    // Apple erlaubt Web Push auf iPhone/iPad ausschliesslich innerhalb
+    // einer zum Home-Bildschirm hinzugefuegten App, niemals im normalen
+    // Safari-Tab - dort existieren PushManager/Notification schlicht nicht
+    // (kein Bug, keine Umgehung moeglich). Bisher blieb die Glocke dadurch
+    // komplett unsichtbar, was wie ein fehlendes Feature wirkte (siehe
+    // Nutzer-Feedback). Auf iOS ausserhalb der installierten App zeigen wir
+    // die Glocke jetzt trotzdem, aber mit einem erklaerenden Hinweis statt
+    // des eigentlichen Anmelde-Ablaufs - macht sichtbar, WARUM sie (noch)
+    // nicht funktioniert, statt sie einfach verschwinden zu lassen.
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    var isStandalone = window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+    if (isIOS && !isStandalone) {
+      buttons.forEach(function (btn) {
+        btn.classList.remove('hidden');
+        btn.title = 'Benachrichtigungen: zuerst zum Home-Bildschirm hinzufügen';
+        btn.addEventListener('click', function () {
+          alert(
+            'Auf dem iPhone/iPad erlaubt Apple Benachrichtigungen nur für Apps, ' +
+            'die zum Home-Bildschirm hinzugefügt wurden:\n\n' +
+            '1. Teilen-Symbol in Safari antippen (Quadrat mit Pfeil nach oben)\n' +
+            '2. „Zum Home-Bildschirm“ auswählen\n' +
+            '3. ClubHUB von dort aus öffnen – die Glocke lässt sich dann aktivieren.'
+          );
+        });
+      });
+    }
+    return;
+  }
   var vapidKey = document.body.dataset.vapidKey;
   if (!vapidKey) return;
 
