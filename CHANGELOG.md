@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.18.0] - 2026-09-14
+- Bereichs-Übersicht (Mobil): dieselbe Gruppenfarben-Hervorhebung wie seit 1.17.3/1.17.4 auf Desktop jetzt auch auf dem Handy – bisher blieb die mobile Zeilenansicht unverändert und zeigte weiterhin überall das textuelle Gruppen-Badge (z.B. "Hausmeister") statt der neuen farblichen Hervorhebung. Badge entfernt, Bereichs-Name in Gruppenfarbe + fett, dezenter Hintergrund-Tint in der Zeile, farbiger linker Rahmenstreifen bleibt zusätzlich erhalten.
+
 ## [1.17.4] - 2026-09-14
 - Bereichs-Karten (Desktop), Nachbesserung zu 1.17.3: die Gruppenfarbe des Bereichs-Namens war im hellen Design so stark abgedunkelt, dass sie kaum noch als Farbe erkennbar war und wie normales Schwarz/Grau wirkte. Abdunkelung deutlich reduziert (Farbton bleibt jetzt klar erkennbar), Titel zusätzlich fett gesetzt und die komplette Titelzeile bekommt einen dezenten, transparenten Hintergrund-Tint in der Gruppenfarbe – Zuständigkeit springt dadurch sofort ins Auge, auch ohne auf maximale Abdunkelung zu setzen. Kontrast liegt je nach Gruppenfarbe zwischen 4:1 und 6.4:1 gegen den Kartenhintergrund (WCAG-AA verlangt 4.5:1 für Fließtext, 3:1 für UI-Elemente/fetten Text ab 14pt) – bewusster Kompromiss zugunsten der Wiedererkennbarkeit, wie gewünscht.
 

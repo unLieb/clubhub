@@ -6,18 +6,17 @@
    room, rs (room_status-Eintrag), user, daily_due_room_ids. Wird fuer den
    normalen Seitenaufruf per {% include %} aus der rooms-Schleife in
    _room_grid.html eingebunden. #}
-{% import "_group_macros.html" as gm %}
 {% set _user_group_ids = user.groups|map(attribute='id')|list if user else [] %}
 {% set my_group = room.groups|selectattr('id', 'in', _user_group_ids)|first %}
 <div id="room-row-{{ room.id }}" class="flex items-center justify-between gap-2 px-4 py-3.5 border-l-4 {% if not my_group %}border-l-transparent{% endif %}"
-  {% if my_group %}style="border-left-color: {{ my_group.color }};"{% endif %}>
+  {% if my_group %}style="border-left-color: {{ my_group.color }}; background-color: {{ my_group.color }}26;"{% endif %}>
   <a href="/room/{{ room.id }}" class="flex items-center gap-3 min-w-0 flex-1 active:opacity-70">
     <span class="w-2.5 h-2.5 rounded-full status-dot shrink-0
       {% if rs.status == 'green' %}bg-go
       {% elif rs.status == 'yellow' %}bg-warn
       {% else %}bg-late{% endif %}"></span>
     <div class="min-w-0">
-      <div class="text-sm font-medium truncate flex items-center gap-1.5">{{ room.name }}{% if my_group %}{{ gm.group_badge(my_group) }}{% endif %}</div>
+      <div class="text-sm font-semibold truncate{% if my_group %} room-name-accent{% endif %}"{% if my_group %} style="--room-name-color: {{ my_group.color }};"{% endif %}>{{ room.name }}</div>
       <div class="text-xs text-slate-500 truncate">
         {% if rs.duration_text %}{{ rs.duration_text }}
         {% elif rs.last_completed %}{{ (rs.last_completed|localtime)|reldate }} &middot; {{ rs.last_user }}
