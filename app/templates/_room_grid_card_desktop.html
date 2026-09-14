@@ -11,7 +11,7 @@
   style="border-top-color: {{ my_group.color if my_group else 'var(--color-line)' }}; border-right-color: {{ my_group.color if my_group else 'var(--color-line)' }}; border-bottom-color: {{ my_group.color if my_group else 'var(--color-line)' }};">
   <a href="/room/{{ room.id }}" class="block hover:opacity-90">
     <div class="mb-2.5">
-      <span class="font-medium text-sm truncate block">{{ room.name }}</span>
+      <span class="font-medium text-sm truncate block{% if my_group %} room-name-accent{% endif %}"{% if my_group %} style="--room-name-color: {{ my_group.color }};"{% endif %}>{{ room.name }}</span>
     </div>
 
     <div class="flex items-center gap-1.5 text-sm mb-1

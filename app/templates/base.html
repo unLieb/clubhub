@@ -84,6 +84,14 @@
     border-color: var(--color-go);
     background-color: color-mix(in oklab, var(--color-go) 8%, transparent);
   }
+  /* Bereichs-Name auf den Desktop-Bereichs-Karten (_room_grid_card_desktop.html)
+     in der Farbe der zustaendigen Gruppe - --room-name-color kommt dort per
+     Inline-Style (dynamischer, adminseitig frei waehlbarer Hex-Wert aus der
+     DB), --room-name-mix ist die Theme-abhaengige Schwarz-Zumischung fuer
+     ausreichenden Kontrast (siehe input.css). */
+  .room-name-accent {
+    color: color-mix(in oklab, var(--room-name-color) var(--room-name-mix), black);
+  }
 </style>
 </head>
 <body class="bg-bg text-slate-100 font-body min-h-screen" data-vapid-key="{{ vapid_public_key() if user else '' }}" data-live-refresh="{% block live_refresh %}{% endblock %}">

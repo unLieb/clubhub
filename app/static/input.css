@@ -30,6 +30,12 @@
 
   --font-display: ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-body: ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Anteil der (beliebigen, adminseitig frei waehlbaren) Gruppenfarbe beim
+     Einfaerben von Bereichs-Namen (siehe .room-name-accent in base.html) -
+     im Dark Mode voller Farbton, da Panel2 dort dunkel genug ist, dass auch
+     hellere Gruppenfarben ausreichend Kontrast haben. */
+  --room-name-mix: 100%;
 }
 
 /* Helles Theme: überschreibt die dunklen Standardwerte oben. Wird per JS
@@ -56,6 +62,11 @@
      Text darin nutzt die feststehenden --color-sidebar-text-* Werte oben. */
   --color-sidebar: #244849;
   --color-sidebar-line: #3a615f;
+  /* Panel2 ist im Light-Mode sehr hell (#e7f2ee) - die adminseitig frei
+     waehlbaren Gruppenfarben waeren dort als Text kaum lesbar (z.B. Teal
+     #2dd4bf faellt sonst auf ca. 1.6:1 Kontrast). Deutlich mehr Schwarz
+     zumischen als im Dark Mode, siehe .room-name-accent in base.html. */
+  --room-name-mix: 40%;
 }
 
 body { background: var(--color-bg); }

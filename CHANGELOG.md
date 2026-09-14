@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.17.3] - 2026-09-14
+- Bereichs-Karten (Desktop): Name des Bereichs wird jetzt zusätzlich in der Farbe der zuständigen Gruppe eingefärbt (bisher nur der Kartenrahmen), damit die Zuständigkeit sofort ins Auge fällt. Im hellen Design wird die Gruppenfarbe dafür deutlich mit Schwarz abgedunkelt (Kartenhintergrund dort sehr hell, sonst zu wenig Kontrast – geprüft, alle fünf Standardfarben liegen danach über 7:1 Kontrast, WCAG-AA verlangt 4.5:1), im dunklen Design bleibt der volle, unveränderte Farbton wie bisher bei Rahmen/Badges.
+
 ## [1.17.2] - 2026-09-14
 - Bereichs-Karten (Desktop): Gruppen-Badge aus der Titelzeile entfernt, da es bei längeren Bereichsnamen (z.B. "Gästefahrstuhl & Vorraum") den Namen unschön abgeschnitten hat. Der Titel nutzt jetzt die volle Kartenbreite; welcher Gruppe ein Bereich zugeordnet ist, zeigt weiterhin der seit 1.17.0 vorhandene farbige Kartenrahmen.
 
