@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.17.4] - 2026-09-14
+- Bereichs-Karten (Desktop), Nachbesserung zu 1.17.3: die Gruppenfarbe des Bereichs-Namens war im hellen Design so stark abgedunkelt, dass sie kaum noch als Farbe erkennbar war und wie normales Schwarz/Grau wirkte. Abdunkelung deutlich reduziert (Farbton bleibt jetzt klar erkennbar), Titel zusätzlich fett gesetzt und die komplette Titelzeile bekommt einen dezenten, transparenten Hintergrund-Tint in der Gruppenfarbe – Zuständigkeit springt dadurch sofort ins Auge, auch ohne auf maximale Abdunkelung zu setzen. Kontrast liegt je nach Gruppenfarbe zwischen 4:1 und 6.4:1 gegen den Kartenhintergrund (WCAG-AA verlangt 4.5:1 für Fließtext, 3:1 für UI-Elemente/fetten Text ab 14pt) – bewusster Kompromiss zugunsten der Wiedererkennbarkeit, wie gewünscht.
+
 ## [1.17.3] - 2026-09-14
 - Bereichs-Karten (Desktop): Name des Bereichs wird jetzt zusätzlich in der Farbe der zuständigen Gruppe eingefärbt (bisher nur der Kartenrahmen), damit die Zuständigkeit sofort ins Auge fällt. Im hellen Design wird die Gruppenfarbe dafür deutlich mit Schwarz abgedunkelt (Kartenhintergrund dort sehr hell, sonst zu wenig Kontrast – geprüft, alle fünf Standardfarben liegen danach über 7:1 Kontrast, WCAG-AA verlangt 4.5:1), im dunklen Design bleibt der volle, unveränderte Farbton wie bisher bei Rahmen/Badges.
 

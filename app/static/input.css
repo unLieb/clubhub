@@ -63,10 +63,15 @@
   --color-sidebar: #244849;
   --color-sidebar-line: #3a615f;
   /* Panel2 ist im Light-Mode sehr hell (#e7f2ee) - die adminseitig frei
-     waehlbaren Gruppenfarben waeren dort als Text kaum lesbar (z.B. Teal
-     #2dd4bf faellt sonst auf ca. 1.6:1 Kontrast). Deutlich mehr Schwarz
-     zumischen als im Dark Mode, siehe .room-name-accent in base.html. */
-  --room-name-mix: 40%;
+     waehlbaren Gruppenfarben waeren dort pur kaum lesbar (z.B. Teal #2dd4bf
+     faellt sonst auf ca. 1.6:1 Kontrast). Nur so viel Schwarz zumischen,
+     dass die Farbe noch klar als "die Gruppenfarbe" erkennbar bleibt statt
+     wie neutrales Schwarz/Grau zu wirken (erste Version mit 40% wirkte zu
+     dunkel) - der noch verbleibende Kontrast-Rest wird zusaetzlich ueber
+     font-semibold + einen dezenten Hintergrund-Tint in der Titelzeile
+     (siehe _room_grid_card_desktop.html) ausgeglichen. Siehe
+     .room-name-accent in base.html. */
+  --room-name-mix: 70%;
 }
 
 body { background: var(--color-bg); }
