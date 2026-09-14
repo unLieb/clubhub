@@ -42,8 +42,9 @@
       </thead>
       <tbody class="divide-y divide-line">
         {% for c in completions %}
+        {% set ts_local = c.timestamp|localtime %}
         <tr id="hist-row-{{ c.id }}">
-          <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap">{{ (c.timestamp|localtime)|reldate }}</td>
+          <td class="px-4 py-2.5 whitespace-nowrap {% if ts_local.weekday() >= 5 %}text-slate-500{% else %}text-slate-300{% endif %}">{{ ts_local|reldate_weekday }}</td>
           <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
           <td class="px-4 py-2.5">{{ c.task.name }}</td>
           <td class="px-4 py-2.5 text-slate-300">

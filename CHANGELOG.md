@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.16.0] - 2026-09-14
+- Historie: Wochentag jetzt bei jedem Datum dabei ("heute (Mo)", "gestern (So)", "Fr, 11.09.2026") – macht Lücken übers Wochenende beim Scrollen sofort nachvollziehbar, ohne nachzurechnen. Samstage/Sonntage zusätzlich dezent ausgegraut. Neuer, eigenständiger Filter (`reldate_weekday`) nur für die Historie – die anderen Stellen mit dem bisherigen `reldate`-Filter (Dashboard, Bereichs-Kacheln, Profil-Passkeys) bleiben bewusst unverändert, dort wäre der Wochentag nur zusätzliches visuelles Rauschen.
+
 ## [1.15.1] - 2026-09-12
 - Logo-Farbe angepasst: Sidebar/mobile Kopfzeile zeigen jetzt einen sanften diagonalen Verlauf von Minzgrün zu Teal statt des bisherigen einfarbigen Grüntons, der optisch an ein Haltestellenschild erinnerte. Favicon/Apple-Touch-Icon/PWA-Icon (dunkelgrün, für Browser-Tab/Startbildschirm) bleiben bewusst unverändert – andere Farbentscheidung aus einem separaten Kontext.
 

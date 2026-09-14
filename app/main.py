@@ -112,6 +112,26 @@ templates.env.filters["reldate"] = _relative_date_de
 _WEEKDAY_ABBR_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 
+def _relative_date_weekday_de(ts_local):
+    """Wie reldate oben, aber mit Wochentag ergaenzt: 'heute (Mo)'/
+    'gestern (So)', sonst 'Fr, TT.MM.JJJJ'. Eigener Filter nur fuer die
+    Historie (history.html) - dort will man gezielt Luecken uebers
+    Wochenende erkennen, ohne den Wochentag jedes Mal nachzurechnen. Die
+    anderen reldate-Stellen (Dashboard, Bereichs-Kacheln, Profil-Passkeys)
+    bleiben bewusst unveraendert, dort waere der Wochentag nur zusaetzliches
+    visuelles Rauschen ohne echten Mehrwert."""
+    base = _relative_date_de(ts_local)
+    if base is None:
+        return None
+    weekday = _WEEKDAY_ABBR_DE[ts_local.date().weekday()]
+    if base in ("heute", "gestern"):
+        return f"{base} ({weekday})"
+    return f"{weekday}, {base}"
+
+
+templates.env.filters["reldate_weekday"] = _relative_date_weekday_de
+
+
 def _weekday_label_de(raw):
     """Kurzform der aktiven Wochentage einer Aufgabe für Badges, z.B. 'Mo–Fr'
     oder 'Sa+So'. None (keine Einschränkung) -> kein Label."""
