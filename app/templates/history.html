@@ -161,14 +161,18 @@
     // Scroll-Position bleiben dadurch automatisch exakt erhalten, da gar
     // keine Navigation stattfindet. Klassischer Formular-Fallback (echter
     // POST + Redirect auf return_to) bleibt fuer Nicht-JS-Faelle erhalten.
-    tbody.addEventListener('submit', function (e) {
+    tbody.addEventListener('submit', async function (e) {
       var form = e.target.closest('.hist-delete-form');
       if (!form) return;
       e.preventDefault();
       var row = form.closest('tr');
-      if (!confirm('Diese Erledigung wirklich zurückziehen? Die Aufgabe gilt danach wieder als nicht erledigt (Stand: vorherige Erledigung bzw. nie erledigt).')) {
-        return;
-      }
+      var ok = await customConfirm({
+        title: 'Erledigung zurückziehen?',
+        message: 'Die Aufgabe gilt danach wieder als nicht erledigt (Stand: vorherige Erledigung bzw. nie erledigt).',
+        confirmText: 'Zurückziehen',
+        danger: true,
+      });
+      if (!ok) return;
       var btn = form.querySelector('button');
       btn.disabled = true;
 

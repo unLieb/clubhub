@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.20.0] - 2026-09-14
+- Alle nativen Browser-Bestätigungsdialoge (`confirm()`, je nach Betriebssystem/Browser unterschiedlich aussehend und optisch ein Fremdkörper) durch ein einheitliches, ins ClubHUB-Design passendes Modal ersetzt – u.a. beim Zurückziehen einer Erledigung in der Historie, beim Löschen (Aufgaben, Artikel, Buchungen, Termine, Nutzer-Geräte, Kühlungs-Messungen, …) und beim Wiederherstellen eines Backups. Abgedunkelter, leicht verwischter Hintergrund, klare Ja/Abbrechen-Buttons (destruktive Aktionen rot, neutrale grün), per ESC oder Klick auf den Hintergrund abbrechbar. Neue global verfügbare `customConfirm()`-Funktion (siehe `static/confirm_modal.js`) für zukünftige Bestätigungen.
+
 ## [1.19.0] - 2026-09-14
 - Meldungen: Zuständigkeit kann jetzt mit mehreren Gruppen gleichzeitig markiert werden statt nur einer – hilfreich, wenn beim Melden nicht klar ist, wer genau zuständig ist. Sowohl im "Neue Meldung"-Formular (Gruppen-Chips jetzt einzeln antippbar, mehrere gleichzeitig möglich) als auch nachträglich im Details-Tab einer bestehenden Meldung. Alle ausgewählten Gruppen werden benachrichtigt und sehen die Meldung.
 - Meldungen: Es wird jetzt angezeigt, wer eine Meldung auf "In Bearbeitung" gestellt hat (Name + Zeitpunkt, in der Kopfzeile und im Verlauf-Tab) – bisher war nur erkennbar, wer sie erstellt bzw. wer sie als erledigt markiert hat. Bleibt auch nach "Erledigt" als Verlaufs-Eintrag sichtbar, wird nur beim erneuten Öffnen (zurück auf "Offen") zurückgesetzt.

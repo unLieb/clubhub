@@ -10,8 +10,10 @@
    kein JS pro Seite noetig fuer den Standardfall:
 
    .ajax-delete-form
-     - optional data-confirm="Text" -> confirm() vor dem Absenden
-       (ersetzt das bisherige onsubmit="return confirm(...)")
+     - optional data-confirm="Text" -> customConfirm() (eigenes Modal,
+       siehe confirm_modal.js) vor dem Absenden, standardmaessig rot/
+       destructive - optional data-confirm-danger="false" fuer eine
+       neutrale/gruene Variante
      - entfernt bei Erfolg die naechste Vorfahren-Zeile/-Karte mit
        [data-ajax-row] (kurze Fade-Animation statt hartem display:none)
      - optional data-counter="<CSS-Selektor>" (+ optional
@@ -74,12 +76,12 @@
     });
   }
 
-  document.addEventListener('submit', function (e) {
+  document.addEventListener('submit', async function (e) {
     var delForm = e.target.closest('.ajax-delete-form');
     if (delForm) {
       e.preventDefault();
       var confirmMsg = delForm.dataset.confirm;
-      if (confirmMsg && !confirm(confirmMsg)) return;
+      if (confirmMsg && !(await customConfirm({ message: confirmMsg, danger: true, confirmText: 'Löschen' }))) return;
       var row = findRow(delForm);
       fetch(delForm.action, { method: 'POST', headers: { 'X-Requested-With': 'fetch' } })
         .then(function (resp) {
@@ -100,7 +102,7 @@
     if (actionForm) {
       e.preventDefault();
       var msg = actionForm.dataset.confirm;
-      if (msg && !confirm(msg)) return;
+      if (msg && !(await customConfirm({ message: msg, danger: actionForm.dataset.confirmDanger !== 'false' }))) return;
       fetch(actionForm.action, {
         method: 'POST',
         headers: { 'X-Requested-With': 'fetch' },

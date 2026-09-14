@@ -16,6 +16,12 @@
 <link rel="icon" type="image/png" href="/static/favicon.png?v={{ app_build_hash }}">
 <link rel="stylesheet" href="/static/style.css?v={{ app_build_hash }}">
 <script src="/static/dropzone.js?v={{ app_build_hash }}" defer></script>
+<!-- Stellt window.customConfirm() bereit (siehe confirm_modal.js) - muss vor
+     ajax_actions.js stehen, das customConfirm() beim Absenden von
+     .ajax-delete-form/.ajax-status-form/.ajax-toggle-form aufruft. Defer
+     reicht: beide Skripte werden dadurch garantiert in Dokumentreihenfolge
+     ausgefuehrt, unabhaengig von Ladezeiten. -->
+<script src="/static/confirm_modal.js?v={{ app_build_hash }}" defer></script>
 <!-- Gemeinsame Loeschen-/Toggle-Handler fuer Verwaltungsseiten u.ae., siehe
      Kommentar in ajax_actions.js. Defer reicht: registriert nur einen
      delegierten submit-Listener auf document, keine synchronen
@@ -169,6 +175,8 @@
   </div>
 </div>
 {% endif %}
+
+{% include "_confirm_modal.html" %}
 
 <!-- Theme-Umschalter, oben rechts (ab lg) -->
 <div class="hidden lg:flex fixed top-4 right-4 z-50 items-center gap-2">

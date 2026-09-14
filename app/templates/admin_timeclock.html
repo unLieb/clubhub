@@ -231,8 +231,8 @@
       if (deleteBtn) {
         deleteBtn.classList.remove('hidden');
         deleteBtn.setAttribute('formaction', '/admin/timeclock/' + d.id + '/delete');
-        deleteBtn.onclick = function () {
-          return confirm('Buchung von ' + d.userName + ' wirklich löschen?');
+        deleteBtn.onclick = function (e) {
+          return confirmSubmit(e, { title: 'Buchung löschen?', message: 'Buchung von ' + d.userName + ' wird unwiderruflich entfernt.', confirmText: 'Löschen', danger: true });
         };
       }
       openDrawer();
@@ -492,14 +492,14 @@
         {% if device.authorized_by %}von {{ device.authorized_by.name }}{% endif %}
       </div>
     </div>
-    <form method="post" action="/admin/timeclock/revoke-device" onsubmit="return confirm('Autorisierung wirklich aufheben? Das Gerät kann danach nicht mehr ein-/ausstempeln, bis ein neues autorisiert wird.')">
+    <form method="post" action="/admin/timeclock/revoke-device" onsubmit="return confirmSubmit(event, { title: 'Autorisierung aufheben?', message: 'Das Gerät kann danach nicht mehr ein-/ausstempeln, bis ein neues autorisiert wird.', confirmText: 'Aufheben', danger: true })">
       <button class="px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium">Autorisierung aufheben</button>
     </form>
     {% else %}
     <p class="text-warn text-sm mb-3">Aktuell ist kein Gerät autorisiert – das Terminal ist für niemanden nutzbar.</p>
     {% endif %}
     <form method="post" action="/admin/timeclock/authorize-device" class="mt-3 pt-3 border-t border-line flex flex-col sm:flex-row gap-2 max-w-2xl"
-          onsubmit="return confirm('Dieses Gerät hier jetzt für die Zeiterfassung autorisieren? Ein zuvor autorisiertes Gerät verliert dabei automatisch die Berechtigung.')">
+          onsubmit="return confirmSubmit(event, { title: 'Dieses Gerät autorisieren?', message: 'Ein zuvor autorisiertes Gerät verliert dabei automatisch die Berechtigung.', confirmText: 'Autorisieren' })">
       <input name="label" placeholder="Bezeichnung (optional), z.B. „Tablet Empfang“" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Dieses Gerät autorisieren</button>
     </form>

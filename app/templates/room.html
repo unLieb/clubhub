@@ -646,8 +646,8 @@
       if (deleteBtn) {
         deleteBtn.classList.remove('hidden');
         deleteBtn.setAttribute('formaction', '/admin/tasks/' + d.id + '/delete');
-        deleteBtn.onclick = function () {
-          return confirm('„' + d.name + '“ wirklich löschen?');
+        deleteBtn.onclick = function (e) {
+          return confirmSubmit(e, { title: 'Aufgabe löschen?', message: '„' + d.name + '“ wird unwiderruflich entfernt.', confirmText: 'Löschen', danger: true });
         };
       }
       openDrawer();

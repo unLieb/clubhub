@@ -236,8 +236,8 @@
       if (deleteBtn) {
         deleteBtn.classList.remove('hidden');
         deleteBtn.setAttribute('formaction', '/admin/inventory/' + d.id + '/delete');
-        deleteBtn.onclick = function () {
-          return confirm('„' + d.name + '“ wirklich löschen?');
+        deleteBtn.onclick = function (e) {
+          return confirmSubmit(e, { title: 'Artikel löschen?', message: '„' + d.name + '“ wird unwiderruflich entfernt.', confirmText: 'Löschen', danger: true });
         };
       }
       openDrawer();
@@ -328,9 +328,15 @@
       });
 
       contentEl.querySelectorAll('.inv-delete-form').forEach(function (delForm) {
-        delForm.addEventListener('submit', function (e) {
+        delForm.addEventListener('submit', async function (e) {
           e.preventDefault();
-          if (!confirm('„' + (delForm.dataset.itemName || 'diesen Artikel') + '“ wirklich löschen?')) return;
+          var ok = await customConfirm({
+            title: 'Artikel löschen?',
+            message: '„' + (delForm.dataset.itemName || 'Dieser Artikel') + '“ wird unwiderruflich entfernt.',
+            confirmText: 'Löschen',
+            danger: true,
+          });
+          if (!ok) return;
           fetch(appendSort(delForm.action), { method: 'POST', headers: { 'X-Requested-With': 'fetch' } })
             .then(function (resp) {
               if (!resp.ok) throw new Error('HTTP ' + resp.status);

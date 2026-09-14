@@ -151,7 +151,7 @@
           <div class="flex items-center gap-2 shrink-0">
             <a href="/admin/system/scheduled-backup/{{ b.filename }}/download" class="px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-xs font-medium whitespace-nowrap">Herunterladen</a>
             <form method="post" action="/admin/system/scheduled-backup/{{ b.filename }}/restore"
-                  onsubmit="return confirm('Die aktuelle Datenbank wird komplett durch den Stand von {{ b.timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr ersetzt. Vorher wird automatisch eine Sicherheitskopie angelegt, danach startet die Anwendung neu. Wirklich fortfahren?')">
+                  onsubmit="return confirmSubmit(event, { title: 'Backup wiederherstellen?', message: 'Die aktuelle Datenbank wird komplett durch den Stand von {{ b.timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr ersetzt. Vorher wird automatisch eine Sicherheitskopie angelegt, danach startet die Anwendung neu.', confirmText: 'Wiederherstellen', danger: true })">
               <button class="px-2.5 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-xs font-medium whitespace-nowrap">Wiederherstellen</button>
             </form>
           </div>
@@ -171,7 +171,7 @@
       <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">{{ restore_error }}</div>
       {% endif %}
       <form method="post" action="/admin/system/restore" enctype="multipart/form-data"
-            onsubmit="return confirm('Die aktuelle Datenbank wird komplett durch diese Datei ersetzt. Vorher wird automatisch eine Sicherheitskopie angelegt, danach startet die Anwendung neu. Wirklich fortfahren?')"
+            onsubmit="return confirmSubmit(event, { title: 'Backup wiederherstellen?', message: 'Die aktuelle Datenbank wird komplett durch diese Datei ersetzt. Vorher wird automatisch eine Sicherheitskopie angelegt, danach startet die Anwendung neu.', confirmText: 'Wiederherstellen', danger: true })"
             class="space-y-2">
         {{ dz.dropzone('file', 'backup-restore', accept='.db,application/octet-stream', label='Backup-Datei (.db) hierher ziehen oder auswählen', required=True) }}
         <button class="w-full sm:w-auto px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium whitespace-nowrap">Wiederherstellen</button>

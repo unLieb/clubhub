@@ -451,7 +451,7 @@
       </h2>
       {% if user and daily_overdue_count %}
       <form method="post" action="/tasks/complete-overdue"
-            onsubmit="return confirm('Alle {{ daily_overdue_count }} überfälligen täglichen Aufgaben – bereichsübergreifend – als erledigt markieren?');">
+            onsubmit="return confirmSubmit(event, { title: 'Alle überfälligen täglichen Aufgaben abhaken?', message: 'Betrifft {{ daily_overdue_count }} Aufgabe{{ "n" if daily_overdue_count != 1 else "" }} – bereichsübergreifend.', confirmText: 'Abhaken' });">
         <input type="hidden" name="next" value="/">
         <button type="submit" class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-go/15 text-go hover:bg-go/25 transition-colors whitespace-nowrap">
           Tägliche abhaken
