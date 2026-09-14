@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.17.1] - 2026-09-14
+- Bereichs-Karten (Desktop): linke Statuskante (Überfällig/Bald fällig/Erledigt) von 4px auf 5px verstärkt, damit sie gegenüber dem seit 1.17.0 neuen, dünneren Gruppenrahmen (oben/rechts/unten, 1px) weiterhin sofort ins Auge sticht und das operative Handlungsbedarf-Signal nicht untergeht.
+
 ## [1.17.0] - 2026-09-14
 - Bugfix: Beim Erstellen einer Meldung wurde ein per Kamera/Foto-Auswahl hinzugefügtes Bild doppelt angehängt. Ursache: der native Datei-Dialog hatte `input.files` bereits gesetzt, bevor die Dropzone-Komponente die Auswahl übernahm, wodurch dieselbe Datei einmal als "bereits vorhanden" und einmal als "neu hinzugekommen" gezählt wurde. Drag&Drop und Einfügen per Zwischenablage waren nicht betroffen und funktionieren wie bisher.
 - Hinweis für iPhone/iPad: das Benachrichtigungs-Glockensymbol fehlte auf iOS komplett, ohne Erklärung – Apple erlaubt Push-Benachrichtigungen dort grundsätzlich nur für Apps, die zuvor zum Home-Bildschirm hinzugefügt wurden, nie in einem normalen Safari-Tab. Die Glocke erscheint auf iOS jetzt trotzdem (deaktiviert-wirkend) und zeigt beim Antippen eine kurze Anleitung, wie ClubHUB zum Home-Bildschirm hinzugefügt wird, damit Benachrichtigungen danach aktivierbar sind.

@@ -5,7 +5,7 @@
 {% import "_group_macros.html" as gm %}
 {% set _user_group_ids = user.groups|map(attribute='id')|list if user else [] %}
 {% set my_group = room.groups|selectattr('id', 'in', _user_group_ids)|first %}
-<div id="room-card-{{ room.id }}" class="rounded-lg border border-l-4 bg-panel2 p-3.5 transition-colors
+<div id="room-card-{{ room.id }}" class="rounded-lg border border-l-[5px] bg-panel2 p-3.5 transition-colors
   {% if rs.status == 'green' %}border-l-go
   {% elif rs.status == 'yellow' %}border-l-warn
   {% else %}border-l-late{% endif %}"
