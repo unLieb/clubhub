@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.17.2] - 2026-09-14
+- Bereichs-Karten (Desktop): Gruppen-Badge aus der Titelzeile entfernt, da es bei längeren Bereichsnamen (z.B. "Gästefahrstuhl & Vorraum") den Namen unschön abgeschnitten hat. Der Titel nutzt jetzt die volle Kartenbreite; welcher Gruppe ein Bereich zugeordnet ist, zeigt weiterhin der seit 1.17.0 vorhandene farbige Kartenrahmen.
+
 ## [1.17.1] - 2026-09-14
 - Bereichs-Karten (Desktop): linke Statuskante (Überfällig/Bald fällig/Erledigt) von 4px auf 5px verstärkt, damit sie gegenüber dem seit 1.17.0 neuen, dünneren Gruppenrahmen (oben/rechts/unten, 1px) weiterhin sofort ins Auge sticht und das operative Handlungsbedarf-Signal nicht untergeht.
 
