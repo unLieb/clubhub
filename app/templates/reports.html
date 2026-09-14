@@ -230,7 +230,7 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
   </summary>
   <div class="px-4 pb-4 pt-1 border-t border-line">
-    <form method="post" action="/reports" enctype="multipart/form-data" class="space-y-2 mt-3">
+    <form id="report-create-form" method="post" action="/reports" enctype="multipart/form-data" class="space-y-2 mt-3">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
         <div id="report-f-room-field">
           <label class="block text-[11px] text-slate-400 mb-1">Bereich</label>
@@ -392,6 +392,26 @@
     }
     categorySelect.addEventListener('change', applyCategoryMode);
     applyCategoryMode();
+
+    // Explizite Pflichtfeld-Pruefung vor dem Absenden: iOS Safari setzt
+    // "required" auf <textarea> nicht zuverlaessig durch (bekannte WebKit-
+    // Eigenheit, v.a. als installierte PWA ohne Browser-Chrome fuer die
+    // native Validierungs-Sprechblase) - ein Absenden mit leerer
+    // Beschreibung kam dort bislang ganz ohne Warnung durch. checkValidity()
+    // wertet dieselben Regeln aus, aber zuverlaessig per Skript aufgerufen;
+    // reportValidity() zeigt bei einem ungueltigen Feld die native Hinweis-
+    // Blase, genau wie es "required" eigentlich von selbst tun sollte.
+    // Ersetzt nicht die serverseitige Pruefung (siehe reports_create in
+    // main.py), die greift in jedem Fall, auch ohne JS.
+    var createForm = document.getElementById('report-create-form');
+    if (createForm) {
+      createForm.addEventListener('submit', function (e) {
+        if (!createForm.checkValidity()) {
+          e.preventDefault();
+          createForm.reportValidity();
+        }
+      });
+    }
 
     // "Produkt-Link"-Assistent: sobald eine gueltige http(s)-URL im Feld
     // steht (bei Verlassen des Felds gepueft, nicht bei jedem Tastendruck),

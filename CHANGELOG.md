@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.16.1] - 2026-09-14
+- Bugfix: Neue Meldung ohne Beschreibung erstellen zeigte auf dem iPhone eine rohe, unverständliche Fehlermeldung statt eines normalen Hinweises. Ursache: iOS Safari setzt das `required`-Attribut auf `<textarea>`-Feldern nicht zuverlässig durch (bekannte WebKit-Eigenheit, besonders als installierte PWA), wodurch die Meldung komplett ohne Beschreibung beim Server ankam und dort eine harte Validierungsfehlermeldung auslöste statt der üblichen Inline-Meldung. Jetzt serverseitig wie die anderen Pflichtfelder dieser Seite behandelt (freundlicher Hinweis „Bitte eine Beschreibung eingeben.“ statt Absturz) sowie zusätzlich clientseitig per JavaScript abgesichert, damit der Hinweis schon vor dem Absenden erscheint.
+
 ## [1.16.0] - 2026-09-14
 - Historie: Wochentag jetzt bei jedem Datum dabei ("heute (Mo)", "gestern (So)", "Fr, 11.09.2026") – macht Lücken übers Wochenende beim Scrollen sofort nachvollziehbar, ohne nachzurechnen. Samstage/Sonntage zusätzlich dezent ausgegraut. Neuer, eigenständiger Filter (`reldate_weekday`) nur für die Historie – die anderen Stellen mit dem bisherigen `reldate`-Filter (Dashboard, Bereichs-Kacheln, Profil-Passkeys) bleiben bewusst unverändert, dort wäre der Wochentag nur zusätzliches visuelles Rauschen.
 

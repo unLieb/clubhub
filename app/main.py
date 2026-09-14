@@ -3399,7 +3399,7 @@ async def reports_create(
     request: Request,
     background_tasks: BackgroundTasks,
     room_id: str = Form(""),
-    comment: str = Form(...),
+    comment: str = Form(""),
     priority: str = Form("normal"),
     category: str = Form("sonstiges"),
     assigned_group_id: str = Form(""),
@@ -3409,6 +3409,22 @@ async def reports_create(
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
+
+    # War bislang Form(...) (striktes Pflichtfeld direkt auf FastAPI-Ebene) -
+    # ein iPhone-Nutzer bekam dabei beim Absenden ohne Beschreibung die rohe
+    # {"detail":[...]}-Validierungsantwort von FastAPI zu sehen statt einer
+    # normalen Fehlermeldung in der App. Ursache: das "required" auf dem
+    # <textarea> in reports.html wird von iOS Safari nicht zuverlaessig
+    # durchgesetzt (bekannte WebKit-Eigenheit, v.a. als installierte PWA
+    # ohne Browser-Chrome fuer die native Validierungs-Sprechblase) - die
+    # Anfrage kam also tatsaechlich ganz ohne comment-Feld an. Jetzt wie die
+    # anderen Pflichtfelder in dieser Route (room_id, assigned_group_id
+    # unten) mit sicherem Leer-Default plus eigener, freundlicher Meldung.
+    comment = comment.strip()
+    if not comment:
+        return RedirectResponse(
+            _with_toast("/reports", "Bitte eine Beschreibung eingeben.", "error"), status_code=302,
+        )
 
     if category not in REPORT_CATEGORIES:
         category = "sonstiges"
