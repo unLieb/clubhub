@@ -3728,18 +3728,19 @@ def reports_add_comment(report_id: int, request: Request, text: str = Form(...),
 
 @app.post("/reports/{report_id}/assign")
 def reports_assign(
-    report_id: int, request: Request, assigned_group_ids: list[str] = Form([]), db: Session = Depends(get_db)
+    report_id: int, request: Request, group_mode: str = Form("auto"),
+    assigned_group_ids: list[str] = Form([]), db: Session = Depends(get_db)
 ):
-    """Zustaendigkeit nachtraeglich aendern (Details-Tab, Mehrfachauswahl per
-    <select multiple>). Wie in reports_create entscheiden echte Gruppen-IDs
-    server-seitig unabhaengig vom "all"-Sentinel, sobald welche dabei sind -
-    robust gegen eine (bei einem nativen multi-select moegliche) gleichzeitige
-    Auswahl von "Alle" und einzelnen Gruppen."""
+    """Zustaendigkeit nachtraeglich aendern (Details-Tab, Checkbox-Chips
+    hinter einem Dropdown-Button statt <select multiple> - gleiches
+    group_mode/assigned_group_ids-Schema und dieselbe Vorrangregel wie in
+    reports_create: echte Gruppen-IDs entscheiden server-seitig unabhaengig
+    von group_mode, sobald welche dabei sind."""
     require_login(request, db)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report:
         new_group_ids = sorted({int(g) for g in assigned_group_ids if g.strip().isdigit()})
-        is_company_wide = "all" in assigned_group_ids and not new_group_ids
+        is_company_wide = group_mode == "all" and not new_group_ids
         # Ohne Bereich (Anschaffung) gibt es keine Bereichsgruppen-Ableitung
         # als Rückfallebene - eine leere Zuständigkeit würde die Meldung ohne
         # jeden Benachrichtigungsweg zurücklassen, daher hier nicht zulassen

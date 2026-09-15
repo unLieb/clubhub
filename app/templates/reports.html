@@ -126,19 +126,32 @@
               {% endif %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Gemeldet von</span><span class="text-slate-300">{{ r.user.name }}</span></li>
               <li class="flex justify-between items-center gap-4">
-                <span class="text-slate-500">Zuständigkeit</span>
+                <span class="text-slate-500 shrink-0">Zuständigkeit</span>
                 {% if user %}
-                <form method="post" action="/reports/{{ r.id }}/assign" class="contents">
-                  <select name="assigned_group_ids" multiple size="4" onchange="this.form.submit()" title="Strg/Cmd gedrückt halten für mehrere Gruppen" class="rounded-md bg-ink border border-line px-2 py-1 text-xs text-slate-300">
-                    {% if r.room %}
-                    <option value="" {% if not r.groups and not r.is_company_wide %}selected{% endif %}>– automatisch (Bereich) –</option>
-                    {% endif %}
-                    <option value="all" {% if r.is_company_wide %}selected{% endif %}>Alle (Betriebsweit)</option>
-                    {% for g in groups %}
-                    <option value="{{ g.id }}" {% if g in r.groups %}selected{% endif %}>{{ g.name }}</option>
-                    {% endfor %}
-                  </select>
-                </form>
+                <details class="report-assign-details relative">
+                  <summary class="list-none cursor-pointer flex items-center gap-1 rounded-md bg-ink border border-line px-2 py-1 text-xs text-slate-300 hover:border-go/50 max-w-[11rem]">
+                    <span class="truncate">{{ "Alle (Betriebsweit)" if r.is_company_wide else (r.groups|map(attribute="name")|join(", ") if r.groups else "Automatisch (Bereich)") }}</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m6 9 6 6 6-6"/></svg>
+                  </summary>
+                  <form method="post" action="/reports/{{ r.id }}/assign" class="report-assign-form absolute right-0 z-20 mt-1.5 w-60 rounded-lg border border-line bg-panel shadow-xl p-2.5">
+                    <div class="flex flex-wrap gap-1.5 mb-2.5">
+                      {% if r.room %}
+                      <label class="cursor-pointer rounded-md border border-line px-2 py-1 text-xs has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+                        <input type="radio" name="group_mode" value="auto" class="sr-only" {% if not r.groups and not r.is_company_wide %}checked{% endif %}>Automatisch
+                      </label>
+                      {% endif %}
+                      <label class="cursor-pointer rounded-md border border-line px-2 py-1 text-xs has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+                        <input type="radio" name="group_mode" value="all" class="sr-only" {% if r.is_company_wide %}checked{% endif %}>Alle
+                      </label>
+                      {% for g in groups %}
+                      <label class="cursor-pointer rounded-md border border-line px-2 py-1 text-xs has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+                        <input type="checkbox" name="assigned_group_ids" value="{{ g.id }}" class="sr-only report-assign-checkbox" {% if g in r.groups %}checked{% endif %}>{{ g.name }}
+                      </label>
+                      {% endfor %}
+                    </div>
+                    <button class="w-full px-2 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium">Übernehmen</button>
+                  </form>
+                </details>
                 {% else %}
                 <span class="text-slate-300">{{ "Alle (Betriebsweit)" if r.is_company_wide else (r.groups|map(attribute="name")|join(", ") if r.groups else "–") }}</span>
                 {% endif %}
@@ -426,6 +439,29 @@
         }
       });
     });
+
+    // Zustaendigkeit nachtraeglich aendern (Details-Tab jeder Meldungs-
+    // Karte, siehe .report-assign-form oben in report_card) - dieselbe
+    // Automatisch/Alle-vs-Checkbox-Ausschluss-Logik wie beim "Neue Meldung"-
+    // Formular oben, hier aber delegiert auf document, da beliebig viele
+    // Meldungs-Karten gleichzeitig auf der Seite stehen.
+    document.addEventListener('change', function (e) {
+      var assignForm = e.target.closest('.report-assign-form');
+      if (!assignForm) return;
+      if (e.target.name === 'group_mode') {
+        assignForm.querySelectorAll('.report-assign-checkbox').forEach(function (cb) { cb.checked = false; });
+      } else if (e.target.classList.contains('report-assign-checkbox') && e.target.checked) {
+        assignForm.querySelectorAll('input[name="group_mode"]').forEach(function (r) { r.checked = false; });
+      }
+    });
+    // Nur ein Zustaendigkeits-Dropdown gleichzeitig offen - "toggle" bubbelt
+    // nicht (Spezifikation), daher im Capture-Modus delegiert.
+    document.addEventListener('toggle', function (e) {
+      if (!e.target.classList || !e.target.classList.contains('report-assign-details') || !e.target.open) return;
+      document.querySelectorAll('.report-assign-details[open]').forEach(function (d) {
+        if (d !== e.target) d.open = false;
+      });
+    }, true);
 
     // Explizite Pflichtfeld-Pruefung vor dem Absenden: iOS Safari setzt
     // "required" auf <textarea> nicht zuverlaessig durch (bekannte WebKit-

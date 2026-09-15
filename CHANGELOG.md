@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.20.1] - 2026-09-15
+- Meldungen: Zuständigkeit nachträglich ändern (Details-Tab) zeigte bisher ein natives `<select multiple>` mit sichtbarer Scroll-Liste – passte optisch nicht ins UI. Ersetzt durch dieselben Checkbox-Chips wie im "Neue Meldung"-Formular, kompakt hinter einem Dropdown-Button (zeigt die aktuelle Zuständigkeit als Text, öffnet auf Klick ein kleines Auswahl-Panel mit "Übernehmen"-Button) – gleiches Muster wie das bereits vorhandene "Sichtbarkeit anpassen" bei Bereichen/Inventar/Terminen.
+
 ## [1.20.0] - 2026-09-14
 - Alle nativen Browser-Bestätigungsdialoge (`confirm()`, je nach Betriebssystem/Browser unterschiedlich aussehend und optisch ein Fremdkörper) durch ein einheitliches, ins ClubHUB-Design passendes Modal ersetzt – u.a. beim Zurückziehen einer Erledigung in der Historie, beim Löschen (Aufgaben, Artikel, Buchungen, Termine, Nutzer-Geräte, Kühlungs-Messungen, …) und beim Wiederherstellen eines Backups. Abgedunkelter, leicht verwischter Hintergrund, klare Ja/Abbrechen-Buttons (destruktive Aktionen rot, neutrale grün), per ESC oder Klick auf den Hintergrund abbrechbar. Neue global verfügbare `customConfirm()`-Funktion (siehe `static/confirm_modal.js`) für zukünftige Bestätigungen.
 
