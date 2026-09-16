@@ -44,7 +44,28 @@
         {% for c in completions %}
         {% set ts_local = c.timestamp|localtime %}
         <tr id="hist-row-{{ c.id }}">
-          <td class="px-4 py-2.5 whitespace-nowrap {% if ts_local.weekday() >= 5 %}text-slate-500{% else %}text-slate-300{% endif %}">{{ ts_local|reldate_weekday }}</td>
+          <td class="px-4 py-2.5 whitespace-nowrap {% if ts_local.weekday() >= 5 %}text-slate-500{% else %}text-slate-300{% endif %}">
+            {% if user and user.is_admin %}
+            <div class="hist-date-view flex items-center gap-1.5">
+              <span class="hist-date-display">{{ ts_local|reldate_weekday }}</span>
+              <button type="button" class="hist-date-edit-toggle p-0.5 rounded text-slate-500 hover:text-slate-100 hover:bg-panel2 shrink-0" aria-label="Datum ändern" title="Datum ändern">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+            </div>
+            <form method="post" action="/history/{{ c.id }}/edit-date" class="hist-date-form hidden items-center gap-1 mt-1">
+              <input type="hidden" name="return_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+              <input type="datetime-local" name="timestamp" value="{{ ts_local.strftime('%Y-%m-%dT%H:%M') }}" required class="rounded-md bg-ink border border-line px-1.5 py-0.5 text-xs text-slate-200">
+              <button type="submit" class="p-1 rounded text-go hover:bg-go/10" aria-label="Speichern" title="Speichern">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </button>
+              <button type="button" class="hist-date-cancel p-1 rounded text-slate-500 hover:bg-panel2" aria-label="Abbrechen" title="Abbrechen">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </form>
+            {% else %}
+            {{ ts_local|reldate_weekday }}
+            {% endif %}
+          </td>
           <td class="px-4 py-2.5">{{ c.task.room.name }}</td>
           <td class="px-4 py-2.5">{{ c.task.name }}</td>
           <td class="px-4 py-2.5 text-slate-300">
@@ -154,6 +175,34 @@
         }
       }, 260);
     }
+
+    // Datum aendern (Admin): Stift-Button blendet die Anzeige aus und das
+    // datetime-local-Formular daneben ein, "Abbrechen" macht das rueckgaengig
+    // ohne zu speichern. Bewusst ein echter Formular-POST + Redirect statt
+    // Ajax (anders als "Erledigt von"/"Rückgängig" oben) - eine Datumskorrektur
+    // ist eine seltene, bewusste Aktion, kein haeufiges Schnell-Toggle, ein
+    // kompletter Reload zeigt danach zuverlaessig das neu formatierte Datum
+    // (Wochentag, "heute"/"gestern" usw.) ohne das clientseitig nachbauen zu
+    // muessen.
+    tbody.addEventListener('click', function (e) {
+      var toggleBtn = e.target.closest('.hist-date-edit-toggle');
+      if (toggleBtn) {
+        var cell = toggleBtn.closest('td');
+        cell.querySelector('.hist-date-view').classList.add('hidden');
+        var form = cell.querySelector('.hist-date-form');
+        form.classList.remove('hidden');
+        form.classList.add('flex');
+        form.querySelector('input[name="timestamp"]').focus();
+        return;
+      }
+      var cancelBtn = e.target.closest('.hist-date-cancel');
+      if (cancelBtn) {
+        var cell2 = cancelBtn.closest('td');
+        cell2.querySelector('.hist-date-form').classList.add('hidden');
+        cell2.querySelector('.hist-date-form').classList.remove('flex');
+        cell2.querySelector('.hist-date-view').classList.remove('hidden');
+      }
+    });
 
     // Asynchrones "Rückgängig" ohne Full-Page-Reload: fetch() statt echtem
     // Formular-POST (Server unterscheidet ueber X-Requested-With: fetch,

@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.23.0] - 2026-09-16
+- Historie: Admins können jetzt neben "Erledigt von" auch Datum und Uhrzeit einer Erledigung nachträglich korrigieren (Stift-Symbol neben dem Datum). Wie beim Umtragen ausschließlich für Admins und im Audit-Log dokumentiert (alter und neuer Zeitpunkt).
+
 ## [1.22.0] - 2026-09-16
 - Neue Seite „Hilfe &amp; FAQ" (`/help`, Menüpunkt mit ?-Icon in Sidebar und mobilem „Mehr"-Menü): kurze Bedienungsanleitung für Mitarbeiter direkt in der App statt nur als separat verschickter Link – Erste Schritte, Bereiche/Ampel-System, Meldungen, Historie, weitere Module sowie Profil, als aufklappbare Fragen. Die Abschnitte zu Urlaub und Zeiterfassung blenden sich automatisch aus, wenn das jeweilige Modul in den Admin-Einstellungen deaktiviert ist.
 

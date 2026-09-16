@@ -4310,6 +4310,44 @@ def reassign_completion(
     return RedirectResponse(target, status_code=302)
 
 
+@app.post("/history/{completion_id}/edit-date")
+def edit_completion_date(
+    completion_id: int, request: Request, timestamp: str = Form(...),
+    return_to: str = Form("/history"), db: Session = Depends(get_db),
+):
+    """Admin kann nachtraeglich Datum/Uhrzeit einer Erledigung korrigieren -
+    analog zu reassign_completion oben (Nutzer-Wunsch direkt im Anschluss an
+    die Umtragen-Funktion: neben "wer" soll auch "wann" nachtraeglich
+    korrigierbar sein, ebenfalls admin-only und im Audit-Log dokumentiert).
+    Wie beim Namen bewusst admin-only statt auch fuer die eigene Erledigung
+    offen (anders als delete_completion) - das Zurechtruecken des Zeitpunkts
+    ist eine Korrektur der Aufzeichnung, kein "eigenes Rueckgaengig"."""
+    admin = require_admin(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    completion = db.query(models.Completion).filter(models.Completion.id == completion_id).first()
+    new_timestamp = _parse_local_dt(timestamp)
+    if not completion or not new_timestamp:
+        if is_fetch:
+            raise HTTPException(status_code=404, detail="Erledigung nicht gefunden oder ungültiges Datum")
+        return RedirectResponse("/history", status_code=302)
+    old_timestamp = completion.timestamp
+    if old_timestamp != new_timestamp:
+        old_local = _to_local(old_timestamp).strftime("%d.%m.%Y, %H:%M") if old_timestamp else "unbekannt"
+        new_local = _to_local(new_timestamp).strftime("%d.%m.%Y, %H:%M")
+        completion.timestamp = new_timestamp
+        log_audit(
+            db, admin, "UPDATE", "Historie",
+            f"Datum der Erledigung von „{completion.task.name}“ ({completion.task.room.name}) "
+            f"von {old_local} auf {new_local} Uhr geändert.",
+        )
+        db.commit()
+        _bump_live_version()
+    if is_fetch:
+        return {"ok": True, "timestamp": new_timestamp.isoformat()}
+    target = return_to if return_to.startswith("/") and not return_to.startswith("//") else "/history"
+    return RedirectResponse(target, status_code=302)
+
+
 # ---------- Login / Logout ----------
 
 @app.post("/login")
