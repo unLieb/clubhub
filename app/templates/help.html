@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Hilfe & FAQ – ClubHUB{% endblock %}
+{% block content %}
+
+{# Statische Hilfe-/FAQ-Seite fuer Mitarbeiter - Inhalte hier direkt im
+   Template, kein DB-Bezug. Urlaub/Zeiterfassung blenden sich passend zu den
+   globalen Modul-Schaltern aus (siehe app_module_flags in main.py), Kühlungen
+   bleibt bewusst unconditional (kein globaler Ein/Aus-Schalter dafür, nur
+   gruppenabhaengiger Zugriff - fuer eine allgemeine Erklaerung irrelevant). #}
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
+<div class="mb-6 mt-2">
+  <h1 class="font-display text-2xl font-semibold">Hilfe &amp; FAQ</h1>
+  <p class="text-slate-400 text-sm mt-1">Die wichtigsten Handgriffe für den Arbeitsalltag mit ClubHUB.</p>
+</div>
+
+<div class="flex flex-wrap gap-1.5 mb-6">
+  <a href="#erste-schritte" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Erste Schritte</a>
+  <a href="#bereiche" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Bereiche</a>
+  <a href="#meldungen" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Meldungen</a>
+  <a href="#historie" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Historie</a>
+  <a href="#weitere-module" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Weitere Module</a>
+  <a href="#profil" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Profil</a>
+  <a href="#gut-zu-wissen" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Gut zu wissen</a>
+</div>
+
+<div id="erste-schritte" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
+  <h2 class="font-display font-medium mb-3">Erste Schritte</h2>
+  <div class="space-y-2">
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie melde ich mich an?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Mit deinem Benutzernamen (oder deiner Personalnummer) und deinem Passwort. Auf einem Gerät, das du oft benutzt, kannst du dir in deinem <a href="/profile" class="text-go underline">Profil</a> zusätzlich einen <strong>Passkey</strong> einrichten – dann reicht Face&nbsp;ID, Fingerabdruck oder Geräte-PIN statt Passwort.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie bekomme ich ClubHUB als App aufs Handy?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">ClubHUB im Browser öffnen, dann „Zum Home-Bildschirm hinzufügen“ wählen (in Safari: Teilen-Symbol antippen → „Zum Home-Bildschirm“). Startet danach wie eine normale App, ohne Adressleiste – und ist auf dem iPhone Voraussetzung dafür, dass Benachrichtigungen überhaupt aktiviert werden können.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie aktiviere ich Benachrichtigungen?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Glocken-Symbol oben antippen. So bekommst du mit, wenn eine Aufgabe fällig wird oder dich eine Meldung betrifft – ganz ohne die App offen zu haben.</p>
+    </details>
+  </div>
+</div>
+
+<div id="bereiche" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
+  <h2 class="font-display font-medium mb-3">Bereiche &amp; tägliche Aufgaben</h2>
+  <div class="flex flex-col gap-2 mb-3">
+    <div class="flex items-center gap-2.5 rounded-md bg-panel2 border border-line px-3 py-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-go shrink-0"></span>
+      <span class="text-sm"><strong class="font-medium">Grün – Erledigt.</strong> <span class="text-slate-400">Alles im aktuellen Turnus erledigt.</span></span>
+    </div>
+    <div class="flex items-center gap-2.5 rounded-md bg-panel2 border border-line px-3 py-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-warn shrink-0"></span>
+      <span class="text-sm"><strong class="font-medium">Gelb – Bald fällig.</strong> <span class="text-slate-400">Die nächste Reinigung steht bald an.</span></span>
+    </div>
+    <div class="flex items-center gap-2.5 rounded-md bg-panel2 border border-line px-3 py-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-late shrink-0"></span>
+      <span class="text-sm"><strong class="font-medium">Rot – Überfällig.</strong> <span class="text-slate-400">Sollte jetzt erledigt werden.</span></span>
+    </div>
+  </div>
+  <div class="space-y-2">
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie hake ich eine Aufgabe ab?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Unter <a href="/rooms" class="text-go underline">Bereiche</a> auf einen Raum tippen – dort stehen alle Aufgaben mit einem Erledigen-Button. Für rein tägliche Aufgaben genügt oft der schnelle Haken direkt in der Übersicht, ohne den Bereich extra zu öffnen.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Was bedeutet die farbige Hervorhebung bei manchen Bereichen?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Bereiche, für die deine Gruppe zuständig ist, sind farblich markiert – dieselbe Farbe wie eure Gruppen-Kennzeichnung. So erkennst du in der Liste sofort, was zu deinem Aufgabenbereich gehört.</p>
+    </details>
+  </div>
+</div>
+
+<div id="meldungen" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
+  <h2 class="font-display font-medium mb-3">Meldungen</h2>
+  <div class="space-y-2">
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie melde ich einen Defekt oder Materialbedarf?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Unter <a href="/reports" class="text-go underline">Meldungen</a> auf „Neue Meldung“ tippen, Bereich wählen, passende Kategorie angeben (<em>Defekt</em>, <em>Material fehlt</em>, <em>Reinigung</em>, <em>Materialwunsch / Anschaffung</em> oder <em>Sonstiges</em>) und kurz beschreiben. Ein Foto lässt sich direkt anhängen.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Ich weiß nicht, welche Gruppe zuständig ist – was jetzt?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Bei der Zuständigkeit lassen sich auch mehrere Gruppen gleichzeitig auswählen. Ohne Auswahl geht die Meldung automatisch an die Gruppen des Bereichs.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie zeige ich, dass ich mich schon um eine Meldung kümmere?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Status auf <span class="text-xs px-1.5 py-0.5 rounded-full bg-warn/15 text-warn font-medium">In Bearbeitung</span> stellen – dein Name erscheint dann direkt an der Meldung, andere sehen so sofort, dass sich schon jemand kümmert. Über die Kommentare lassen sich Rückfragen oder Zwischenstände klären.</p>
+    </details>
+  </div>
+</div>
+
+<div id="historie" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
+  <h2 class="font-display font-medium mb-3">Historie</h2>
+  <div class="space-y-2">
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Ich habe etwas aus Versehen abgehakt – wie mache ich das rückgängig?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">In der <a href="/history" class="text-go underline">Historie</a> neben dem Eintrag auf „Rückgängig“ tippen – die Aufgabe gilt danach wieder als offen. Dort lässt sich außerdem nach Bereich, Person und Zeitraum filtern, um nachzusehen, wann etwas zuletzt gemacht wurde.</p>
+    </details>
+  </div>
+</div>
+
+<div id="weitere-module" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
+  <h2 class="font-display font-medium mb-3">Weitere Module</h2>
+  <div class="space-y-2">
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Was mache ich unter „Inventar“?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Lagerbestand einsehen und Mengen anpassen, z.&nbsp;B. nach dem Auffüllen eines Reinigungsmittels. Ein niedriger Bestand ist farblich markiert.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Was mache ich unter „Kühlungen“?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Temperaturen von Kühlzellen erfassen – wichtig für die Lebensmittel-Dokumentation. Nur sichtbar für Gruppen, die dafür freigeschaltet sind.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Was mache ich unter „Termine“?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Wiederkehrende oder einmalige Termine, z.&nbsp;B. Abholungen, auf einen Blick – inklusive Erinnerung ein paar Tage vorher.</p>
+    </details>
+    {% if modules.vacation %}
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie trage ich Urlaub ein?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Unter <a href="/vacations" class="text-go underline">Urlaub</a> einen Zeitraum eintragen. Dort siehst du außerdem, welche Zeiträume für andere schon eingetragen sind.</p>
+    </details>
+    {% endif %}
+    {% if modules.time_tracking %}
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie stemple ich ein und aus?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Entweder am Terminal vor Ort oder direkt unter <a href="/timeclock" class="text-go underline">Zeiterfassung</a> im eigenen Profil.</p>
+    </details>
+    {% endif %}
+  </div>
+</div>
+
+<div id="profil" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
+  <h2 class="font-display font-medium mb-3">Profil &amp; Konto</h2>
+  <div class="space-y-2">
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wo ändere ich mein Passwort oder Profilbild?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Alles unter <a href="/profile" class="text-go underline">Profil</a>: Passwort ändern (aktuelles Passwort wird zur Sicherheit erneut abgefragt), Passkey einrichten, Profilbild hochladen.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie wechsle ich zwischen hellem und dunklem Design?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Über das Symbol oben rechts (Sonne/Mond) – oder auf „Automatisch“ stellen, dann folgt ClubHUB der Geräteeinstellung.</p>
+    </details>
+  </div>
+</div>
+
+<div id="gut-zu-wissen" class="rounded-xl border border-line bg-panel p-4" style="scroll-margin-top: 1rem;">
+  <h2 class="font-display font-medium mb-3">Gut zu wissen</h2>
+  <div class="space-y-2">
+    <details class="rounded-lg border border-line bg-panel2 group" open>
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Ich habe ein iPhone und bekomme keine Benachrichtigungen
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Apple erlaubt das nur für Apps, die zum Home-Bildschirm hinzugefügt wurden – ein normaler Safari-Tab reicht nicht. Siehe „Erste Schritte“ oben.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Muss ich neu laden, um Änderungen von Kollegen zu sehen?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Nein. Dashboard, Bereiche und Meldungen aktualisieren sich von selbst im Hintergrund, sobald sich etwas ändert.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Ich habe eine Meldung versehentlich falsch eingetragen
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Eine eigene Meldung lässt sich über das Papierkorb-Symbol löschen. Bei falschen Angaben einfach neu melden und in den Kommentaren kurz auf die alte Meldung verweisen.</p>
+    </details>
+  </div>
+</div>
+
+{% endblock %}

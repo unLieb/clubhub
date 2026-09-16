@@ -308,6 +308,13 @@
         Verwaltung
       </a>
       {% endif %}
+      {% if user %}
+      <a href="/help" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/help' %}active{% endif %}">
+        <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 1 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Hilfe
+      </a>
+      {% endif %}
     </nav>
 
     {% if user %}
@@ -340,7 +347,7 @@
      schmalen Displays noch bequem antippbar bleibt. Alle weiteren Module
      stecken hinter "Mehr" im Bottom-Sheet (siehe unten), statt die Leiste mit
      jedem neuen Modul weiter zu stauchen. -->
-{% set more_paths = ['/history', '/kuehlungen', '/appointments', '/vacations', '/timeclock', '/admin'] %}
+{% set more_paths = ['/history', '/kuehlungen', '/appointments', '/vacations', '/timeclock', '/admin', '/help'] %}
 {% set on_more_page = user and request.url.path in more_paths %}
 {% set more_badge_count = badges.cooling %}
 <nav class="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-ink border-t border-line flex safe-bottom">
@@ -429,6 +436,10 @@
       Verwaltung
     </a>
     {% endif %}
+    <a href="/help" class="tab-link {% if request.url.path == '/help' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 1 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Hilfe
+    </a>
   </div>
 </div>
 {% endif %}

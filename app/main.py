@@ -196,6 +196,22 @@ def changelog_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@app.get("/help")
+def help_page(request: Request, db: Session = Depends(get_db)):
+    """Statische Hilfe-/FAQ-Seite fuer Mitarbeiter (Nutzer-Wunsch nach einer
+    kleinen Bedienungsanleitung, die immer erreichbar ist statt nur als
+    einmalig verschickter Link) - Inhalte rein statisch im Template, die
+    Urlaub/Zeiterfassung-Abschnitte blenden sich per modules.vacation/
+    modules.time_tracking (siehe app_module_flags, als Jinja-Global bereits
+    in base.html gesetzt und daher auch hier ohne expliziten Kontext-Eintrag
+    verfuegbar) automatisch aus, wenn das jeweilige Modul deaktiviert ist -
+    analog zur Navigation selbst."""
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
+    return templates.TemplateResponse("help.html", {"request": request, "user": user})
+
+
 @app.get("/sw.js")
 def service_worker():
     # Bewusst unter der Root-URL statt /static/sw.js ausgeliefert: der
