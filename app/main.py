@@ -3733,12 +3733,75 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
 
 
 @app.post("/reports/{report_id}/comment")
-def reports_add_comment(report_id: int, request: Request, text: str = Form(...), db: Session = Depends(get_db)):
+def reports_add_comment(
+    report_id: int, request: Request, background_tasks: BackgroundTasks,
+    text: str = Form(...), db: Session = Depends(get_db),
+):
+    """Kommentar hinzufuegen - benachrichtigt wie ein Statuswechsel die
+    zustaendige(n) Gruppe(n) sowie zusaetzlich einzeln den Melder und alle
+    bisherigen Kommentierenden (Nutzer-Feedback: ein neuer Kommentar ging
+    bisher komplett unbemerkt unter, machte die Funktion praktisch nutzlos -
+    wer schon mitgeredet hat, soll auch von weiteren Antworten erfahren,
+    unabhaengig von der eigenen Gruppen-Zugehoerigkeit)."""
     user = require_login(request, db)
-    report = db.query(models.Report).filter(models.Report.id == report_id).first()
-    if report and text.strip():
-        db.add(models.ReportComment(report_id=report.id, user_id=user.id, text=text.strip()))
-        db.commit()
+    text = text.strip()
+    if not text:
+        return RedirectResponse("/reports", status_code=302)
+
+    # Gruppen inkl. Kanaele + Mitglieder/Push-Abos hier bereits vollstaendig
+    # laden (nicht erst lazy in notify_group/notify_user), da die Session
+    # geschlossen ist, sobald der Background-Task nach dem Response
+    # tatsaechlich laeuft - siehe reports_set_status fuer dasselbe Muster.
+    group_loaders = (
+        joinedload(models.Group.channels),
+        joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
+    )
+    report = (
+        db.query(models.Report)
+        .options(
+            joinedload(models.Report.room).joinedload(models.Room.groups).options(*group_loaders),
+            joinedload(models.Report.groups).options(*group_loaders),
+            joinedload(models.Report.user).joinedload(models.User.push_subscriptions),
+            joinedload(models.Report.comments).joinedload(models.ReportComment.user)
+            .joinedload(models.User.push_subscriptions),
+        )
+        .filter(models.Report.id == report_id)
+        .first()
+    )
+    if not report:
+        return RedirectResponse("/reports", status_code=302)
+
+    # Vorherige Kommentierende VOR dem Insert einsammeln (danach expired die
+    # Session die Beziehung und report.comments wuerde beim naechsten Zugriff
+    # den soeben eingefuegten eigenen Kommentar mit zurueckliefern - waere
+    # harmlos, da user.id unten ohnehin ausgeschlossen wird, aber so ist die
+    # Absicht im Code klarer).
+    previous_commenters = {c.user for c in report.comments}
+
+    db.add(models.ReportComment(report_id=report.id, user_id=user.id, text=text))
+    db.commit()
+    _bump_live_version()
+
+    title = f"Neuer Kommentar: {report.room.name if report.room else 'Materialwunsch'}"
+    preview = text if len(text) <= 120 else text[:117] + "…"
+    msg = f"{user.name}: „{preview}“"
+    if report.is_company_wide:
+        target_groups = db.query(models.Group).options(*group_loaders).all()
+    elif report.groups:
+        target_groups = list(report.groups)
+    else:
+        target_groups = list(report.room.groups) if report.room else []
+    focus_url = f"/reports?focus=report-{report.id}"
+    if target_groups:
+        background_tasks.add_task(notify_groups, target_groups, title, msg, "default", focus_url)
+
+    already_reached = {member.id for group in target_groups for member in group.users}
+    already_reached.add(user.id)  # der eigene, gerade geschriebene Kommentar braucht keine Benachrichtigung
+    for target_user in previous_commenters | {report.user}:
+        if target_user.id not in already_reached:
+            background_tasks.add_task(notify_user, target_user, title, msg, focus_url)
+            already_reached.add(target_user.id)
+
     return RedirectResponse("/reports", status_code=302)
 
 

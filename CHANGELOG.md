@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.24.0] - 2026-09-16
+- Meldungen: Ein neuer Kommentar ging bisher komplett unbemerkt unter (nur als kleine Zahl versteckt hinter "Details" sichtbar) und benachrichtigte niemanden. Jetzt zeigt jede Meldungs-Karte direkt in der Kopfzeile ein Sprechblasen-Symbol mit Anzahl, sobald kommentiert wurde, und ein neuer Kommentar benachrichtigt – wie bei einem Statuswechsel – die zuständige(n) Gruppe(n) sowie zusätzlich den Melder und alle bisher Mitdiskutierenden einzeln (unabhängig von deren Gruppen-Zugehörigkeit).
+
 ## [1.23.0] - 2026-09-16
 - Historie: Admins können jetzt neben "Erledigt von" auch Datum und Uhrzeit einer Erledigung nachträglich korrigieren (Stift-Symbol neben dem Datum). Wie beim Umtragen ausschließlich für Admins und im Audit-Log dokumentiert (alter und neuer Zeitpunkt).
 
