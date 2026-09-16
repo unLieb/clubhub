@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.21.0] - 2026-09-16
+- Nutzernamen werden beim Anlegen und Bearbeiten (Verwaltung → Nutzer) jetzt automatisch einheitlich formatiert ("uwe" → "Uwe", "jean-luc" → "Jean-Luc"), damit Kleinschreibung nicht mehr in Historie, Nutzerlisten und anderen UI-Stellen auftaucht. Der Login bleibt dabei unabhängig von Groß-/Kleinschreibung möglich – "Uwe" kann sich weiterhin mit "uwe" oder "Uwe" anmelden.
+
 ## [1.20.1] - 2026-09-15
 - Meldungen: Zuständigkeit nachträglich ändern (Details-Tab) zeigte bisher ein natives `<select multiple>` mit sichtbarer Scroll-Liste – passte optisch nicht ins UI. Ersetzt durch dieselben Checkbox-Chips wie im "Neue Meldung"-Formular, kompakt hinter einem Dropdown-Button (zeigt die aktuelle Zuständigkeit als Text, öffnet auf Klick ein kleines Auswahl-Panel mit "Übernehmen"-Button) – gleiches Muster wie das bereits vorhandene "Sichtbarkeit anpassen" bei Bereichen/Inventar/Terminen.
 

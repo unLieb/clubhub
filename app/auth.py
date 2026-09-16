@@ -1,5 +1,6 @@
 import bcrypt
 from fastapi import Request, HTTPException, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .database import get_db
@@ -20,12 +21,17 @@ def verify_password(password: str, password_hash: str) -> bool:
 def find_user_by_identifier(db: Session, identifier: str):
     """Sucht einen Nutzer per Name ODER Personalnummer (Login-Feld ersetzt das
     frühere Auswahl-Dropdown - ab mehr als ein paar Mitarbeitern unpraktisch,
-    zumal betriebsintern ohnehin oft mit Personalnummer angemeldet wird)."""
+    zumal betriebsintern ohnehin oft mit Personalnummer angemeldet wird).
+    Name-Vergleich bewusst case-insensitive (func.lower() statt .ilike(), da
+    ILIKE nur auf Postgres nativ case-insensitive ist) - der Anzeigename wird
+    beim Anlegen/Bearbeiten zwar automatisch auf Title Case normalisiert
+    (siehe admin_add_user/admin_edit_user in main.py), Nutzer tippen beim
+    Login aber weiterhin oft komplett klein ("uwe" statt "Uwe")."""
     identifier = identifier.strip()
     if not identifier:
         return None
     return db.query(User).filter(
-        (User.name == identifier) | (User.personnel_number == identifier)
+        (func.lower(User.name) == identifier.lower()) | (User.personnel_number == identifier)
     ).first()
 
 

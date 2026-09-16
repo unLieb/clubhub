@@ -5904,6 +5904,17 @@ def admin_notifications_connection_settings(
     return RedirectResponse(_with_toast("/admin/notifications", "Verbindungseinstellungen gespeichert."), status_code=302)
 
 
+def _format_display_name(name: str) -> str:
+    """Normalisiert den Anzeigenamen auf Title Case (z.B. "uwe" -> "Uwe",
+    "jean-luc" -> "Jean-Luc"), damit Kleinschreibung nicht in Historie,
+    Nutzerlisten etc. auftaucht, egal wie der Name beim Anlegen/Bearbeiten
+    eingetippt wurde. str.title() grossschreibt nach jedem Nicht-Buchstaben
+    (auch Bindestrich/Apostroph) - deckt Doppelnamen ab, verunstaltet aber
+    bewusst nicht behandelte Sonderfaelle wie "mcdonald" -> "Mcdonald" statt
+    "McDonald"; das ist ein bekannter Kompromiss der einfachen Regel."""
+    return name.strip().title()
+
+
 @app.post("/admin/users")
 def admin_add_user(
     request: Request,
@@ -5933,6 +5944,7 @@ def admin_add_user(
             status_code=302,
         )
     groups = [group] if group else []
+    name = _format_display_name(name)
     # Nur Admins dürfen beim Anlegen direkt Admin-/Schichtleiter-/
     # Pauschalkraft-Rechte vergeben; ein Schichtleiter legt immer nur normale
     # Mitarbeiter-Konten an, auch wenn im Formular (z.B. per direktem POST)
@@ -6020,7 +6032,7 @@ def admin_edit_user(
                 _with_toast("/admin/users", "Bitte eine Gruppe auswählen – jeder Nutzer braucht mindestens eine Gruppe.", "error"),
                 status_code=302,
             )
-        target.name = name
+        target.name = _format_display_name(name)
         target.personnel_number = personnel_number.strip() or None
         if password:
             target.password_hash = hash_password(password)
