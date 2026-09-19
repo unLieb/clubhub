@@ -284,7 +284,12 @@ wird verschlüsselt (abgeleitet aus `SECRET_KEY`) gespeichert und nie wieder
 angezeigt; wird `SECRET_KEY` geändert, muss es neu eingegeben werden. Alternativ
 lassen sich `NEXTCLOUD_ENABLED`/`NEXTCLOUD_URL`/`NEXTCLOUD_USER`/`NEXTCLOUD_PASSWORD`
 in der `docker-compose.yml` setzen (in der Verwaltung gespeicherte Werte haben
-Vorrang). Das Aufräumen alter Dateien in der Nextcloud übernimmt ClubHUB nicht.
+Vorrang). **Aufbewahrung:** nach einem erfolgreichen Upload löscht ClubHUB in der
+Nextcloud Sicherungen, die älter als 7 Tage sind (Feld „Aufbewahrung“ bzw.
+`NEXTCLOUD_RETENTION_DAYS`, `0` = nie löschen). Angefasst werden ausschließlich
+Dateien nach dem Muster `auto-JJJJMMTT-HHMMSS.db` im Zielordner – alles andere
+dort bleibt unberührt. Die Nextcloud verschiebt gelöschte Dateien zunächst in
+ihren Papierkorb; der Speicherplatz wird erst mit dessen Leerung frei.
 
 **Wichtig:** Das schützt vor Bedienfehlern, Bugs oder einer fehlgeschlagenen
 Migration, aber nicht vor Verlust des kompletten Docker-Volumes bzw. der

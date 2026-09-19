@@ -188,8 +188,8 @@
       {% endif %}
       <p class="text-[11px] text-slate-500 leading-relaxed mb-2">
         Lädt die automatische Sicherung einmal täglich per WebDAV in einen Ordner deiner Nextcloud hoch (der erste
-        erfolgreiche Lauf des Tages; klappt es nicht, versucht es der nächste Lauf erneut). Alte Dateien in der Nextcloud
-        werden nicht automatisch gelöscht.
+        erfolgreiche Lauf des Tages; klappt es nicht, versucht es der nächste Lauf erneut). Ältere Sicherungen werden dort
+        nach der eingestellten Aufbewahrung ({{ nc.retention_db if nc.retention_db != '' else nc.retention_fallback }} Tage{% if nc.retention_db == 0 %} – Löschen aus{% endif %}) automatisch entfernt.
       </p>
       <details class="group rounded-lg border border-line bg-panel2/40">
         <summary class="cursor-pointer list-none flex items-center justify-between px-3 py-2 text-sm text-slate-300 hover:text-slate-100">
@@ -224,6 +224,18 @@
                    placeholder="{% if nc.password_source == 'db' %}gespeichert – leer lassen zum Beibehalten{% elif nc.password_source == 'env' %}aus Umgebungsvariable NEXTCLOUD_PASSWORD{% elif nc.password_source == 'undecryptable' %}gespeichertes Passwort nicht lesbar – bitte neu eingeben{% else %}App-Passwort aus der Nextcloud{% endif %}"
                    class="w-full rounded-md bg-ink border {{ 'border-warn' if nc.password_source == 'undecryptable' else 'border-line' }} px-2.5 py-1.5 text-sm">
             <p class="text-[11px] text-slate-500 mt-1">In der Nextcloud unter <em>Einstellungen → Sicherheit → „Neues App-Passwort erstellen“</em> anlegen – nicht das normale Login-Passwort verwenden. Es wird verschlüsselt gespeichert und nie wieder angezeigt.</p>
+          </div>
+          <div>
+            <label for="nc-retention" class="block text-[11px] text-slate-400 mb-1">Aufbewahrung in der Nextcloud (Tage)</label>
+            <input id="nc-retention" name="nextcloud_retention_days" type="number" min="0" max="3650" step="1" inputmode="numeric"
+                   value="{{ nc.retention_db }}" placeholder="{{ nc.retention_fallback }}"
+                   class="w-full sm:w-40 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <p class="text-[11px] text-slate-500 mt-1">
+              Nach einem erfolgreichen Upload werden ältere Sicherungen im Zielordner gelöscht – ausschließlich Dateien nach dem Muster
+              <code class="bg-ink border border-line rounded px-1">auto-JJJJMMTT-HHMMSS.db</code>, alles andere bleibt unangetastet.
+              Leer = Standard ({{ nc.retention_fallback }} Tage), 0 = nie automatisch löschen. Die Nextcloud legt gelöschte Dateien
+              zunächst in ihren Papierkorb, der Speicherplatz wird also erst mit dessen Leerung frei.
+            </p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <button type="submit" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>

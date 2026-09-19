@@ -15,11 +15,12 @@ plus Log-Eintrag."""
 import base64
 import logging
 import os
+import re
 import ssl
 import uuid
 from dataclasses import dataclass
-from datetime import timezone
-from urllib.parse import quote, urlsplit, urlunsplit
+from datetime import datetime, timedelta, timezone
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
@@ -128,11 +129,30 @@ def resolve_config(settings: AppSettings | None, overrides: dict | None = None) 
     return NextcloudConfig(enabled=enabled, url=url, user=user, password=password, password_source=source)
 
 
+DEFAULT_RETENTION_DAYS = 7
+
+
+def resolve_retention_days(settings: AppSettings | None) -> int:
+    """Aufbewahrung in der Nextcloud: Wert aus der Verwaltung > Umgebungs-
+    variable NEXTCLOUD_RETENTION_DAYS > 7 Tage. 0 = nie automatisch loeschen."""
+    if settings is not None and settings.nextcloud_retention_days is not None:
+        return max(0, int(settings.nextcloud_retention_days))
+    raw = os.environ.get("NEXTCLOUD_RETENTION_DAYS", "").strip()
+    if raw:
+        try:
+            return max(0, int(raw))
+        except ValueError:
+            logger.warning("NEXTCLOUD_RETENTION_DAYS=%r ist keine ganze Zahl - Standard (%d Tage) gilt.", raw, DEFAULT_RETENTION_DAYS)
+    return DEFAULT_RETENTION_DAYS
+
+
 def view_state(settings: AppSettings) -> dict:
     """Aufbereitete Werte fuer die Karte in der Verwaltung. Das Passwort selbst
     verlaesst diese Funktion nie - nur seine Herkunft."""
     cfg = resolve_config(settings)
     return {
+        "retention_db": settings.nextcloud_retention_days if settings.nextcloud_retention_days is not None else "",
+        "retention_fallback": resolve_retention_days(None),
         "enabled": cfg.enabled,
         "complete": cfg.is_complete,
         "url_db": settings.nextcloud_url or "",
@@ -321,6 +341,52 @@ def upload_backup(cfg: NextcloudConfig, path: str) -> None:
             _raise_for_status(resp, "Upload")
 
 
+_BACKUP_NAME_RE = re.compile(r"^auto-(\d{8})-(\d{6})\.db$")
+_HREF_RE = re.compile(r"<(?:\w+:)?href>([^<]+)</(?:\w+:)?href>")
+
+
+def prune_remote(cfg: NextcloudConfig, retention_days: int, keep_filename: str) -> int:
+    """Loescht im Zielordner Sicherungen, die aelter als `retention_days` Tage
+    sind (Zeitpunkt aus dem Dateinamen, UTC - derselbe, den auch die lokale
+    Rotation nutzt). Bewusst eng gefasst, weil das die einzige Stelle ist, an
+    der ClubHUB Dateien in der Nextcloud loescht: angefasst werden
+    ausschliesslich Dateien, deren Name exakt dem Muster
+    auto-JJJJMMTT-HHMMSS.db entspricht - alles andere im Ordner (eigene
+    Dateien, Verbindungstest-Reste, manuelle Downloads) bleibt unberuehrt -,
+    und die gerade hochgeladene Datei (keep_filename) nie. retention_days <= 0
+    schaltet das Aufraeumen aus. Gibt die Anzahl geloeschter Dateien zurueck,
+    wirft NextcloudError, wenn schon das Auflisten scheitert."""
+    if retention_days <= 0:
+        return 0
+    base, _warnings = normalize_base_url(cfg.url)
+    cutoff = ntptime.now_utc() - timedelta(days=retention_days)
+    deleted = 0
+    with _client(cfg) as client:
+        resp = _request(
+            client, "PROPFIND", base,
+            headers={"Depth": "1", "Content-Type": "application/xml"}, content=_PROPFIND_BODY,
+        )
+        if resp.status_code != 207:
+            _raise_for_status(resp, "Ordner auflisten")
+        names = {unquote(h).rstrip("/").rsplit("/", 1)[-1] for h in _HREF_RE.findall(resp.text)}
+        for name in sorted(names):
+            match = _BACKUP_NAME_RE.match(name)
+            if not match or name == keep_filename:
+                continue
+            try:
+                stamp = datetime.strptime(match.group(1) + match.group(2), "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+            if stamp >= cutoff:
+                continue
+            result = _request(client, "DELETE", base + quote(name))
+            if result.status_code in (200, 204):
+                deleted += 1
+            else:
+                logger.warning("Nextcloud-Aufbewahrung: %s konnte nicht gelöscht werden (HTTP %s).", name, result.status_code)
+    return deleted
+
+
 # ---------- Scheduler-Anbindung ----------
 
 def _get_or_create_settings(db) -> AppSettings:
@@ -353,6 +419,7 @@ def upload_if_due(path: str, tz) -> None:
         last = settings.nextcloud_last_success_at
         if last and _as_utc(last).astimezone(tz).date() == now.astimezone(tz).date():
             return
+        uploaded = False
         try:
             upload_backup(cfg, path)
         except NextcloudError as exc:
@@ -368,7 +435,20 @@ def upload_if_due(path: str, tz) -> None:
             settings.nextcloud_last_success_at = now
             settings.nextcloud_last_error = None
             settings.nextcloud_last_error_at = None
+            uploaded = True
         db.commit()
+        if uploaded:
+            # Erst nach dem festgeschriebenen Erfolg und in eigenem try: ein
+            # fehlgeschlagenes Aufraeumen macht den Upload nicht nachtraeglich
+            # zum Fehler (die Sicherung liegt ja sicher in der Nextcloud).
+            try:
+                removed = prune_remote(cfg, resolve_retention_days(settings), os.path.basename(path))
+                if removed:
+                    logger.info("Nextcloud-Aufbewahrung: %d ältere Sicherung(en) gelöscht.", removed)
+            except NextcloudError as exc:
+                logger.warning("Nextcloud-Aufbewahrung: Aufräumen fehlgeschlagen: %s", exc)
+            except Exception:
+                logger.exception("Unerwarteter Fehler beim Aufräumen alter Nextcloud-Sicherungen")
     except Exception:
         logger.exception("Fehler bei der Nextcloud-Statusverwaltung")
         db.rollback()

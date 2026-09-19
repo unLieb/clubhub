@@ -676,6 +676,10 @@ class AppSettings(Base):
     nextcloud_url = Column(String, nullable=True)
     nextcloud_user = Column(String, nullable=True)
     nextcloud_password_enc = Column(String, nullable=True)
+    # Aufbewahrung in der Nextcloud in Tagen (NULL = NEXTCLOUD_RETENTION_DAYS
+    # bzw. Standard 7, 0 = nie automatisch loeschen), siehe
+    # nextcloud.prune_remote.
+    nextcloud_retention_days = Column(Integer, nullable=True)
     # Status des letzten Upload-Laufs fuer die Anzeige in der Verwaltung.
     nextcloud_last_success_at = Column(DateTime(timezone=True), nullable=True)
     nextcloud_last_error = Column(String, nullable=True)

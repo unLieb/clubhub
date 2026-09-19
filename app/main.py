@@ -683,6 +683,7 @@ def _migrate_app_settings_nextcloud(db: Session):
     _ensure_column(db, "app_settings", "nextcloud_url", "TEXT")
     _ensure_column(db, "app_settings", "nextcloud_user", "TEXT")
     _ensure_column(db, "app_settings", "nextcloud_password_enc", "TEXT")
+    _ensure_column(db, "app_settings", "nextcloud_retention_days", "INTEGER")
     _ensure_column(db, "app_settings", "nextcloud_last_success_at", "DATETIME")
     _ensure_column(db, "app_settings", "nextcloud_last_error", "TEXT")
     _ensure_column(db, "app_settings", "nextcloud_last_error_at", "DATETIME")
@@ -5722,6 +5723,7 @@ def admin_system_nextcloud_save(
     nextcloud_url: str = Form(""),
     nextcloud_user: str = Form(""),
     nextcloud_password: str = Form(""),
+    nextcloud_retention_days: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Zugangsdaten fuer den Offsite-Upload der Sicherungen (siehe
@@ -5732,6 +5734,19 @@ def admin_system_nextcloud_save(
     admin = require_admin(request, db)
     settings = get_app_settings(db)
 
+    # Vor jeder Aenderung validieren, damit ein ungueltiges Feld nicht zu einem
+    # halb uebernommenen Formular fuehrt. Leer = Umgebungsvariable/Standard.
+    retention_raw = nextcloud_retention_days.strip()
+    retention_days = None
+    if retention_raw:
+        if not retention_raw.isdigit() or int(retention_raw) > 3650:
+            return RedirectResponse(_with_toast(
+                "/admin/system",
+                "Aufbewahrung: bitte eine ganze Zahl von 0 bis 3650 Tagen angeben (0 = nie automatisch löschen).",
+                "error",
+            ), status_code=302)
+        retention_days = int(retention_raw)
+
     url_clean = nextcloud_url.strip()
     if url_clean:
         try:
@@ -5740,6 +5755,7 @@ def admin_system_nextcloud_save(
             return RedirectResponse(_with_toast("/admin/system", str(exc), "error"), status_code=302)
     settings.nextcloud_url = url_clean or None
     settings.nextcloud_user = nextcloud_user.strip() or None
+    settings.nextcloud_retention_days = retention_days
     password_changed = bool(nextcloud_password)
     if password_changed:
         settings.nextcloud_password_enc = nextcloud.encrypt_secret(nextcloud_password)

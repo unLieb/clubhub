@@ -41,6 +41,9 @@ services:
       # NEXTCLOUD_URL: "https://cloud.example.de/remote.php/dav/files/BENUTZER/ClubHUB_Backups/"
       # NEXTCLOUD_USER: "BENUTZER"
       # NEXTCLOUD_PASSWORD: "app-passwort"
+      # Wie viele Tage Sicherungen in der Nextcloud bleiben, bevor sie nach einem
+      # erfolgreichen Upload gelöscht werden (Standard 7, 0 = nie löschen).
+      # NEXTCLOUD_RETENTION_DAYS: "7"
 
       # ntfy/Gotify/Signal: Basis-URLs + Signal-Absendernummer muessen hier
       # nicht mehr gesetzt werden - direkt in der Verwaltung unter
