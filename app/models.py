@@ -665,6 +665,21 @@ class AppSettings(Base):
     gotify_base_url = Column(String, nullable=True)
     signal_base_url = Column(String, nullable=True)
     signal_sender_number = Column(String, nullable=True)
+    # Offsite-Kopie der automatischen Sicherungen per WebDAV (Nextcloud), siehe
+    # nextcloud.py. Wie bei den Verbindungen oben: NULL = es gilt die
+    # gleichnamige Umgebungsvariable (NEXTCLOUD_*), ein hier gespeicherter Wert
+    # hat Vorrang - bei nextcloud_enabled zaehlt daher auch ein explizites
+    # False ("bewusst aus"), das eine per Umgebungsvariable aktivierte
+    # Einstellung uebersteuert. Das Passwort liegt nur verschluesselt vor
+    # (nextcloud.encrypt_secret) und wird nie wieder ausgegeben.
+    nextcloud_enabled = Column(Boolean, nullable=True)
+    nextcloud_url = Column(String, nullable=True)
+    nextcloud_user = Column(String, nullable=True)
+    nextcloud_password_enc = Column(String, nullable=True)
+    # Status des letzten Upload-Laufs fuer die Anzeige in der Verwaltung.
+    nextcloud_last_success_at = Column(DateTime(timezone=True), nullable=True)
+    nextcloud_last_error = Column(String, nullable=True)
+    nextcloud_last_error_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class PushSubscription(Base):

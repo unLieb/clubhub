@@ -11,3 +11,6 @@ ntplib==0.4.0
 pywebpush==2.0.1
 reportlab==4.2.5
 webauthn==3.0.0
+# Bisher nur transitiv (pywebpush/webauthn) vorhanden - jetzt auch direkt fuer
+# die verschluesselte Ablage des Nextcloud-Passworts genutzt (nextcloud.py).
+cryptography==50.0.0

@@ -130,8 +130,8 @@
     <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
       Automatische Sicherungen laufen im Hintergrund und landen unter <code class="bg-ink border border-line rounded px-1">backups/</code>
       im Datenverzeichnis - schützt vor Bedienfehlern oder einer fehlgeschlagenen Änderung, aber nicht vor
-      Verlust des kompletten Datenverzeichnisses. Für eine zusätzliche Kopie außerhalb des Servers oben
-      hin und wieder den manuellen Download nutzen. Zeitpunkte/Aufbewahrung lassen sich über
+      Verlust des kompletten Datenverzeichnisses. Für eine zusätzliche Kopie außerhalb des Servers unten
+      die Nextcloud-Offsite-Kopie einrichten oder hin und wieder den manuellen Download nutzen. Zeitpunkte/Aufbewahrung lassen sich über
       <code class="bg-ink border border-line rounded px-1">BACKUP_SCHEDULE_HOURS</code> /
       <code class="bg-ink border border-line rounded px-1">BACKUP_RETENTION_DAYS</code> in der
       <code class="bg-ink border border-line rounded px-1">docker-compose.yml</code> anpassen.
@@ -161,6 +161,82 @@
       {% else %}
       <p class="text-sm text-slate-500 italic">Noch keine automatische Sicherung vorhanden.</p>
       {% endif %}
+    </div>
+
+    <!-- Offsite-Kopie per WebDAV/Nextcloud (siehe nextcloud.py): Status immer
+         sichtbar, die Zugangsdaten stecken in einem aufklappbaren Formular,
+         damit die ohnehin lange Karte im Normalfall nicht noch laenger wird.
+         Das Passwort wird nie zur Anzeige zurueckgegeben - nur seine Herkunft. -->
+    {% set nc = nextcloud %}
+    <div class="mt-4 pt-4 border-t border-line">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <h3 class="text-sm font-medium">Offsite-Kopie (Nextcloud)</h3>
+        <span class="text-[11px] px-2 py-0.5 rounded-full {{ 'bg-go/15 text-go' if nc.enabled else 'bg-panel2 text-slate-400' }}">{{ 'Aktiv' if nc.enabled else 'Aus' }}</span>
+      </div>
+      {% if nc.enabled %}
+      <ul class="text-sm space-y-1.5 mb-2">
+        <li class="flex justify-between gap-4"><span class="text-slate-500">Letzter Upload</span>
+          {% if nc.last_success_at %}<span class="text-go">{{ (nc.last_success_at|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr</span>{% else %}<span class="text-slate-400">noch keiner</span>{% endif %}
+        </li>
+      </ul>
+      {% endif %}
+      {% if nc.last_error %}
+      <div class="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 text-warn text-xs px-3 py-2.5 mb-2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
+        <span>Letzter Upload-Versuch{% if nc.last_error_at %} ({{ (nc.last_error_at|localtime).strftime("%d.%m., %H:%M") }} Uhr){% endif %} fehlgeschlagen: {{ nc.last_error }} Die lokalen Sicherungen sind davon nicht betroffen; beim nächsten Backup-Lauf wird es erneut versucht.</span>
+      </div>
+      {% endif %}
+      <p class="text-[11px] text-slate-500 leading-relaxed mb-2">
+        Lädt die automatische Sicherung einmal täglich per WebDAV in einen Ordner deiner Nextcloud hoch (der erste
+        erfolgreiche Lauf des Tages; klappt es nicht, versucht es der nächste Lauf erneut). Alte Dateien in der Nextcloud
+        werden nicht automatisch gelöscht.
+      </p>
+      <details class="group rounded-lg border border-line bg-panel2/40">
+        <summary class="cursor-pointer list-none flex items-center justify-between px-3 py-2 text-sm text-slate-300 hover:text-slate-100">
+          Zugangsdaten &amp; Einstellungen
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <form id="nc-form" method="post" action="/admin/system/nextcloud" class="px-3 pb-3 pt-1 space-y-3 border-t border-line">
+          <label class="flex items-center justify-between gap-3 py-1.5 cursor-pointer">
+            <span class="text-sm text-slate-200">Offsite-Kopie aktivieren</span>
+            <span class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="nc-enabled" name="nextcloud_enabled" class="sr-only peer" {% if nc.enabled %}checked{% endif %}>
+              <span class="block w-9 h-5 bg-panel2 border border-line rounded-full peer-checked:bg-go peer-checked:border-go transition-colors"></span>
+              <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></span>
+            </span>
+          </label>
+          <div>
+            <label for="nc-url" class="block text-[11px] text-slate-400 mb-1">WebDAV-Ordner-URL</label>
+            <input id="nc-url" name="nextcloud_url" type="url" value="{{ nc.url_db }}" autocomplete="off"
+                   placeholder="{{ nc.url_env or 'https://cloud.example.de/remote.php/dav/files/BENUTZER/ClubHUB_Backups/' }}"
+                   class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <p class="text-[11px] text-slate-500 mt-1">Nicht die Adresse aus dem Browser, sondern der WebDAV-Pfad (in der Nextcloud unter <em>Dateien → Einstellungen → WebDAV</em>) plus Zielordner. Fehlt der Ordner, wird er beim Test angelegt.</p>
+          </div>
+          <div>
+            <label for="nc-user" class="block text-[11px] text-slate-400 mb-1">Benutzer</label>
+            <input id="nc-user" name="nextcloud_user" type="text" value="{{ nc.user_db }}" autocomplete="off"
+                   placeholder="{{ nc.user_env or 'Nextcloud-Benutzername' }}"
+                   class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          </div>
+          <div>
+            <label for="nc-password" class="block text-[11px] text-slate-400 mb-1">App-Passwort</label>
+            <input id="nc-password" name="nextcloud_password" type="password" autocomplete="new-password"
+                   placeholder="{% if nc.password_source == 'db' %}gespeichert – leer lassen zum Beibehalten{% elif nc.password_source == 'env' %}aus Umgebungsvariable NEXTCLOUD_PASSWORD{% elif nc.password_source == 'undecryptable' %}gespeichertes Passwort nicht lesbar – bitte neu eingeben{% else %}App-Passwort aus der Nextcloud{% endif %}"
+                   class="w-full rounded-md bg-ink border {{ 'border-warn' if nc.password_source == 'undecryptable' else 'border-line' }} px-2.5 py-1.5 text-sm">
+            <p class="text-[11px] text-slate-500 mt-1">In der Nextcloud unter <em>Einstellungen → Sicherheit → „Neues App-Passwort erstellen“</em> anlegen – nicht das normale Login-Passwort verwenden. Es wird verschlüsselt gespeichert und nie wieder angezeigt.</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="submit" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+            <button type="button" id="nc-test-btn" class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium">Verbindung testen</button>
+          </div>
+          <div id="nc-test-result" role="status" class="hidden rounded-md border px-3 py-2 text-xs leading-relaxed"></div>
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            Der Test prüft die gerade eingetragenen Werte (auch ungespeichert), legt dafür eine kleine Testdatei im Zielordner an und löscht sie wieder.
+            Hier gespeicherte Werte haben Vorrang vor den Umgebungsvariablen
+            <code class="bg-ink border border-line rounded px-1">NEXTCLOUD_ENABLED/URL/USER/PASSWORD</code>.
+          </p>
+        </form>
+      </details>
     </div>
 
     <!-- Fussbereich: manuelles Wiedereinspielen - optisch klar abgesetzt, da
@@ -269,5 +345,61 @@
   <p class="text-[11px] text-slate-500 md:col-span-2">Datenbank-Sicherungen, Module &amp; Features sowie Struktur-Export/-Import sind nur für Admins sichtbar.</p>
   {% endif %}
 </div>
+
+{% if user.is_admin %}
+<script>
+  // "Verbindung testen" (Offsite-Kopie): schickt die aktuellen Formularwerte
+  // per fetch() an den Test-Endpunkt und zeigt das Ergebnis inline an - ohne
+  // Seitenwechsel, damit ungespeicherte Eingaben nicht verloren gehen. Die
+  // Meldung kommt vom Server (kann u.a. Hostnamen enthalten) und wird daher
+  // ausschliesslich per textContent eingesetzt, nie als HTML.
+  (function () {
+    var btn = document.getElementById('nc-test-btn');
+    var form = document.getElementById('nc-form');
+    var box = document.getElementById('nc-test-result');
+    if (!btn || !form || !box) return;
+    var STYLES = {
+      neutral: 'border-line bg-panel2 text-slate-300',
+      ok: 'border-go/40 bg-go/10 text-go',
+      error: 'border-late/40 bg-late/10 text-late'
+    };
+    function show(kind, lines) {
+      box.className = 'rounded-md border px-3 py-2 text-xs leading-relaxed ' + STYLES[kind];
+      box.textContent = '';
+      lines.forEach(function (line, i) {
+        var p = document.createElement('p');
+        if (i > 0) p.className = 'mt-1 text-warn';
+        p.textContent = line;
+        box.appendChild(p);
+      });
+    }
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      var label = btn.textContent;
+      btn.textContent = 'Teste…';
+      show('neutral', ['Verbindung wird geprüft …']);
+      fetch('/admin/system/nextcloud/test', {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'fetch' }
+      })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('http ' + resp.status);
+          return resp.json();
+        })
+        .then(function (data) {
+          show(data.ok ? 'ok' : 'error', [data.message].concat(data.warnings || []));
+        })
+        .catch(function () {
+          show('error', ['Der Test konnte nicht ausgeführt werden – bitte Seite neu laden und erneut versuchen.']);
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.textContent = label;
+        });
+    });
+  })();
+</script>
+{% endif %}
 
 {% endblock %}

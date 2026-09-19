@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.25.0] - 2026-09-19
+- Offsite-Kopie der automatischen Sicherungen per WebDAV in eine Nextcloud (optional, standardmäßig aus): Unter Verwaltung → System → Datenbank-Sicherungen → „Offsite-Kopie (Nextcloud)“ lassen sich WebDAV-Ordner-URL, Benutzer und App-Passwort hinterlegen und per „Verbindung testen“ prüfen – auch mit noch ungespeicherten Eingaben. Der Test legt eine kleine Testdatei an und löscht sie wieder (weist also Schreibrechte nach, nicht nur Lesezugriff), ein fehlender Zielordner wird dabei angelegt; Fehler werden verständlich erklärt (falsche Zugangsdaten, Browser-URL statt WebDAV-Pfad, Zertifikatsproblem, Server nicht erreichbar usw.). Nach der lokalen Sicherung wird sie – einmal pro Kalendertag (der erste erfolgreiche Lauf, sonst erneuter Versuch beim nächsten) – hochgeladen. Ein fehlgeschlagener oder hängender Upload (Timeout 10 s Verbindungsaufbau) gefährdet die lokale Sicherung nie und erscheint nur als Warnung auf derselben Karte sowie im Log. Das Passwort wird verschlüsselt gespeichert (aus `SECRET_KEY` abgeleitet, nie wieder angezeigt, nicht im Audit-Log). Alternativ per Umgebungsvariablen `NEXTCLOUD_ENABLED`/`URL`/`USER`/`PASSWORD` konfigurierbar (in der Verwaltung gespeicherte Werte haben Vorrang). Das Aufräumen alter Dateien in der Nextcloud übernimmt ClubHUB nicht.
+
 ## [1.24.2] - 2026-09-16
 - Hilfe & FAQ: der iPhone-Benachrichtigungs-Hinweis war als einziger Punkt standardmäßig aufgeklappt – jetzt wie alle anderen Fragen zugeklappt, für ein einheitliches Bild der Seite.
 

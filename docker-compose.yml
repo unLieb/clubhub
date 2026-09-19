@@ -31,6 +31,17 @@ services:
       # BACKUP_SCHEDULE_HOURS: "0,6,12,18"
       # BACKUP_RETENTION_DAYS: "3"
 
+      # Offsite-Kopie der automatischen Sicherungen per WebDAV (Nextcloud):
+      # einmal täglich wird die Sicherung hochgeladen. Alle vier Werte sind
+      # auch direkt in der Verwaltung unter System → Datenbank-Sicherungen
+      # pflegbar (dort gespeicherte Werte haben Vorrang) - diese Variablen
+      # bleiben nur als Fallback. Für NEXTCLOUD_PASSWORD ein in der Nextcloud
+      # erzeugtes App-Passwort verwenden, nicht das Login-Passwort.
+      # NEXTCLOUD_ENABLED: "true"
+      # NEXTCLOUD_URL: "https://cloud.example.de/remote.php/dav/files/BENUTZER/ClubHUB_Backups/"
+      # NEXTCLOUD_USER: "BENUTZER"
+      # NEXTCLOUD_PASSWORD: "app-passwort"
+
       # ntfy/Gotify/Signal: Basis-URLs + Signal-Absendernummer muessen hier
       # nicht mehr gesetzt werden - direkt in der Verwaltung unter
       # Benachrichtigungen -> "Verbindungen" pflegbar (siehe README). Diese

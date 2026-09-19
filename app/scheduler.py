@@ -12,6 +12,7 @@ from .status import task_status, compute_inventory_status
 from .notifications import notify_group, notify_groups, notify_user
 from . import ntptime
 from . import backup
+from . import nextcloud
 from . import notification_batching
 
 logger = logging.getLogger("reinigungsplan.scheduler")
@@ -353,9 +354,18 @@ def check_appointments_job():
 
 def scheduled_backup_job():
     try:
-        backup.create_scheduled_backup(BACKUP_RETENTION_DAYS)
+        backup_path = backup.create_scheduled_backup(BACKUP_RETENTION_DAYS)
     except Exception:
         logger.exception("Fehler beim automatischen Backup")
+        return
+    # Erst NACH der fertigen lokalen Sicherung und in eigenem try-Block: ein
+    # fehlgeschlagener (oder haengender) Nextcloud-Upload darf die lokale
+    # Sicherung nie gefaehrden - upload_if_due wirft selbst nie, das aeussere
+    # try ist nur der doppelte Boden.
+    try:
+        nextcloud.upload_if_due(backup_path, APP_TIMEZONE)
+    except Exception:
+        logger.exception("Unerwarteter Fehler beim Nextcloud-Upload")
 
 
 def start_scheduler():

@@ -26,6 +26,7 @@ from .database import Base, engine, get_db, DB_PATH, SessionLocal
 from . import models
 from . import ntptime
 from . import backup
+from . import nextcloud
 from . import data_export
 from . import version
 from . import push
@@ -673,6 +674,20 @@ def _migrate_app_settings_channel_config(db: Session):
     _ensure_column(db, "app_settings", "signal_sender_number", "TEXT")
 
 
+def _migrate_app_settings_nextcloud(db: Session):
+    """Neue Nextcloud-Backup-Einstellungen (siehe AppSettings.nextcloud_* und
+    nextcloud.py). NULL bei bestehenden Zeilen ist hier ausdruecklich
+    richtig: nextcloud_enabled=NULL heisst "Umgebungsvariable entscheidet"
+    (Standard: aus), nicht "deaktiviert"."""
+    _ensure_column(db, "app_settings", "nextcloud_enabled", "INTEGER")
+    _ensure_column(db, "app_settings", "nextcloud_url", "TEXT")
+    _ensure_column(db, "app_settings", "nextcloud_user", "TEXT")
+    _ensure_column(db, "app_settings", "nextcloud_password_enc", "TEXT")
+    _ensure_column(db, "app_settings", "nextcloud_last_success_at", "DATETIME")
+    _ensure_column(db, "app_settings", "nextcloud_last_error", "TEXT")
+    _ensure_column(db, "app_settings", "nextcloud_last_error_at", "DATETIME")
+
+
 def _migrate_remove_timeclock_nfc_tags(db: Session):
     """Das Ein-/Ausstempeln lief anfangs über einen gemeinsamen NFC-Tag
     (/timeclock/scan), wurde aber durch ein autorisiertes Terminal ersetzt
@@ -773,6 +788,7 @@ def _startup():
         _migrate_audit_log_drop_ip(db)
         _migrate_app_settings_module_flags(db)
         _migrate_app_settings_channel_config(db)
+        _migrate_app_settings_nextcloud(db)
         _migrate_group_cooling_access(db)
     finally:
         db.close()
@@ -5682,6 +5698,7 @@ def _admin_system_context(
         "backup_schedule_hours": BACKUP_SCHEDULE_HOURS,
         "backup_retention_days": BACKUP_RETENTION_DAYS,
         "backup_stale": _backup_health(scheduled_backups),
+        "nextcloud": nextcloud.view_state(settings),
         "restore_error": restore_error,
         "import_categories": data_export.CATEGORIES,
         "import_category_labels": data_export.CATEGORY_LABELS,
@@ -5696,6 +5713,87 @@ def _admin_system_context(
 def admin_system_page(request: Request, db: Session = Depends(get_db)):
     admin = require_admin_or_shift_lead(request, db)
     return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, db))
+
+
+@app.post("/admin/system/nextcloud")
+def admin_system_nextcloud_save(
+    request: Request,
+    nextcloud_enabled: str = Form(""),
+    nextcloud_url: str = Form(""),
+    nextcloud_user: str = Form(""),
+    nextcloud_password: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Zugangsdaten fuer den Offsite-Upload der Sicherungen (siehe
+    nextcloud.py, Karte "Datenbank-Sicherungen") - wie die Modul-Schalter
+    bewusst nur require_admin. Leere Felder loeschen den Wert wieder (dann
+    greift die Umgebungsvariable), ein leeres Passwortfeld behaelt dagegen das
+    gespeicherte bei (es wird nie zur Anzeige zurueckgegeben)."""
+    admin = require_admin(request, db)
+    settings = get_app_settings(db)
+
+    url_clean = nextcloud_url.strip()
+    if url_clean:
+        try:
+            url_clean, _warnings = nextcloud.normalize_base_url(url_clean)
+        except nextcloud.NextcloudError as exc:
+            return RedirectResponse(_with_toast("/admin/system", str(exc), "error"), status_code=302)
+    settings.nextcloud_url = url_clean or None
+    settings.nextcloud_user = nextcloud_user.strip() or None
+    password_changed = bool(nextcloud_password)
+    if password_changed:
+        settings.nextcloud_password_enc = nextcloud.encrypt_secret(nextcloud_password)
+
+    # Aktivieren nur mit vollstaendigen Zugangsdaten - sonst wuerde jeder
+    # Backup-Lauf still mit einem Fehler enden. Die Eingaben bleiben dabei
+    # gespeichert (kein Datenverlust), nur der Schalter bleibt aus.
+    wants_enabled = bool(nextcloud_enabled)
+    complete = nextcloud.resolve_config(settings).is_complete
+    settings.nextcloud_enabled = wants_enabled and complete
+    # Ein noch angezeigter Fehler bezog sich auf die alten Zugangsdaten.
+    settings.nextcloud_last_error = None
+    settings.nextcloud_last_error_at = None
+
+    log_audit(
+        db, admin, "UPDATE", "System",
+        "Nextcloud-Backup-Einstellungen aktualisiert "
+        f"({'aktiv' if settings.nextcloud_enabled else 'inaktiv'}{', Passwort geändert' if password_changed else ''}).",
+    )
+    db.commit()
+    if wants_enabled and not complete:
+        return RedirectResponse(_with_toast(
+            "/admin/system",
+            "Gespeichert, aber nicht aktiviert: zum Aktivieren werden URL, Benutzer und Passwort benötigt.",
+            "error",
+        ), status_code=302)
+    return RedirectResponse(_with_toast("/admin/system", "Nextcloud-Einstellungen gespeichert."), status_code=302)
+
+
+@app.post("/admin/system/nextcloud/test")
+def admin_system_nextcloud_test(
+    request: Request,
+    nextcloud_url: str = Form(""),
+    nextcloud_user: str = Form(""),
+    nextcloud_password: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """"Verbindung testen": prueft die gerade im Formular stehenden (noch nicht
+    gespeicherten) Werte; ein leer gelassenes Feld faellt auf den
+    gespeicherten Wert bzw. die Umgebungsvariable zurueck - so laesst sich
+    z.B. nur die URL aendern und testen, ohne das Passwort erneut einzutippen.
+    Antwortet immer mit JSON (auch bei Fehlschlag), die Anzeige uebernimmt
+    das Formular per fetch()."""
+    require_admin(request, db)
+    cfg = nextcloud.resolve_config(get_app_settings(db), overrides={
+        "url": nextcloud_url, "user": nextcloud_user, "password": nextcloud_password,
+    })
+    try:
+        return nextcloud.test_connection(cfg)
+    except nextcloud.NextcloudError as exc:
+        return {"ok": False, "message": str(exc), "warnings": []}
+    except Exception:
+        logger.exception("Unerwarteter Fehler beim Nextcloud-Verbindungstest")
+        return {"ok": False, "message": "Unerwarteter Fehler beim Test (Details im Server-Log).", "warnings": []}
 
 
 @app.post("/admin/system/modules")

@@ -270,6 +270,22 @@ automatisch eine Sicherheitskopie der aktuellen Datenbank angelegt, danach
 startet die Anwendung neu. Alternativ lässt sich jede automatische Sicherung
 dort auch einzeln herunterladen.
 
+**Offsite-Kopie per Nextcloud (optional):** Unter **Verwaltung → System →
+Datenbank-Sicherungen → Offsite-Kopie (Nextcloud)** lassen sich die Zugangsdaten
+zu einem WebDAV-Ordner deiner Nextcloud hinterlegen
+(`https://<Server>/remote.php/dav/files/<Benutzer>/<Ordner>/`, dazu Benutzer und
+ein in der Nextcloud erzeugtes **App-Passwort** – nicht das Login-Passwort).
+„Verbindung testen“ prüft die Eingaben vor dem Speichern (inkl. Schreibrecht;
+ein fehlender Zielordner wird angelegt). Danach wird die automatische Sicherung
+**einmal täglich** hochgeladen – der erste erfolgreiche Lauf des Tages, schlägt er
+fehl, versucht es der nächste erneut. Ein Fehlschlag gefährdet die lokalen
+Sicherungen nicht und erscheint als Warnung auf derselben Karte. Das Passwort
+wird verschlüsselt (abgeleitet aus `SECRET_KEY`) gespeichert und nie wieder
+angezeigt; wird `SECRET_KEY` geändert, muss es neu eingegeben werden. Alternativ
+lassen sich `NEXTCLOUD_ENABLED`/`NEXTCLOUD_URL`/`NEXTCLOUD_USER`/`NEXTCLOUD_PASSWORD`
+in der `docker-compose.yml` setzen (in der Verwaltung gespeicherte Werte haben
+Vorrang). Das Aufräumen alter Dateien in der Nextcloud übernimmt ClubHUB nicht.
+
 **Wichtig:** Das schützt vor Bedienfehlern, Bugs oder einer fehlgeschlagenen
 Migration, aber nicht vor Verlust des kompletten Docker-Volumes bzw. der
 Festplatte selbst. Dafür weiterhin regelmäßig manuell unter Verwaltung →

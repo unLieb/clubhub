@@ -44,17 +44,20 @@ def backup_filename() -> str:
     return f"clubhub-backup-{ntptime.now_utc().strftime('%Y%m%d-%H%M%S')}.db"
 
 
-def create_scheduled_backup(retention_days: int) -> None:
+def create_scheduled_backup(retention_days: int) -> str:
     """Schreibt eine automatische Sicherung ins Datenverzeichnis (per
     Scheduler mehrmals täglich aufgerufen, siehe scheduler.py) und löscht
     anschließend automatische Sicherungen, die älter als `retention_days`
-    Tage sind. Rührt Vor-Wiederherstellung-Sicherheitskopien nicht an."""
+    Tage sind. Rührt Vor-Wiederherstellung-Sicherheitskopien nicht an.
+    Gibt den Pfad der neu erzeugten Sicherung zurück (Grundlage für den
+    optionalen Offsite-Upload, siehe nextcloud.py)."""
     backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
     os.makedirs(backup_dir, exist_ok=True)
 
     now = ntptime.now_utc()
     filename = f"{AUTO_BACKUP_PREFIX}{now.strftime('%Y%m%d-%H%M%S')}.db"
-    with open(os.path.join(backup_dir, filename), "wb") as f:
+    backup_path = os.path.join(backup_dir, filename)
+    with open(backup_path, "wb") as f:
         f.write(create_backup_bytes())
 
     cutoff = now - timedelta(days=retention_days)
@@ -67,6 +70,7 @@ def create_scheduled_backup(retention_days: int) -> None:
             continue
         if ts < cutoff:
             os.remove(os.path.join(backup_dir, name))
+    return backup_path
 
 
 def list_scheduled_backups() -> list[dict]:
