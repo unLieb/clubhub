@@ -95,38 +95,37 @@ Bewusst ohne Offline-Cache: die App zeigt live Aufgabenstatus, Bestände usw.
 - veraltete gecachte Daten wären hier irreführend statt hilfreich, daher
   braucht die installierte App weiterhin eine Internetverbindung zum Server.
 
-## Deployment aufs NAS
+## Staging-Deployment auf den eigenen Docker-Host
 
-`deploy-nas.sh` synct den aktuellen Code-Stand per SSH (tar-Stream statt
-rsync, da hier keins verfügbar ist) auf ein Synology-NAS und baut/startet
-den Container dort neu. Voraussetzung ist ein SSH-Alias in `~/.ssh/config`:
+`deploy-staging.sh` baut das Image lokal, überspielt es per
+`docker save | docker load` über SSH auf den Docker-Host (Proxmox-VM) und
+startet dort den bestehenden ClubHUB-Stack (Dockhand, Compose-Datei mit dem
+echten `SECRET_KEY`) neu. Auf dem Host läuft damit exakt das Image, das danach
+nach GHCR gepusht wird. Vorher committen (der Build-Hash im Image stammt aus
+dem Git-Stand). Voraussetzung ist ein SSH-Alias in `~/.ssh/config`:
 
 ```
-Host nas-clubhub
-    HostName <NAS-IP>
-    Port <SSH-Port>
-    User <NAS-Benutzer>
+Host dockerhost
+    HostName <Host-IP>
+    Port 22
+    User <Benutzer>
     IdentityFile ~/.ssh/<privater-key>
     IdentitiesOnly yes
 ```
 
-Der zugehörige öffentliche Schlüssel muss vorher in
-`~/.ssh/authorized_keys` des NAS-Benutzers eingetragen sein (z.B. über
-File Station, versteckte Dateien einblenden).
-
 ```bash
-./deploy-nas.sh
+./deploy-staging.sh
 ```
 
-`docker-compose.yml` wird bewusst **nicht** mitsynct, da die NAS-Kopie den
-echten `SECRET_KEY` enthält (im Repo steht nur ein Platzhalter). Änderungen
-an der `docker-compose.yml` (neue Env-Variablen o.ä.) müssen daher bei
-Bedarf einmalig manuell auf dem NAS nachgezogen werden.
+Die `docker-compose.yml` des Stacks auf dem Host wird bewusst **nicht**
+angefasst (sie enthält den echten `SECRET_KEY`, im Repo steht nur ein
+Platzhalter). Änderungen daran (neue Env-Variablen o.ä.) pflegt man dort direkt
+in Dockhand.
 
 ## Deployment ohne eigenen Server-Zugriff (fertiges Image)
 
 Für einen Server, der nicht selbst administriert wird (z.B. eine Firmen-IT
-oder externe Kolleg:innen), eignet sich `deploy-nas.sh` nicht – das setzt
+oder externe Kolleg:innen), eignet sich `deploy-staging.sh` nicht – das setzt
 eigenen SSH-Zugriff voraus. Stattdessen landet bei jedem Release zusätzlich
 ein fertig gebautes Image in der **öffentlichen** GitHub Container Registry
 (`ghcr.io/unlieb/clubhub`), das sich mit Docker direkt starten lässt – ohne
@@ -262,13 +261,40 @@ selben Docker-Volume wie die Datenbank), Status einsehbar unter
 Stunden) und `BACKUP_RETENTION_DAYS` in der `docker-compose.yml` anpassbar,
 z.B. auf ein Backup pro Tag reduzieren, wenn sich wenig ändert.
 
+**Bilder:** Hochgeladene Bilder (Meldungs-, Inventar- und Aufbau-Fotos,
+Feedback-Fotos, Profilbilder) liegen unter `uploads/` im Datenverzeichnis und
+stecken nicht in der SQLite-Datenbank – die automatischen `auto-*.db`-Sicherungen
+enthalten sie deshalb nicht. Sie werden getrennt gesichert:
+
+- **Manueller Download** (Verwaltung → System → „Backup herunterladen (mit
+  Bildern)“): ZIP mit der Datenbank (`putzplan.db`) und allen Bildern
+  (`uploads/<Bereich>/<Datei>`). Wer nur die Datenbank will, nimmt den Link „Nur
+  Datenbank (.db)“.
+- **Bild-Archiv:** einmal täglich (beim ersten Sicherungslauf des Tages, nur wenn
+  Bilder vorhanden sind) entsteht neben den DB-Sicherungen eine
+  `bilder-JJJJMMTT-HHMMSS.zip` in `backups/`, mit derselben Aufbewahrung
+  (`BACKUP_RETENTION_DAYS`). Sie erscheint in der Verwaltung unter „Bild-Archive“
+  und lässt sich dort herunterladen.
+- **Nextcloud:** siehe unten – Bilder werden einzeln hochgeladen.
+
 **Wiederherstellen:** Unter Verwaltung → System → Automatische Sicherungen →
 „Einzelne Sicherungen" den gewünschten Zeitpunkt aufklappen und
 „Wiederherstellen" wählen (nur Admins) – ersetzt die laufende Datenbank direkt
 mit diesem Stand, ohne Umweg über Herunterladen/Hochladen. Vorher wird
 automatisch eine Sicherheitskopie der aktuellen Datenbank angelegt, danach
-startet die Anwendung neu. Alternativ lässt sich jede automatische Sicherung
+startet die Anwendung neu. Die Bilder bleiben dabei unberührt (sie liegen im
+selben Datenverzeichnis). Alternativ lässt sich jede automatische Sicherung
 dort auch einzeln herunterladen.
+
+**Manuelles Backup einspielen** (z. B. auf einem neuen Server): nimmt das
+ZIP-Backup, ein Bild-Archiv, einen in der Nextcloud als ZIP heruntergeladenen
+Ordner und – wie bisher – eine reine `.db`-Datei. Eine enthaltene Datenbank
+ersetzt alle aktuellen Daten (vorher automatische Sicherheitskopie, danach
+Neustart). Bilder werden nur ergänzt, nie gelöscht; was schon in gleicher Größe
+vorhanden ist, bleibt unberührt. Ein reines Bild-Archiv ändert die Datenbank
+nicht und braucht keinen Neustart. Bei einem Nextcloud-Ordner werden nur die
+Bilder unter `…/uploads/<Bereich>/<Datei>` übernommen – die Datenbank dazu
+separat als `.db` einspielen.
 
 **Offsite-Kopie per Nextcloud (optional):** Unter **Verwaltung → System →
 Datenbank-Sicherungen → Offsite-Kopie (Nextcloud)** lassen sich die Zugangsdaten
@@ -290,12 +316,21 @@ Nextcloud Sicherungen, die älter als 7 Tage sind (Feld „Aufbewahrung“ bzw.
 Dateien nach dem Muster `auto-JJJJMMTT-HHMMSS.db` im Zielordner – alles andere
 dort bleibt unberührt. Die Nextcloud verschiebt gelöschte Dateien zunächst in
 ihren Papierkorb; der Speicherplatz wird erst mit dessen Leerung frei.
+**Bilder** gehen bei jedem Sicherungslauf einzeln in den Unterordner `uploads/`
+des Zielordners (`uploads/<Bereich>/<Datei>`): pro Bereich wird der Remote-Ordner
+einmal aufgelistet, was dort mit gleichem Namen und gleicher Größe liegt, wird
+übersprungen – übertragen wird also nur Neues. Ein großer Rückstand (z. B. beim
+ersten Lauf) wird auf mehrere Läufe verteilt (Zeitbudget ca. 4 Minuten je Lauf).
+Bilder werden in der Nextcloud **nie gelöscht**, auch nicht, wenn sie in ClubHUB
+entfernt wurden; die Aufbewahrung oben gilt nur für die DB-Sicherungen. Der Stand
+steht auf derselben Karte („Bilder“), Fehler (z. B. Speicherkontingent voll)
+erscheinen als Warnung und werden beim nächsten Lauf erneut versucht.
 
 **Wichtig:** Das schützt vor Bedienfehlern, Bugs oder einer fehlgeschlagenen
 Migration, aber nicht vor Verlust des kompletten Docker-Volumes bzw. der
-Festplatte selbst. Dafür weiterhin regelmäßig manuell unter Verwaltung →
-System → Backup herunterladen und die Datei an einem anderen Ort (eigener
-Rechner, NAS, Cloud-Speicher) ablegen.
+Festplatte selbst. Dafür die Nextcloud-Offsite-Kopie einrichten oder
+regelmäßig manuell unter Verwaltung → System → Backup herunterladen und die
+Datei an einem anderen Ort (eigener Rechner, NAS, Cloud-Speicher) ablegen.
 
 ## Benachrichtigungskanäle einrichten
 

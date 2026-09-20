@@ -358,14 +358,25 @@ def scheduled_backup_job():
     except Exception:
         logger.exception("Fehler beim automatischen Backup")
         return
+    # Bilder (liegen nicht in der Datenbank): einmal taeglich als Archiv neben
+    # den DB-Sicherungen, eigener try-Block - ein Fehler hier darf weder die
+    # DB-Sicherung noch den Nextcloud-Upload verhindern.
+    try:
+        backup.create_scheduled_images_archive(BACKUP_RETENTION_DAYS, APP_TIMEZONE)
+    except Exception:
+        logger.exception("Fehler beim taeglichen Bild-Archiv")
     # Erst NACH der fertigen lokalen Sicherung und in eigenem try-Block: ein
     # fehlgeschlagener (oder haengender) Nextcloud-Upload darf die lokale
-    # Sicherung nie gefaehrden - upload_if_due wirft selbst nie, das aeussere
-    # try ist nur der doppelte Boden.
+    # Sicherung nie gefaehrden - upload_if_due/sync_images_if_enabled werfen
+    # selbst nie, das aeussere try ist nur der doppelte Boden.
     try:
         nextcloud.upload_if_due(backup_path, APP_TIMEZONE)
     except Exception:
         logger.exception("Unerwarteter Fehler beim Nextcloud-Upload")
+    try:
+        nextcloud.sync_images_if_enabled()
+    except Exception:
+        logger.exception("Unerwarteter Fehler beim Nextcloud-Bilderabgleich")
 
 
 def start_scheduler():

@@ -5,7 +5,9 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import signal
+import tempfile
 import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin, urlparse, quote, urlencode
@@ -13,7 +15,8 @@ from urllib.parse import urljoin, urlparse, quote, urlencode
 import httpx
 from markupsafe import Markup
 from fastapi import FastAPI, Request, Depends, Form, File, UploadFile, BackgroundTasks, HTTPException, Query
-from fastapi.responses import RedirectResponse, Response, HTMLResponse
+from fastapi.responses import RedirectResponse, Response, HTMLResponse, FileResponse
+from starlette.background import BackgroundTask
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -694,6 +697,10 @@ def _migrate_app_settings_nextcloud(db: Session):
     _ensure_column(db, "app_settings", "nextcloud_last_success_at", "DATETIME")
     _ensure_column(db, "app_settings", "nextcloud_last_error", "TEXT")
     _ensure_column(db, "app_settings", "nextcloud_last_error_at", "DATETIME")
+    _ensure_column(db, "app_settings", "nextcloud_images_synced_at", "DATETIME")
+    _ensure_column(db, "app_settings", "nextcloud_images_summary", "TEXT")
+    _ensure_column(db, "app_settings", "nextcloud_images_error", "TEXT")
+    _ensure_column(db, "app_settings", "nextcloud_images_error_at", "DATETIME")
 
 
 def _migrate_remove_timeclock_nfc_tags(db: Session):
@@ -5775,6 +5782,11 @@ def _admin_system_context(
         "app_timezone": os.environ.get("APP_TIMEZONE", "Europe/Berlin"),
         "ntp_status": ntptime.status(),
         "scheduled_backups": scheduled_backups,
+        "image_archives": [
+            {**a, "timestamp_local": a["timestamp"].astimezone(APP_TIMEZONE)}
+            for a in backup.list_image_archives()
+        ],
+        "uploads_stats": backup.uploads_stats(),
         "backup_schedule_hours": BACKUP_SCHEDULE_HOURS,
         "backup_retention_days": BACKUP_RETENTION_DAYS,
         "backup_stale": _backup_health(scheduled_backups),
@@ -5848,6 +5860,8 @@ def admin_system_nextcloud_save(
     # Ein noch angezeigter Fehler bezog sich auf die alten Zugangsdaten.
     settings.nextcloud_last_error = None
     settings.nextcloud_last_error_at = None
+    settings.nextcloud_images_error = None
+    settings.nextcloud_images_error_at = None
 
     log_audit(
         db, admin, "UPDATE", "System",
@@ -5923,16 +5937,41 @@ def admin_resync_ntp(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/admin/system/backup")
-def admin_download_backup(request: Request, db: Session = Depends(get_db)):
+def admin_download_backup(
+    request: Request, nur_datenbank: str = Query(""), db: Session = Depends(get_db),
+):
+    """Standard: ZIP mit Datenbank UND allen Bildern (uploads/ liegt nicht in
+    der SQLite-Datei). Mit ?nur_datenbank=1 wie bisher nur die .db-Datei."""
     admin = require_admin(request, db)
-    data = backup.create_backup_bytes()
-    log_audit(db, admin, "READ", "System", "Vollständiges Backup heruntergeladen.")
+    if nur_datenbank:
+        data = backup.create_backup_bytes()
+        log_audit(db, admin, "READ", "System", "Datenbank-Backup (nur .db, ohne Bilder) heruntergeladen.")
+        db.commit()
+        return Response(
+            content=data,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{backup.backup_filename()}"'},
+        )
+    # Temporaere Datei statt Bytes im Speicher (Bilder koennen gross werden),
+    # nach dem Ausliefern wieder loeschen.
+    zip_path = backup.create_full_backup_zip()
+    log_audit(db, admin, "READ", "System", "Vollständiges Backup (Datenbank + Bilder) heruntergeladen.")
     db.commit()
-    return Response(
-        content=data,
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{backup.backup_filename()}"'},
+    return FileResponse(
+        zip_path,
+        media_type="application/zip",
+        filename=backup.backup_filename("zip"),
+        background=BackgroundTask(os.remove, zip_path),
     )
+
+
+@app.get("/admin/system/image-archive/{filename}/download")
+def admin_download_image_archive(filename: str, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    path = backup.image_archive_path(filename)
+    if not path:
+        raise HTTPException(status_code=404)
+    return FileResponse(path, media_type="application/zip", filename=filename)
 
 
 @app.get("/admin/system/scheduled-backup/{filename}/download")
@@ -5995,7 +6034,11 @@ def _trigger_restart():
     os.kill(os.getpid(), signal.SIGTERM)
 
 
-def _restore_success_response() -> HTMLResponse:
+def _restore_success_response(images_restored: int = 0) -> HTMLResponse:
+    images_note = (
+        f"<p style=\"opacity:.8;font-size:.9em;margin-top:.5rem;\">Dazu {images_restored} Bild(er) eingespielt.</p>"
+        if images_restored else ""
+    )
     return HTMLResponse("""<!doctype html>
 <html lang="de"><head><meta charset="utf-8">
 <meta http-equiv="refresh" content="6;url=/admin/system">
@@ -6004,6 +6047,7 @@ def _restore_success_response() -> HTMLResponse:
              display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
 <div style="text-align:center;max-width:24rem;padding:1.5rem;">
   <p>Datenbank wiederhergestellt. Die Anwendung startet neu…</p>
+  """ + images_note + """
   <p style="opacity:.6;font-size:.85em;margin-top:.5rem;">Diese Seite lädt in wenigen Sekunden automatisch neu.</p>
 </div>
 </body></html>""")
@@ -6017,17 +6061,36 @@ async def admin_restore_backup(
     db: Session = Depends(get_db),
 ):
     admin = require_admin(request, db)
-    data = await file.read()
-    error = backup.restore_from_bytes(data)
-    if error:
-        return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, db, restore_error=error))
+    # Upload blockweise in eine temporaere Datei schreiben (ein ZIP mit
+    # Bildern kann gross sein - nicht komplett in den Arbeitsspeicher laden).
+    fd, tmp_path = tempfile.mkstemp(suffix=".upload")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                out.write(chunk)
+        result = backup.restore_from_upload(tmp_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+    if result.error:
+        return templates.TemplateResponse("admin_system.html", _admin_system_context(request, admin, db, restore_error=result.error))
+    if not result.db_restored:
+        # Nur Bilder (z.B. Bild-Archiv oder aus der Nextcloud heruntergeladener
+        # Ordner): Datenbank unveraendert, kein Neustart noetig.
+        logger.warning(f"Bilder-Wiederherstellung (Upload) durch „{admin.name}“ (id={admin.id}): "
+                       f"{result.images_restored} eingespielt, {result.images_already_present} schon vorhanden")
+        return RedirectResponse(_with_toast(
+            "/admin/system",
+            f"Bilder eingespielt: {result.images_restored} neu, {result.images_already_present} waren schon vorhanden.",
+        ), status_code=302)
     # Bewusst kein log_audit(): die Wiederherstellung tauscht die komplette
     # Datenbankdatei aus, ein kurz zuvor committeter Log-Eintrag ginge dabei
     # sofort wieder verloren (siehe Kommentar an AuditLog in models.py) -
     # daher stattdessen ins Docker-Log, das unabhaengig von der DB-Datei ist.
-    logger.warning(f"Datenbank-Wiederherstellung (Upload) durch „{admin.name}“ (id={admin.id})")
+    logger.warning(f"Datenbank-Wiederherstellung (Upload) durch „{admin.name}“ (id={admin.id}), "
+                   f"{result.images_restored} Bild(er) eingespielt")
     background_tasks.add_task(_trigger_restart)
-    return _restore_success_response()
+    return _restore_success_response(result.images_restored)
 
 
 @app.post("/admin/system/scheduled-backup/{filename}/restore")

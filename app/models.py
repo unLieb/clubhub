@@ -690,6 +690,13 @@ class AppSettings(Base):
     nextcloud_last_success_at = Column(DateTime(timezone=True), nullable=True)
     nextcloud_last_error = Column(String, nullable=True)
     nextcloud_last_error_at = Column(DateTime(timezone=True), nullable=True)
+    # Status des Bilder-Abgleichs (siehe nextcloud.sync_images) - getrennt vom
+    # DB-Upload oben, da er anders getaktet ist (jeder Sicherungslauf statt
+    # einmal taeglich) und unabhaengig davon gelingen oder scheitern kann.
+    nextcloud_images_synced_at = Column(DateTime(timezone=True), nullable=True)
+    nextcloud_images_summary = Column(String, nullable=True)
+    nextcloud_images_error = Column(String, nullable=True)
+    nextcloud_images_error_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class PushSubscription(Base):

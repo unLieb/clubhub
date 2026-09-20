@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import ssl
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -27,7 +28,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-from . import ntptime
+from . import backup, ntptime
 from .database import SessionLocal
 from .models import AppSettings
 
@@ -163,6 +164,10 @@ def view_state(settings: AppSettings) -> dict:
         "last_success_at": settings.nextcloud_last_success_at,
         "last_error": settings.nextcloud_last_error,
         "last_error_at": settings.nextcloud_last_error_at,
+        "images_synced_at": settings.nextcloud_images_synced_at,
+        "images_summary": settings.nextcloud_images_summary,
+        "images_error": settings.nextcloud_images_error,
+        "images_error_at": settings.nextcloud_images_error_at,
     }
 
 
@@ -385,6 +390,162 @@ def prune_remote(cfg: NextcloudConfig, retention_days: int, keep_filename: str) 
             else:
                 logger.warning("Nextcloud-Aufbewahrung: %s konnte nicht gelöscht werden (HTTP %s).", name, result.status_code)
     return deleted
+
+
+# ---------- Bilder (uploads/) einzeln abgleichen ----------
+
+# Unterordner im Zielordner: <Zielordner>/uploads/<Bereich>/<Datei> - dieselbe
+# Struktur wie im Datenverzeichnis, damit ein als ZIP heruntergeladener
+# Nextcloud-Ordner direkt wieder einspielbar ist (siehe backup._restore_from_zip).
+# prune_remote fasst diesen Ordner nie an (es betrachtet nur Dateien nach dem
+# Muster auto-JJJJMMTT-HHMMSS.db direkt im Zielordner).
+IMAGES_REMOTE_DIR = "uploads"
+# Zeitbudget je Lauf: ein grosser Rueckstand (z.B. erster Abgleich mit vielen
+# hundert Fotos) darf den Scheduler-Thread nicht stundenlang belegen, sonst
+# wuerde der naechste lokale Backup-Lauf uebersprungen. Der Rest folgt beim
+# naechsten Lauf (mehrmals taeglich).
+IMAGE_SYNC_TIME_BUDGET = 240.0
+
+_PROPFIND_SIZE_BODY = (
+    '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:getcontentlength/></d:prop></d:propfind>'
+)
+_RESPONSE_RE = re.compile(r"<(?:\w+:)?response\b[^>]*>(.*?)</(?:\w+:)?response>", re.DOTALL)
+_CONTENT_LENGTH_RE = re.compile(r"<(?:\w+:)?getcontentlength[^>]*>\s*(\d+)\s*<")
+
+
+def _list_remote_files(client: httpx.Client, folder_url: str) -> dict[str, int] | None:
+    """Dateien (Name -> Groesse in Bytes) direkt in einem Remote-Ordner;
+    None, wenn der Ordner nicht existiert. Ordner selbst haben keine
+    Groesse und tauchen daher nicht auf."""
+    resp = _request(
+        client, "PROPFIND", folder_url,
+        headers={"Depth": "1", "Content-Type": "application/xml"}, content=_PROPFIND_SIZE_BODY,
+    )
+    if resp.status_code == 404:
+        return None
+    if resp.status_code != 207:
+        _raise_for_status(resp, "Bilder-Ordner auflisten")
+    files: dict[str, int] = {}
+    for block in _RESPONSE_RE.findall(resp.text):
+        href = _HREF_RE.search(block)
+        size = _CONTENT_LENGTH_RE.search(block)
+        if href and size:
+            files[unquote(href.group(1)).rstrip("/").rsplit("/", 1)[-1]] = int(size.group(1))
+    return files
+
+
+def _make_folder(client: httpx.Client, folder_url: str) -> None:
+    resp = _request(client, "MKCOL", folder_url)
+    if resp.status_code not in (201, 405):  # 405 = existiert (inzwischen) bereits
+        _raise_for_status(resp, "Bilder-Ordner anlegen")
+
+
+def sync_images(cfg: NextcloudConfig, files: list[tuple[str, str, str]], time_budget: float = IMAGE_SYNC_TIME_BUDGET) -> dict:
+    """Laedt Bilder (Bereich, Dateiname, lokaler Pfad) einzeln in den Ordner
+    uploads/<Bereich>/ der Nextcloud hoch. Pro Bereich wird der Remote-Ordner
+    nur ein Mal aufgelistet; was dort mit gleichem Namen und gleicher Groesse
+    schon liegt, wird uebersprungen (Dateinamen sind zufaellig und der Inhalt
+    aendert sich nie). Es wird nie etwas geloescht - auch nicht, wenn ein Bild
+    in ClubHUB entfernt wurde. Bei einem Fehler (z.B. Speicherkontingent,
+    Zugangsdaten) bricht der Lauf ab und wirft NextcloudError. Gibt
+    {"total", "uploaded", "present", "remaining"} zurueck."""
+    stats = {"total": 0, "uploaded": 0, "present": 0, "remaining": 0}
+    if not files:
+        return stats
+    if not cfg.is_complete:
+        raise NextcloudError("Nextcloud-Upload ist aktiviert, aber URL, Benutzer oder Passwort fehlen bzw. sind nicht lesbar.")
+    base, _warnings = normalize_base_url(cfg.url)
+    root = base + IMAGES_REMOTE_DIR + "/"
+    deadline = time.monotonic() + time_budget
+
+    by_sub: dict[str, list[tuple[str, str]]] = {}
+    for sub, name, path in files:
+        by_sub.setdefault(sub, []).append((name, path))
+
+    with _client(cfg) as client:
+        _ensure_folder(client, base)
+        if _list_remote_files(client, root) is None:
+            _make_folder(client, root)
+        for sub, items in by_sub.items():
+            sub_url = root + quote(sub) + "/"
+            remote = _list_remote_files(client, sub_url)
+            if remote is None:
+                _make_folder(client, sub_url)
+                remote = {}
+            for name, path in items:
+                try:
+                    size = os.path.getsize(path)
+                except OSError:
+                    continue  # zwischenzeitlich geloescht
+                stats["total"] += 1
+                if remote.get(name) == size:
+                    stats["present"] += 1
+                    continue
+                if time.monotonic() > deadline:
+                    stats["remaining"] += 1
+                    continue
+                try:
+                    with open(path, "rb") as f:
+                        data = f.read()
+                except OSError:
+                    stats["total"] -= 1
+                    continue
+                resp = _request(client, "PUT", sub_url + quote(name), content=data)
+                if resp.status_code not in (201, 204):
+                    _raise_for_status(resp, "Bild hochladen")
+                stats["uploaded"] += 1
+    return stats
+
+
+def _images_summary(stats: dict) -> str:
+    total, uploaded, remaining = stats["total"], stats["uploaded"], stats["remaining"]
+    if total == 0:
+        return "Noch keine Bilder vorhanden."
+    done = stats["present"] + uploaded
+    text = f"{done} von {total} Bildern gesichert" if remaining else f"{total} Bilder gesichert"
+    if uploaded:
+        text += f" ({uploaded} neu hochgeladen)"
+    if remaining:
+        text += f" – die restlichen {remaining} folgen beim nächsten Lauf"
+    return text
+
+
+def sync_images_if_enabled(time_budget: float = IMAGE_SYNC_TIME_BUDGET) -> None:
+    """Wird vom Scheduler nach jeder lokalen Sicherung aufgerufen (anders als
+    der DB-Upload nicht nur einmal pro Tag: der Abgleich ist bei nichts Neuem
+    guenstig - eine Auflistung je Bereich -, und so holt ein grosser Rueckstand
+    ueber mehrere Laeufe auf). Wirft nie; Status/Fehler landen wie beim DB-
+    Upload in AppSettings fuer die Anzeige in der Verwaltung."""
+    db = SessionLocal()
+    try:
+        settings = _get_or_create_settings(db)
+        cfg = resolve_config(settings)
+        if not cfg.enabled:
+            return
+        now = ntptime.now_utc()
+        try:
+            stats = sync_images(cfg, list(backup.iter_upload_files()), time_budget)
+        except NextcloudError as exc:
+            logger.warning("Nextcloud-Bilderabgleich fehlgeschlagen: %s", exc)
+            settings.nextcloud_images_error = str(exc)
+            settings.nextcloud_images_error_at = now
+        except Exception:
+            logger.exception("Unerwarteter Fehler beim Nextcloud-Bilderabgleich")
+            settings.nextcloud_images_error = "Unerwarteter Fehler beim Bilderabgleich (Details im Server-Log)."
+            settings.nextcloud_images_error_at = now
+        else:
+            if stats["uploaded"]:
+                logger.info("Nextcloud-Bilderabgleich: %d Bild(er) neu hochgeladen.", stats["uploaded"])
+            settings.nextcloud_images_synced_at = now
+            settings.nextcloud_images_summary = _images_summary(stats)
+            settings.nextcloud_images_error = None
+            settings.nextcloud_images_error_at = None
+        db.commit()
+    except Exception:
+        logger.exception("Fehler bei der Nextcloud-Statusverwaltung (Bilder)")
+        db.rollback()
+    finally:
+        db.close()
 
 
 # ---------- Scheduler-Anbindung ----------

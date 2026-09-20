@@ -108,15 +108,19 @@
   <section class="rounded-xl border border-line bg-panel p-4">
     <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
       <h2 class="font-display font-medium">Datenbank-Sicherungen</h2>
-      <a href="/admin/system/backup" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Aktuelles Backup herunterladen
-      </a>
+      <div class="flex items-center gap-3 flex-wrap">
+        <a href="/admin/system/backup" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap" title="ZIP mit Datenbank und allen Bildern">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Backup herunterladen (mit Bildern)
+        </a>
+        <a href="/admin/system/backup?nur_datenbank=1" class="text-xs text-slate-400 hover:text-slate-100 underline underline-offset-2 whitespace-nowrap" title="Nur die Datenbank (.db), ohne Bilder">Nur Datenbank (.db)</a>
+      </div>
     </div>
 
     <ul class="text-sm space-y-1.5">
       <li class="flex justify-between gap-4"><span class="text-slate-500">Automatisch zu</span><span class="text-slate-300">{{ backup_schedule_hours }} Uhr</span></li>
       <li class="flex justify-between gap-4"><span class="text-slate-500">Aufbewahrung</span><span class="text-slate-300">{{ backup_retention_days }} Tage</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Bilder im System</span><span class="text-slate-300">{{ uploads_stats.count }} Datei{{ 'en' if uploads_stats.count != 1 else '' }}{% if uploads_stats.count %} ({{ ((uploads_stats.size_bytes / 1048576)|round(1)) }} MB){% endif %}</span></li>
       {% if scheduled_backups %}
       <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Sicherung</span><span class="{{ 'text-warn' if backup_stale else 'text-go' }}">{{ scheduled_backups[0].timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</span></li>
       {% endif %}
@@ -130,7 +134,9 @@
     <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
       Automatische Sicherungen laufen im Hintergrund und landen unter <code class="bg-ink border border-line rounded px-1">backups/</code>
       im Datenverzeichnis - schützt vor Bedienfehlern oder einer fehlgeschlagenen Änderung, aber nicht vor
-      Verlust des kompletten Datenverzeichnisses. Für eine zusätzliche Kopie außerhalb des Servers unten
+      Verlust des kompletten Datenverzeichnisses. Die Bilder (Meldungs-, Inventar- und Aufbau-Fotos, Profilbilder)
+      stecken nicht in der Datenbank: sie werden einmal täglich als eigenes Bild-Archiv gesichert, der
+      manuelle Download enthält sie als ZIP. Für eine zusätzliche Kopie außerhalb des Servers unten
       die Nextcloud-Offsite-Kopie einrichten oder hin und wieder den manuellen Download nutzen. Zeitpunkte/Aufbewahrung lassen sich über
       <code class="bg-ink border border-line rounded px-1">BACKUP_SCHEDULE_HOURS</code> /
       <code class="bg-ink border border-line rounded px-1">BACKUP_RETENTION_DAYS</code> in der
@@ -161,6 +167,27 @@
       {% else %}
       <p class="text-sm text-slate-500 italic">Noch keine automatische Sicherung vorhanden.</p>
       {% endif %}
+
+      <h3 class="text-sm font-medium mt-4 mb-2">Bild-Archive ({{ image_archives|length }})</h3>
+      {% if image_archives %}
+      <ul class="space-y-1 text-sm max-h-40 overflow-y-auto pr-2">
+        {% for a in image_archives %}
+        <li class="flex items-center justify-between gap-3 border-b border-line/50 last:border-0 py-2">
+          <div class="min-w-0">
+            <div class="text-slate-300">{{ a.timestamp_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</div>
+            <div class="text-[11px] text-slate-500">{{ ((a.size_bytes / 1048576)|round(1)) }} MB</div>
+          </div>
+          <a href="/admin/system/image-archive/{{ a.filename }}/download" class="px-2.5 py-1.5 rounded-md border border-line hover:bg-panel2 text-xs font-medium whitespace-nowrap shrink-0">Herunterladen</a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-slate-500 italic">{% if uploads_stats.count %}Noch kein Bild-Archiv vorhanden – das erste entsteht beim nächsten Sicherungslauf.{% else %}Keine Bilder vorhanden, daher noch kein Archiv.{% endif %}</p>
+      {% endif %}
+      <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
+        Bild-Archive sind ZIP-Dateien und lassen sich unten über „Manuelles Backup einspielen“ wieder einspielen
+        (nur ergänzend – vorhandene Bilder bleiben unberührt, die Datenbank ändert sich dabei nicht).
+      </p>
     </div>
 
     <!-- Offsite-Kopie per WebDAV/Nextcloud (siehe nextcloud.py): Status immer
@@ -178,7 +205,16 @@
         <li class="flex justify-between gap-4"><span class="text-slate-500">Letzter Upload</span>
           {% if nc.last_success_at %}<span class="text-go">{{ (nc.last_success_at|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr</span>{% else %}<span class="text-slate-400">noch keiner</span>{% endif %}
         </li>
+        <li class="flex justify-between gap-4"><span class="text-slate-500 shrink-0">Bilder</span>
+          {% if nc.images_synced_at %}<span class="text-go text-right" title="Stand {{ (nc.images_synced_at|localtime).strftime('%d.%m.%Y, %H:%M') }} Uhr">{{ nc.images_summary }}</span>{% else %}<span class="text-slate-400">noch nicht abgeglichen</span>{% endif %}
+        </li>
       </ul>
+      {% endif %}
+      {% if nc.images_error %}
+      <div class="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 text-warn text-xs px-3 py-2.5 mb-2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a1.7 1.7 0 0 0 1.5 2.5h17a1.7 1.7 0 0 0 1.5-2.5L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z"/></svg>
+        <span>Letzter Bilder-Abgleich{% if nc.images_error_at %} ({{ (nc.images_error_at|localtime).strftime("%d.%m., %H:%M") }} Uhr){% endif %} fehlgeschlagen: {{ nc.images_error }} Beim nächsten Backup-Lauf wird es erneut versucht.</span>
+      </div>
       {% endif %}
       {% if nc.last_error %}
       <div class="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 text-warn text-xs px-3 py-2.5 mb-2">
@@ -190,6 +226,11 @@
         Lädt die automatische Sicherung einmal täglich per WebDAV in einen Ordner deiner Nextcloud hoch (der erste
         erfolgreiche Lauf des Tages; klappt es nicht, versucht es der nächste Lauf erneut). Ältere Sicherungen werden dort
         nach der eingestellten Aufbewahrung ({{ nc.retention_db if nc.retention_db != '' else nc.retention_fallback }} Tage{% if nc.retention_db == 0 %} – Löschen aus{% endif %}) automatisch entfernt.
+      </p>
+      <p class="text-[11px] text-slate-500 leading-relaxed mb-2">
+        Die Bilder werden bei jedem Lauf einzeln in den Unterordner <code class="bg-ink border border-line rounded px-1">uploads/</code>
+        des Zielordners hochgeladen – was dort schon liegt, wird übersprungen, es wird also nur Neues übertragen. Bilder werden in der
+        Nextcloud nie gelöscht, auch nicht, wenn sie in ClubHUB entfernt wurden; die Aufbewahrung oben gilt nur für die Datenbank-Sicherungen.
       </p>
       <details class="group rounded-lg border border-line bg-panel2/40">
         <summary class="cursor-pointer list-none flex items-center justify-between px-3 py-2 text-sm text-slate-300 hover:text-slate-100">
@@ -259,15 +300,17 @@
       <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">{{ restore_error }}</div>
       {% endif %}
       <form method="post" action="/admin/system/restore" enctype="multipart/form-data"
-            onsubmit="return confirmSubmit(event, { title: 'Backup wiederherstellen?', message: 'Die aktuelle Datenbank wird komplett durch diese Datei ersetzt. Vorher wird automatisch eine Sicherheitskopie angelegt, danach startet die Anwendung neu.', confirmText: 'Wiederherstellen', danger: true })"
+            onsubmit="return confirmSubmit(event, { title: 'Backup einspielen?', message: 'Enthält die Datei eine Datenbank, wird die aktuelle Datenbank komplett dadurch ersetzt (vorher automatische Sicherheitskopie, danach startet die Anwendung neu). Enthaltene Bilder werden nur ergänzt, vorhandene bleiben unberührt.', confirmText: 'Einspielen', danger: true })"
             class="space-y-2">
-        {{ dz.dropzone('file', 'backup-restore', accept='.db,application/octet-stream', label='Backup-Datei (.db) hierher ziehen oder auswählen', required=True) }}
+        {{ dz.dropzone('file', 'backup-restore', accept='.zip,.db,application/zip,application/octet-stream', label='Backup (.zip oder .db) hierher ziehen oder auswählen', required=True) }}
         <button class="w-full sm:w-auto px-3 py-1.5 rounded-md bg-late/90 hover:bg-late text-white text-sm font-medium whitespace-nowrap">Wiederherstellen</button>
       </form>
       <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
-        Ersetzt alle aktuellen Daten durch den Inhalt der hochgeladenen Datei. Vor der Wiederherstellung wird
-        automatisch eine Sicherheitskopie der aktuellen Datenbank unter <code>backups/</code> im Datenverzeichnis
-        abgelegt; danach startet die Anwendung kurz neu.
+        Akzeptiert das ZIP-Backup (Datenbank + Bilder), ein Bild-Archiv, einen aus der Nextcloud als ZIP heruntergeladenen
+        Ordner (nur die Bilder darin werden übernommen) und – wie bisher – eine reine <code>.db</code>-Datei.
+        Eine enthaltene Datenbank ersetzt alle aktuellen Daten; vorher wird automatisch eine Sicherheitskopie
+        unter <code>backups/</code> im Datenverzeichnis abgelegt, danach startet die Anwendung kurz neu. Bilder werden nur
+        ergänzt, nie gelöscht – ein reines Bild-Archiv ändert die Datenbank nicht und braucht keinen Neustart.
       </p>
     </div>
   </section>
