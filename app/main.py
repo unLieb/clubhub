@@ -430,6 +430,13 @@ def _migrate_report_in_progress(db: Session):
     _ensure_column(db, "reports", "in_progress_by_id", "INTEGER")
 
 
+def _migrate_report_title(db: Session):
+    """Neue Spalte: kurzer Titel je Meldung. Kein Backfill - fuer Alt-Meldungen
+    wird er beim Anzeigen aus dem Beschreibungstext abgeleitet (siehe
+    split_report_text)."""
+    _ensure_column(db, "reports", "title", "VARCHAR")
+
+
 def _migrate_appointment_company_wide(db: Session):
     """Neue Option "Alle (Betriebsweit)" fuer Termine (kein Altdaten-Bezug,
     Standard: False)."""
@@ -763,6 +770,7 @@ def _startup():
         _migrate_report_product_url(db)
         _migrate_report_groups_backfill(db)
         _migrate_report_in_progress(db)
+        _migrate_report_title(db)
         _migrate_appointment_company_wide(db)
         _migrate_appointment_groups_backfill(db)
         _migrate_report_photos(db)
@@ -2977,7 +2985,8 @@ def _create_cooling_alert(db: Session, background_tasks: BackgroundTasks, device
         f"erfasst von {user.name}."
     )
     report = models.Report(
-        room_id=None, user_id=user.id, comment=comment, priority="critical", category="kuehlung",
+        room_id=None, user_id=user.id, title=f"Kühlzelle „{device.name}“: Grenzwert überschritten"[:REPORT_TITLE_MAX],
+        comment=comment, priority="critical", category="kuehlung",
         is_company_wide=device.group_id is None,
     )
     if device.group_id is not None:
@@ -3253,6 +3262,44 @@ REPORT_PRIORITY_RANK = {p: i for i, p in enumerate(REPORT_PRIORITIES)}
 # muss aber trotzdem hier stehen, damit reports_create() diese Kategorie
 # nicht auf "sonstiges" zurueckfaellt und REPORT_ROOMLESS_CATEGORIES greift.
 REPORT_CATEGORIES = ("defekt", "material", "reinigung", "anschaffung", "sonstiges", "kuehlung")
+REPORT_TITLE_MAX = 80
+
+
+def _derive_report_title(text: str) -> tuple[str, bool]:
+    """Leitet aus einem Freitext einen Kurztitel ab: erste nicht-leere Zeile,
+    bei Ueberlaenge am Satzende bzw. Wortende gekappt. Liefert (Titel,
+    vollstaendig) - vollstaendig=True, wenn der Titel die komplette erste
+    Zeile ist (also nichts abgeschnitten wurde)."""
+    first = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+    if len(first) <= REPORT_TITLE_MAX:
+        return first, True
+    head = first[:REPORT_TITLE_MAX]
+    # Bevorzugt am Satzende schneiden, sonst am letzten Leerzeichen.
+    sentence_end = max(head.rfind(". "), head.rfind("! "), head.rfind("? "))
+    if sentence_end >= 25:
+        return head[: sentence_end + 1], False
+    cut = head.rfind(" ")
+    head = head[:cut] if cut >= 25 else head
+    return head.rstrip(" ,;:-") + "…", False
+
+
+def split_report_text(r) -> tuple[str, str]:
+    """(Titel, Beschreibung) einer Meldung fuer die Anzeige. Neue Meldungen
+    haben einen eigenen Titel; bei Alt-Meldungen (title NULL) wird er aus dem
+    Text abgeleitet, und eine dann doppelte erste Zeile faellt aus der
+    Beschreibung heraus, damit nichts zweimal untereinander steht."""
+    comment = (r.comment or "").strip()
+    if r.title:
+        return r.title, comment
+    title, complete = _derive_report_title(comment)
+    if not complete:
+        return title, comment
+    lines = comment.splitlines()
+    idx = next((i for i, ln in enumerate(lines) if ln.strip()), 0)
+    return title, "\n".join(lines[idx + 1:]).strip()
+
+
+templates.env.globals["report_title_parts"] = split_report_text
 # Materialwunsch/Anschaffung ist an keinen Bereich gebunden (siehe
 # models.Report.room_id) - man bestellt fuer die eigene Gruppe, nicht für
 # einen Raum, daher braucht diese Kategorie zwingend eine zustaendige Gruppe
@@ -3484,6 +3531,7 @@ async def reports_create(
     request: Request,
     background_tasks: BackgroundTasks,
     room_id: str = Form(""),
+    title: str = Form(""),
     comment: str = Form(""),
     priority: str = Form("normal"),
     category: str = Form("sonstiges"),
@@ -3506,11 +3554,25 @@ async def reports_create(
     # Anfrage kam also tatsaechlich ganz ohne comment-Feld an. Jetzt wie die
     # anderen Pflichtfelder in dieser Route (room_id, assigned_group_ids
     # unten) mit sicherem Leer-Default plus eigener, freundlicher Meldung.
+    #
+    # Seit v1.27.0: Pflicht ist der kurze Titel, die Beschreibung optional.
+    # Fehlt der Titel (z.B. eine noch aus dem Cache geladene alte Formular-
+    # seite ohne Titelfeld, die nur "comment" sendet), wird er wie bei
+    # Alt-Meldungen aus der Beschreibung abgeleitet, statt die Eingabe
+    # abzulehnen; der Titel darf nie laenger als REPORT_TITLE_MAX sein.
+    title = " ".join(title.split())
     comment = comment.strip()
-    if not comment:
+    if not title and comment:
+        title, complete = _derive_report_title(comment)
+        if complete:
+            # Text war komplett kurz genug -> Titel = Text, keine Doppelung.
+            comment = "\n".join(comment.splitlines()[1:]).strip() if "\n" in comment else ""
+    if not title:
         return RedirectResponse(
-            _with_toast("/reports", "Bitte eine Beschreibung eingeben.", "error"), status_code=302,
+            _with_toast("/reports", "Bitte einen Titel eingeben.", "error"), status_code=302,
         )
+    if len(title) > REPORT_TITLE_MAX:
+        title = title[:REPORT_TITLE_MAX].rstrip()
 
     if category not in REPORT_CATEGORIES:
         category = "sonstiges"
@@ -3562,7 +3624,7 @@ async def reports_create(
         product_url = ""
 
     report = models.Report(
-        room_id=room_id_int, user_id=user.id, comment=comment, priority=priority, category=category,
+        room_id=room_id_int, user_id=user.id, title=title, comment=comment, priority=priority, category=category,
         is_company_wide=is_company_wide, product_url=product_url or None,
     )
     if selected_group_ids:
@@ -3601,7 +3663,8 @@ async def reports_create(
         joinedload(models.Group.channels),
         joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
     )
-    msg = comment if len(comment) <= 200 else comment[:197] + "…"
+    msg = f"{title} – {comment}" if comment else title
+    msg = msg if len(msg) <= 200 else msg[:197] + "…"
     focus_url = f"/reports?focus=report-{report.id}"
     if roomless:
         if is_company_wide:
@@ -3626,11 +3689,11 @@ async def reports_create(
             .first()
         )
         if room:
-            title = f"Neue Meldung: {room.name}"
+            notify_title = f"Neue Meldung: {room.name}"
             if is_company_wide:
                 all_groups = db.query(models.Group).options(*group_loaders).all()
                 if all_groups:
-                    background_tasks.add_task(notify_groups, all_groups, title, msg, "default", focus_url)
+                    background_tasks.add_task(notify_groups, all_groups, notify_title, msg, "default", focus_url)
             elif selected_group_ids:
                 # Explizite Zuständigkeit(en) gewählt (z.B. "Technik") - nur
                 # diese Gruppe(n) benachrichtigen, unabhängig davon, welche
@@ -3642,10 +3705,10 @@ async def reports_create(
                     .all()
                 )
                 if assigned_groups:
-                    background_tasks.add_task(notify_groups, assigned_groups, title, msg, "default", focus_url)
+                    background_tasks.add_task(notify_groups, assigned_groups, notify_title, msg, "default", focus_url)
             else:
                 for group in room.groups:
-                    background_tasks.add_task(notify_group, group, title, msg, "default", focus_url)
+                    background_tasks.add_task(notify_group, group, notify_title, msg, "default", focus_url)
 
     return RedirectResponse("/reports", status_code=302)
 
@@ -3718,7 +3781,8 @@ def reports_set_status(
         # neuen Meldung bewusst ohne Arbeitszeit-Fenster: bleibt konsistent
         # mit dem Verhalten der ursprünglichen Meldungs-Benachrichtigung.
         title = f"{STATUS_CHANGE_TITLES[status]}: {report.room.name if report.room else 'Materialwunsch'}"
-        comment_preview = report.comment if len(report.comment) <= 120 else report.comment[:117] + "…"
+        report_title, _body = split_report_text(report)
+        comment_preview = report_title if len(report_title) <= 120 else report_title[:117] + "…"
         msg = f"{user.name}: „{comment_preview}“"
         if report.is_company_wide:
             target_groups = db.query(models.Group).options(*group_loaders).all()

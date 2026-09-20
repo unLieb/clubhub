@@ -7,6 +7,7 @@
 {% block content %}
 
 {% macro report_card(r, meta) %}
+{% set r_title, r_body = report_title_parts(r) %}
 <div id="report-{{ r.id }}" data-ajax-row data-report-status="{{ r.status }}" class="rounded-xl border border-line border-l-4 {{ rb.priority_border(r.priority) }} bg-panel p-4 {% if r.status == 'done' %}opacity-75{% endif %}">
 
   <!-- Kopfzeile: immer sichtbar -->
@@ -20,7 +21,7 @@
     </div>
     <div class="min-w-0 flex-1 basis-52">
       <div class="flex items-center gap-2 flex-wrap mb-1">{% if r.priority %}{{ rb.priority_badge(r.priority) }}{% endif %}{{ rb.category_badge(r.category) }}</div>
-      <p class="font-medium line-clamp-2">{{ r.comment }}</p>
+      <p class="font-medium line-clamp-2">{{ r_title }}</p>
       <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
         {% if r.room %}
         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
@@ -82,7 +83,7 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
     </summary>
 
-    <div class="mt-3 pt-3 ml-6 border-t border-line">
+    <div class="report-details-body mt-3 pt-3 ml-6 border-t border-line">
       <div class="report-tabs" data-group="r{{ r.id }}">
         <div class="flex items-center gap-4 border-b border-line mb-3 text-sm">
           <button type="button" class="tab-btn pb-2 border-b-2 border-go text-slate-100 font-medium" data-target="details">Details</button>
@@ -93,8 +94,10 @@
         <!-- Tab: Details -->
         <div class="tab-panel grid lg:grid-cols-2 gap-4" data-tab="details">
           <div>
+            {% if r_body %}
             <h4 class="text-sm font-medium mb-2">Beschreibung</h4>
-            <p class="text-sm text-slate-300">{{ r.comment | urlize }}</p>
+            <p class="text-sm text-slate-300 whitespace-pre-line break-words">{{ r_body | urlize }}</p>
+            {% endif %}
             {% if r.product_url %}
             <a href="{{ r.product_url }}" target="_blank" rel="noopener noreferrer"
                class="inline-flex items-center gap-1.5 mt-2 text-xs font-medium px-2.5 py-1.5 rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors">
@@ -103,7 +106,7 @@
             </a>
             {% endif %}
 
-            <h4 class="text-sm font-medium mb-2 mt-4">Bilder{% if r.photos %} ({{ r.photos|length }}){% endif %}</h4>
+            <h4 class="text-sm font-medium mb-2 {% if r_body or r.product_url %}mt-4{% endif %}">Bilder{% if r.photos %} ({{ r.photos|length }}){% endif %}</h4>
             <div class="flex flex-wrap gap-2">
               {% for p in r.photos %}
               <a href="/uploads/reports/{{ p.filename }}" target="_blank">
@@ -317,8 +320,12 @@
         <input type="hidden" name="link_preview_image" id="report-f-link-image-hidden">
       </div>
       <div>
-        <label class="block text-[11px] text-slate-400 mb-1">Beschreibung</label>
-        <textarea name="comment" id="report-f-comment" required rows="2" placeholder="Was ist los? Z.B. „Seifenspender leer“ oder „Fliese in der Ecke kaputt“…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+        <label class="block text-[11px] text-slate-400 mb-1" for="report-f-title">Titel <span class="text-slate-500 font-normal">– kurz und knapp</span></label>
+        <input name="title" id="report-f-title" required maxlength="80" autocomplete="off" placeholder="Z.B. „Seifenspender leer“ oder „Fliese in der Ecke kaputt“" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1" for="report-f-comment">Beschreibung <span class="text-slate-500 font-normal">– optional</span></label>
+        <textarea name="comment" id="report-f-comment" rows="2" placeholder="Weitere Details, falls nötig…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-1">Bilder (optional, mehrere möglich)</label>
@@ -378,8 +385,9 @@
     var groupCheckboxes = document.querySelectorAll('.report-f-group-checkbox');
     var groupHint = document.getElementById('report-f-group-hint');
     var commentField = document.getElementById('report-f-comment');
-    var PLACEHOLDER_DEFAULT = 'Was ist los? Z.B. „Seifenspender leer“ oder „Fliese in der Ecke kaputt“…';
-    var PLACEHOLDER_ANSCHAFFUNG = 'Was wird benötigt? Z.B. Akku-Schrauber für die Werkstatt oder neue Kaffeemaschine…';
+    var titleField = document.getElementById('report-f-title');
+    var PLACEHOLDER_DEFAULT = 'Z.B. „Seifenspender leer“ oder „Fliese in der Ecke kaputt“';
+    var PLACEHOLDER_ANSCHAFFUNG = 'Was wird benötigt? Z.B. „Akku-Schrauber für die Werkstatt“';
     var linkField = document.getElementById('report-f-link-field');
     var linkInput = document.getElementById('report-f-link');
     var linkStatus = document.getElementById('report-f-link-status');
@@ -412,7 +420,7 @@
       if (isAnschaffung && groupAutoRadio.checked && groupRadios.length > 1) {
         groupRadios[1].checked = true;
       }
-      commentField.placeholder = isAnschaffung ? PLACEHOLDER_ANSCHAFFUNG : PLACEHOLDER_DEFAULT;
+      titleField.placeholder = isAnschaffung ? PLACEHOLDER_ANSCHAFFUNG : PLACEHOLDER_DEFAULT;
       linkField.classList.toggle('hidden', !isAnschaffung);
       if (!isAnschaffung) {
         // Beim Verlassen der Kategorie zuruecksetzen, damit kein verwaistes
@@ -523,10 +531,15 @@
             return;
           }
           setLinkStatus('');
-          if (!commentField.value.trim()) {
-            var text = data.title || '';
-            if (data.description) text += (text ? '\n' : '') + data.description;
-            commentField.value = text;
+          // Produktname -> Titel, Produkttext -> Beschreibung; beides nur,
+          // wenn das jeweilige Feld noch leer ist.
+          if (!titleField.value.trim() && data.title) {
+            titleField.value = data.title.length > titleField.maxLength
+              ? data.title.slice(0, titleField.maxLength - 1).trimEnd() + '…'
+              : data.title;
+          }
+          if (!commentField.value.trim() && data.description) {
+            commentField.value = data.description;
           }
           if (data.image_url) {
             linkPreviewImg.src = data.image_url;

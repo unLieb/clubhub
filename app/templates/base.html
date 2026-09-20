@@ -98,6 +98,19 @@
   .room-name-accent {
     color: color-mix(in oklab, var(--room-name-color) var(--room-name-mix), black);
   }
+  /* Meldungs-Karten (reports.html): Details blenden weich ein statt
+     hart aufzuspringen. <details> laesst sich nicht auf die Hoehe animieren,
+     Ein-/Ausblenden + leichtes Herabgleiten wirkt aber fliessend genug. */
+  details[open] > .report-details-body {
+    animation: report-details-reveal 0.2s ease-out;
+  }
+  @keyframes report-details-reveal {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    details[open] > .report-details-body { animation: none; }
+  }
 </style>
 </head>
 <body class="bg-bg text-slate-100 font-body min-h-screen" data-vapid-key="{{ vapid_public_key() if user else '' }}" data-live-refresh="{% block live_refresh %}{% endblock %}">

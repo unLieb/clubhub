@@ -465,6 +465,12 @@ class Report(Base):
     # weiterhin zwingend einen Bereich (siehe Validierung in reports_create).
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # Kurzer Titel/Betreff fuer die Karten-Uebersicht. NULL bei Meldungen von
+    # vor v1.27.0 - dort wird er beim Anzeigen aus comment abgeleitet (siehe
+    # split_report_text in main.py), bewusst kein Backfill, damit die
+    # Original-Texte unveraendert bleiben.
+    title = Column(String, nullable=True)
+    # Ausfuehrliche Beschreibung (seit v1.27.0 optional, kann leer sein).
     comment = Column(String, nullable=False)
     # Veraltet (einzelnes Foto) - bleibt für Altdaten stehen, siehe ReportPhoto.
     # create_all() legt nur fehlende Tabellen an und ändert bestehende nicht,

@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.27.0] - 2026-09-20
+- Meldungen: Titel und Beschreibung sind jetzt getrennt. Beim Erstellen gibt es ein kurzes Pflichtfeld „Titel“ (max. 80 Zeichen), die Beschreibung ist optional. Die Karte zeigt eingeklappt nur den Titel mit Badges und Metadaten; erst unter „Details“ erscheint die vollständige Beschreibung (weich eingeblendet, bei aktivierter Bewegungsreduzierung ohne Animation) – der Text steht dort nicht mehr zusätzlich als abgeschnittene Vorschau in der Kopfzeile. Dashboard-Vorschau und Push-Benachrichtigungen nutzen ebenfalls den Titel. Der Produkt-Link-Assistent trägt den Produktnamen als Titel und den Produkttext als Beschreibung ein. Automatische Kühlzellen-Meldungen bekommen einen eigenen Titel.
+- Bestehende Meldungen bleiben unverändert: ihr Titel wird beim Anzeigen aus dem Text abgeleitet (erste Zeile bzw. erster Satz, gekürzt auf 80 Zeichen); eine dabei doppelte erste Zeile fällt aus der Beschreibung heraus. Kurze Alt-Meldungen zeigen darum nur noch den Titel. Neue Spalte `reports.title` wird beim Start automatisch angelegt (kein Backfill).
+
 ## [1.26.2] - 2026-09-20
 - Bugfix: Der rote Zähler an „Meldungen“ in der Navigation zählte alle offenen Meldungen des ganzen Betriebs, auch solche, die der Nutzer gar nicht sehen darf – Liste und Dashboard zeigten dann eine niedrigere Zahl. Der Zähler nutzt jetzt dieselbe Sichtbarkeitsprüfung wie die Meldungsliste (eigene Gruppen, Betriebsweit, selbst erstellte Meldungen; Admin und Schichtleiter sehen weiterhin alle).
 
