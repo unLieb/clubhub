@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.26.1] - 2026-09-20
+- Bugfix Meldungen: Wer eine Meldung an eine fremde Gruppe richtete (z. B. an die Toilettenbetreuung, ohne selbst dazuzugehören), sah sie danach selbst nicht mehr und bekam nicht mit, ob sie bearbeitet oder erledigt wurde. Selbst erstellte Meldungen sind jetzt immer für den Ersteller sichtbar – unabhängig von Zuständigkeit und Gruppen. Für alle anderen ändert sich nichts: Unbeteiligte sehen die Meldung weiterhin nicht.
+
 ## [1.26.0] - 2026-09-19
 - Nextcloud-Offsite-Kopie: automatische Aufbewahrung. Nach jedem erfolgreichen Upload werden Sicherungen im Zielordner gelöscht, die älter als die eingestellte Aufbewahrung sind (Standard 7 Tage; Feld „Aufbewahrung in der Nextcloud“ bzw. `NEXTCLOUD_RETENTION_DAYS`, `0` = nie löschen). Bewusst eng gefasst, da dies die einzige Stelle ist, an der ClubHUB Dateien in der Nextcloud löscht: angefasst werden ausschließlich Dateien exakt nach dem Muster `auto-JJJJMMTT-HHMMSS.db` (Zeitpunkt aus dem Dateinamen), alles andere im Ordner bleibt unberührt, ebenso die gerade hochgeladene Datei. Ein fehlgeschlagenes Aufräumen macht den Upload nicht zum Fehler (nur Log-Eintrag). Hinweis: die Nextcloud verschiebt gelöschte Dateien zunächst in ihren Papierkorb.
 

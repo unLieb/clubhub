@@ -3262,17 +3262,22 @@ def _sort_reports(reports):
 
 def user_can_see_report(user, report) -> bool:
     """Admin und Schichtleiter sehen alle Meldungen; alle anderen nur
-    Meldungen mit "Alle (Betriebsweit)" sowie Meldungen der eigenen
-    Gruppe(n) - entweder explizit zugewiesen (report.groups, seit der
-    Mehrfachauswahl auch mehrere moeglich) oder über die Bereichsgruppen
-    abgeleitet (Bereich ohne Gruppe = gemeinsam genutzt, analog zu
-    user_can_see_room/user_can_see_inventory_item)."""
+    Meldungen mit "Alle (Betriebsweit)", Meldungen der eigenen Gruppe(n) -
+    entweder explizit zugewiesen (report.groups, seit der Mehrfachauswahl
+    auch mehrere moeglich) oder über die Bereichsgruppen abgeleitet (Bereich
+    ohne Gruppe = gemeinsam genutzt, analog zu user_can_see_room/
+    user_can_see_inventory_item) - sowie immer die selbst erstellten: wer eine
+    Meldung an eine fremde Gruppe (z.B. Toilettenbetreuung) richtet, muss
+    sehen koennen, ob sie inzwischen bearbeitet bzw. erledigt wurde, auch
+    wenn er selbst nicht zustaendig ist."""
     if user and (user.is_admin or user.is_shift_lead):
         return True
     if report.is_company_wide:
         return True
     if not user:
         return False
+    if report.user_id == user.id:
+        return True
     if report.groups:
         assigned_ids = {g.id for g in report.groups}
         return any(g.id in assigned_ids for g in user.groups)
