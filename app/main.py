@@ -2554,7 +2554,17 @@ def nav_badges(request: Request) -> dict:
         user = get_current_user(request, db)
         if not user:
             return {"reports": 0, "inventory": 0, "cooling": 0}
-        reports_open = db.query(models.Report).filter(models.Report.status != "done").count()
+        # Nur die Meldungen zaehlen, die der Nutzer auch sehen darf (dieselbe
+        # Pruefung wie Meldungsliste und Dashboard) - sonst zeigt die Navigation
+        # eine hoehere Zahl als die Liste dahinter. Beziehungen vorab laden,
+        # weil das bei jedem Seitenaufruf laeuft.
+        open_reports = (
+            db.query(models.Report)
+            .options(joinedload(models.Report.groups), joinedload(models.Report.room).joinedload(models.Room.groups))
+            .filter(models.Report.status != "done")
+            .all()
+        )
+        reports_open = sum(1 for r in open_reports if user_can_see_report(user, r))
         items = filter_inventory_for_user(db.query(models.InventoryItem).all(), user)
         inventory_critical = sum(1 for i in items if compute_inventory_status(i)["status"] == "low")
         devices = filter_cooling_devices_for_user(db.query(models.CoolingDevice).all(), user)

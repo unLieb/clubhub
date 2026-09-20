@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.26.2] - 2026-09-20
+- Bugfix: Der rote Zähler an „Meldungen“ in der Navigation zählte alle offenen Meldungen des ganzen Betriebs, auch solche, die der Nutzer gar nicht sehen darf – Liste und Dashboard zeigten dann eine niedrigere Zahl. Der Zähler nutzt jetzt dieselbe Sichtbarkeitsprüfung wie die Meldungsliste (eigene Gruppen, Betriebsweit, selbst erstellte Meldungen; Admin und Schichtleiter sehen weiterhin alle).
+
 ## [1.26.1] - 2026-09-20
 - Bugfix Meldungen: Wer eine Meldung an eine fremde Gruppe richtete (z. B. an die Toilettenbetreuung, ohne selbst dazuzugehören), sah sie danach selbst nicht mehr und bekam nicht mit, ob sie bearbeitet oder erledigt wurde. Selbst erstellte Meldungen sind jetzt immer für den Ersteller sichtbar – unabhängig von Zuständigkeit und Gruppen. Für alle anderen ändert sich nichts: Unbeteiligte sehen die Meldung weiterhin nicht.
 
