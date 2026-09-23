@@ -3307,6 +3307,18 @@ def split_report_text(r) -> tuple[str, str]:
 
 
 templates.env.globals["report_title_parts"] = split_report_text
+
+
+def report_photo_urls(photos) -> list[str]:
+    """Foto-URLs einer Meldung als einfache Liste, fuer den Klick-zum-
+    Vergroessern-Trigger auf dem Karten-Vorschaubild (siehe reports.html +
+    static/photo_lightbox.js). Serverseitig statt per Jinja-Filter zusammen-
+    gebaut, damit sich die URL-Bildung (Verzeichnis, Dateiname) nicht doppelt
+    im Template wiederholt."""
+    return [f"/uploads/reports/{p.filename}" for p in photos]
+
+
+templates.env.globals["report_photo_urls"] = report_photo_urls
 # Materialwunsch/Anschaffung ist an keinen Bereich gebunden (siehe
 # models.Report.room_id) - man bestellt fuer die eigene Gruppe, nicht für
 # einen Raum, daher braucht diese Kategorie zwingend eine zustaendige Gruppe
@@ -3940,6 +3952,11 @@ def reports_assign(
 
 @app.post("/reports/{report_id}/photos")
 async def reports_add_photos(
+    # Seit der Karten-Entrümpelung (kein Upload-Feld mehr direkt auf der
+    # Meldungskarte, siehe reports.html) aus der UI nicht mehr erreichbar -
+    # bewusst nicht entfernt, da geplant ist, dass weitere Fotos (z.B. ein
+    # "Beweisbild" nach der Reparatur) kuenftig ueber einen Kommentar
+    # angehaengt werden koennen, was denselben Upload-Mechanismus braucht.
     report_id: int,
     request: Request,
     photos: list[UploadFile] = File([]),

@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.30.1] - 2026-09-23
+- Meldungen: die zusätzliche Foto-Reihe unter der Beschreibung war doppelt gemoppelt (das erste Bild stand schon als Vorschau in der Kopfzeile) und der eigene „Bild hinzufügen“-Button wieder entfernt – Fotos sollen künftig über einen Kommentar ergänzt werden (z. B. ein „Beweisbild“ nach der Reparatur), nicht direkt auf der Karte. Das Vorschaubild in der Kopfzeile ist stattdessen jetzt klickbar: es öffnet alle Fotos der Meldung an den Bildschirm angepasst, mit „Originalgröße“-Link und – bei mehreren Fotos – Vor/Zurück-Navigation.
+
 ## [1.30.0] - 2026-09-23
 - Meldungen: Beschreibung, Fotos und ein hinterlegter Produkt-Link stehen jetzt direkt auf der Karte, ohne „Details“ aufzuklappen (Nutzer-Feedback: die Beschreibung ging dort unter – ein Kollege hatte sie schlicht nicht gesehen, weil er nie aufgeklappt hatte). Hinter „Details“ bleiben nur noch die eher administrativen bzw. Verlaufs-Inhalte: Zuständigkeit ändern, Bereichsgruppe, exakte Zeitstempel, Kommentare und Verlauf.
 
