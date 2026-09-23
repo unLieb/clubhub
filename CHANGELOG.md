@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.30.0] - 2026-09-23
+- Meldungen: Beschreibung, Fotos und ein hinterlegter Produkt-Link stehen jetzt direkt auf der Karte, ohne „Details“ aufzuklappen (Nutzer-Feedback: die Beschreibung ging dort unter – ein Kollege hatte sie schlicht nicht gesehen, weil er nie aufgeklappt hatte). Hinter „Details“ bleiben nur noch die eher administrativen bzw. Verlaufs-Inhalte: Zuständigkeit ändern, Bereichsgruppe, exakte Zeitstempel, Kommentare und Verlauf.
+
 ## [1.29.0] - 2026-09-20
 - Meldungen: Angleichung an die Termine-Seite. Statt des freistehenden Mülleimer-Buttons gibt es an jeder Meldungskarte ein Drei-Punkte-Menü (•••) mit der Aktion „Löschen“ in Rot – sichtbar wie bisher nur für den Ersteller und Admins, mit derselben Sicherheitsabfrage. Das Menü schließt bei Klick daneben oder mit Esc; es ist per Event-Delegation angebunden und funktioniert deshalb auch nach dem Verschieben einer Karte zwischen „Offene“ und „Erledigte Meldungen“.
 - Erledigte Meldungen sind wie vergangene Termine optisch zurückgenommen: `opacity-60` (vorher 75 %) und ein grauer linker Rand statt der Prioritätsfarbe. Beim Statuswechsel per Auswahlfeld wird das ohne Neuladen umgeschaltet, beim Wiederöffnen kehrt die Prioritätsfarbe zurück.

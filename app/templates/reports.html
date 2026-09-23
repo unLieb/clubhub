@@ -90,7 +90,47 @@
     </div>
   </div>
 
-  <!-- Details: klappt darunter auf, leicht eingerückt -->
+  <!-- Immer sichtbar, kein Klick noetig: Beschreibung, Fotos, Produkt-Link.
+       Bis v1.28.x steckte das hinter "Details" - ist dort aber untergegangen
+       (Nutzer-Feedback: ein Kollege hat die Beschreibung schlicht nicht
+       gesehen, weil er "Details" nie aufgeklappt hat). Nur noch eher
+       administrative/Verlaufs-Inhalte (Kommentare, Verlauf, Zustaendigkeit
+       aendern, exakte Zeitstempel) bleiben unten hinter "Details". -->
+  {% if r_body or r.photos or r.product_url or user %}
+  <div class="mt-3 pt-3 border-t border-line">
+    {% if r_body %}
+    <p class="text-sm text-slate-300 whitespace-pre-line break-words">{{ r_body | urlize }}</p>
+    {% endif %}
+    {% if r.product_url %}
+    <a href="{{ r.product_url }}" target="_blank" rel="noopener noreferrer"
+       class="inline-flex items-center gap-1.5 {% if r_body %}mt-2{% endif %} text-xs font-medium px-2.5 py-1.5 rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+      Zum Shop / Produkt
+    </a>
+    {% endif %}
+    {% if r.photos or user %}
+    <div class="flex flex-wrap gap-2 {% if r_body or r.product_url %}mt-3{% endif %}">
+      {% for p in r.photos %}
+      <a href="/uploads/reports/{{ p.filename }}" target="_blank">
+        <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-14 h-14 rounded-lg object-cover border border-line">
+      </a>
+      {% endfor %}
+      {% if user %}
+      <form method="post" action="/reports/{{ r.id }}/photos" enctype="multipart/form-data" class="contents">
+        <label class="w-14 h-14 rounded-lg border border-dashed border-line flex flex-col items-center justify-center text-slate-500 hover:bg-panel2 hover:text-slate-300 cursor-pointer text-[10px] gap-1">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Bild
+          <input type="file" name="photos" accept="image/*" multiple class="hidden" onchange="this.form.submit()">
+        </label>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Details: klappt darunter auf, leicht eingerückt - nur noch Zustaendig-
+       keit aendern, exakte Zeitstempel, Kommentare und Verlauf. -->
   <details class="mt-3 group">
     <summary class="cursor-pointer list-none flex items-center justify-end gap-1 text-sm text-slate-400 hover:text-slate-100">
       Details
@@ -98,48 +138,8 @@
     </summary>
 
     <div class="report-details-body mt-3 pt-3 ml-6 border-t border-line">
-      <div class="report-tabs" data-group="r{{ r.id }}">
-        <div class="flex items-center gap-4 border-b border-line mb-3 text-sm">
-          <button type="button" class="tab-btn pb-2 border-b-2 border-go text-slate-100 font-medium" data-target="details">Details</button>
-          <button type="button" class="tab-btn pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-100" data-target="comments">Kommentare{% if r.comments %} ({{ r.comments|length }}){% endif %}</button>
-          <button type="button" class="tab-btn pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-100" data-target="history">Verlauf</button>
-        </div>
-
-        <!-- Tab: Details -->
-        <div class="tab-panel grid lg:grid-cols-2 gap-4" data-tab="details">
-          <div>
-            {% if r_body %}
-            <h4 class="text-sm font-medium mb-2">Beschreibung</h4>
-            <p class="text-sm text-slate-300 whitespace-pre-line break-words">{{ r_body | urlize }}</p>
-            {% endif %}
-            {% if r.product_url %}
-            <a href="{{ r.product_url }}" target="_blank" rel="noopener noreferrer"
-               class="inline-flex items-center gap-1.5 mt-2 text-xs font-medium px-2.5 py-1.5 rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
-              Zum Shop / Produkt
-            </a>
-            {% endif %}
-
-            <h4 class="text-sm font-medium mb-2 {% if r_body or r.product_url %}mt-4{% endif %}">Bilder{% if r.photos %} ({{ r.photos|length }}){% endif %}</h4>
-            <div class="flex flex-wrap gap-2">
-              {% for p in r.photos %}
-              <a href="/uploads/reports/{{ p.filename }}" target="_blank">
-                <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-16 h-16 rounded-lg object-cover border border-line">
-              </a>
-              {% endfor %}
-              {% if user %}
-              <form method="post" action="/reports/{{ r.id }}/photos" enctype="multipart/form-data" class="contents">
-                <label class="w-16 h-16 rounded-lg border border-dashed border-line flex flex-col items-center justify-center text-slate-500 hover:bg-panel2 hover:text-slate-300 cursor-pointer text-[10px] gap-1">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Bild
-                  <input type="file" name="photos" accept="image/*" multiple class="hidden" onchange="this.form.submit()">
-                </label>
-              </form>
-              {% endif %}
-            </div>
-          </div>
-          <div class="rounded-lg border border-line bg-ink/40 p-3">
-            <ul class="text-sm space-y-1.5">
+      <div class="rounded-lg border border-line bg-ink/40 p-3 mb-4">
+        <ul class="text-sm space-y-1.5">
               {% if r.room %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Bereich</span><span class="text-slate-300">{{ r.room.name }}</span></li>
               {% endif %}
@@ -187,12 +187,17 @@
               {% endif %}
               <li class="flex justify-between gap-4"><span class="text-slate-500">Erstellt am</span><span class="text-slate-300">{{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>
               <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-300">{{ (meta.last_modified|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>
-            </ul>
-          </div>
+        </ul>
+      </div>
+
+      <div class="report-tabs" data-group="r{{ r.id }}">
+        <div class="flex items-center gap-4 border-b border-line mb-3 text-sm">
+          <button type="button" class="tab-btn pb-2 border-b-2 border-go text-slate-100 font-medium" data-target="comments">Kommentare{% if r.comments %} ({{ r.comments|length }}){% endif %}</button>
+          <button type="button" class="tab-btn pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-100" data-target="history">Verlauf</button>
         </div>
 
         <!-- Tab: Kommentare -->
-        <div class="tab-panel hidden" data-tab="comments">
+        <div class="tab-panel" data-tab="comments">
           <ul class="space-y-3 mb-3">
             {% for c in r.comments %}
             <li class="text-sm">
