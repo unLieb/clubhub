@@ -536,9 +536,17 @@ class ReportPhoto(Base):
 
     id = Column(Integer, primary_key=True)
     report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
+    # Gesetzt, wenn das Foto ueber einen Kommentar angehaengt wurde (z.B. ein
+    # "Beweisbild" nach der Reparatur) statt bei der Erstellung der Meldung
+    # oder per Produkt-Link-Vorschau - in beiden letzteren Faellen NULL. So
+    # laesst sich dasselbe Foto sowohl im jeweiligen Kommentar anzeigen als
+    # auch weiterhin ueber Report.photos in der Gesamt-Galerie (Karten-
+    # Vorschaubild + Lightbox, siehe reports.html) - eine Tabelle fuer beides.
+    comment_id = Column(Integer, ForeignKey("report_comments.id"), nullable=True)
     filename = Column(String, nullable=False)           # relativ zu uploads/reports/
 
     report = relationship("Report", back_populates="photos")
+    comment = relationship("ReportComment", back_populates="photos")
 
 
 class ReportComment(Base):
@@ -547,11 +555,23 @@ class ReportComment(Base):
     id = Column(Integer, primary_key=True)
     report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    text = Column(String, nullable=False)
+    # Seit dem Umzug der Bild-Hinzufuegen-Funktion von der Meldungskarte
+    # hierher (ein Kommentar kann jetzt allein aus Foto(s) bestehen, z.B. ein
+    # "Beweisbild" nach der Reparatur ohne weiteren Text) nicht mehr zwingend
+    # befuellt - reports_add_comment() erzwingt aber weiterhin, dass Text
+    # oder mindestens ein Foto vorhanden ist, nie beides leer.
+    text = Column(String, nullable=False, default="")
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     report = relationship("Report", back_populates="comments")
     user = relationship("User")
+    # Bewusst OHNE eigenes delete-orphan-Cascade: ReportPhoto.report (siehe
+    # oben) traegt das bereits fuer alle Fotos der Meldung, unabhaengig davon,
+    # ob sie ueber einen Kommentar angehaengt wurden - ein zweites delete-
+    # orphan auf denselben Kind-Typ wuerde SQLAlchemy als Mehrfach-Elternteil-
+    # Konflikt werten. Fotos werden hier nur direkt per FK verknuepft (siehe
+    # reports_add_comment), nie ueber comment.photos.append().
+    photos = relationship("ReportPhoto", back_populates="comment", order_by="ReportPhoto.id")
 
 
 class NfcTag(Base):

@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.31.0] - 2026-09-23
+- Meldungen: die Bild-Hinzufügen-Funktion ist jetzt direkt in die Kommentarfunktion eingebaut, statt (wie in 1.30.1 gedacht) nur ersatzlos von der Karte zu verschwinden. Beim Kommentieren lässt sich optional ein Bild anhängen (z. B. ein „Beweisbild“ nach der Reparatur) – ein Kommentar kann Text, Bild(er) oder beides enthalten, nie beides leer. Angehängte Bilder erscheinen als kleine Vorschau direkt unter dem jeweiligen Kommentar und öffnen per Klick dieselbe Lightbox wie das Karten-Vorschaubild; letzteres zeigt weiterhin alle Fotos der Meldung zusammen (Erstellung, Produkt-Link-Vorschau und jetzt auch Kommentare). Push-Benachrichtigungen für einen reinen Foto-Kommentar ohne Text zeigen „hat ein Foto hinzugefügt“ statt eines leeren Texts.
+
 ## [1.30.1] - 2026-09-23
 - Meldungen: die zusätzliche Foto-Reihe unter der Beschreibung war doppelt gemoppelt (das erste Bild stand schon als Vorschau in der Kopfzeile) und der eigene „Bild hinzufügen“-Button wieder entfernt – Fotos sollen künftig über einen Kommentar ergänzt werden (z. B. ein „Beweisbild“ nach der Reparatur), nicht direkt auf der Karte. Das Vorschaubild in der Kopfzeile ist stattdessen jetzt klickbar: es öffnet alle Fotos der Meldung an den Bildschirm angepasst, mit „Originalgröße“-Link und – bei mehreren Fotos – Vor/Zurück-Navigation.
 

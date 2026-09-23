@@ -440,6 +440,15 @@ def _migrate_report_title(db: Session):
     _ensure_column(db, "reports", "title", "VARCHAR")
 
 
+def _migrate_report_comment_photos(db: Session):
+    """Neue Spalte: verknuepft ein ReportPhoto optional mit dem Kommentar,
+    ueber den es hochgeladen wurde (Bild-Hinzufuegen-Funktion ist von der
+    Meldungskarte in die Kommentarfunktion umgezogen, siehe reports.html).
+    NULL bei bestehenden Zeilen ist hier richtig - Alt-Fotos (aus der
+    Erstellung oder dem Produkt-Link) gehoeren zu keinem Kommentar."""
+    _ensure_column(db, "report_photos", "comment_id", "INTEGER")
+
+
 def _migrate_appointment_company_wide(db: Session):
     """Neue Option "Alle (Betriebsweit)" fuer Termine (kein Altdaten-Bezug,
     Standard: False)."""
@@ -778,6 +787,7 @@ def _startup():
         _migrate_report_groups_backfill(db)
         _migrate_report_in_progress(db)
         _migrate_report_title(db)
+        _migrate_report_comment_photos(db)
         _migrate_appointment_company_wide(db)
         _migrate_appointment_groups_backfill(db)
         _migrate_report_photos(db)
@@ -3848,20 +3858,31 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
 
 
 @app.post("/reports/{report_id}/comment")
-def reports_add_comment(
+async def reports_add_comment(
     report_id: int, request: Request, background_tasks: BackgroundTasks,
-    text: str = Form(...), db: Session = Depends(get_db),
+    text: str = Form(""), photos: list[UploadFile] = File([]), db: Session = Depends(get_db),
 ):
-    """Kommentar hinzufuegen - benachrichtigt wie ein Statuswechsel die
-    zustaendige(n) Gruppe(n) sowie zusaetzlich einzeln den Melder und alle
-    bisherigen Kommentierenden (Nutzer-Feedback: ein neuer Kommentar ging
-    bisher komplett unbemerkt unter, machte die Funktion praktisch nutzlos -
-    wer schon mitgeredet hat, soll auch von weiteren Antworten erfahren,
-    unabhaengig von der eigenen Gruppen-Zugehoerigkeit)."""
+    """Kommentar hinzufuegen, optional mit Foto(s) - die Bild-Hinzufuegen-
+    Funktion sass frueher direkt auf der Meldungskarte, ist aber dorthin
+    umgezogen (Nutzer-Wunsch: die Karte hatte dafuer ein doppelt gemoppeltes
+    Vorschaubild + eigenen Button; Fotos wie ein "Beweisbild" nach der
+    Reparatur gehoeren eher an einen Kommentar als lose an die Meldung).
+    Text oder mindestens eine angehaengte Datei muss vorhanden sein, nie
+    beides leer - ein Kommentar kann also auch nur aus Foto(s) bestehen.
+    Benachrichtigt wie ein Statuswechsel die zustaendige(n) Gruppe(n) sowie
+    zusaetzlich einzeln den Melder und alle bisherigen Kommentierenden
+    (Nutzer-Feedback: ein neuer Kommentar ging bisher komplett unbemerkt
+    unter, machte die Funktion praktisch nutzlos - wer schon mitgeredet hat,
+    soll auch von weiteren Antworten erfahren, unabhaengig von der eigenen
+    Gruppen-Zugehoerigkeit)."""
     user = require_login(request, db)
     text = text.strip()
-    if not text:
-        return RedirectResponse("/reports", status_code=302)
+    has_photo_upload = any(p and p.filename for p in photos)
+    if not text and not has_photo_upload:
+        return RedirectResponse(
+            _with_toast("/reports", "Bitte einen Kommentar schreiben oder ein Bild anhängen.", "error"),
+            status_code=302,
+        )
 
     # Gruppen inkl. Kanaele + Mitglieder/Push-Abos hier bereits vollstaendig
     # laden (nicht erst lazy in notify_group/notify_user), da die Session
@@ -3893,13 +3914,44 @@ def reports_add_comment(
     # Absicht im Code klarer).
     previous_commenters = {c.user for c in report.comments}
 
-    db.add(models.ReportComment(report_id=report.id, user_id=user.id, text=text))
+    comment = models.ReportComment(report_id=report.id, user_id=user.id, text=text)
+    db.add(comment)
+    db.commit()  # comment.id wird fuer die Fotos unten gebraucht
+
+    saved_photos = 0
+    for photo in photos:
+        if not photo or not photo.filename:
+            continue
+        data = await photo.read()
+        if data and (photo.content_type or "").startswith("image/"):
+            ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
+            filename = f"{uuid.uuid4().hex}{ext}"
+            with open(os.path.join(REPORT_PHOTOS_DIR, filename), "wb") as f:
+                f.write(data)
+            db.add(models.ReportPhoto(report_id=report.id, comment_id=comment.id, filename=filename))
+            saved_photos += 1
+
+    if not text and saved_photos == 0:
+        # Angehaengte Datei(en) waren keine gueltigen Bilder (z.B. falscher
+        # Dateityp) und es gab auch keinen Text - der eben angelegte, leere
+        # Kommentar waere sonst ein Geisterkommentar ohne jeden Inhalt.
+        db.delete(comment)
+        db.commit()
+        return RedirectResponse(
+            _with_toast("/reports", "Die angehängte Datei ist kein gültiges Bild.", "error"), status_code=302,
+        )
     db.commit()
     _bump_live_version()
 
     title = f"Neuer Kommentar: {report.room.name if report.room else 'Materialwunsch'}"
-    preview = text if len(text) <= 120 else text[:117] + "…"
-    msg = f"{user.name}: „{preview}“"
+    if text:
+        preview = text if len(text) <= 120 else text[:117] + "…"
+        msg = f"{user.name}: „{preview}“"
+    else:
+        # Reiner Foto-Kommentar ohne Text (z.B. ein "Beweisbild") - Push
+        # braucht trotzdem einen sinnvollen Nachrichtentext.
+        photo_phrase = "ein Foto" if saved_photos == 1 else f"{saved_photos} Fotos"
+        msg = f"{user.name} hat {photo_phrase} hinzugefügt."
     if report.is_company_wide:
         target_groups = db.query(models.Group).options(*group_loaders).all()
     elif report.groups:
@@ -3947,35 +3999,6 @@ def reports_assign(
         report.is_company_wide = is_company_wide
         db.commit()
         _bump_live_version()
-    return RedirectResponse("/reports", status_code=302)
-
-
-@app.post("/reports/{report_id}/photos")
-async def reports_add_photos(
-    # Seit der Karten-Entrümpelung (kein Upload-Feld mehr direkt auf der
-    # Meldungskarte, siehe reports.html) aus der UI nicht mehr erreichbar -
-    # bewusst nicht entfernt, da geplant ist, dass weitere Fotos (z.B. ein
-    # "Beweisbild" nach der Reparatur) kuenftig ueber einen Kommentar
-    # angehaengt werden koennen, was denselben Upload-Mechanismus braucht.
-    report_id: int,
-    request: Request,
-    photos: list[UploadFile] = File([]),
-    db: Session = Depends(get_db),
-):
-    require_login(request, db)
-    report = db.query(models.Report).filter(models.Report.id == report_id).first()
-    if report:
-        for photo in photos:
-            if not photo or not photo.filename:
-                continue
-            data = await photo.read()
-            if data and (photo.content_type or "").startswith("image/"):
-                ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
-                filename = f"{uuid.uuid4().hex}{ext}"
-                with open(os.path.join(REPORT_PHOTOS_DIR, filename), "wb") as f:
-                    f.write(data)
-                db.add(models.ReportPhoto(report_id=report.id, filename=filename))
-        db.commit()
     return RedirectResponse("/reports", status_code=302)
 
 

@@ -206,16 +206,39 @@
                 <span class="font-medium">{{ c.user.name }}</span>
                 <span class="text-xs text-slate-500">{{ (c.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</span>
               </div>
+              {% if c.text %}
               <p class="text-slate-300 mt-0.5">{{ c.text }}</p>
+              {% endif %}
+              {% if c.photos %}
+              {% set comment_photo_urls = report_photo_urls(c.photos) %}
+              <div class="flex flex-wrap gap-1.5 mt-1.5">
+                {% for p in c.photos %}
+                <button type="button" class="report-photo-trigger relative w-14 h-14 rounded-lg border border-line overflow-hidden shrink-0 group/photo" data-idx="{{ loop.index0 }}" aria-label="Bild anzeigen{% if c.photos|length > 1 %} ({{ c.photos|length }} Bilder){% endif %}">
+                  <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-full h-full object-cover">
+                  <span class="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/photo:bg-black/30 transition-colors">
+                    <svg class="opacity-0 group-hover/photo:opacity-100 transition-opacity" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                  </span>
+                  <script type="application/json">{{ comment_photo_urls | tojson }}</script>
+                </button>
+                {% endfor %}
+              </div>
+              {% endif %}
             </li>
             {% else %}
             <li class="text-slate-500 text-sm italic">Noch keine Kommentare</li>
             {% endfor %}
           </ul>
           {% if user %}
-          <form method="post" action="/reports/{{ r.id }}/comment" class="flex items-center gap-2">
-            <input name="text" required placeholder="Kommentar schreiben…" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Senden</button>
+          <!-- Bild-Hinzufuegen-Funktion sitzt seit v1.31.0 hier statt direkt
+               auf der Karte (siehe reports_add_comment in main.py) - ein
+               Kommentar kann Text, Foto(s) oder beides haben, z.B. ein
+               "Beweisbild" nach der Reparatur ganz ohne Text. -->
+          <form method="post" action="/reports/{{ r.id }}/comment" enctype="multipart/form-data" class="space-y-2">
+            <div class="flex items-center gap-2">
+              <input name="text" placeholder="Kommentar schreiben…" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+              <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Senden</button>
+            </div>
+            {{ dz.dropzone("photos", "report-comment-photos-" ~ r.id, accept="image/*", multiple=True, label="Bild anhängen (optional)") }}
           </form>
           {% endif %}
         </div>
@@ -574,10 +597,13 @@
     });
   })();
 
-  // Klick auf das Karten-Vorschaubild oeffnet alle Fotos der Meldung im
-  // globalen Lightbox-Modal (siehe _photo_lightbox.html/photo_lightbox.js).
-  // Per Delegation, aus demselben Grund wie beim Drei-Punkte-Menue unten:
-  // Karten wandern beim Statuswechsel zwischen den Listen.
+  // Klick auf ein Vorschaubild (Karten-Kopfzeile oder ein Kommentar-Anhang)
+  // oeffnet die zugehoerigen Fotos im globalen Lightbox-Modal (siehe
+  // _photo_lightbox.html/photo_lightbox.js) - beim Karten-Vorschaubild alle
+  // Fotos der Meldung, bei einem Kommentar-Thumbnail nur dessen eigene
+  // Foto(s), startend beim angeklickten (data-idx, Standard 0). Per
+  // Delegation, aus demselben Grund wie beim Drei-Punkte-Menue unten: Karten
+  // wandern beim Statuswechsel zwischen den Listen.
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.report-photo-trigger');
     if (!btn || !window.openPhotoLightbox) return;
@@ -585,7 +611,8 @@
     if (!dataEl) return;
     var urls;
     try { urls = JSON.parse(dataEl.textContent); } catch (err) { return; }
-    window.openPhotoLightbox(urls, 0);
+    var startIndex = parseInt(btn.dataset.idx || '0', 10) || 0;
+    window.openPhotoLightbox(urls, startIndex);
   });
 
   // Drei-Punkte-Menue je Meldung (gleiches Muster wie die Termine-Seite).
