@@ -71,11 +71,17 @@
         {% if r.in_progress_by %} &middot; in Bearbeitung von {{ r.in_progress_by.name }}{% endif %}
         {% if r.status == "done" and meta.resolved_rel %} &middot; erledigt vor {{ meta.resolved_rel }}{% if r.resolved_by %} von {{ r.resolved_by.name }}{% endif %}{% endif %}
       </p>
+      {% if r.status == "done" and r.resolved_note %}
+      <!-- Erledigt-Notiz (Kommentarzwang): direkt auf der Karte sichtbar, damit
+           man in der Liste sieht, was getan wurde. Wird beim Wiederoeffnen per
+           JS entfernt (siehe ajax-form-success-Listener unten). -->
+      <p class="report-done-note text-sm text-slate-300 mt-1.5 whitespace-pre-line break-words"><span class="font-medium text-go">Erledigt:</span> {{ r.resolved_note }}</p>
+      {% endif %}
     </div>
     <div class="shrink-0 flex items-center gap-2 w-full sm:w-auto justify-end">
       {% if user %}
       <form method="post" action="/reports/{{ r.id }}/status" class="ajax-status-form contents">
-        <select name="status" onchange="this.form.requestSubmit()"
+        <select name="status" onchange="reportStatusChange(this)"
                 class="report-status-select text-xs font-medium rounded-full pl-3 py-1.5 border-0 cursor-pointer {{ rb.status_pill_class(r.status) }}">
           <option value="open" {% if r.status == "open" %}selected{% endif %}>Offen</option>
           <option value="in_progress" {% if r.status == "in_progress" %}selected{% endif %}>In Bearbeitung</option>
@@ -273,6 +279,7 @@
               <div>
                 <div class="text-sm">Als erledigt markiert</div>
                 <div class="text-xs text-slate-500">{{ (r.resolved_at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if r.resolved_by %} &middot; {{ r.resolved_by.name }}{% endif %}</div>
+                {% if r.resolved_note %}<div class="text-sm text-slate-300 mt-0.5 whitespace-pre-line break-words">{{ r.resolved_note }}</div>{% endif %}
               </div>
             </li>
             {% elif r.status == "open" %}
@@ -411,7 +418,117 @@
   Noch keine erledigten Meldungen.
 </div>
 
+{% if user %}
+<!-- Kommentarzwang beim Erledigen: Dialog "Was wurde gemacht?" - der Wechsel
+     auf "Erledigt" wird erst mit einer Kurzbeschreibung gespeichert (optional
+     mit Foto). Ein einziger Dialog fuer die ganze Seite, gesteuert ueber
+     reportStatusChange() im Skript unten; die Pruefung passiert zusaetzlich
+     serverseitig (reports_set_status in main.py). -->
+<div id="report-done-modal" class="hidden fixed inset-0 z-[100] items-center justify-center p-4 bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="report-done-title">
+  <div class="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-line bg-panel shadow-xl p-5">
+    <h2 id="report-done-title" class="font-display font-semibold text-base">Meldung erledigen</h2>
+    <p id="report-done-report" class="text-sm text-slate-400 mt-0.5 mb-3 truncate"></p>
+    <label for="report-done-note" class="block text-[11px] text-slate-400 mb-1">Was wurde gemacht? <span class="text-late">*</span></label>
+    <textarea id="report-done-note" rows="3" maxlength="1000" placeholder="Z.B. „Dichtung am Wasserhahn getauscht, läuft wieder dicht“" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm"></textarea>
+    <div class="mt-3">
+      <label class="block text-[11px] text-slate-400 mb-1">Foto (optional, z.B. als Nachweis)</label>
+      {{ dz.dropzone("photos", "report-done-photos", accept="image/*", multiple=True, label="Bild anhängen (optional)") }}
+    </div>
+    <p id="report-done-error" class="hidden text-sm text-late mt-3" role="alert"></p>
+    <div class="flex items-center justify-end gap-2 mt-4">
+      <button type="button" id="report-done-cancel" class="px-3 py-1.5 rounded-md text-sm font-medium text-slate-300 border border-line hover:bg-panel2">Abbrechen</button>
+      <button type="button" id="report-done-save" class="px-3 py-1.5 rounded-md text-sm font-medium bg-go/90 hover:bg-go text-oncolor">Als erledigt speichern</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
+  // Kommentarzwang beim Erledigen (siehe Dialog oben): jede Statusauswahl
+  // laeuft ueber diese Funktion. "Erledigt" oeffnet den Dialog, alle anderen
+  // Status gehen wie bisher direkt durch den generischen .ajax-status-form-
+  // Handler (ajax_actions.js). Abbrechen setzt das Auswahlfeld auf den
+  // tatsaechlichen Status der Karte zurueck.
+  (function () {
+    var MIN_LENGTH = {{ REPORT_DONE_NOTE_MIN_LENGTH }};
+    var modal = document.getElementById('report-done-modal');
+    var activeSelect = null;
+
+    window.reportStatusChange = function (select) {
+      if (select.value !== 'done' || !modal) { select.form.requestSubmit(); return; }
+      var card = select.closest('[data-ajax-row]');
+      activeSelect = select;
+      document.getElementById('report-done-report').textContent = card.querySelector('p.font-medium').textContent.trim();
+      document.getElementById('report-done-note').value = '';
+      var fileInput = modal.querySelector('input[type="file"]');
+      fileInput.value = '';
+      fileInput.dispatchEvent(new Event('change')); // Vorschau des Upload-Felds leeren
+      setError('');
+      document.getElementById('report-done-save').disabled = false;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.addEventListener('keydown', onKeydown);
+      document.getElementById('report-done-note').focus();
+    };
+
+    function setError(text) {
+      var el = document.getElementById('report-done-error');
+      el.textContent = text;
+      el.classList.toggle('hidden', !text);
+    }
+
+    function closeModal(revert) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.removeEventListener('keydown', onKeydown);
+      if (revert && activeSelect) {
+        var card = activeSelect.closest('[data-ajax-row]');
+        activeSelect.value = card ? card.dataset.reportStatus : 'open';
+      }
+      activeSelect = null;
+    }
+
+    function onKeydown(e) {
+      if (e.key === 'Escape') closeModal(true);
+    }
+
+    if (!modal) return;
+    document.getElementById('report-done-cancel').addEventListener('click', function () { closeModal(true); });
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(true); });
+
+    document.getElementById('report-done-save').addEventListener('click', function () {
+      var note = document.getElementById('report-done-note').value.trim();
+      if (note.length < MIN_LENGTH) {
+        setError('Bitte kurz beschreiben, was gemacht wurde (mindestens ' + MIN_LENGTH + ' Zeichen).');
+        document.getElementById('report-done-note').focus();
+        return;
+      }
+      var saveBtn = this;
+      saveBtn.disabled = true;
+      setError('');
+      var form = activeSelect.form;
+      var fd = new FormData();
+      fd.append('status', 'done');
+      fd.append('completion_note', note);
+      Array.from(modal.querySelector('input[type="file"]').files).forEach(function (f) { fd.append('photos', f); });
+      fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'fetch' }, body: fd })
+        .then(function (resp) {
+          if (resp.ok) return resp.json();
+          return resp.json().then(function (j) { throw new Error(j.detail || 'Speichern fehlgeschlagen.'); },
+                                  function () { throw new Error('Speichern fehlgeschlagen.'); });
+        })
+        .then(function () {
+          // Neu laden statt DOM-Patch: Karte bekommt dabei Erledigt-Notiz,
+          // neuen Kommentar samt Foto und die richtige Sortierung in einem Rutsch.
+          location.reload();
+        })
+        .catch(function (err) {
+          setError(err.message);
+          saveBtn.disabled = false;
+        });
+    });
+  })();
+
   // Materialwunsch/Anschaffung braucht keinen Bereich und keine Priorität
   // (siehe REPORT_ROOMLESS_CATEGORIES in main.py), dafür zwingend eine
   // zuständige Gruppe statt der sonst möglichen "automatisch (Bereich)"-
@@ -714,6 +831,12 @@
       // Stylesheet entscheidet, nicht die im class-Attribut.
       card.classList.toggle('opacity-60', isDone);
       card.classList.toggle('border-l-line', isDone);
+      // Erledigt-Notiz gilt nur, solange die Meldung erledigt ist (der Server
+      // leert sie beim Wiederoeffnen ebenfalls).
+      if (!isDone) {
+        var doneNote = card.querySelector('.report-done-note');
+        if (doneNote) doneNote.remove();
+      }
       if (card.dataset.priorityBorder) card.classList.toggle(card.dataset.priorityBorder, !isDone);
 
       var select = form.querySelector('.report-status-select');

@@ -505,6 +505,13 @@ class Report(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Kurzbeschreibung, was zur Erledigung getan wurde - Pflichtangabe beim
+    # Wechsel auf "Erledigt" (Kommentarzwang, siehe reports_set_status). Steht
+    # zusaetzlich als normaler Kommentar im Thread, hier aber separat, damit
+    # sie direkt auf der erledigten Karte angezeigt werden kann. Wird - wie
+    # resolved_at/resolved_by_id - beim Wiederoeffnen geleert; NULL bei
+    # Meldungen, die vor dieser Regel erledigt wurden.
+    resolved_note = Column(String, nullable=True)
     # Wer die Meldung auf "in Bearbeitung" gestellt hat (Nutzer-Wunsch: bisher
     # war nur erkennbar, wer gemeldet bzw. wer als erledigt markiert hat, aber
     # nicht, wer sich currently/schon einmal darum kuemmert). Wird - wie

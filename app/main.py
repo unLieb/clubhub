@@ -449,6 +449,13 @@ def _migrate_report_comment_photos(db: Session):
     _ensure_column(db, "report_photos", "comment_id", "INTEGER")
 
 
+def _migrate_report_resolved_note(db: Session):
+    """Neue Spalte: Erledigt-Notiz (Kommentarzwang beim Erledigen, siehe
+    reports_set_status). Kein Backfill - bereits erledigte Meldungen haben
+    eben keine."""
+    _ensure_column(db, "reports", "resolved_note", "VARCHAR")
+
+
 def _migrate_appointment_company_wide(db: Session):
     """Neue Option "Alle (Betriebsweit)" fuer Termine (kein Altdaten-Bezug,
     Standard: False)."""
@@ -788,6 +795,7 @@ def _startup():
         _migrate_report_in_progress(db)
         _migrate_report_title(db)
         _migrate_report_comment_photos(db)
+        _migrate_report_resolved_note(db)
         _migrate_appointment_company_wide(db)
         _migrate_appointment_groups_backfill(db)
         _migrate_report_photos(db)
@@ -3749,20 +3757,57 @@ STATUS_CHANGE_TITLES = {
 }
 
 
+REPORT_DONE_NOTE_MIN_LENGTH = 5
+# Auch im Dialog (reports.html) fuer dieselbe Mindestlaenge - eine Quelle.
+templates.env.globals["REPORT_DONE_NOTE_MIN_LENGTH"] = REPORT_DONE_NOTE_MIN_LENGTH
+
+
+async def _attach_report_photos(db: Session, report_id: int, comment_id: int, photos) -> int:
+    """Speichert hochgeladene Bilddateien und haengt sie als ReportPhoto an
+    einen Kommentar der Meldung (comment_id). Ueberspringt leere Felder und
+    Nicht-Bilder wie beim Erstellen einer Meldung; gibt die Anzahl der
+    gespeicherten Fotos zurueck. Commitet nicht - das macht der Aufrufer."""
+    saved = 0
+    for photo in photos:
+        if not photo or not photo.filename:
+            continue
+        data = await photo.read()
+        if data and (photo.content_type or "").startswith("image/"):
+            ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
+            filename = f"{uuid.uuid4().hex}{ext}"
+            with open(os.path.join(REPORT_PHOTOS_DIR, filename), "wb") as f:
+                f.write(data)
+            db.add(models.ReportPhoto(report_id=report_id, comment_id=comment_id, filename=filename))
+            saved += 1
+    return saved
+
+
 @app.post("/reports/{report_id}/status")
-def reports_set_status(
+async def reports_set_status(
     report_id: int,
     request: Request,
     background_tasks: BackgroundTasks,
     status: str = Form(...),
+    completion_note: str = Form(""),
+    photos: list[UploadFile] = File([]),
     db: Session = Depends(get_db),
 ):
+    """Status aendern. Der Wechsel auf "Erledigt" verlangt eine Kurz-
+    beschreibung, was getan wurde (Kommentarzwang - Rueckmeldung aus dem
+    Betrieb: Hausmeister-Meldungen wurden ohne jede Angabe auf erledigt
+    gestellt): mindestens REPORT_DONE_NOTE_MIN_LENGTH Zeichen in
+    completion_note, optional mit Foto(s) (z.B. ein "Beweisbild"). Die Notiz
+    landet als normaler Kommentar im Thread UND in Report.resolved_note fuer
+    die Anzeige direkt auf der erledigten Karte. Wird serverseitig
+    durchgesetzt, nicht nur im Dialog (reports.html) - gilt fuer alle, auch
+    Admins. Andere Statuswechsel brauchen keine Angabe."""
     user = require_login(request, db)
     is_fetch = request.headers.get("X-Requested-With") == "fetch"
     if status not in REPORT_STATUSES:
         if is_fetch:
             raise HTTPException(status_code=400, detail="Ungültiger Status")
         return RedirectResponse("/reports", status_code=302)
+    completion_note = completion_note.strip()
 
     # Gruppen inkl. Kanäle + Mitglieder/Push-Abos hier bereits vollständig laden
     # (nicht erst lazy in notify_group/notify_user), da die Session geschlossen
@@ -3783,14 +3828,27 @@ def reports_set_status(
     )
     if report and report.status != status:
         if status == "done":
+            if len(completion_note) < REPORT_DONE_NOTE_MIN_LENGTH:
+                message = (
+                    f"Bitte kurz beschreiben, was gemacht wurde (mindestens {REPORT_DONE_NOTE_MIN_LENGTH} Zeichen)."
+                )
+                if is_fetch:
+                    raise HTTPException(status_code=400, detail=message)
+                return RedirectResponse(_with_toast("/reports", message, "error"), status_code=302)
             report.resolved_at = ntptime.now_utc()
             report.resolved_by_id = user.id
+            report.resolved_note = completion_note
+            done_comment = models.ReportComment(report_id=report.id, user_id=user.id, text=completion_note)
+            db.add(done_comment)
+            db.flush()  # done_comment.id fuer die Fotos
+            await _attach_report_photos(db, report.id, done_comment.id, photos)
         elif report.status == "done":
             # Wieder geöffnet (offen/in Bearbeitung) - Erledigt-Angaben sind
             # dann nicht mehr gültig, sonst zeigt die Meldung fälschlich noch
             # ein "erledigt am"-Datum.
             report.resolved_at = None
             report.resolved_by_id = None
+            report.resolved_note = None
         if status == "in_progress":
             report.in_progress_at = ntptime.now_utc()
             report.in_progress_by_id = user.id
@@ -3813,6 +3871,11 @@ def reports_set_status(
         report_title, _body = split_report_text(report)
         comment_preview = report_title if len(report_title) <= 120 else report_title[:117] + "…"
         msg = f"{user.name}: „{comment_preview}“"
+        if status == "done":
+            # Beim Erledigen steht die Notiz "was wurde gemacht" mit drin, damit
+            # auch Melder/Gruppen ohne Aufklappen erfahren, was passiert ist.
+            note_preview = completion_note if len(completion_note) <= 100 else completion_note[:97] + "…"
+            msg = f"{user.name}: „{comment_preview if len(comment_preview) <= 60 else comment_preview[:57] + '…'}“ – {note_preview}"
         if report.is_company_wide:
             target_groups = db.query(models.Group).options(*group_loaders).all()
         elif report.groups:
@@ -3918,18 +3981,7 @@ async def reports_add_comment(
     db.add(comment)
     db.commit()  # comment.id wird fuer die Fotos unten gebraucht
 
-    saved_photos = 0
-    for photo in photos:
-        if not photo or not photo.filename:
-            continue
-        data = await photo.read()
-        if data and (photo.content_type or "").startswith("image/"):
-            ext = os.path.splitext(photo.filename)[1][:10] or ".jpg"
-            filename = f"{uuid.uuid4().hex}{ext}"
-            with open(os.path.join(REPORT_PHOTOS_DIR, filename), "wb") as f:
-                f.write(data)
-            db.add(models.ReportPhoto(report_id=report.id, comment_id=comment.id, filename=filename))
-            saved_photos += 1
+    saved_photos = await _attach_report_photos(db, report.id, comment.id, photos)
 
     if not text and saved_photos == 0:
         # Angehaengte Datei(en) waren keine gueltigen Bilder (z.B. falscher
