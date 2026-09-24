@@ -43,7 +43,10 @@ from .auth import (
 )
 from .status import task_status, compute_inventory_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
-from .notifications import notify_group, notify_groups, notify_user
+from .notifications import (
+    notify_group, notify_groups, notify_user, notify_feedback_channel, send_to_channel,
+    _channel_config as notification_channel_config,
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -449,6 +452,12 @@ def _migrate_report_comment_photos(db: Session):
     _ensure_column(db, "report_photos", "comment_id", "INTEGER")
 
 
+def _migrate_app_settings_feedback_channel(db: Session):
+    """Neue Einstellung: Kanal fuer Feedback-Benachrichtigungen (siehe
+    AppSettings.feedback_channel_id). NULL = keine Benachrichtigung, wie bisher."""
+    _ensure_column(db, "app_settings", "feedback_channel_id", "INTEGER")
+
+
 def _migrate_report_resolved_note(db: Session):
     """Neue Spalte: Erledigt-Notiz (Kommentarzwang beim Erledigen, siehe
     reports_set_status). Kein Backfill - bereits erledigte Meldungen haben
@@ -796,6 +805,7 @@ def _startup():
         _migrate_report_title(db)
         _migrate_report_comment_photos(db)
         _migrate_report_resolved_note(db)
+        _migrate_app_settings_feedback_channel(db)
         _migrate_appointment_company_wide(db)
         _migrate_appointment_groups_backfill(db)
         _migrate_report_photos(db)
@@ -3424,6 +3434,7 @@ def compute_report_meta(r, now) -> dict:
 @app.post("/feedback")
 async def feedback_create(
     request: Request,
+    background_tasks: BackgroundTasks,
     type: str = Form(...),
     title: str = Form(...),
     description: str = Form(""),
@@ -3462,6 +3473,21 @@ async def feedback_create(
                 f.write(data)
             db.add(models.FeedbackPhoto(feedback_id=feedback.id, filename=filename))
     db.commit()
+
+    # Admin informieren, ohne dass er die Feedback-Liste taeglich oeffnen muss:
+    # geht an den in der Verwaltung gewaehlten Kanal (Gotify/ntfy/Signal), siehe
+    # notify_feedback_channel - ohne gewaehlten Kanal passiert nichts.
+    kind = _FEEDBACK_TYPE_LABEL.get(type, type)
+    lines = [feedback.title, f"Von: {user.name} · Priorität: {_FEEDBACK_PRIORITY_LABEL.get(priority, priority)}"]
+    if feedback.description:
+        d = feedback.description
+        lines.append(d if len(d) <= 300 else d[:297] + "…")
+    if photos and any(p and p.filename for p in photos):
+        lines.append("(mit Screenshot – siehe Verwaltung → Feedback)")
+    background_tasks.add_task(
+        notify_feedback_channel, f"Neues Feedback: {kind}", "\n".join(lines), "high" if priority == "high" else "default",
+    )
+
     target = next if next.startswith("/") else "/"
     return RedirectResponse(_with_toast(target, "Danke! Feedback wurde übermittelt."), status_code=302)
 
@@ -6310,6 +6336,9 @@ def admin_delete_channel(channel_id: int, request: Request, db: Session = Depend
     is_fetch = request.headers.get("X-Requested-With") == "fetch"
     channel = db.query(models.NotificationChannel).filter(models.NotificationChannel.id == channel_id).first()
     if channel:
+        settings = get_app_settings(db)
+        if settings.feedback_channel_id == channel.id:
+            settings.feedback_channel_id = None  # sonst zeigt die Auswahl auf einen nicht mehr vorhandenen Kanal
         db.delete(channel)
         db.commit()
     if is_fetch:
@@ -6367,6 +6396,64 @@ def admin_notifications_connection_settings(
     log_audit(db, admin, "UPDATE", "System", "Verbindungseinstellungen für Benachrichtigungen aktualisiert.")
     db.commit()
     return RedirectResponse(_with_toast("/admin/notifications", "Verbindungseinstellungen gespeichert."), status_code=302)
+
+
+@app.post("/admin/notifications/feedback-channel")
+def admin_notifications_feedback_channel(
+    request: Request, channel_id: str = Form(""), db: Session = Depends(get_db),
+):
+    """Kanal fuer Feedback-Benachrichtigungen waehlen (siehe AppSettings.
+    feedback_channel_id, feedback_create). Leer = keine Benachrichtigung.
+    Nur Admin, wie die uebrigen globalen Einstellungen."""
+    admin = require_admin(request, db)
+    settings = get_app_settings(db)
+    channel = None
+    if channel_id.strip().isdigit():
+        channel = db.query(models.NotificationChannel).filter(
+            models.NotificationChannel.id == int(channel_id)
+        ).first()
+    settings.feedback_channel_id = channel.id if channel else None
+    log_audit(
+        db, admin, "UPDATE", "System",
+        f"Feedback-Benachrichtigung: {('Kanal „' + channel.name + '“') if channel else 'aus'}.",
+    )
+    db.commit()
+    return RedirectResponse(
+        _with_toast("/admin/notifications", "Feedback-Benachrichtigung gespeichert."), status_code=302,
+    )
+
+
+@app.post("/admin/notifications/feedback-channel/test")
+def admin_notifications_feedback_channel_test(request: Request, db: Session = Depends(get_db)):
+    """Testnachricht an den gespeicherten Feedback-Kanal - damit sich Token/
+    Basis-URL pruefen lassen, ohne erst ein echtes Feedback abzuschicken."""
+    require_admin(request, db)
+    settings = get_app_settings(db)
+    channel = None
+    if settings.feedback_channel_id:
+        channel = db.query(models.NotificationChannel).filter(
+            models.NotificationChannel.id == settings.feedback_channel_id
+        ).first()
+    if not channel:
+        return RedirectResponse(
+            _with_toast("/admin/notifications", "Zuerst einen Kanal auswählen und speichern.", "error"), status_code=302,
+        )
+    if not channel.is_active:
+        return RedirectResponse(
+            _with_toast("/admin/notifications", f"Der Kanal „{channel.name}“ ist deaktiviert.", "error"), status_code=302,
+        )
+    ok, error = send_to_channel(
+        channel, notification_channel_config(db),
+        "Testnachricht von ClubHUB", "So sieht eine Feedback-Benachrichtigung ungefähr aus.",
+    )
+    if ok:
+        message, kind = f"Testnachricht an „{channel.name}“ gesendet.", "success"
+    else:
+        message = error or (
+            f"Nichts gesendet: für „{channel.name}“ fehlt das Ziel (Token/Topic) oder die Basis-URL unter „Verbindungen“."
+        )
+        kind = "error"
+    return RedirectResponse(_with_toast("/admin/notifications", message, kind), status_code=302)
 
 
 def _format_display_name(name: str) -> str:

@@ -698,6 +698,13 @@ class AppSettings(Base):
     gotify_base_url = Column(String, nullable=True)
     signal_base_url = Column(String, nullable=True)
     signal_sender_number = Column(String, nullable=True)
+    # Kanal (NotificationChannel.id), an den bei jedem neuen Feedback (Bug/
+    # Funktionswunsch, schwebender Button) eine Nachricht geht - damit der
+    # Admin es mitbekommt, ohne taeglich in die Feedback-Liste zu schauen.
+    # Bewusst nur eine ID ohne ForeignKey/relationship: wird der Kanal
+    # geloescht, raeumt admin_delete_channel sie auf, und ein veralteter Wert
+    # waere beim Versand ohnehin nur "Kanal nicht gefunden" = kein Versand.
+    feedback_channel_id = Column(Integer, nullable=True)
     # Offsite-Kopie der automatischen Sicherungen per WebDAV (Nextcloud), siehe
     # nextcloud.py. Wie bei den Verbindungen oben: NULL = es gilt die
     # gleichnamige Umgebungsvariable (NEXTCLOUD_*), ein hier gespeicherter Wert

@@ -65,6 +65,46 @@
     </form>
   </div>
 </details>
+
+<!-- Feedback-Benachrichtigung: bei jedem neuen Bug/Wunsch (schwebender
+     Feedback-Button) geht eine Nachricht an den hier gewaehlten Kanal, damit
+     der Admin nicht taeglich in die Feedback-Liste schauen muss. -->
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warn"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Feedback-Benachrichtigung
+      {% set fb_active = channels | selectattr("id", "equalto", connection_settings.feedback_channel_id) | list %}
+      <span class="text-[11px] px-2 py-0.5 rounded-full {{ 'bg-go/15 text-go' if fb_active else 'bg-panel2 text-slate-400' }}">{{ ('An: ' ~ fb_active[0].name) if fb_active else 'Aus' }}</span>
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form method="post" action="/admin/notifications/feedback-channel" class="space-y-3 mt-3 max-w-2xl">
+      <div>
+        <label for="fb-channel" class="block text-xs text-slate-500 mb-1">Kanal für neue Rückmeldungen (Bugs &amp; Wünsche)</label>
+        <select id="fb-channel" name="channel_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <option value="">– keine Benachrichtigung –</option>
+          {% for c in channels %}
+          <option value="{{ c.id }}" {% if connection_settings.feedback_channel_id == c.id %}selected{% endif %}>{{ c.name }} ({{ c.type }}){% if not c.is_active %} – deaktiviert{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <p class="text-[11px] text-slate-500 leading-relaxed">
+        Sobald jemand über den schwebenden Feedback-Button einen Bug oder Wunsch meldet, geht eine Nachricht mit Titel,
+        Absender, Priorität und Beschreibung an diesen Kanal (bei Priorität „Hoch“ mit erhöhter Priorität). Screenshots
+        stehen weiterhin nur unter Verwaltung → Feedback. Am besten legst du dafür unten einen eigenen Kanal an
+        (z. B. „Feedback → Gotify“) – er muss keiner Gruppe zugeordnet sein.
+      </p>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+        <button type="submit" formaction="/admin/notifications/feedback-channel/test" formnovalidate
+                class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-sm font-medium"
+                title="Sendet eine Testnachricht an den zuletzt gespeicherten Kanal">Testnachricht senden</button>
+      </div>
+    </form>
+  </div>
+</details>
 {% endif %}
 
 <details class="rounded-xl border border-line bg-panel mb-6 group">
