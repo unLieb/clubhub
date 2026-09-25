@@ -97,12 +97,16 @@
       <input type="hidden" name="next" value="/inventory">
       <div class="flex flex-col sm:flex-row gap-2">
         <input name="name" placeholder="Artikel, z.B. Allzweckreiniger" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <select name="group_id" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-          <option value="">– keine Gruppe –</option>
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Gruppe(n) <span class="text-slate-500 font-normal">– mehrere möglich; keine = für alle sichtbar</span></label>
+        <div class="flex flex-wrap gap-1.5">
           {% for g in groups %}
-          <option value="{{ g.id }}">{{ g.name }}</option>
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+            <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only">{{ g.name }}
+          </label>
           {% endfor %}
-        </select>
+        </div>
       </div>
       <div class="flex flex-col sm:flex-row gap-2">
         <input name="category" list="inv-categories" placeholder="Kategorie, z.B. Reinigungsmittel" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
@@ -169,9 +173,10 @@
   <details class="inventory-group-section group/section" open>
     <summary class="cursor-pointer list-none flex items-center justify-between gap-2 py-2 mb-3 border-b border-line text-slate-300 hover:text-slate-100">
       <span class="font-display font-medium flex items-center gap-2">
-        {% if section.group %}
-        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ section.group.color or group_default_color }}"></span>
-        {{ section.group.name }}
+        {% if section.groups %}
+        {# Gemeinsames Inventar mehrerer Gruppen: ein Farbpunkt je Gruppe, Namen mit "·" getrennt #}
+        {% for g in section.groups %}<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ g.color or group_default_color }}"></span>{% endfor %}
+        {{ section.groups|map(attribute="name")|join(" · ") }}
         {% else %}
         <span class="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-600"></span>
         Ohne Gruppe

@@ -56,7 +56,7 @@
           </td>
           <td class="py-2 pr-2 text-slate-400">{{ i.category or "–" }}</td>
           <td class="py-2 pr-2 text-slate-400">{{ i.location or "–" }}</td>
-          <td class="py-2 pr-2 text-slate-400">{{ i.group.name if i.group else "–" }}</td>
+          <td class="py-2 pr-2 text-slate-400">{{ i.groups|map(attribute="name")|join(", ") if i.groups else "–" }}</td>
           <td class="py-2 pl-2 text-right">
             <div class="relative inv-kebab-wrap inline-block">
               <button type="button" class="inv-kebab-btn p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für „{{ i.name }}“" aria-haspopup="true" aria-expanded="false">
@@ -66,7 +66,7 @@
                 <button type="button" class="inv-edit-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" aria-label="„{{ i.name }}“ bearbeiten"
                   data-id="{{ i.id }}"
                   data-name="{{ i.name }}"
-                  data-group-id="{{ i.group_id or '' }}"
+                  data-group-ids="{{ i.groups|map(attribute='id')|join(',') }}"
                   data-category="{{ i.category or '' }}"
                   data-location="{{ i.location or '' }}"
                   data-stock-current="{{ i.stock_current }}"

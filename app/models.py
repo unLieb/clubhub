@@ -55,6 +55,15 @@ report_group = Table(
     Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
 )
 
+# Inventar-Artikel koennen mehreren Gruppen gehoeren (z.B. Hausmeister UND
+# Toilettenbetreuung nutzen dasselbe Inventar) - siehe InventoryItem.groups.
+inventory_item_group = Table(
+    "inventory_item_group",
+    Base.metadata,
+    Column("item_id", Integer, ForeignKey("inventory_items.id"), primary_key=True),
+    Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
+)
+
 # Persönliche Sichtbarkeits-Einstellung (kein Recht, keine Admin-Vergabe):
 # jeder Nutzer kann für sich selbst Gruppen im Inventar ausblenden, die ihn
 # nicht interessieren (z.B. eine Führungskraft, die andere Gruppen verwaltet,
@@ -386,10 +395,18 @@ class InventoryItem(Base):
     # bereits vergebenen Barcode selbst um, siehe inventory_scan_assign.
     barcode = Column(String, nullable=True, index=True)
     image_url = Column(String, nullable=True)          # entweder /uploads/inventory/... oder externe URL
+    # Spiegel der ersten Gruppe aus `groups` (kleinste ID) bzw. NULL - seit der
+    # Mehrfach-Zuordnung nur noch Rueckfallebene: aelterer Code (Rollback)
+    # kennt nur diese eine Spalte, und _migrate_inventory_groups_backfill
+    # uebernimmt sie einmalig in `groups`. Wird bei jedem Speichern eines
+    # Artikels mitgeschrieben (siehe _set_inventory_groups in main.py), aber
+    # nie zum Lesen benutzt.
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     notified = Column(Boolean, default=False)          # schon über aktuelle Unterschreitung informiert?
 
-    group = relationship("Group")
+    # Zustaendige Gruppen (Mehrfachauswahl). Leer = gemeinsames Inventar, fuer
+    # alle sichtbar (wie bisher "keine Gruppe").
+    groups = relationship("Group", secondary=inventory_item_group)
     movements = relationship(
         "InventoryMovement", back_populates="item", cascade="all, delete-orphan",
         order_by="desc(InventoryMovement.timestamp)"

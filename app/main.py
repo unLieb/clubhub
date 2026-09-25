@@ -452,6 +452,29 @@ def _migrate_report_comment_photos(db: Session):
     _ensure_column(db, "report_photos", "comment_id", "INTEGER")
 
 
+def _migrate_inventory_groups_backfill(db: Session):
+    """Uebertraegt die alte Einzel-Gruppe (inventory_items.group_id) in die
+    neue inventory_item_group-Verknuepfungstabelle (Mehrfachauswahl, siehe
+    models.InventoryItem.groups). Die Tabelle selbst legt create_all() an. Pro
+    Artikel idempotent: nur Artikel, die noch keine Zuordnung haben UND deren
+    group_id auf eine noch existierende Gruppe zeigt. Das ist sicher, weil
+    group_id seither bei jedem Speichern als Spiegel der ersten Gruppe
+    mitgeschrieben wird (leer, wenn bewusst alle Gruppen entfernt wurden) -
+    eine bewusst geleerte Zuordnung wird also nie wiederbelebt."""
+    rows = db.execute(text(
+        "SELECT i.id, i.group_id FROM inventory_items i "
+        "WHERE i.group_id IS NOT NULL "
+        "AND EXISTS (SELECT 1 FROM groups g WHERE g.id = i.group_id) "
+        "AND NOT EXISTS (SELECT 1 FROM inventory_item_group x WHERE x.item_id = i.id)"
+    )).fetchall()
+    for item_id, group_id in rows:
+        db.execute(
+            text("INSERT INTO inventory_item_group (item_id, group_id) VALUES (:iid, :gid)"),
+            {"iid": item_id, "gid": group_id},
+        )
+    db.commit()
+
+
 def _migrate_app_settings_feedback_channel(db: Session):
     """Neue Einstellung: Kanal fuer Feedback-Benachrichtigungen (siehe
     AppSettings.feedback_channel_id). NULL = keine Benachrichtigung, wie bisher."""
@@ -806,6 +829,7 @@ def _startup():
         _migrate_report_comment_photos(db)
         _migrate_report_resolved_note(db)
         _migrate_app_settings_feedback_channel(db)
+        _migrate_inventory_groups_backfill(db)
         _migrate_appointment_company_wide(db)
         _migrate_appointment_groups_backfill(db)
         _migrate_report_photos(db)
@@ -2353,15 +2377,18 @@ def distinct_inventory_values(db: Session, column: str) -> list[str]:
 
 def user_can_see_inventory_item(user, item) -> bool:
     """Admin und Schichtleiter sehen das komplette Inventar; alle anderen nur
-    Artikel ohne Gruppe (gemeinsames Inventar) sowie Artikel der eigenen
-    Gruppe(n) - so sieht z.B. die Küche nicht das Inventar der Gastronomie."""
+    Artikel ohne Gruppe (gemeinsames Inventar) sowie Artikel, bei denen
+    mindestens eine der zustaendigen Gruppen zu den eigenen gehoert - so sieht
+    z.B. die Küche nicht das Inventar der Gastronomie, Hausmeister und
+    Toilettenbetreuung aber ein gemeinsames."""
     if user and (user.is_admin or user.is_shift_lead):
         return True
-    if item.group_id is None:
+    if not item.groups:
         return True
     if not user:
         return False
-    return any(g.id == item.group_id for g in user.groups)
+    own_group_ids = {g.id for g in user.groups}
+    return any(g.id in own_group_ids for g in item.groups)
 
 
 def filter_inventory_for_user(items, user):
@@ -2370,23 +2397,29 @@ def filter_inventory_for_user(items, user):
     # Recht, nur eine Deckelung der ohnehin schon erlaubten Sicht nach unten.
     # Nur fuer Admin/Schichtleiter relevant, siehe filter_rooms_for_user fuer
     # die ausfuehrliche Begruendung (analoge Situation): alle anderen Rollen
-    # sehen ohnehin nur Artikel der eigenen (einzigen) Gruppe.
+    # sehen ohnehin nur Artikel der eigenen Gruppe(n). Ein Artikel mit
+    # mehreren Gruppen wird nur ausgeblendet, wenn ALLE seine Gruppen
+    # ausgeblendet sind - sonst bliebe ein gemeinsamer Artikel weg, obwohl
+    # eine seiner Gruppen sichtbar sein soll.
     if user and (user.is_admin or user.is_shift_lead) and user.hidden_inventory_groups:
         hidden_ids = {g.id for g in user.hidden_inventory_groups}
-        visible = [i for i in visible if i.group_id not in hidden_ids]
+        visible = [i for i in visible if not i.groups or any(g.id not in hidden_ids for g in i.groups)]
     return visible
 
 
 def group_inventory_items(items: list) -> list[dict]:
     """Buendelt eine bereits gefilterte Artikel-Liste (siehe
     filter_inventory_for_user) fuer die Abschnitts-Gliederung in der
-    Inventar-Uebersicht: ein Eintrag je Gruppe, alphabetisch nach
-    Gruppenname, Artikel ohne Gruppe als eigener Abschnitt "Ohne Gruppe" am
-    Ende (bewusst zuletzt statt zuerst - die eigentlichen Zustaendigkeits-
-    Gruppen sind die primaere Ordnung, der Sammel-Abschnitt nur der
-    Auffangbecken-Rest). Innerhalb eines Abschnitts bleibt die Reihenfolge
-    der uebergebenen Liste erhalten (dort bereits alphabetisch nach
-    Artikelname sortiert, siehe inventory_overview).
+    Inventar-Uebersicht: ein Abschnitt je Gruppen-Kombination, alphabetisch
+    nach den Gruppennamen, Artikel ohne Gruppe als eigener Abschnitt "Ohne
+    Gruppe" am Ende (bewusst zuletzt statt zuerst - die eigentlichen
+    Zustaendigkeits-Gruppen sind die primaere Ordnung, der Sammel-Abschnitt
+    nur der Auffangbecken-Rest). Ein Artikel mit mehreren Gruppen steht in
+    EINEM gemeinsamen Abschnitt (z.B. "Hausmeister · Toilettenbetreuung") statt
+    mehrfach - doppelte Karten wuerden dieselbe DOM-ID (item-<id>) mehrfach
+    vergeben und das Buchen per fetch() durcheinanderbringen. Innerhalb eines
+    Abschnitts bleibt die Reihenfolge der uebergebenen Liste erhalten (dort
+    bereits alphabetisch nach Artikelname sortiert, siehe inventory_overview).
 
     ACHTUNG im Template: der Schluessel "items" kollidiert mit der
     eingebauten dict.items()-Methode - Jinja loest `section.items` deshalb
@@ -2394,21 +2427,33 @@ def group_inventory_items(items: list) -> list[dict]:
     zurueck (kein TypeError beim Rendern, aber falsches Ergebnis bzw.
     `|length` schlaegt fehl). Im Template daher immer `section['items']`
     (Bracket-Notation) statt `section.items` verwenden."""
-    by_group: dict[int, dict] = {}
+    by_key: dict[tuple, dict] = {}
     ungrouped: list = []
     for item in items:
-        if item.group:
-            bucket = by_group.setdefault(item.group.id, {"group": item.group, "items": []})
+        if item.groups:
+            groups = sorted(item.groups, key=lambda g: g.name.lower())
+            key = tuple(g.id for g in groups)
+            bucket = by_key.setdefault(key, {"groups": groups, "items": []})
             bucket["items"].append(item)
         else:
             ungrouped.append(item)
     sections = [
-        by_group[gid] for gid in
-        sorted(by_group, key=lambda gid: by_group[gid]["group"].name.lower())
+        by_key[key] for key in
+        sorted(by_key, key=lambda k: [g.name.lower() for g in by_key[k]["groups"]])
     ]
     if ungrouped:
-        sections.append({"group": None, "items": ungrouped})
+        sections.append({"groups": [], "items": ungrouped})
     return sections
+
+
+def _set_inventory_groups(db: Session, item, group_ids) -> None:
+    """Setzt die zustaendigen Gruppen eines Artikels aus einer Liste von
+    Gruppen-IDs (ungueltige/unbekannte werden ignoriert, leer = gemeinsames
+    Inventar fuer alle) und schreibt die veraltete Einzelspalte group_id als
+    Spiegel der ersten Gruppe mit (siehe InventoryItem.group_id)."""
+    ids = sorted({int(g) for g in group_ids if str(g).strip().isdigit()})
+    item.groups = db.query(models.Group).filter(models.Group.id.in_(ids)).all() if ids else []
+    item.group_id = min((g.id for g in item.groups), default=None)
 
 
 def user_can_access_cooling(user) -> bool:
@@ -6791,13 +6836,15 @@ def admin_add_inventory_item(
     category: str = Form(""),
     location: str = Form(""),
     reorder_url: str = Form(""),
-    group_id: str = Form(""),
+    group_ids: list[str] = Form([]),
+    group_id: str = Form(""),  # veraltetes Einzelfeld, noch fuer gecachte alte Formularseiten
     barcode: str = Form(""),
     next: str = Form("/admin/inventory"),
     sort: str = "status",
     db: Session = Depends(get_db),
 ):
     admin = require_admin_or_shift_lead(request, db)
+    group_ids = list(group_ids) + ([group_id] if group_id else [])
     reorder_url = reorder_url or None
     # Kauflink direkt beim Anlegen gesetzt -> automatisch das Produktbild
     # der verlinkten Seite als Artikelbild übernehmen, falls auffindbar.
@@ -6809,7 +6856,7 @@ def admin_add_inventory_item(
         # manueller Eingabe) schon einem anderen zugeordnet war, dort
         # entfernen, damit kuenftige Scans nicht mehrdeutig werden.
         db.query(models.InventoryItem).filter(models.InventoryItem.barcode == barcode).update({"barcode": None})
-    db.add(models.InventoryItem(
+    new_item = models.InventoryItem(
         name=name,
         unit=unit or None,
         unit_plural=unit_plural or None,
@@ -6822,9 +6869,10 @@ def admin_add_inventory_item(
         location=location or None,
         reorder_url=reorder_url,
         image_url=image_url,
-        group_id=int(group_id) if group_id else None,
         barcode=barcode,
-    ))
+    )
+    _set_inventory_groups(db, new_item, group_ids)
+    db.add(new_item)
     log_audit(db, admin, "CREATE", "Inventar", f"Artikel „{name}“ angelegt.")
     db.commit()
     if request.headers.get("X-Requested-With") == "fetch":
@@ -6849,13 +6897,15 @@ def admin_edit_inventory_item(
     category: str = Form(""),
     location: str = Form(""),
     reorder_url: str = Form(""),
-    group_id: str = Form(""),
+    group_ids: list[str] = Form([]),
+    group_id: str = Form(""),  # veraltetes Einzelfeld, noch fuer gecachte alte Formularseiten
     barcode: str = Form(""),
     next: str = Form("/admin/inventory"),
     sort: str = "status",
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
+    group_ids = list(group_ids) + ([group_id] if group_id else [])
     item = db.query(models.InventoryItem).filter(models.InventoryItem.id == item_id).first()
     if item and not user_can_see_inventory_item(actor, item):
         item = None
@@ -6887,7 +6937,7 @@ def admin_edit_inventory_item(
             else:
                 image_fetch_failed = True
         item.reorder_url = new_reorder_url
-        item.group_id = int(group_id) if group_id else None
+        _set_inventory_groups(db, item, group_ids)
         if item.stock_current >= item.stock_min:
             item.notified = False
         log_audit(db, actor, "UPDATE", "Inventar", f"Artikel „{name}“ bearbeitet.")
@@ -6900,6 +6950,45 @@ def admin_edit_inventory_item(
     if request.headers.get("X-Requested-With") == "fetch":
         raise HTTPException(status_code=404, detail="Artikel nicht gefunden")
     return RedirectResponse(next if next.startswith("/") else "/admin/inventory", status_code=302)
+
+
+@app.post("/admin/inventory/bulk-add-group")
+def admin_inventory_bulk_add_group(
+    request: Request,
+    from_group_id: str = Form(""),
+    add_group_id: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Sammelzuordnung: fuegt allen Artikeln einer Gruppe eine weitere Gruppe
+    hinzu (z.B. das bisherige Hausmeister-Inventar zusaetzlich der
+    Toilettenbetreuung), statt jeden Artikel einzeln zu bearbeiten. Nur
+    Hinzufuegen, nie Entfernen - bereits vorhandene Zuordnungen bleiben."""
+    admin = require_admin(request, db)
+    if not (from_group_id.isdigit() and add_group_id.isdigit()) or from_group_id == add_group_id:
+        return RedirectResponse(
+            _with_toast("/admin/inventory", "Bitte zwei verschiedene Gruppen auswählen.", "error"), status_code=302,
+        )
+    source = db.query(models.Group).filter(models.Group.id == int(from_group_id)).first()
+    target = db.query(models.Group).filter(models.Group.id == int(add_group_id)).first()
+    if not source or not target:
+        return RedirectResponse(
+            _with_toast("/admin/inventory", "Gruppe nicht gefunden.", "error"), status_code=302,
+        )
+    changed = 0
+    for item in db.query(models.InventoryItem).all():
+        if any(g.id == source.id for g in item.groups) and not any(g.id == target.id for g in item.groups):
+            _set_inventory_groups(db, item, [g.id for g in item.groups] + [target.id])
+            changed += 1
+    log_audit(
+        db, admin, "UPDATE", "Inventar",
+        f"Sammelzuordnung: {changed} Artikel von „{source.name}“ zusätzlich der Gruppe „{target.name}“ zugeordnet.",
+    )
+    db.commit()
+    message = (
+        f"{changed} Artikel gehören jetzt auch zu „{target.name}“." if changed
+        else f"Nichts geändert – alle Artikel von „{source.name}“ gehören schon zu „{target.name}“."
+    )
+    return RedirectResponse(_with_toast("/admin/inventory", message), status_code=302)
 
 
 @app.post("/admin/inventory/{item_id}/delete")

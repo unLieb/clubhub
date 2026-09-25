@@ -11,6 +11,48 @@
   </button>
 </div>
 
+{% if user.is_admin and groups|length > 1 %}
+<!-- Sammelzuordnung: ein Artikel kann mehreren Gruppen gehoeren (z.B.
+     Hausmeister und Toilettenbetreuung teilen sich ein Inventar). Statt jeden
+     Artikel einzeln zu bearbeiten, laesst sich hier allen Artikeln einer
+     Gruppe eine weitere Gruppe hinzufuegen. Nur Hinzufuegen, nie Entfernen. -->
+<details class="rounded-xl border border-line bg-panel mb-5 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2 text-sm">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Inventar gemeinsam nutzen (Sammelzuordnung)
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form method="post" action="/admin/inventory/bulk-add-group" class="mt-3 space-y-3 max-w-xl"
+          onsubmit="return confirmSubmit(event, { title: 'Sammelzuordnung ausführen?', message: 'Alle Artikel der ersten Gruppe werden zusätzlich der zweiten Gruppe zugeordnet. Bestehende Zuordnungen bleiben erhalten.', confirmText: 'Zuordnen' })">
+      <div class="flex flex-col sm:flex-row gap-2 sm:items-end">
+        <div class="flex-1">
+          <label for="bulk-from" class="block text-[11px] text-slate-400 mb-1">Alle Artikel von</label>
+          <select id="bulk-from" name="from_group_id" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="">– Gruppe wählen –</option>
+            {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="flex-1">
+          <label for="bulk-add" class="block text-[11px] text-slate-400 mb-1">auch zuordnen zu</label>
+          <select id="bulk-add" name="add_group_id" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            <option value="">– Gruppe wählen –</option>
+            {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Zuordnen</button>
+      </div>
+      <p class="text-[11px] text-slate-500 leading-relaxed">
+        Beide Gruppen sehen danach dieselben Artikel und denselben Bestand; Buchungen der einen sind für die andere sofort sichtbar.
+        Bei niedrigem Bestand werden beide Gruppen benachrichtigt. Einzelne Artikel lassen sich weiterhin über „Bearbeiten“ anpassen.
+      </p>
+    </form>
+  </div>
+</details>
+{% endif %}
+
 <div id="inv-content">
   {% include "_inventory_content.html" %}
 </div>
@@ -32,12 +74,16 @@
     <div class="space-y-2">
       <h3 class="text-[11px] uppercase tracking-wide text-slate-500 font-medium">Stammdaten</h3>
       <input name="name" id="inv-f-name" placeholder="Artikel, z.B. Allzweckreiniger" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-      <select name="group_id" id="inv-f-group" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        <option value="">– keine Gruppe –</option>
-        {% for g in groups %}
-        <option value="{{ g.id }}">{{ g.name }}</option>
-        {% endfor %}
-      </select>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Gruppe(n) <span class="text-slate-500 font-normal">– mehrere möglich; keine = für alle sichtbar</span></label>
+        <div id="inv-f-groups" class="flex flex-wrap gap-1.5">
+          {% for g in groups %}
+          <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+            <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only">{{ g.name }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
       <input name="category" id="inv-f-category" list="inv-categories" placeholder="Kategorie, z.B. Reinigungsmittel" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <input name="location" id="inv-f-location" list="inv-locations" placeholder="Lagerort, z.B. Lager A" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <div class="flex gap-2">
@@ -99,7 +145,7 @@
       <input name="reorder_url" id="inv-f-reorder-url" type="url" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
     </div>
 
-    <p class="text-[11px] text-slate-500">Fällt der Ist- unter den Mindestbestand, wird die zugeordnete Gruppe benachrichtigt (respektiert deren Arbeitszeit).</p>
+    <p class="text-[11px] text-slate-500">Fällt der Ist- unter den Mindestbestand, werden die zugeordneten Gruppen benachrichtigt (sobald mindestens eine im Dienst ist, siehe deren Arbeitszeit).</p>
 
     <p id="inv-drawer-error" class="hidden text-[11px] text-late">Speichern fehlgeschlagen – bitte erneut versuchen.</p>
 
@@ -144,7 +190,7 @@
 
     var fields = {
       name: document.getElementById('inv-f-name'),
-      group: document.getElementById('inv-f-group'),
+      groups: document.getElementById('inv-f-groups'),
       category: document.getElementById('inv-f-category'),
       location: document.getElementById('inv-f-location'),
       stockCurrent: document.getElementById('inv-f-stock-current'),
@@ -221,7 +267,10 @@
       submitBtn.textContent = 'Speichern';
       errorEl.classList.add('hidden');
       fields.name.value = d.name;
-      fields.group.value = d.groupId || '';
+      var selectedGroupIds = (d.groupIds || '').split(',').filter(Boolean);
+      fields.groups.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+        cb.checked = selectedGroupIds.indexOf(cb.value) !== -1;
+      });
       fields.category.value = d.category || '';
       fields.location.value = d.location || '';
       fields.stockCurrent.value = d.stockCurrent;

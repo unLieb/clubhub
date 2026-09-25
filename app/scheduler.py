@@ -261,7 +261,7 @@ def check_inventory_job():
     db = SessionLocal()
     try:
         now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
-        items = db.query(InventoryItem).filter(InventoryItem.group_id.isnot(None)).all()
+        items = db.query(InventoryItem).filter(InventoryItem.groups.any()).all()
         for item in items:
             if item.notified:
                 continue
@@ -271,10 +271,15 @@ def check_inventory_job():
             item_status = compute_inventory_status(item)
             if item_status["status"] != "low":
                 continue
-            if not _within_working_hours(item.group, now_local):
+            # Bei mehreren Gruppen (gemeinsames Inventar, z.B. Hausmeister und
+            # Toilettenbetreuung): benachrichtigt wird, sobald mindestens eine
+            # der Gruppen gerade im Dienst ist - dann aber alle, damit keine
+            # Gruppe leer ausgeht, nur weil ihr Arbeitszeit-Fenster gerade zu
+            # ist (die Nachricht wird nur einmal je Unterschreitung verschickt).
+            if not any(_within_working_hours(g, now_local) for g in item.groups):
                 continue  # wird beim nächsten Tick nachgeholt, sobald Arbeitszeit beginnt
-            notify_group(
-                item.group,
+            notify_groups(
+                item.groups,
                 f"Niedriger Bestand: {item.name}",
                 f"„{item.name}“ liegt bei {item.stock_current:g}"
                 f"{' ' + item.unit if item.unit else ''} – Mindestbestand ist {item_status['critical_threshold']:g}.",

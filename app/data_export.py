@@ -95,7 +95,10 @@ def export_data_json(db: Session) -> dict:
                 "location": i.location,
                 "reorder_url": i.reorder_url,
                 "image_url": i.image_url,
-                "group": i.group.name if i.group else None,
+                # "groups" (Liste) ist das aktuelle Format, "group" (erste
+                # Gruppe) bleibt fuer aeltere ClubHUB-Versionen beim Import.
+                "groups": [g.name for g in sorted(i.groups, key=lambda g: g.name.lower())],
+                "group": min(i.groups, key=lambda g: g.id).name if i.groups else None,
             }
             for i in db.query(models.InventoryItem).all()
         ],
@@ -240,14 +243,18 @@ def import_data_json(db: Session, data: dict, selected: set, importing_user) -> 
             if row["name"] in existing_items:
                 summary["inventory_items"]["matched"] += 1
                 continue
-            group = group_by_name.get(row.get("group"))
+            # "groups" (Liste) ist das aktuelle Format - "group" (Einzelwert)
+            # als Fallback fuer Export-Dateien von vor der Mehrfach-Zuordnung.
+            group_names = row.get("groups") or ([row["group"]] if row.get("group") else [])
+            item_groups = [group_by_name[n] for n in group_names if n in group_by_name]
             db.add(models.InventoryItem(
                 name=row["name"], unit=row.get("unit"), unit_plural=row.get("unit_plural"),
                 pack_size=row.get("pack_size"), pack_unit=row.get("pack_unit"),
                 stock_current=row.get("stock_current", 0.0), stock_min=row.get("stock_min", 0.0),
                 stock_critical=row.get("stock_critical"), category=row.get("category"),
                 location=row.get("location"), reorder_url=row.get("reorder_url"), image_url=row.get("image_url"),
-                group_id=group.id if group else None,
+                groups=item_groups,
+                group_id=min((g.id for g in item_groups), default=None),
             ))
             existing_items.add(row["name"])
             summary["inventory_items"]["created"] += 1

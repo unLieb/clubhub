@@ -13,7 +13,7 @@
 {% import "_group_macros.html" as gm %}
 <div id="item-{{ item.id }}" class="inventory-card rounded-xl border border-line border-l-4 {{ im.border_classes(st.status) }} bg-panel p-4"
      data-status="{{ st.status }}"
-     data-search="{{ (item.name ~ ' ' ~ (item.category or '') ~ ' ' ~ (item.location or '') ~ ' ' ~ (item.group.name if item.group else ''))|lower }}">
+     data-search="{{ (item.name ~ ' ' ~ (item.category or '') ~ ' ' ~ (item.location or '') ~ ' ' ~ (item.groups|map(attribute='name')|join(' ')))|lower }}">
 
   <!-- Kopfzeile: immer sichtbar -->
   <div class="flex items-center gap-4 flex-wrap">
@@ -55,7 +55,7 @@
         <span class="font-medium">{{ item.name }}</span>
         <span class="text-xs px-2 py-0.5 rounded-full {{ im.status_classes(st.status) }} font-medium">{{ im.status_label(st.status) }}</span>
       </div>
-      {% if item.location or item.category or item.unit or item.group %}
+      {% if item.location or item.category or item.unit or item.groups %}
       <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
         {% if item.location %}
         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
@@ -75,7 +75,7 @@
           {{ item|unit_label(item.stock_current, item.stock_min) }}{% if item.pack_size and item.pack_unit %} à {{ item.pack_size|qty }} {{ item.pack_unit }}{% endif %}
         </span>
         {% endif %}
-        {{ gm.group_badge(item.group) }}
+        {{ gm.group_badges(item.groups) }}
       </div>
       {% endif %}
       <div class="mt-2 max-w-sm">
