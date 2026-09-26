@@ -30,8 +30,13 @@
 </div>
 <p class="text-slate-400 text-sm mb-6">{{ visible_room_groups | map(attribute="name") | join(", ") }}</p>
 
-{% macro task_row(task, s) %}
-<div id="task-{{ task.id }}" data-ajax-row class="rounded-xl border border-line bg-panel p-4 flex items-center justify-between gap-4">
+{# show_turnus: Turnus-Chip an der Karte - nur in der eingeklappten Liste
+   "Bereits erledigt" noetig, dort gibt es keine Turnus-Ueberschriften. In der
+   Hauptliste steht der Turnus dafuer in der Abschnitts-Ueberschrift. Der
+   farbige linke Rand (Turnus-Farbe) gilt in beiden Listen. #}
+{% macro task_row(task, s, show_turnus=False) %}
+{% set tinfo = turnus_info(task.interval_hours) %}
+<div id="task-{{ task.id }}" data-ajax-row class="rounded-xl border border-line border-l-4 bg-panel p-4 flex items-center justify-between gap-4" style="border-left-color: {{ tinfo.color }}">
   <div class="min-w-0 flex-1">
     <div class="flex items-center flex-wrap gap-2">
       <span class="w-2.5 h-2.5 rounded-full status-dot shrink-0
@@ -39,6 +44,8 @@
       <span class="font-medium">{{ task.name }}</span>
       {% if s.on_demand %}
       <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">Nach Bedarf</span>
+      {% elif show_turnus %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap" style="background-color: {{ tinfo.color }}26; color: {{ tinfo.color }};">{{ tinfo.label }}</span>
       {% endif %}
       {% if task.active_weekdays|weekday_label %}
       <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">{{ task.active_weekdays|weekday_label }}</span>
@@ -125,9 +132,27 @@
 </div>
 {% endif %}
 
-<div class="space-y-3" id="pending-tasks-list">
-  {% for task in pending_tasks %}
-  {{ task_row(task, statuses[task.id]) }}
+<!-- Offene Aufgaben, gegliedert nach Turnus (kurz -> lang, "Nach Bedarf"
+     zuletzt): Abschnitts-Ueberschrift mit Turnus-Name, Farbpunkt und Anzahl,
+     dazu ein Farbrand an jeder Karte - damit man in einem Bereich mit vielen
+     Aufgaben nicht von der Masse erschlagen wird, sondern sofort sieht, was
+     taeglich und was nur woechentlich/monatlich/... ansteht. Die Zaehler und
+     das Ausblenden leerer Abschnitte beim Abhaken erledigt updateTurnusSections()
+     im Skript unten. -->
+<div class="space-y-6" id="pending-tasks-list">
+  {% for section in pending_sections %}
+  <section class="turnus-section" data-turnus-key="{{ section.info.key }}">
+    <h2 class="flex items-center gap-2 text-sm font-medium text-slate-200 mb-2.5">
+      <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ section.info.color }}"></span>
+      {{ section.info.label }}
+      <span class="turnus-count text-xs text-slate-500 font-normal">({{ section['tasks']|length }})</span>
+    </h2>
+    <div class="space-y-3">
+      {% for task in section['tasks'] %}
+      {{ task_row(task, statuses[task.id]) }}
+      {% endfor %}
+    </div>
+  </section>
   {% else %}
   {% if room.tasks %}
   <p class="text-slate-500 italic">Keine offenen Aufgaben – alles erledigt.</p>
@@ -152,7 +177,7 @@
   </summary>
   <div class="space-y-3 mt-3">
     {% for task in done_tasks %}
-    {{ task_row(task, statuses[task.id]) }}
+    {{ task_row(task, statuses[task.id], true) }}
     {% endfor %}
   </div>
 </details>
@@ -256,6 +281,22 @@
         return card && card.style.display !== 'none';
       });
       emptyMsg.classList.toggle('hidden', anyLeft);
+      updateTurnusSections();
+    }
+
+    // Turnus-Abschnitte (siehe pending-tasks-list oben) nach jedem Abhaken/
+    // Rückgängig nachziehen: Anzahl in der Ueberschrift aktualisieren und einen
+    // Abschnitt ausblenden, sobald alle seine Karten weggeklappt sind - sonst
+    // bliebe eine verwaiste Ueberschrift ohne Aufgaben stehen.
+    function updateTurnusSections() {
+      document.querySelectorAll('#pending-tasks-list .turnus-section').forEach(function (section) {
+        var visible = Array.prototype.filter.call(section.querySelectorAll('[data-ajax-row]'), function (card) {
+          return card.style.display !== 'none';
+        }).length;
+        section.classList.toggle('hidden', visible === 0);
+        var count = section.querySelector('.turnus-count');
+        if (count) count.textContent = '(' + visible + ')';
+      });
     }
 
     document.querySelectorAll('.task-complete-form').forEach(function (form) {
@@ -521,6 +562,8 @@
           <option value="336" data-warn="48">Alle 2 Wochen</option>
           <option value="720" data-warn="72">Monatlich</option>
           <option value="2160" data-warn="216">Quartalsweise</option>
+          <option value="4380" data-warn="432">Halbjährlich</option>
+          <option value="8760" data-warn="864">Jährlich</option>
           <option value="0">Nach Bedarf</option>
         </select>
       </div>

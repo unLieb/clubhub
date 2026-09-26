@@ -1389,6 +1389,61 @@ def _task_display_status(task: models.Task, now) -> dict:
     return s
 
 
+# Bekannte Turnusse (interval_hours, Anzeigename, Farbe) - dient in der
+# Bereichsansicht (room.html) als Abschnitts-Ueberschrift und Karten-Randfarbe,
+# damit man bei vielen Aufgaben auf einen Blick sieht, was taeglich, was nur
+# vierteljaehrlich ansteht. Farben aus der Gruppen-Palette (siehe
+# GROUP_COLOR_PALETTE) und damit bewusst unterscheidbar von den Ampelfarben
+# gruen/gelb/rot, die dieselbe Karte fuer den Status nutzt.
+TURNUS_DEFS = [
+    (24.0, "Täglich", "#5b8def"),
+    (168.0, "Wöchentlich", "#2dd4bf"),
+    (336.0, "Alle 2 Wochen", "#a78bfa"),
+    (720.0, "Monatlich", "#ef8a4c"),
+    (2160.0, "Quartalsweise", "#ec4899"),
+    (4380.0, "Halbjährlich", "#a8785a"),
+    (8760.0, "Jährlich", "#d946ef"),
+]
+TURNUS_ON_DEMAND = ("Nach Bedarf", "#94a3b8")
+TURNUS_OTHER_COLOR = "#818cf8"
+
+
+def turnus_info(interval_hours) -> dict:
+    """Anzeigename + Farbe zu einem Turnus (interval_hours). Bekannte Werte
+    siehe TURNUS_DEFS, 0 = "Nach Bedarf"; ein sonst gesetzter Wert (z.B. per
+    Import) bekommt einen sprechenden Namen wie "Alle 3 Tage"."""
+    hours = float(interval_hours or 0)
+    if hours == 0:
+        return {"key": "0", "label": TURNUS_ON_DEMAND[0], "color": TURNUS_ON_DEMAND[1]}
+    for value, label, color in TURNUS_DEFS:
+        if hours == value:
+            return {"key": str(int(value)), "label": label, "color": color}
+    if hours % 168 == 0:
+        label = f"Alle {int(hours // 168)} Wochen"
+    elif hours % 24 == 0:
+        label = f"Alle {int(hours // 24)} Tage"
+    else:
+        label = f"Alle {hours:g} Stunden"
+    return {"key": f"{hours:g}", "label": label, "color": TURNUS_OTHER_COLOR}
+
+
+templates.env.globals["turnus_info"] = turnus_info
+
+
+def group_tasks_by_turnus(tasks: list) -> list[dict]:
+    """Buendelt eine bereits nach Turnus sortierte Aufgabenliste (siehe
+    room_view: kurz -> lang, "Nach Bedarf" zuletzt) in Abschnitte je Turnus.
+    ACHTUNG im Template: der Schluessel "tasks" ist unkritisch, aber wie bei
+    group_inventory_items niemals "items" nennen (kollidiert mit dict.items())."""
+    sections: list[dict] = []
+    for task in tasks:
+        info = turnus_info(task.interval_hours)
+        if not sections or sections[-1]["info"]["key"] != info["key"]:
+            sections.append({"info": info, "tasks": []})
+        sections[-1]["tasks"].append(task)
+    return sections
+
+
 @app.get("/room/{room_id}")
 def room_view(room_id: int, request: Request, done: str = "", db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
@@ -1441,6 +1496,7 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
         "room": room,
         "statuses": statuses,
         "pending_tasks": pending_tasks,
+        "pending_sections": group_tasks_by_turnus(pending_tasks),
         "done_tasks": done_tasks,
         "setups": setups,
         "attachable_events": attachable_events,
