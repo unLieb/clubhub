@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.35.1] - 2026-09-26
+- Bugfix Bereiche: Der Button „Tägliche erledigen“ auf den Bereichs-Karten (Desktop) saß nicht bei allen Karten einer Reihe auf gleicher Höhe. Ursachen: Bei Bereichen ohne bisherige Reinigung fehlte die Überschrift „Letzte Reinigung“, der Block war dadurch eine Zeile kürzer, und der Button hing direkt unter dem Inhalt statt am Kartenboden. Jetzt steht die Überschrift auch bei „Noch keine Reinigung erfolgt“, und die Karten sind so aufgebaut, dass der Button bei allen Karten einer Reihe unten bündig sitzt.
+
 ## [1.35.0] - 2026-09-26
 - Bereiche: Aufgaben sind jetzt nach Turnus gegliedert. Wer einen Bereich mit vielen Aufgaben zum ersten Mal öffnete, wurde von der Masse erschlagen, weil sich die Turnusse optisch nicht unterschieden. Die offenen Aufgaben stehen jetzt unter Überschriften je Turnus („Täglich“, „Wöchentlich“, „Alle 2 Wochen“, „Monatlich“, „Quartalsweise“, „Halbjährlich“, „Jährlich“, „Nach Bedarf“; kurz nach lang, „Nach Bedarf“ zuletzt) mit Farbpunkt und Anzahl. Jede Aufgaben-Karte hat zusätzlich einen farbigen linken Rand in der Farbe ihres Turnus, und in der eingeklappten Liste „Bereits erledigt“ (ohne Überschriften) trägt jede Karte ein Turnus-Kürzel. Die Turnus-Farben stammen aus der Gruppen-Palette und sind damit von den Ampelfarben Grün/Gelb/Rot unterscheidbar. Beim Abhaken zählt die Überschrift mit herunter und verschwindet, sobald ihr Abschnitt leer ist (bei „Rückgängig“ kommt sie zurück). Ungewöhnliche Intervalle (z. B. per Import) bekommen einen sprechenden Namen wie „Alle 3 Tage“.
 - Neue Turnusse „Halbjährlich“ (182,5 Tage) und „Jährlich“ (365 Tage) im Aufgaben-Formular, mit passender Standard-Vorwarnzeit (18 bzw. 36 Tage vorher, wie bei den anderen Turnussen anpassbar).
