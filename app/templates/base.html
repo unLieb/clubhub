@@ -101,6 +101,23 @@
   .room-name-accent {
     color: color-mix(in oklab, var(--room-name-color) var(--room-name-mix), black);
   }
+  /* Sichtbarkeits-Filter-Chips (rooms.html/inventory.html, nur Admin/
+     Schichtleiter): aktivierte Gruppen erscheinen in ihrer eigenen
+     (adminseitig frei waehlbaren) Farbe, abgewaehlte grau - umgekehrtes
+     Prinzip zur alten Variante (rot = ausgeblendet), auf Nutzerwunsch, da
+     "was ich sehen will aktivieren" intuitiver war als "was ich nicht
+     sehen will abwaehlen". --chip-color kommt per Inline-Style, Mix-Anteil
+     wie bei .room-name-accent themeabhaengig aus --room-name-mix. */
+  .group-filter-chip {
+    color: var(--color-slate-500);
+    background-color: var(--color-panel2);
+    border-color: var(--color-line);
+  }
+  .group-filter-chip:has(:checked) {
+    color: color-mix(in oklab, var(--chip-color) var(--room-name-mix), black);
+    background-color: color-mix(in oklab, var(--chip-color) 15%, transparent);
+    border-color: color-mix(in oklab, var(--chip-color) 50%, transparent);
+  }
   /* Meldungs-Karten (reports.html): Details blenden weich ein statt
      hart aufzuspringen. <details> laesst sich nicht auf die Hoehe animieren,
      Ein-/Ausblenden + leichtes Herabgleiten wirkt aber fliessend genug. */

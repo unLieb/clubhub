@@ -56,11 +56,11 @@
   </summary>
   <div class="px-3 pb-3 pt-1 border-t border-line">
     <form method="post" action="/inventory/hidden-groups">
-      <p class="text-[11px] text-slate-500 mt-2 mb-1.5">Ausgeblendete Gruppen tauchen für dich persönlich nicht mehr im Inventar auf - nur für dich, ändert nichts für andere.</p>
+      <p class="text-[11px] text-slate-500 mt-2 mb-1.5">Aktive (farbige) Gruppen erscheinen im Inventar - nur für dich, ändert nichts für andere. Abgewählte Gruppen werden grau und verschwinden aus deiner Ansicht.</p>
       <div class="flex flex-wrap gap-1.5">
         {% for g in visible_groups_for_filter %}
-        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-late/15 has-checked:border-late has-checked:text-late">
-          <input type="checkbox" name="hidden_group_ids" value="{{ g.id }}" class="sr-only" {% if g.id in hidden_group_ids %}checked{% endif %}>{{ g.name }}
+        <label class="group-filter-chip cursor-pointer rounded-md border px-2.5 py-1 text-sm transition-colors" style="--chip-color: {{ g.color }};">
+          <input type="checkbox" name="visible_group_ids" value="{{ g.id }}" class="sr-only" {% if g.id not in hidden_group_ids %}checked{% endif %}>{{ g.name }}
         </label>
         {% endfor %}
       </div>

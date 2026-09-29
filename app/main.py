@@ -1349,16 +1349,19 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
 @app.post("/rooms/hidden-groups")
 def rooms_set_hidden_groups(
     request: Request,
-    hidden_group_ids: list[int] = Form([]),
+    visible_group_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
     # Persönliche Einstellung, kein Admin-Recht - jeder angemeldete Nutzer
     # darf seine eigene Sicht anpassen (siehe inventory_set_hidden_groups,
-    # identisches Muster fürs Inventar).
+    # identisches Muster fürs Inventar). Formular schickt die AKTIVEN
+    # (angehakten) Gruppen - gespeichert wird weiterhin die Ausschlussliste
+    # (hidden_room_groups), also das Komplement über alle Gruppen, damit
+    # eine neu angelegte Gruppe automatisch sichtbar ist statt versehentlich
+    # ausgeblendet zu bleiben.
     user = require_login(request, db)
-    user.hidden_room_groups = (
-        db.query(models.Group).filter(models.Group.id.in_(hidden_group_ids)).all() if hidden_group_ids else []
-    )
+    visible_set = set(visible_group_ids)
+    user.hidden_room_groups = [g for g in db.query(models.Group).all() if g.id not in visible_set]
     db.commit()
     return RedirectResponse("/rooms", status_code=302)
 
@@ -2838,15 +2841,16 @@ def inventory_overview(request: Request, img_fetch_failed: str = "", db: Session
 @app.post("/inventory/hidden-groups")
 def inventory_set_hidden_groups(
     request: Request,
-    hidden_group_ids: list[int] = Form([]),
+    visible_group_ids: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
     # Persönliche Einstellung, kein Admin-Recht - jeder angemeldete Nutzer
-    # darf seine eigene Sicht anpassen.
+    # darf seine eigene Sicht anpassen. Formular schickt die AKTIVEN
+    # (angehakten) Gruppen, siehe rooms_set_hidden_groups für die
+    # Begründung des Komplements.
     user = require_login(request, db)
-    user.hidden_inventory_groups = (
-        db.query(models.Group).filter(models.Group.id.in_(hidden_group_ids)).all() if hidden_group_ids else []
-    )
+    visible_set = set(visible_group_ids)
+    user.hidden_inventory_groups = [g for g in db.query(models.Group).all() if g.id not in visible_set]
     db.commit()
     return RedirectResponse("/inventory", status_code=302)
 

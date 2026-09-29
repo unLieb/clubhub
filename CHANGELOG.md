@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.36.0] - 2026-09-29
+- Sichtbarkeit anpassen (Bereiche + Inventar, Admin/Schichtleiter): Prinzip umgedreht. Bisher waren alle Gruppen sichtbar und man klickte an, was man ausblenden wollte (rot markiert). Jetzt sind alle Gruppen standardmäßig aktiv und in ihrer eigenen Gruppenfarbe dargestellt - erst wer eine Gruppe abwählt, blendet sie aus, die Kachel wird dann grau. Reine Anzeige-/Bedienungsänderung, wer schon etwas ausgeblendet hatte, sieht dieselbe Auswahl weiterhin ausgeblendet.
+
 ## [1.35.1] - 2026-09-26
 - Bugfix Bereiche: Der Button „Tägliche erledigen“ auf den Bereichs-Karten (Desktop) saß nicht bei allen Karten einer Reihe auf gleicher Höhe. Ursachen: Bei Bereichen ohne bisherige Reinigung fehlte die Überschrift „Letzte Reinigung“, der Block war dadurch eine Zeile kürzer, und der Button hing direkt unter dem Inhalt statt am Kartenboden. Jetzt steht die Überschrift auch bei „Noch keine Reinigung erfolgt“, und die Karten sind so aufgebaut, dass der Button bei allen Karten einer Reihe unten bündig sitzt.
 
