@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.39.1] - 2026-09-30
+- Bugfix Dashboard (Handy): Die Meldungen-Kachel stand bisher unter der teils langen Bereiche-Liste, obwohl der Hinweis "X Meldungen benötigen Aufmerksamkeit" direkt darüber schon auf sie zeigte - wirkte durch die dazwischenliegende Liste unzusammenhängend. Auf dem Handy steht Meldungen jetzt direkt unter diesem Hinweis, Bereiche folgt danach. Auf dem Desktop unverändert nebeneinander.
+
 ## [1.39.0] - 2026-09-30
 - Hinweise: die Dashboard-Karte blendet sich jetzt auch live aus, sobald der letzte Hinweis direkt von dort gelöscht wird (vorher blieb eine leere Hülle stehen, ohne die Seite neu zu laden). Serverseitig war das schon vorher der Fall - erscheint gar nicht erst, wenn keine Hinweise vorliegen.
 - Neu: optionales Verfallsdatum beim Anlegen eines Hinweises ("Läuft ab" - Nie/1 Tag/3 Tage/1 Woche/2 Wochen/1 Monat). Abgelaufene Hinweise werden automatisch im Hintergrund gelöscht, das gewählte Datum steht bis dahin bei jedem Hinweis dabei.

@@ -392,9 +392,15 @@
 </a>
 {% endif %}
 
-<!-- Bereiche mit Handlungsbedarf + Meldungen -->
+<!-- Bereiche mit Handlungsbedarf + Meldungen. Auf dem Handy (einspaltig,
+     order-first/-none steuert nur dort die Reihenfolge) steht Meldungen
+     bewusst VOR Bereiche, direkt an den "X Meldungen benötigen
+     Aufmerksamkeit"-Hinweis von oben anschließend - vorher lag die lange
+     Bereiche-Liste dazwischen, wirkte dadurch wie ein unzusammenhängender,
+     verwirrender Bruch (Nutzer-Feedback). Auf dem Desktop unveraendert
+     nebeneinander (Bereiche breiter links, Meldungen rechts). -->
 <div class="grid lg:grid-cols-3 gap-4 mb-6">
-  <div data-dashboard-widget="rooms" class="lg:col-span-2 rounded-xl border border-line bg-panel p-4 min-w-0">
+  <div data-dashboard-widget="rooms" class="order-2 lg:order-none lg:col-span-2 rounded-xl border border-line bg-panel p-4 min-w-0">
     <div class="mb-4">
       <a href="/rooms" class="font-display font-medium flex items-center gap-2 hover:text-go w-fit">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -416,7 +422,7 @@
     {% endif %}
   </div>
 
-  <div data-dashboard-widget="reports" class="rounded-xl border border-line bg-panel p-4 min-w-0">
+  <div data-dashboard-widget="reports" class="order-1 lg:order-none rounded-xl border border-line bg-panel p-4 min-w-0">
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-display font-medium flex items-center gap-2">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
