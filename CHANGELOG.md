@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.44.3] - 2026-09-30
+- Kontrast von Versionsnummer und Rollenbezeichnung ("Administrator" etc.) in der Sidebar nachgebessert: Größe/Hintergrund bleiben wie gewohnt, stattdessen deutlich hellere Textfarbe (nahe Weiß, 80% Deckkraft statt des bisherigen Grautons), damit beides auf dem dunklen Sidebar-Hintergrund klar lesbar ist.
+
 ## [1.44.2] - 2026-09-30
 - Versionsnummer in der Desktop-Sidebar besser lesbar gemacht (größer, ohne zusätzliche Transparenz). In der Mobile-Ansicht fehlte die Versionsnummer bisher komplett - sie steht jetzt unter dem „ClubHUB"-Schriftzug im mobilen Header und verlinkt wie am Desktop auf die Changelog-Seite.
 
