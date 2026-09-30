@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.42.0] - 2026-09-30
+- Hinweise ist jetzt ebenfalls global deaktivierbar (Verwaltung → System → „Module & Features"), unabhängig vom Meldungen-Schalter aus 1.41.0. Deaktiviert verschwindet der Menüpunkt aus Desktop-Sidebar und mobilem „Mehr"-Menü sowie die Dashboard-Karte, ein direkter Aufruf von `/notices` wird mit Hinweis aufs Dashboard umgeleitet. Bereits vorhandene Hinweise bleiben dabei vollständig erhalten. Bestehende Installationen starten nach dem Update automatisch mit aktiviertem Modul.
+
 ## [1.41.0] - 2026-09-30
 - Meldungen ist jetzt wie Urlaub und Zeiterfassung global deaktivierbar (Verwaltung → System → „Module & Features"). Deaktiviert verschwindet der Menüpunkt aus Desktop-Sidebar und mobiler Navigation, das Dashboard blendet Begrüßungstext-Zusatz, Warnbanner und die Meldungen-Kachel aus (Bereiche nimmt dann die volle Breite ein), die zugehörige Hilfe-Sektion verschwindet, und ein direkter Aufruf von `/reports` oder eine seiner Aktionen wird mit Hinweis auf das Dashboard umgeleitet. Bereits vorhandene Meldungen bleiben dabei vollständig erhalten und sind sofort wieder da, sobald das Modul erneut aktiviert wird. Bestehende Installationen starten nach dem Update automatisch mit aktiviertem Modul (kein Verhaltensunterschied ohne aktives Zutun).
 

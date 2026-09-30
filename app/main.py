@@ -738,6 +738,12 @@ def _migrate_app_settings_enable_reports(db: Session):
     _ensure_column(db, "app_settings", "enable_reports", "INTEGER DEFAULT 1")
 
 
+def _migrate_app_settings_enable_notices(db: Session):
+    """Modul-Schalter fuer Hinweise (siehe AppSettings.enable_notices) -
+    gleiches Prinzip wie enable_reports."""
+    _ensure_column(db, "app_settings", "enable_notices", "INTEGER DEFAULT 1")
+
+
 def _migrate_app_settings_channel_config(db: Session):
     """Basis-URLs/Zugangsdaten fuer ntfy/Gotify/Signal neu direkt in der
     Verwaltung pflegbar statt zwingend per Umgebungsvariable (siehe
@@ -880,6 +886,7 @@ def _startup():
         _migrate_user_notices_last_seen(db)
         _migrate_notice_expiry(db)
         _migrate_app_settings_enable_reports(db)
+        _migrate_app_settings_enable_notices(db)
     finally:
         db.close()
 
@@ -1214,7 +1221,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     recent_notices = []
     unseen_notice_ids = set()
-    if user:
+    if user and get_app_settings(db).enable_notices:
         # "unseen" anhand des VORHERIGEN Standes bestimmen, dann erst auf
         # jetzt aktualisieren - sonst waere in der gerade ausgelieferten
         # Antwort selbst schon nichts mehr als neu markiert (siehe
@@ -2752,12 +2759,13 @@ def nav_badges(request: Request) -> dict:
         user = get_current_user(request, db)
         if not user:
             return {"reports": 0, "inventory": 0, "cooling": 0, "notices": 0}
+        settings = get_app_settings(db)
         # Nur die Meldungen zaehlen, die der Nutzer auch sehen darf (dieselbe
         # Pruefung wie Meldungsliste und Dashboard) - sonst zeigt die Navigation
         # eine hoehere Zahl als die Liste dahinter. Beziehungen vorab laden,
         # weil das bei jedem Seitenaufruf laeuft. Bei deaktiviertem Modul
         # (siehe AppSettings.enable_reports) erst gar nicht abfragen.
-        if get_app_settings(db).enable_reports:
+        if settings.enable_reports:
             open_reports = (
                 db.query(models.Report)
                 .options(joinedload(models.Report.groups), joinedload(models.Report.room).joinedload(models.Room.groups))
@@ -2773,7 +2781,7 @@ def nav_badges(request: Request) -> dict:
         cooling_alerts = sum(1 for d in devices if d.readings and d.readings[0].is_over_limit)
         return {
             "reports": reports_open, "inventory": inventory_critical, "cooling": cooling_alerts,
-            "notices": _unseen_notices_count(db, user),
+            "notices": _unseen_notices_count(db, user) if settings.enable_notices else 0,
         }
     finally:
         db.close()
@@ -2783,18 +2791,19 @@ templates.env.globals["nav_badges"] = nav_badges
 
 
 def app_module_flags() -> dict:
-    """Globale Modul-Schalter (Zeiterfassung/Urlaub/Meldungen, siehe "Module &
-    Features" unter /admin/system) - läuft wie nav_badges als Jinja-Global mit
-    eigener kurzlebiger DB-Session, damit Navigation (base.html) und Dashboard-
-    Widgets sie ohne eigenen Kontext-Eintrag abfragen können, ganz ohne Login-
-    Bezug (anders als nav_badges gilt das auch für ausgeloggte Besucher, z.B.
-    auf der Login-Seite selbst schon die Nav gar nicht erst anzuzeigen)."""
+    """Globale Modul-Schalter (Zeiterfassung/Urlaub/Meldungen/Hinweise, siehe
+    "Module & Features" unter /admin/system) - läuft wie nav_badges als Jinja-
+    Global mit eigener kurzlebiger DB-Session, damit Navigation (base.html)
+    und Dashboard-Widgets sie ohne eigenen Kontext-Eintrag abfragen können,
+    ganz ohne Login-Bezug (anders als nav_badges gilt das auch für ausgeloggte
+    Besucher, z.B. auf der Login-Seite selbst schon die Nav gar nicht erst
+    anzuzeigen)."""
     db = SessionLocal()
     try:
         settings = get_app_settings(db)
         return {
             "time_tracking": settings.enable_time_tracking, "vacation": settings.enable_vacation,
-            "reports": settings.enable_reports,
+            "reports": settings.enable_reports, "notices": settings.enable_notices,
         }
     finally:
         db.close()
@@ -4289,6 +4298,9 @@ def _active_notices_query(db: Session):
 
 @app.get("/notices")
 def notices_page(request: Request, db: Session = Depends(get_db)):
+    blocked = _module_gate(get_app_settings(db).enable_notices, "Hinweise")
+    if blocked:
+        return blocked
     user = get_current_user(request, db)
     notices = _active_notices_query(db).order_by(models.Notice.created_at.desc()).all()
     if user:
@@ -4310,6 +4322,9 @@ def notices_create(
     text: str = Form(...), expires_days: int = Form(0), db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
+    blocked = _module_gate(get_app_settings(db).enable_notices, "Hinweise")
+    if blocked:
+        return blocked
     text = text.strip()
     if not text:
         return RedirectResponse(_with_toast("/notices", "Bitte einen Text eingeben.", "error"), status_code=302)
@@ -4336,6 +4351,10 @@ def notices_delete(notice_id: int, request: Request, db: Session = Depends(get_d
     beliebige - gleiches Muster wie bei Meldungen/Urlaub/Terminen."""
     actor = require_login(request, db)
     is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    if not get_app_settings(db).enable_notices:
+        if is_fetch:
+            raise HTTPException(status_code=404, detail="Hinweise ist deaktiviert")
+        return RedirectResponse(_with_toast("/", "Hinweise ist aktuell deaktiviert.", "error"), status_code=302)
     notice = db.query(models.Notice).filter(models.Notice.id == notice_id).first()
     if notice and (notice.user_id == actor.id or actor.is_admin):
         db.delete(notice)
@@ -6185,6 +6204,7 @@ def _admin_system_context(
         "enable_time_tracking": settings.enable_time_tracking,
         "enable_vacation": settings.enable_vacation,
         "enable_reports": settings.enable_reports,
+        "enable_notices": settings.enable_notices,
     }
 
 
@@ -6298,6 +6318,7 @@ def admin_system_modules(
     enable_time_tracking: str = Form(""),
     enable_vacation: str = Form(""),
     enable_reports: str = Form(""),
+    enable_notices: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Globale Modul-Schalter (siehe AppSettings, Karte "Module & Features")
@@ -6309,11 +6330,13 @@ def admin_system_modules(
     settings.enable_time_tracking = bool(enable_time_tracking)
     settings.enable_vacation = bool(enable_vacation)
     settings.enable_reports = bool(enable_reports)
+    settings.enable_notices = bool(enable_notices)
     log_audit(
         db, admin, "UPDATE", "System",
         f"Module aktualisiert: Zeiterfassung {'an' if settings.enable_time_tracking else 'aus'}, "
         f"Urlaub {'an' if settings.enable_vacation else 'aus'}, "
-        f"Meldungen {'an' if settings.enable_reports else 'aus'}.",
+        f"Meldungen {'an' if settings.enable_reports else 'aus'}, "
+        f"Hinweise {'an' if settings.enable_notices else 'aus'}.",
     )
     db.commit()
     return RedirectResponse(_with_toast("/admin/system", "Module gespeichert."), status_code=302)
