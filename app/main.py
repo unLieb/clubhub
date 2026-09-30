@@ -3876,6 +3876,12 @@ async def reports_create(
     if selected_group_ids:
         report.groups = db.query(models.Group).filter(models.Group.id.in_(selected_group_ids)).all()
     db.add(report)
+    room_label = room_for_check.name if not roomless else "kein Bereich (Anschaffung)"
+    log_audit(
+        db, user, "CREATE", "Meldung",
+        f'Meldung „{title}“ angelegt (Kategorie: {category}{f", Priorität: {priority}" if priority else ""}, '
+        f"Bereich: {room_label}).",
+    )
     db.commit()
 
     for photo in photos:
@@ -3964,6 +3970,11 @@ STATUS_CHANGE_TITLES = {
     "in_progress": "In Bearbeitung",
     "done": "Erledigt",
 }
+# Neutrale Status-Bezeichnung fuers Audit-Log (anders als STATUS_CHANGE_TITLES
+# oben, das fuer die Push-Benachrichtigung "open" bewusst als "Wieder
+# geöffnet" betitelt - im Log soll der Ausgangsstatus einer Meldung aber
+# einfach "Offen" heissen, nicht wie ein Wiederöffnen-Ereignis).
+REPORT_STATUS_LABELS = {"open": "Offen", "in_progress": "In Bearbeitung", "done": "Erledigt"}
 
 
 REPORT_DONE_NOTE_MIN_LENGTH = 5
@@ -4040,6 +4051,7 @@ async def reports_set_status(
         .first()
     )
     if report and report.status != status:
+        old_status = report.status
         if status == "done":
             if len(completion_note) < REPORT_DONE_NOTE_MIN_LENGTH:
                 message = (
@@ -4072,6 +4084,12 @@ async def reports_set_status(
             report.in_progress_at = None
             report.in_progress_by_id = None
         report.status = status
+        report_title, _ = split_report_text(report)
+        log_audit(
+            db, user, "UPDATE", "Meldung",
+            f'Meldung „{report_title}“ ({report.room.name if report.room else "kein Bereich"}) '
+            f"Status: {REPORT_STATUS_LABELS.get(old_status, old_status)} → {REPORT_STATUS_LABELS.get(status, status)}.",
+        )
         db.commit()
         _bump_live_version()
 
@@ -4127,6 +4145,12 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
                 os.remove(os.path.join(REPORT_PHOTOS_DIR, photo.filename))
             except OSError:
                 pass
+        report_title, _ = split_report_text(report)
+        log_audit(
+            db, user, "DELETE", "Meldung",
+            f'Meldung „{report_title}“ ({report.room.name if report.room else "kein Bereich"}, '
+            f"Status: {REPORT_STATUS_LABELS.get(report.status, report.status)}) gelöscht.",
+        )
         db.delete(report)
         db.commit()
         _bump_live_version()
@@ -4254,12 +4278,21 @@ def reports_assign(
     group_mode/assigned_group_ids-Schema und dieselbe Vorrangregel wie in
     reports_create: echte Gruppen-IDs entscheiden server-seitig unabhaengig
     von group_mode, sobald welche dabei sind."""
-    require_login(request, db)
+    user = require_login(request, db)
     blocked = _module_gate(get_app_settings(db).enable_reports, "Meldungen")
     if blocked:
         return blocked
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report:
+        def _assignment_label(is_company_wide: bool, groups) -> str:
+            if is_company_wide:
+                return "Alle (Betriebsweit)"
+            if groups:
+                return ", ".join(sorted(g.name for g in groups))
+            return "Automatisch (Bereich)"
+
+        old_label = _assignment_label(report.is_company_wide, report.groups)
+
         new_group_ids = sorted({int(g) for g in assigned_group_ids if g.strip().isdigit()})
         is_company_wide = group_mode == "all" and not new_group_ids
         # Ohne Bereich (Anschaffung) gibt es keine Bereichsgruppen-Ableitung
@@ -4268,10 +4301,20 @@ def reports_assign(
         # (Alle (Betriebsweit) zaehlt als gueltiger Benachrichtigungsweg).
         if report.room_id is None and not new_group_ids and not is_company_wide:
             return RedirectResponse("/reports", status_code=302)
-        report.groups = (
+        new_groups = (
             db.query(models.Group).filter(models.Group.id.in_(new_group_ids)).all() if new_group_ids else []
         )
+        report.groups = new_groups
         report.is_company_wide = is_company_wide
+
+        new_label = _assignment_label(is_company_wide, new_groups)
+        if old_label != new_label:
+            report_title, _ = split_report_text(report)
+            log_audit(
+                db, user, "UPDATE", "Meldung",
+                f'Meldung „{report_title}“ ({report.room.name if report.room else "kein Bereich"}) '
+                f"Zuständigkeit: {old_label} → {new_label}.",
+            )
         db.commit()
         _bump_live_version()
     return RedirectResponse("/reports", status_code=302)
@@ -6964,9 +7007,26 @@ def admin_edit_room(
     actor = require_admin_or_shift_lead(request, db)
     room = db.query(models.Room).filter(models.Room.id == room_id).first()
     if room:
+        old_name = room.name
+        old_group_names = sorted(g.name for g in room.groups)
+        new_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all()
+        new_group_names = sorted(g.name for g in new_groups)
+
+        # Nur tatsaechlich geaenderte Felder erwaehnen (siehe Aufgaben-Audit-
+        # Log fuer die Begruendung) - reines Speichern ohne Aenderung erzeugt
+        # keinen Log-Eintrag.
+        changes = []
+        if old_name != name:
+            changes.append(f'Name „{old_name}“ → „{name}“')
+        if old_group_names != new_group_names:
+            changes.append(
+                f"Gruppen {', '.join(old_group_names) or '–'} → {', '.join(new_group_names) or '–'}"
+            )
+
         room.name = name
-        room.groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all()
-        log_audit(db, actor, "UPDATE", "Bereich", f"Bereich „{name}“ bearbeitet.")
+        room.groups = new_groups
+        if changes:
+            log_audit(db, actor, "UPDATE", "Bereich", f"Bereich „{name}“ bearbeitet: {'; '.join(changes)}.")
         db.commit()
     return RedirectResponse("/admin/rooms", status_code=302)
 

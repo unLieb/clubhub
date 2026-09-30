@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.44.0] - 2026-09-30
+- Audit-Log erweitert auf Meldungen und Bereiche (siehe 1.43.0 für Aufgaben). Neu erfasst: Meldung anlegen/löschen, Statuswechsel (z. B. „Offen → In Bearbeitung") und Änderung der Zuständigkeit. Bereiche: die bisher pauschale „bearbeitet"-Zeile zeigt jetzt ebenfalls konkret, was sich geändert hat (Name, Gruppenzuordnung). Wie bei Aufgaben gilt: reines Speichern ohne echte Änderung erzeugt keinen Log-Eintrag, nur tatsächliche Unterschiede werden protokolliert.
+
 ## [1.43.0] - 2026-09-30
 - Neu: Aufgaben-Bearbeitungen landen jetzt im Audit-Log (Verwaltung → Audit-Log, Kategorie „Aufgabe"). Anlegen, Löschen und Bearbeiten werden protokolliert; beim Bearbeiten stehen nur tatsächlich geänderte Felder im Eintrag (z. B. „Turnus Quartalsweise → Alle 2 Wochen"), reines Speichern ohne Änderung erzeugt keinen Eintrag. Auslöser: ein Vorfall, bei dem sich der Turnus mehrerer Aufgaben unbemerkt geändert hatte und sich nicht mehr nachvollziehen ließ, wer/wann/warum.
 
