@@ -225,10 +225,15 @@
 
 <!-- Mobile-Kopfzeile (nur < lg) -->
 <header class="lg:hidden sticky top-0 z-40 bg-sidebar/95 border-b border-sidebar-line px-4 py-3 flex items-center justify-between">
-  <a href="/" class="flex items-center gap-2">
-    <img src="/static/logo-icon.png?v={{ app_build_hash }}" alt="ClubHUB" class="w-8 h-8 shrink-0 object-contain">
-    <div class="font-display font-semibold text-sm leading-tight text-sidebar-text-strong">ClubHUB</div>
-  </a>
+  <div class="flex items-center gap-2">
+    <a href="/" class="w-8 h-8 shrink-0 flex items-center justify-center">
+      <img src="/static/logo-icon.png?v={{ app_build_hash }}" alt="ClubHUB" class="w-8 h-8 object-contain">
+    </a>
+    <div class="flex flex-col leading-tight">
+      <a href="/" class="font-display font-semibold text-sm text-sidebar-text-strong">ClubHUB</a>
+      <a href="/changelog" class="w-fit text-xs text-sidebar-muted hover:text-sidebar-text-strong hover:underline" title="Änderungshistorie ansehen">v{{ app_version }}</a>
+    </div>
+  </div>
   <div class="flex items-center gap-2 shrink-0">
     {% if user %}
     <button type="button" class="push-toggle-btn hidden w-7 h-7 rounded-full bg-panel2/80 border border-line flex items-center justify-center text-slate-300 shrink-0" aria-label="Benachrichtigungen">
@@ -274,7 +279,7 @@
       </a>
       <div class="flex flex-col leading-tight">
         <a href="/" class="font-display font-semibold text-sidebar-text-strong">ClubHUB</a>
-        <a href="/changelog" class="w-fit text-[10px] text-sidebar-muted/80 mt-0.5 hover:text-sidebar-text-strong hover:underline" title="Änderungshistorie ansehen">v{{ app_version }}</a>
+        <a href="/changelog" class="w-fit text-xs text-sidebar-muted mt-0.5 hover:text-sidebar-text-strong hover:underline" title="Änderungshistorie ansehen">v{{ app_version }}</a>
       </div>
     </div>
 
