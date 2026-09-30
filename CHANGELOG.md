@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.40.0] - 2026-09-30
+- Navigation neu sortiert nach operativer Priorität: Dashboard, Bereiche, Meldungen, Hinweise, Termine, Urlaub, Zeiterfassung — Trennlinie — Kühlungen, Inventar, Historie — Trennlinie — Verwaltung (nur Admin/Schichtleiter), Hilfe. Betrifft Desktop-Sidebar und das mobile "Mehr"-Menü (die feste 5er-Leiste unten - Dashboard/Bereiche/Inventar/Meldungen/Mehr - bleibt unverändert). Urlaub/Zeiterfassung waren in der Vorgabe nicht explizit erwähnt, bewusst direkt hinter Termine belassen statt entfernt.
+
 ## [1.39.1] - 2026-09-30
 - Bugfix Dashboard (Handy): Die Meldungen-Kachel stand bisher unter der teils langen Bereiche-Liste, obwohl der Hinweis "X Meldungen benötigen Aufmerksamkeit" direkt darüber schon auf sie zeigte - wirkte durch die dazwischenliegende Liste unzusammenhängend. Auf dem Handy steht Meldungen jetzt direkt unter diesem Hinweis, Bereiche folgt danach. Auf dem Desktop unverändert nebeneinander.
 

@@ -290,25 +290,6 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
         Bereiche
       </a>
-      <a href="/history" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/history' %}active{% endif %}">
-        <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-        Historie
-      </a>
-      <a href="/inventory" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/inventory' %}active{% endif %}">
-        <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
-        Inventar
-        {% if badges.inventory %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none">{{ badges.inventory }}</span>{% endif %}
-      </a>
-      {% if user_can_access_cooling(user) %}
-      <a href="/kuehlungen" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/kuehlungen' %}active{% endif %}">
-        <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
-        Kühlungen
-        {% if badges.cooling %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none">{{ badges.cooling }}</span>{% endif %}
-      </a>
-      {% endif %}
       <a href="/reports" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/reports' %}active{% endif %}">
         <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -340,6 +321,29 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
         Zeiterfassung
       </a>
+      {% endif %}
+      {% if user %}
+      <div class="my-2 border-t border-sidebar-line"></div>
+      {% if user_can_access_cooling(user) %}
+      <a href="/kuehlungen" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/kuehlungen' %}active{% endif %}">
+        <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+        Kühlungen
+        {% if badges.cooling %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none">{{ badges.cooling }}</span>{% endif %}
+      </a>
+      {% endif %}
+      <a href="/inventory" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/inventory' %}active{% endif %}">
+        <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+        Inventar
+        {% if badges.inventory %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none">{{ badges.inventory }}</span>{% endif %}
+      </a>
+      <a href="/history" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/history' %}active{% endif %}">
+        <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Historie
+      </a>
+      <div class="my-2 border-t border-sidebar-line"></div>
       {% endif %}
       {% if user and (user.is_admin or user.is_shift_lead) %}
       <a href="/admin" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/admin' %}active{% endif %}">
@@ -387,7 +391,7 @@
      schmalen Displays noch bequem antippbar bleibt. Alle weiteren Module
      stecken hinter "Mehr" im Bottom-Sheet (siehe unten), statt die Leiste mit
      jedem neuen Modul weiter zu stauchen. -->
-{% set more_paths = ['/history', '/kuehlungen', '/notices', '/appointments', '/vacations', '/timeclock', '/admin', '/help'] %}
+{% set more_paths = ['/notices', '/appointments', '/vacations', '/timeclock', '/kuehlungen', '/history', '/admin', '/help'] %}
 {% set on_more_page = user and request.url.path in more_paths %}
 {% set more_badge_count = (badges.cooling or 0) + (badges.notices or 0) %}
 <nav class="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-ink border-t border-line flex safe-bottom">
@@ -441,19 +445,6 @@
     </button>
   </div>
   <div class="px-2 pb-2 grid grid-cols-3 gap-1">
-    <a href="/history" class="tab-link {% if request.url.path == '/history' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-      Historie
-    </a>
-    {% if user_can_access_cooling(user) %}
-    <a href="/kuehlungen" class="tab-link {% if request.url.path == '/kuehlungen' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
-      <span class="relative">
-        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
-        {% if badges.cooling %}<span class="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-late text-white text-[8px] font-semibold flex items-center justify-center leading-none">{{ badges.cooling }}</span>{% endif %}
-      </span>
-      Kühlungen
-    </a>
-    {% endif %}
     <a href="/notices" class="tab-link {% if request.url.path == '/notices' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
       <span class="relative">
         <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
@@ -477,6 +468,19 @@
       Zeiterfassung
     </a>
     {% endif %}
+    {% if user_can_access_cooling(user) %}
+    <a href="/kuehlungen" class="tab-link {% if request.url.path == '/kuehlungen' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <span class="relative">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+        {% if badges.cooling %}<span class="absolute -top-1 -right-1.5 w-3.5 h-3.5 rounded-full bg-late text-white text-[8px] font-semibold flex items-center justify-center leading-none">{{ badges.cooling }}</span>{% endif %}
+      </span>
+      Kühlungen
+    </a>
+    {% endif %}
+    <a href="/history" class="tab-link {% if request.url.path == '/history' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      Historie
+    </a>
     {% if user.is_admin or user.is_shift_lead %}
     <a href="/admin" class="tab-link {% if request.url.path == '/admin' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 2.5"/></svg>
