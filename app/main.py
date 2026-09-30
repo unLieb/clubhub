@@ -7019,6 +7019,12 @@ def admin_add_task(
         if completed_at:
             task.completions.append(models.Completion(user_id=actor.id, timestamp=completed_at))
         db.add(task)
+    room_names = [r.name for r in db.query(models.Room).filter(models.Room.id.in_(room_ids)).all()]
+    log_audit(
+        db, actor, "CREATE", "Aufgabe",
+        f"Aufgabe „{name}“ angelegt (Turnus: {turnus_info(interval_hours)['label']}) "
+        f"in {'Bereich' if len(room_names) == 1 else 'Bereichen'} {', '.join(room_names)}.",
+    )
     db.commit()
     # Zurück zur Bereichs-Detailseite (dort lebt die Inline-Aufgabenverwaltung
     # jetzt, siehe room.html) statt zur schlanken Verwaltung > Bereiche.
@@ -7037,7 +7043,7 @@ def admin_edit_task(
     active_weekdays: list[int] = Form([]),
     db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    actor = require_admin_or_shift_lead(request, db)
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         return RedirectResponse("/rooms", status_code=302)
@@ -7045,6 +7051,22 @@ def admin_edit_task(
     # Explizite Gruppen-Zuständigkeit optional - leer bedeutet automatisch
     # "alle Gruppen des Bereichs" (siehe Task.groups-Kommentar in models.py).
     selected_groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all() if group_ids else []
+
+    # Vorherige Werte fuer das Audit-Log sichern, BEVOR sie ueberschrieben
+    # werden - Anlass: eine falsch angeklickte Turnus-Option beim Bearbeiten
+    # blieb bisher spurlos, liess sich nachtraeglich nicht von einem echten
+    # Bug unterscheiden (siehe Vorfall mit auf "Alle 2 Wochen" verrutschten
+    # Quartals-Aufgaben). Nur tatsaechlich geaenderte Felder werden erwaehnt,
+    # damit ein reines "Speichern ohne Aenderung" keinen Log-Eintrag ohne
+    # Aussagewert erzeugt.
+    changes = []
+    if task.name != name:
+        changes.append(f'Name „{task.name}“ → „{name}“')
+    if task.interval_hours != interval_hours:
+        changes.append(f"Turnus {turnus_info(task.interval_hours)['label']} → {turnus_info(interval_hours)['label']}")
+    if task.warn_hours != warn_hours:
+        changes.append(f"Warnung vorher {task.warn_hours:g}h → {warn_hours:g}h")
+
     # Bearbeiten betrifft ausschließlich diese eine Aufgabe des aktuellen
     # Bereichs (raumzentrierte Logik, kein bereichsübergreifendes Verlinken
     # mehr) - der Bereich selbst ist dabei nicht änderbar.
@@ -7054,17 +7076,26 @@ def admin_edit_task(
     task.note = note.strip() or None
     task.groups = list(selected_groups)
     task.active_weekdays = _normalize_active_weekdays(active_weekdays)
+    if changes:
+        log_audit(
+            db, actor, "UPDATE", "Aufgabe",
+            f"Aufgabe „{name}“ ({task.room.name}) bearbeitet: {'; '.join(changes)}.",
+        )
     db.commit()
     return RedirectResponse(f"/room/{task.room_id}", status_code=302)
 
 
 @app.post("/admin/tasks/{task_id}/delete")
 def admin_delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
-    require_admin(request, db)
+    admin = require_admin(request, db)
     is_fetch = request.headers.get("X-Requested-With") == "fetch"
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     room_id = task.room_id if task else None
     if task:
+        log_audit(
+            db, admin, "DELETE", "Aufgabe",
+            f"Aufgabe „{task.name}“ ({task.room.name}, Turnus: {turnus_info(task.interval_hours)['label']}) gelöscht.",
+        )
         db.delete(task)
         db.commit()
     if is_fetch:

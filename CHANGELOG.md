@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.43.0] - 2026-09-30
+- Neu: Aufgaben-Bearbeitungen landen jetzt im Audit-Log (Verwaltung → Audit-Log, Kategorie „Aufgabe"). Anlegen, Löschen und Bearbeiten werden protokolliert; beim Bearbeiten stehen nur tatsächlich geänderte Felder im Eintrag (z. B. „Turnus Quartalsweise → Alle 2 Wochen"), reines Speichern ohne Änderung erzeugt keinen Eintrag. Auslöser: ein Vorfall, bei dem sich der Turnus mehrerer Aufgaben unbemerkt geändert hatte und sich nicht mehr nachvollziehen ließ, wer/wann/warum.
+
 ## [1.42.0] - 2026-09-30
 - Hinweise ist jetzt ebenfalls global deaktivierbar (Verwaltung → System → „Module & Features"), unabhängig vom Meldungen-Schalter aus 1.41.0. Deaktiviert verschwindet der Menüpunkt aus Desktop-Sidebar und mobilem „Mehr"-Menü sowie die Dashboard-Karte, ein direkter Aufruf von `/notices` wird mit Hinweis aufs Dashboard umgeleitet. Bereits vorhandene Hinweise bleiben dabei vollständig erhalten. Bestehende Installationen starten nach dem Update automatisch mit aktiviertem Modul.
 
