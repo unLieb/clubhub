@@ -195,6 +195,12 @@ class User(Base):
     # muessen - daher Default False, jeder aktiviert es sich bei Bedarf
     # selbst im eigenen Profil.
     notify_on_completion = Column(Boolean, default=False)
+    # Fuer den "Neu"-Hinweis/Badge bei Hinweisen (siehe nav_badges/dashboard
+    # in main.py): wird bei jedem Dashboard-/Hinweise-Aufruf auf jetzt
+    # gesetzt - Hinweise, deren created_at danach liegt, gelten als ungesehen.
+    # NULL (nie gesetzt) zaehlt alle bisherigen Hinweise als ungesehen, was
+    # fuer Bestandsnutzer beim Rollout dieser Spalte gewollt ist.
+    notices_last_seen_at = Column(DateTime(timezone=True), nullable=True)
 
     groups = relationship("Group", secondary=user_group, back_populates="users")
     hidden_inventory_groups = relationship("Group", secondary=user_hidden_inventory_group)

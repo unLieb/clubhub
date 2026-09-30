@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.38.0] - 2026-09-30
+- Hinweise landen jetzt direkt auf dem Dashboard (eigene Karte, weit oben, auf Handy wie Desktop) statt nur auf der eigenen Unterseite - sonst wäre die Funktion kaum jemandem aufgefallen. Ungesehene Hinweise sind zusätzlich als "Neu" markiert (Akzent-Rand + Chip) und erzeugen ein rotes Zähler-Badge in der Navigation (Sidebar-Eintrag "Hinweise" sowie "Mehr" auf dem Handy) - verschwindet automatisch, sobald der Hinweis auf dem Dashboard oder in der Liste einmal angezeigt wurde. Löschen direkt von der Dashboard-Karte aus ist ebenfalls möglich.
+
 ## [1.37.0] - 2026-09-30
 - Neuer Bereich "Hinweise" (Sidebar + mobil unter "Mehr"): kurze Infos für alle, die niemand als erledigt markieren muss und die keine bestimmte Person oder Gruppe betreffen (z.B. "Bitte in den Umkleiden immer die Fenster schließen"). Anders als eine Meldung ohne Zuständigkeit, Status oder Bearbeitungs-Workflow - jeder eingeloggte Nutzer kann einen Hinweis schreiben, er geht sofort per Push an alle Gruppen. Löschen kann der Verfasser selbst oder ein Admin, wie bei Meldungen/Urlaub/Terminen.
 

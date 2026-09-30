@@ -262,6 +262,7 @@ templates.env.globals["group_default_color"] = GROUP_DEFAULT_COLOR
 # geraetespezifisch statt kontospezifisch.
 DASHBOARD_WIDGETS = [
     ("kpi", "KPI-Karten (Erledigt/Fällig/Überfällig/Bereiche)"),
+    ("notices", "Hinweise"),
     ("appointments", "Nächste Termine"),
     ("rooms", "Bereiche"),
     ("reports", "Meldungen"),
@@ -679,6 +680,12 @@ def _migrate_user_notify_on_completion(db: Session):
     _ensure_column(db, "users", "notify_on_completion", "INTEGER DEFAULT 0")
 
 
+def _migrate_user_notices_last_seen(db: Session):
+    """Fuer den "Neu"-Badge bei Hinweisen (siehe models.py User.notices_last_seen_at
+    und nav_badges/dashboard in main.py)."""
+    _ensure_column(db, "users", "notices_last_seen_at", "DATETIME")
+
+
 def _migrate_audit_log_drop_ip(db: Session):
     """DSGVO: Client-IP-Adressen wurden bis v0.97.1 im Audit-Log gespeichert -
     ab hier nicht mehr (siehe AuditLog in models.py). Die Spalte bleibt in
@@ -858,6 +865,7 @@ def _startup():
         _migrate_app_settings_channel_config(db)
         _migrate_app_settings_nextcloud(db)
         _migrate_group_cooling_access(db)
+        _migrate_user_notices_last_seen(db)
     finally:
         db.close()
 
@@ -1190,6 +1198,21 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     rooms = filter_rooms_for_user(db.query(models.Room).all(), user)
     visible_room_ids = {r.id for r in rooms}
 
+    recent_notices = []
+    unseen_notice_ids = set()
+    if user:
+        # "unseen" anhand des VORHERIGEN Standes bestimmen, dann erst auf
+        # jetzt aktualisieren - sonst waere in der gerade ausgelieferten
+        # Antwort selbst schon nichts mehr als neu markiert (siehe
+        # notices_page fuer denselben Ablauf beim direkten Aufruf der Liste).
+        previous_notices_seen = user.notices_last_seen_at
+        recent_notices = db.query(models.Notice).order_by(models.Notice.created_at.desc()).limit(5).all()
+        unseen_notice_ids = {
+            n.id for n in recent_notices if previous_notices_seen is None or n.created_at > previous_notices_seen
+        }
+        user.notices_last_seen_at = now
+        db.commit()
+
     timeclock_open_entry = None
     if user:
         open_entry = (
@@ -1292,6 +1315,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "needs_attention": open_count + in_progress_count,
         },
         "recent_reports": open_reports[:5],
+        "recent_notices": recent_notices,
+        "unseen_notice_ids": unseen_notice_ids,
         "upcoming_appointments": upcoming_appointments,
         "todays_appointments": todays_appointments,
         "future_appointments": future_appointments,
@@ -2691,16 +2716,28 @@ def _with_img_fetch_hint(target: str, failed: bool) -> str:
     return f"{target}{sep}img_fetch_failed=1"
 
 
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def _unseen_notices_count(db: Session, user: models.User) -> int:
+    """Anzahl Hinweise, die seit dem letzten Dashboard-/Hinweise-Aufruf des
+    Nutzers neu dazugekommen sind (siehe User.notices_last_seen_at) - NULL
+    (nie gesetzt) zaehlt alle als ungesehen."""
+    since = user.notices_last_seen_at or _EPOCH
+    return db.query(models.Notice).filter(models.Notice.created_at > since).count()
+
+
 def nav_badges(request: Request) -> dict:
     """Kleine Zähler für die Navigation (offene Meldungen, Artikel unter
-    Mindestbestand) - läuft als Jinja-Global mit eigener kurzlebiger DB-Session,
-    damit jede Seite (nicht nur das Dashboard) den aktuellen Stand zeigen kann,
-    ohne dass jede Route ihn einzeln in den Kontext geben muss."""
+    Mindestbestand, neue Hinweise) - läuft als Jinja-Global mit eigener
+    kurzlebiger DB-Session, damit jede Seite (nicht nur das Dashboard) den
+    aktuellen Stand zeigen kann, ohne dass jede Route ihn einzeln in den
+    Kontext geben muss."""
     db = SessionLocal()
     try:
         user = get_current_user(request, db)
         if not user:
-            return {"reports": 0, "inventory": 0, "cooling": 0}
+            return {"reports": 0, "inventory": 0, "cooling": 0, "notices": 0}
         # Nur die Meldungen zaehlen, die der Nutzer auch sehen darf (dieselbe
         # Pruefung wie Meldungsliste und Dashboard) - sonst zeigt die Navigation
         # eine hoehere Zahl als die Liste dahinter. Beziehungen vorab laden,
@@ -2716,7 +2753,10 @@ def nav_badges(request: Request) -> dict:
         inventory_critical = sum(1 for i in items if compute_inventory_status(i)["status"] == "low")
         devices = filter_cooling_devices_for_user(db.query(models.CoolingDevice).all(), user)
         cooling_alerts = sum(1 for d in devices if d.readings and d.readings[0].is_over_limit)
-        return {"reports": reports_open, "inventory": inventory_critical, "cooling": cooling_alerts}
+        return {
+            "reports": reports_open, "inventory": inventory_critical, "cooling": cooling_alerts,
+            "notices": _unseen_notices_count(db, user),
+        }
     finally:
         db.close()
 
@@ -4191,6 +4231,11 @@ def reports_assign(
 def notices_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     notices = db.query(models.Notice).order_by(models.Notice.created_at.desc()).all()
+    if user:
+        # Besuch der Liste gilt als "gesehen" - loescht den Neu-Badge in der
+        # Navigation (siehe nav_badges/_unseen_notices_count).
+        user.notices_last_seen_at = ntptime.now_utc()
+        db.commit()
     return templates.TemplateResponse("notices.html", {
         "request": request,
         "user": user,
