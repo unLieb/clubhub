@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Hinweise – ClubHUB{% endblock %}
+{% block content %}
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
+<div class="mb-6 mt-2">
+  <h1 class="font-display text-2xl font-semibold">Hinweise</h1>
+  <p class="text-slate-400 text-sm mt-1">Kurze Infos für alle - ohne Zuständigkeit, ohne "Erledigt".</p>
+</div>
+
+{% if user %}
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Neuer Hinweis
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form method="post" action="/notices" class="space-y-2 mt-3 max-w-2xl">
+      <textarea name="text" required rows="2" maxlength="500" placeholder="z.B. Bitte in den Umkleiden immer die Fenster schließen"
+        class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm resize-none"></textarea>
+      <p class="text-[11px] text-slate-500">Geht sofort an alle, betrifft keine bestimmte Person oder Gruppe. Für konkrete Defekte/Aufgaben bitte weiterhin eine <a href="/reports" class="underline hover:text-slate-300">Meldung</a> nutzen.</p>
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Veröffentlichen</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
+<div class="space-y-3">
+  {% for n in notices %}
+  <div id="notice-{{ n.id }}" data-ajax-row class="rounded-xl border border-line border-l-4 border-l-accent bg-panel p-4">
+    <div class="flex items-start justify-between gap-4">
+      <div class="min-w-0 flex items-start gap-3">
+        <div class="w-9 h-9 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-sm shrink-0">
+          {% if n.user.avatar_url %}<img src="{{ n.user.avatar_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ n.user.name[0]|upper }}{% endif %}
+        </div>
+        <div class="min-w-0">
+          <p class="text-sm whitespace-pre-line">{{ n.text }}</p>
+          <div class="text-xs text-slate-500 mt-1.5">{{ n.user.name }} &middot; {{ (n.created_at|localtime)|reldate }}</div>
+        </div>
+      </div>
+      {% if user and (user.id == n.user_id or user.is_admin) %}
+      <form method="post" action="/notices/{{ n.id }}/delete" class="ajax-delete-form shrink-0" data-confirm="Hinweis wirklich löschen?">
+        <button type="submit" class="w-7 h-7 rounded-md flex items-center justify-center text-slate-500 hover:text-late hover:bg-late/10" aria-label="Hinweis löschen" title="Löschen">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm">
+    Noch keine Hinweise vorhanden.
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

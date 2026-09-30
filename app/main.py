@@ -4185,6 +4185,59 @@ def reports_assign(
     return RedirectResponse("/reports", status_code=302)
 
 
+# ---------- Hinweise ----------
+
+@app.get("/notices")
+def notices_page(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    notices = db.query(models.Notice).order_by(models.Notice.created_at.desc()).all()
+    return templates.TemplateResponse("notices.html", {
+        "request": request,
+        "user": user,
+        "notices": notices,
+    })
+
+
+@app.post("/notices")
+def notices_create(
+    request: Request, background_tasks: BackgroundTasks,
+    text: str = Form(...), db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    text = text.strip()
+    if not text:
+        return RedirectResponse(_with_toast("/notices", "Bitte einen Text eingeben.", "error"), status_code=302)
+    notice = models.Notice(user_id=user.id, text=text)
+    db.add(notice)
+    db.commit()
+    # Betriebsweit wie ein "Alle (Betriebsweit)"-Meldung (siehe reports_create) -
+    # ein Hinweis betrifft per Definition keine einzelne Gruppe.
+    all_groups = db.query(models.Group).options(
+        joinedload(models.Group.channels), joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
+    ).all()
+    if all_groups:
+        msg = text if len(text) <= 200 else text[:197] + "…"
+        background_tasks.add_task(notify_groups, all_groups, "Neuer Hinweis", msg, "default", "/notices")
+    return RedirectResponse("/notices", status_code=302)
+
+
+@app.post("/notices/{notice_id}/delete")
+def notices_delete(notice_id: int, request: Request, db: Session = Depends(get_db)):
+    """Nur der eigene Eintrag (jede Rolle außer Admin) oder, als Admin, jeder
+    beliebige - gleiches Muster wie bei Meldungen/Urlaub/Terminen."""
+    actor = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    notice = db.query(models.Notice).filter(models.Notice.id == notice_id).first()
+    if notice and (notice.user_id == actor.id or actor.is_admin):
+        db.delete(notice)
+        db.commit()
+    elif is_fetch:
+        raise HTTPException(status_code=403, detail="Keine Berechtigung")
+    if is_fetch:
+        return {"ok": True}
+    return RedirectResponse("/notices", status_code=302)
+
+
 # ---------- Termine ----------
 
 APPOINTMENT_RECURRENCE_LABELS = {7: "Wöchentlich", 14: "Alle 2 Wochen", 30: "Monatlich"}

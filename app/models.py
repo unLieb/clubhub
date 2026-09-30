@@ -598,6 +598,23 @@ class ReportComment(Base):
     photos = relationship("ReportPhoto", back_populates="comment", order_by="ReportPhoto.id")
 
 
+class Notice(Base):
+    """Hinweis: kurze Info für alle, die niemand als erledigt markieren muss
+    (z.B. "Kollegen lassen öfters die Fenster in den Umkleiden offen") - im
+    Gegensatz zur Meldung (Report) ohne Zuständigkeit, Status oder
+    Bearbeitungs-Workflow. Bewusst ein eigenes, schlankes Modell statt einer
+    weiteren Report-Kategorie, da beide Konzepte (abzuarbeitendes Problem vs.
+    reine Info) sonst in einer Liste vermischt würden."""
+    __tablename__ = "notices"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship("User")
+
+
 class NfcTag(Base):
     """Registrierter physischer NFC-Tag - reine Verwaltungs-/Bestandsliste
     für Admins (welcher Tag liegt wo, ist er noch der erwartete). Steuert

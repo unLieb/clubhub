@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.37.0] - 2026-09-30
+- Neuer Bereich "Hinweise" (Sidebar + mobil unter "Mehr"): kurze Infos für alle, die niemand als erledigt markieren muss und die keine bestimmte Person oder Gruppe betreffen (z.B. "Bitte in den Umkleiden immer die Fenster schließen"). Anders als eine Meldung ohne Zuständigkeit, Status oder Bearbeitungs-Workflow - jeder eingeloggte Nutzer kann einen Hinweis schreiben, er geht sofort per Push an alle Gruppen. Löschen kann der Verfasser selbst oder ein Admin, wie bei Meldungen/Urlaub/Terminen.
+
 ## [1.36.0] - 2026-09-29
 - Sichtbarkeit anpassen (Bereiche + Inventar, Admin/Schichtleiter): Prinzip umgedreht. Bisher waren alle Gruppen sichtbar und man klickte an, was man ausblenden wollte (rot markiert). Jetzt sind alle Gruppen standardmäßig aktiv und in ihrer eigenen Gruppenfarbe dargestellt - erst wer eine Gruppe abwählt, blendet sie aus, die Kachel wird dann grau. Reine Anzeige-/Bedienungsänderung, wer schon etwas ausgeblendet hatte, sieht dieselbe Auswahl weiterhin ausgeblendet.
 
