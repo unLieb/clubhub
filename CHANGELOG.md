@@ -6,7 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
-## [1.38.0] - 2026-09-30
+## [1.39.0] - 2026-09-30
+- Hinweise: die Dashboard-Karte blendet sich jetzt auch live aus, sobald der letzte Hinweis direkt von dort gelöscht wird (vorher blieb eine leere Hülle stehen, ohne die Seite neu zu laden). Serverseitig war das schon vorher der Fall - erscheint gar nicht erst, wenn keine Hinweise vorliegen.
+- Neu: optionales Verfallsdatum beim Anlegen eines Hinweises ("Läuft ab" - Nie/1 Tag/3 Tage/1 Woche/2 Wochen/1 Monat). Abgelaufene Hinweise werden automatisch im Hintergrund gelöscht, das gewählte Datum steht bis dahin bei jedem Hinweis dabei.
 - Hinweise landen jetzt direkt auf dem Dashboard (eigene Karte, weit oben, auf Handy wie Desktop) statt nur auf der eigenen Unterseite - sonst wäre die Funktion kaum jemandem aufgefallen. Ungesehene Hinweise sind zusätzlich als "Neu" markiert (Akzent-Rand + Chip) und erzeugen ein rotes Zähler-Badge in der Navigation (Sidebar-Eintrag "Hinweise" sowie "Mehr" auf dem Handy) - verschwindet automatisch, sobald der Hinweis auf dem Dashboard oder in der Liste einmal angezeigt wurde. Löschen direkt von der Dashboard-Karte aus ist ebenfalls möglich.
 
 ## [1.37.0] - 2026-09-30

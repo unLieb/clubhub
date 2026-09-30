@@ -686,6 +686,11 @@ def _migrate_user_notices_last_seen(db: Session):
     _ensure_column(db, "users", "notices_last_seen_at", "DATETIME")
 
 
+def _migrate_notice_expiry(db: Session):
+    """Optionales Verfallsdatum fuer Hinweise (siehe models.py Notice.expires_at)."""
+    _ensure_column(db, "notices", "expires_at", "DATETIME")
+
+
 def _migrate_audit_log_drop_ip(db: Session):
     """DSGVO: Client-IP-Adressen wurden bis v0.97.1 im Audit-Log gespeichert -
     ab hier nicht mehr (siehe AuditLog in models.py). Die Spalte bleibt in
@@ -866,6 +871,7 @@ def _startup():
         _migrate_app_settings_nextcloud(db)
         _migrate_group_cooling_access(db)
         _migrate_user_notices_last_seen(db)
+        _migrate_notice_expiry(db)
     finally:
         db.close()
 
@@ -1206,7 +1212,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         # Antwort selbst schon nichts mehr als neu markiert (siehe
         # notices_page fuer denselben Ablauf beim direkten Aufruf der Liste).
         previous_notices_seen = user.notices_last_seen_at
-        recent_notices = db.query(models.Notice).order_by(models.Notice.created_at.desc()).limit(5).all()
+        recent_notices = _active_notices_query(db).order_by(models.Notice.created_at.desc()).limit(5).all()
         unseen_notice_ids = {
             n.id for n in recent_notices if previous_notices_seen is None or n.created_at > previous_notices_seen
         }
@@ -2724,7 +2730,7 @@ def _unseen_notices_count(db: Session, user: models.User) -> int:
     Nutzers neu dazugekommen sind (siehe User.notices_last_seen_at) - NULL
     (nie gesetzt) zaehlt alle als ungesehen."""
     since = user.notices_last_seen_at or _EPOCH
-    return db.query(models.Notice).filter(models.Notice.created_at > since).count()
+    return _active_notices_query(db).filter(models.Notice.created_at > since).count()
 
 
 def nav_badges(request: Request) -> dict:
@@ -4227,10 +4233,27 @@ def reports_assign(
 
 # ---------- Hinweise ----------
 
+# Presets fuers "Läuft ab nach"-Feld im Erstell-Formular (siehe notices.html) -
+# Wert 0 steht dort fuer "Nie" (kein Verfallsdatum). Tatsaechliches Loeschen
+# uebernimmt check_notice_expiry_job (siehe scheduler.py), alle Abfragen hier
+# filtern zusaetzlich defensiv gegen "jetzt" fuers Fenster bis zum naechsten
+# Job-Lauf.
+NOTICE_EXPIRY_OPTIONS = [(0, "Nie"), (1, "Nach 1 Tag"), (3, "Nach 3 Tagen"), (7, "Nach 1 Woche"),
+                         (14, "Nach 2 Wochen"), (30, "Nach 1 Monat")]
+
+
+def _active_notices_query(db: Session):
+    """Hinweise ohne Verfallsdatum oder deren Verfallsdatum noch nicht
+    erreicht ist - gemeinsamer Filter fuer Liste, Dashboard-Vorschau und den
+    Neu-Badge, damit ueberall dieselbe "noch gueltig"-Definition gilt."""
+    now = ntptime.now_utc()
+    return db.query(models.Notice).filter(or_(models.Notice.expires_at.is_(None), models.Notice.expires_at > now))
+
+
 @app.get("/notices")
 def notices_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
-    notices = db.query(models.Notice).order_by(models.Notice.created_at.desc()).all()
+    notices = _active_notices_query(db).order_by(models.Notice.created_at.desc()).all()
     if user:
         # Besuch der Liste gilt als "gesehen" - loescht den Neu-Badge in der
         # Navigation (siehe nav_badges/_unseen_notices_count).
@@ -4240,21 +4263,25 @@ def notices_page(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "user": user,
         "notices": notices,
+        "expiry_options": NOTICE_EXPIRY_OPTIONS,
     })
 
 
 @app.post("/notices")
 def notices_create(
     request: Request, background_tasks: BackgroundTasks,
-    text: str = Form(...), db: Session = Depends(get_db),
+    text: str = Form(...), expires_days: int = Form(0), db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
     text = text.strip()
     if not text:
         return RedirectResponse(_with_toast("/notices", "Bitte einen Text eingeben.", "error"), status_code=302)
-    notice = models.Notice(user_id=user.id, text=text)
+    now = ntptime.now_utc()
+    expires_at = now + timedelta(days=expires_days) if expires_days > 0 else None
+    notice = models.Notice(user_id=user.id, text=text, created_at=now, expires_at=expires_at)
     db.add(notice)
     db.commit()
+    _bump_live_version()
     # Betriebsweit wie ein "Alle (Betriebsweit)"-Meldung (siehe reports_create) -
     # ein Hinweis betrifft per Definition keine einzelne Gruppe.
     all_groups = db.query(models.Group).options(
@@ -4276,6 +4303,7 @@ def notices_delete(notice_id: int, request: Request, db: Session = Depends(get_d
     if notice and (notice.user_id == actor.id or actor.is_admin):
         db.delete(notice)
         db.commit()
+        _bump_live_version()
     elif is_fetch:
         raise HTTPException(status_code=403, detail="Keine Berechtigung")
     if is_fetch:

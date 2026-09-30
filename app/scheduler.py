@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
-from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group, RoomGroupThrottle
+from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group, RoomGroupThrottle, Notice
 from .status import task_status, compute_inventory_status
 from .notifications import notify_group, notify_groups, notify_user
 from . import ntptime
@@ -357,6 +357,27 @@ def check_appointments_job():
         db.close()
 
 
+def check_notice_expiry_job():
+    """Löscht Hinweise, deren optionales Verfallsdatum erreicht ist (siehe
+    Notice.expires_at, gesetzt beim Anlegen über die Presets in
+    NOTICE_EXPIRY_OPTIONS/notices_create in main.py). Kein Live-Refresh-Bump
+    hier (siehe _bump_live_version in main.py) - wie bei anderen rein
+    zeitgesteuerten Zustandswechseln (z.B. eine Aufgabe wird automatisch
+    überfällig) reicht der nächste ohnehin fällige Seitenaufruf/Poll."""
+    db = SessionLocal()
+    try:
+        now = ntptime.now_utc()
+        db.query(Notice).filter(Notice.expires_at.isnot(None), Notice.expires_at <= now).delete(
+            synchronize_session=False
+        )
+        db.commit()
+    except Exception:
+        logger.exception("Fehler beim Löschen abgelaufener Hinweise")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def scheduled_backup_job():
     try:
         backup_path = backup.create_scheduled_backup(BACKUP_RETENTION_DAYS)
@@ -395,6 +416,7 @@ def start_scheduler():
     scheduler.add_job(check_completion_batches_job, "interval", seconds=15, id="check_completion_batches")
     scheduler.add_job(check_inventory_job, "interval", minutes=15, id="check_inventory")
     scheduler.add_job(check_appointments_job, "interval", minutes=15, id="check_appointments")
+    scheduler.add_job(check_notice_expiry_job, "interval", minutes=15, id="check_notice_expiry")
     # NTP-Offset regelmäßig auffrischen (Erstsync passiert synchron beim App-Start)
     scheduler.add_job(ntptime.sync, "interval", minutes=30, id="ntp_sync")
     # Automatische Sicherungen zu festen lokalen Uhrzeiten, mit Rotation

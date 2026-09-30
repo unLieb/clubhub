@@ -247,7 +247,7 @@
      nicht in einer selten besuchten Unterseite untergehen (Nutzer-Feedback).
      Ungesehene Eintraege (siehe unseen_notice_ids/dashboard() in main.py)
      bekommen einen Akzent-Rand + "Neu"-Chip. -->
-<div data-dashboard-widget="notices" class="rounded-xl border border-line bg-panel p-4 mb-6">
+<div id="dash-notices-card" data-dashboard-widget="notices" class="rounded-xl border border-line bg-panel p-4 mb-6">
   <div class="flex items-center justify-between mb-3">
     <h2 class="font-display font-medium flex items-center gap-2">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
@@ -255,7 +255,7 @@
     </h2>
     <a href="/notices" class="text-xs text-slate-400 hover:text-slate-100 whitespace-nowrap">Alle anzeigen &rarr;</a>
   </div>
-  <ul class="space-y-2">
+  <ul id="dash-notices-list" class="space-y-2">
     {% for n in recent_notices %}
     <li id="notice-{{ n.id }}" data-ajax-row class="flex items-start gap-3 rounded-lg border {% if n.id in unseen_notice_ids %}border-accent/40 bg-accent/5{% else %}border-line{% endif %} p-3">
       <div class="w-8 h-8 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-xs shrink-0">
@@ -264,7 +264,10 @@
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5 flex-wrap mb-0.5">
           {% if n.id in unseen_notice_ids %}<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">Neu</span>{% endif %}
-          <span class="text-xs text-slate-500">{{ n.user.name }} &middot; {{ (n.created_at|localtime)|reldate }}</span>
+          <span class="text-xs text-slate-500">
+            {{ n.user.name }} &middot; {{ (n.created_at|localtime)|reldate }}
+            {% if n.expires_at %}&middot; läuft ab am {{ (n.expires_at|localtime).strftime('%d.%m.%Y') }}{% endif %}
+          </span>
         </div>
         <p class="text-sm text-slate-200 line-clamp-3 whitespace-pre-line">{{ n.text }}</p>
       </div>
@@ -279,6 +282,21 @@
     {% endfor %}
   </ul>
 </div>
+<script>
+  // Nach Loeschen des letzten Hinweises (siehe ajax_actions.js) die ganze
+  // Karte ausblenden statt eine leere Huelle (nur Kopfzeile) stehen zu
+  // lassen - server-seitig ist die Karte ja schon ganz weg, wenn beim
+  // Rendern keine Hinweise vorliegen (siehe recent_notices weiter oben),
+  // das hier deckt nur den Live-Fall waehrend des Betrachtens ab.
+  document.addEventListener('ajax-row-removed', function (e) {
+    var parent = e.detail && e.detail.parent;
+    if (!parent || parent.id !== 'dash-notices-list') return;
+    if (!parent.children.length) {
+      var card = document.getElementById('dash-notices-card');
+      if (card) card.style.display = 'none';
+    }
+  });
+</script>
 {% endif %}
 
 {% if modules.time_tracking and currently_clocked_in %}

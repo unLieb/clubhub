@@ -617,6 +617,13 @@ class Notice(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     text = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+    # Optionales Verfallsdatum (siehe NOTICE_EXPIRY_OPTIONS in main.py) - NULL
+    # heisst "läuft nie ab". Ein periodischer Scheduler-Job (siehe
+    # check_notice_expiry_job in scheduler.py) löscht abgelaufene Hinweise
+    # automatisch; alle Anzeige-Abfragen filtern zusätzlich defensiv gegen
+    # "jetzt", damit im Fenster bis zum nächsten Job-Lauf nichts Abgelaufenes
+    # sichtbar bleibt.
+    expires_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User")
 

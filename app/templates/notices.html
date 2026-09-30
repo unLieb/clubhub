@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Hinweise – ClubHUB{% endblock %}
+{% block live_refresh %}1{% endblock %}
 {% block content %}
 
 <a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
@@ -21,6 +22,14 @@
     <form method="post" action="/notices" class="space-y-2 mt-3 max-w-2xl">
       <textarea name="text" required rows="2" maxlength="500" placeholder="z.B. Bitte in den Umkleiden immer die Fenster schließen"
         class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm resize-none"></textarea>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Läuft ab</label>
+        <select name="expires_days" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          {% for days, label in expiry_options %}
+          <option value="{{ days }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <p class="text-[11px] text-slate-500">Geht sofort an alle, betrifft keine bestimmte Person oder Gruppe. Für konkrete Defekte/Aufgaben bitte weiterhin eine <a href="/reports" class="underline hover:text-slate-300">Meldung</a> nutzen.</p>
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Veröffentlichen</button>
     </form>
@@ -38,7 +47,10 @@
         </div>
         <div class="min-w-0">
           <p class="text-sm whitespace-pre-line">{{ n.text }}</p>
-          <div class="text-xs text-slate-500 mt-1.5">{{ n.user.name }} &middot; {{ (n.created_at|localtime)|reldate }}</div>
+          <div class="text-xs text-slate-500 mt-1.5">
+            {{ n.user.name }} &middot; {{ (n.created_at|localtime)|reldate }}
+            {% if n.expires_at %}&middot; läuft ab am {{ (n.expires_at|localtime).strftime('%d.%m.%Y') }}{% endif %}
+          </div>
         </div>
       </div>
       {% if user and (user.id == n.user_id or user.is_admin) %}
