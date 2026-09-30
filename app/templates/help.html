@@ -21,6 +21,7 @@
   {% if modules.reports %}<a href="#meldungen" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Meldungen</a>{% endif %}
   <a href="#historie" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Historie</a>
   <a href="#weitere-module" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Weitere Module</a>
+  {% if user and (user.is_admin or user.is_shift_lead) %}<a href="#sichtbarkeiten" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Sichtbarkeiten</a>{% endif %}
   <a href="#profil" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Profil</a>
   <a href="#gut-zu-wissen" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Gut zu wissen</a>
 </div>
@@ -172,6 +173,35 @@
     {% endif %}
   </div>
 </div>
+
+{% if user and (user.is_admin or user.is_shift_lead) %}
+<div id="sichtbarkeiten" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
+  <h2 class="font-display font-medium mb-3">Sichtbarkeiten (Admin &amp; Schichtleiter)</h2>
+  <div class="space-y-2">
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Warum sehe ich mehr als meine Kolleginnen und Kollegen?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Als Admin oder Schichtleiter siehst du automatisch <strong>alle</strong> Bereiche, das gesamte Inventar, alle Meldungen und alle Kühlzellen – unabhängig davon, welcher Gruppe du selbst angehörst. Reguläre Mitarbeiter sehen dagegen nur, was ihrer eigenen Gruppe zugeordnet ist, plus Inhalte, die ausdrücklich für alle freigegeben wurden ("Alle (Betriebsweit)"). Bei Terminen gibt es einen kleinen Unterschied zwischen den beiden Rollen: Schichtleiter sehen alle betrieblichen Termine (an eine oder mehrere Gruppen gerichtet oder „Alle (Betriebsweit)“), aber <em>nicht</em> die Termine, die jemand als „Nur ich (Privat)“ markiert hat – nur Admins sehen wirklich ausnahmslos alles, auch private Einträge von Kolleg:innen.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Wie blende ich Gruppen aus, die mich gerade nicht interessieren?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Unter <a href="/rooms" class="text-go underline">Bereiche</a> und <a href="/inventory" class="text-go underline">Inventar</a> gibt es oben die Klappe <strong>„Sichtbarkeit anpassen“</strong>. Dort sind alle Gruppen standardmäßig aktiv und in ihrer Gruppenfarbe markiert – wählst du eine ab, wird sie grau, und ihre Bereiche bzw. Artikel verschwinden aus deiner Ansicht. Ein Bereich, der mehreren Gruppen gehört, bleibt sichtbar, solange mindestens eine davon aktiv ist.</p>
+    </details>
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Betrifft das auch Kolleg:innen oder andere Seiten?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Nein, „Sichtbarkeit anpassen“ ist eine rein persönliche Einstellung, an deinem Konto gespeichert – sie ändert nichts an dem, was andere sehen, gilt dafür aber auf jedem Gerät, auf dem du angemeldet bist. Sie betrifft außerdem nur die beiden Seiten Bereiche und Inventar: Bei Meldungen, Kühlungen und Terminen gibt es diesen Filter (noch) nicht, dort siehst du als Admin/Schichtleiter immer alles.</p>
+    </details>
+  </div>
+</div>
+{% endif %}
 
 <div id="profil" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
   <h2 class="font-display font-medium mb-3">Profil &amp; Konto</h2>
