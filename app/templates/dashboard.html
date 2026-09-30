@@ -36,10 +36,10 @@
     <h1 class="font-display text-2xl font-semibold">Dashboard</h1>
     <p class="text-slate-300 text-base mt-2">
       {{ greeting }}{% if user %}, {{ user.name }}{% endif %}!
-      Heute stehen <span id="dash-pending-count" class="font-medium text-slate-100">{{ pending_tasks_count }}</span> <span id="dash-pending-word">{{ "Reinigung" if pending_tasks_count == 1 else "Reinigungen" }}</span> und
-      <span class="font-medium text-slate-100">{{ report_stats.needs_attention }}</span> offene {{ "Meldung" if report_stats.needs_attention == 1 else "Meldungen" }} an.
+      Heute stehen <span id="dash-pending-count" class="font-medium text-slate-100">{{ pending_tasks_count }}</span> <span id="dash-pending-word">{{ "Reinigung" if pending_tasks_count == 1 else "Reinigungen" }}</span>{% if modules.reports %} und
+      <span class="font-medium text-slate-100">{{ report_stats.needs_attention }}</span> offene {{ "Meldung" if report_stats.needs_attention == 1 else "Meldungen" }}{% endif %} an.
     </p>
-    <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche, Reinigungen und Meldungen &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
+    <p class="text-slate-400 text-sm mt-2">Übersicht aller Bereiche{% if modules.reports %}, Reinigungen und Meldungen{% else %} und Reinigungen{% endif %} &middot; Stand {{ now_local.strftime("%d.%m.%Y, %H:%M") }} Uhr</p>
   </div>
   {% if user %}
   <button type="button" id="dash-customize-btn" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 hover:text-slate-100 text-sm font-medium whitespace-nowrap" aria-label="Dashboard anpassen" title="Dashboard anpassen">
@@ -165,7 +165,7 @@
 
 {% if not user %}
 <div class="rounded-xl border border-line bg-panel p-4 mb-6">
-  <div class="text-sm text-slate-300 mb-3">Für Bereiche, Inventar, Meldungen und mehr bitte anmelden.</div>
+  <div class="text-sm text-slate-300 mb-3">Für Bereiche, Inventar{% if modules.reports %}, Meldungen{% endif %} und mehr bitte anmelden.</div>
   <div id="dash-login-passkey-error" class="hidden rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3"></div>
   {% if login_error == 'inactive' %}
   <div class="rounded-md border border-late/40 bg-late/10 text-late text-sm px-3 py-2 mb-3">Dieses Konto wurde deaktiviert. Bitte an die Verwaltung wenden.</div>
@@ -382,7 +382,7 @@
 </div>
 {% endif %}
 
-{% if report_stats.needs_attention %}
+{% if modules.reports and report_stats.needs_attention %}
 <a href="/reports" class="lg:hidden flex items-center justify-between gap-2 rounded-xl border border-late/40 bg-late/10 p-3 mb-6">
   <span class="flex items-center gap-1.5 text-late text-sm font-medium">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -398,9 +398,11 @@
      Aufmerksamkeit"-Hinweis von oben anschließend - vorher lag die lange
      Bereiche-Liste dazwischen, wirkte dadurch wie ein unzusammenhängender,
      verwirrender Bruch (Nutzer-Feedback). Auf dem Desktop unveraendert
-     nebeneinander (Bereiche breiter links, Meldungen rechts). -->
+     nebeneinander (Bereiche breiter links, Meldungen rechts). Ist das Modul
+     Meldungen deaktiviert, faellt die rechte Spalte ganz weg und Bereiche
+     nimmt die volle Breite ein (siehe lg:col-span-3 statt -2 unten). -->
 <div class="grid lg:grid-cols-3 gap-4 mb-6">
-  <div data-dashboard-widget="rooms" class="order-2 lg:order-none lg:col-span-2 rounded-xl border border-line bg-panel p-4 min-w-0">
+  <div data-dashboard-widget="rooms" class="order-2 lg:order-none {% if modules.reports %}lg:col-span-2{% else %}lg:col-span-3{% endif %} rounded-xl border border-line bg-panel p-4 min-w-0">
     <div class="mb-4">
       <a href="/rooms" class="font-display font-medium flex items-center gap-2 hover:text-go w-fit">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -422,6 +424,7 @@
     {% endif %}
   </div>
 
+  {% if modules.reports %}
   <div data-dashboard-widget="reports" class="order-1 lg:order-none rounded-xl border border-line bg-panel p-4 min-w-0">
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-display font-medium flex items-center gap-2">
@@ -479,6 +482,7 @@
     <p class="mt-3 pt-3 border-t border-line text-center text-slate-500 text-sm italic">Keine offenen Meldungen 🎉</p>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 
 <!-- Letzte Reinigungen + Überfällige Aufgaben -->

@@ -731,6 +731,13 @@ def _migrate_app_settings_module_flags(db: Session):
     _ensure_column(db, "app_settings", "enable_vacation", "INTEGER DEFAULT 1")
 
 
+def _migrate_app_settings_enable_reports(db: Session):
+    """Modul-Schalter fuer Meldungen (siehe AppSettings.enable_reports) -
+    DEFAULT 1 auch hier, damit ein Upgrade das seit jeher aktive Meldungen-
+    Modul nicht stillschweigend abschaltet."""
+    _ensure_column(db, "app_settings", "enable_reports", "INTEGER DEFAULT 1")
+
+
 def _migrate_app_settings_channel_config(db: Session):
     """Basis-URLs/Zugangsdaten fuer ntfy/Gotify/Signal neu direkt in der
     Verwaltung pflegbar statt zwingend per Umgebungsvariable (siehe
@@ -872,6 +879,7 @@ def _startup():
         _migrate_group_cooling_access(db)
         _migrate_user_notices_last_seen(db)
         _migrate_notice_expiry(db)
+        _migrate_app_settings_enable_reports(db)
     finally:
         db.close()
 
@@ -2747,14 +2755,18 @@ def nav_badges(request: Request) -> dict:
         # Nur die Meldungen zaehlen, die der Nutzer auch sehen darf (dieselbe
         # Pruefung wie Meldungsliste und Dashboard) - sonst zeigt die Navigation
         # eine hoehere Zahl als die Liste dahinter. Beziehungen vorab laden,
-        # weil das bei jedem Seitenaufruf laeuft.
-        open_reports = (
-            db.query(models.Report)
-            .options(joinedload(models.Report.groups), joinedload(models.Report.room).joinedload(models.Room.groups))
-            .filter(models.Report.status != "done")
-            .all()
-        )
-        reports_open = sum(1 for r in open_reports if user_can_see_report(user, r))
+        # weil das bei jedem Seitenaufruf laeuft. Bei deaktiviertem Modul
+        # (siehe AppSettings.enable_reports) erst gar nicht abfragen.
+        if get_app_settings(db).enable_reports:
+            open_reports = (
+                db.query(models.Report)
+                .options(joinedload(models.Report.groups), joinedload(models.Report.room).joinedload(models.Room.groups))
+                .filter(models.Report.status != "done")
+                .all()
+            )
+            reports_open = sum(1 for r in open_reports if user_can_see_report(user, r))
+        else:
+            reports_open = 0
         items = filter_inventory_for_user(db.query(models.InventoryItem).all(), user)
         inventory_critical = sum(1 for i in items if compute_inventory_status(i)["status"] == "low")
         devices = filter_cooling_devices_for_user(db.query(models.CoolingDevice).all(), user)
@@ -2771,16 +2783,19 @@ templates.env.globals["nav_badges"] = nav_badges
 
 
 def app_module_flags() -> dict:
-    """Globale Modul-Schalter (Zeiterfassung/Urlaub, siehe "Module & Features"
-    unter /admin/system) - läuft wie nav_badges als Jinja-Global mit eigener
-    kurzlebiger DB-Session, damit Navigation (base.html) und Dashboard-Widgets
-    sie ohne eigenen Kontext-Eintrag abfragen können, ganz ohne Login-Bezug
-    (anders als nav_badges gilt das auch für ausgeloggte Besucher, z.B. auf
-    der Login-Seite selbst schon die Nav gar nicht erst anzuzeigen)."""
+    """Globale Modul-Schalter (Zeiterfassung/Urlaub/Meldungen, siehe "Module &
+    Features" unter /admin/system) - läuft wie nav_badges als Jinja-Global mit
+    eigener kurzlebiger DB-Session, damit Navigation (base.html) und Dashboard-
+    Widgets sie ohne eigenen Kontext-Eintrag abfragen können, ganz ohne Login-
+    Bezug (anders als nav_badges gilt das auch für ausgeloggte Besucher, z.B.
+    auf der Login-Seite selbst schon die Nav gar nicht erst anzuzeigen)."""
     db = SessionLocal()
     try:
         settings = get_app_settings(db)
-        return {"time_tracking": settings.enable_time_tracking, "vacation": settings.enable_vacation}
+        return {
+            "time_tracking": settings.enable_time_tracking, "vacation": settings.enable_vacation,
+            "reports": settings.enable_reports,
+        }
     finally:
         db.close()
 
@@ -3700,6 +3715,9 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
     if redirect:
         return redirect
+    blocked = _module_gate(get_app_settings(db).enable_reports, "Meldungen")
+    if blocked:
+        return blocked
     reports = [r for r in db.query(models.Report).all() if user_can_see_report(user, r)]
     now = ntptime.now_utc()
     open_reports = _sort_reports([r for r in reports if r.status != "done"])
@@ -3726,6 +3744,8 @@ def reports_link_preview(request: Request, url: str = "", db: Session = Depends(
     werden koennen. Nur fuer eingeloggte Nutzer (macht sonst einen offenen,
     beliebig missbrauchbaren URL-Abruf-Proxy aus dem Server)."""
     require_login(request, db)
+    if not get_app_settings(db).enable_reports:
+        raise HTTPException(status_code=404, detail="Meldungen ist deaktiviert")
     url = url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="url fehlt")
@@ -3757,6 +3777,9 @@ async def reports_create(
     db: Session = Depends(get_db),
 ):
     user = require_login(request, db)
+    blocked = _module_gate(get_app_settings(db).enable_reports, "Meldungen")
+    if blocked:
+        return blocked
 
     # War bislang Form(...) (striktes Pflichtfeld direkt auf FastAPI-Ebene) -
     # ein iPhone-Nutzer bekam dabei beim Absenden ohne Beschreibung die rohe
@@ -3980,6 +4003,10 @@ async def reports_set_status(
     Admins. Andere Statuswechsel brauchen keine Angabe."""
     user = require_login(request, db)
     is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    if not get_app_settings(db).enable_reports:
+        if is_fetch:
+            raise HTTPException(status_code=404, detail="Meldungen ist deaktiviert")
+        return RedirectResponse(_with_toast("/", "Meldungen ist aktuell deaktiviert.", "error"), status_code=302)
     if status not in REPORT_STATUSES:
         if is_fetch:
             raise HTTPException(status_code=400, detail="Ungültiger Status")
@@ -4080,6 +4107,10 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
     Aufgaben/Kühlungs-Messungen)."""
     user = require_login(request, db)
     is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    if not get_app_settings(db).enable_reports:
+        if is_fetch:
+            raise HTTPException(status_code=404, detail="Meldungen ist deaktiviert")
+        return RedirectResponse(_with_toast("/", "Meldungen ist aktuell deaktiviert.", "error"), status_code=302)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report and (report.user_id == user.id or user.is_admin):
         for photo in report.photos:
@@ -4116,6 +4147,9 @@ async def reports_add_comment(
     soll auch von weiteren Antworten erfahren, unabhaengig von der eigenen
     Gruppen-Zugehoerigkeit)."""
     user = require_login(request, db)
+    blocked = _module_gate(get_app_settings(db).enable_reports, "Meldungen")
+    if blocked:
+        return blocked
     text = text.strip()
     has_photo_upload = any(p and p.filename for p in photos)
     if not text and not has_photo_upload:
@@ -4212,6 +4246,9 @@ def reports_assign(
     reports_create: echte Gruppen-IDs entscheiden server-seitig unabhaengig
     von group_mode, sobald welche dabei sind."""
     require_login(request, db)
+    blocked = _module_gate(get_app_settings(db).enable_reports, "Meldungen")
+    if blocked:
+        return blocked
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report:
         new_group_ids = sorted({int(g) for g in assigned_group_ids if g.strip().isdigit()})
@@ -6147,6 +6184,7 @@ def _admin_system_context(
         "import_summary": import_summary,
         "enable_time_tracking": settings.enable_time_tracking,
         "enable_vacation": settings.enable_vacation,
+        "enable_reports": settings.enable_reports,
     }
 
 
@@ -6259,6 +6297,7 @@ def admin_system_modules(
     request: Request,
     enable_time_tracking: str = Form(""),
     enable_vacation: str = Form(""),
+    enable_reports: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Globale Modul-Schalter (siehe AppSettings, Karte "Module & Features")
@@ -6269,10 +6308,12 @@ def admin_system_modules(
     settings = get_app_settings(db)
     settings.enable_time_tracking = bool(enable_time_tracking)
     settings.enable_vacation = bool(enable_vacation)
+    settings.enable_reports = bool(enable_reports)
     log_audit(
         db, admin, "UPDATE", "System",
         f"Module aktualisiert: Zeiterfassung {'an' if settings.enable_time_tracking else 'aus'}, "
-        f"Urlaub {'an' if settings.enable_vacation else 'aus'}.",
+        f"Urlaub {'an' if settings.enable_vacation else 'aus'}, "
+        f"Meldungen {'an' if settings.enable_reports else 'aus'}.",
     )
     db.commit()
     return RedirectResponse(_with_toast("/admin/system", "Module gespeichert."), status_code=302)

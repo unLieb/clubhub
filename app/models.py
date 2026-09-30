@@ -736,6 +736,11 @@ class AppSettings(Base):
     # stillschweigend die Module verliert, die er schon aktiv nutzt.
     enable_time_tracking = Column(Boolean, nullable=False, default=False)
     enable_vacation = Column(Boolean, nullable=False, default=False)
+    # Anders als die beiden optionalen Module oben: Meldungen gab es schon vor
+    # diesem Schalter, jeder Betrieb nutzt es bereits aktiv - Python-Default
+    # daher bewusst True (nicht False wie bei Zeiterfassung/Urlaub), damit auch
+    # eine komplett neue Installation ohne eigenes Zutun startet.
+    enable_reports = Column(Boolean, nullable=False, default=True)
     # Basis-URLs/Zugangsdaten fuer die Benachrichtigungskanal-Typen (ntfy/
     # Gotify/Signal) - in der Verwaltung direkt pflegbar, statt zwingend per
     # Umgebungsvariable im Docker-Stack gesetzt werden zu muessen (siehe

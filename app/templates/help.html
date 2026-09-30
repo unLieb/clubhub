@@ -3,10 +3,11 @@
 {% block content %}
 
 {# Statische Hilfe-/FAQ-Seite fuer Mitarbeiter - Inhalte hier direkt im
-   Template, kein DB-Bezug. Urlaub/Zeiterfassung blenden sich passend zu den
-   globalen Modul-Schaltern aus (siehe app_module_flags in main.py), Kühlungen
-   bleibt bewusst unconditional (kein globaler Ein/Aus-Schalter dafür, nur
-   gruppenabhaengiger Zugriff - fuer eine allgemeine Erklaerung irrelevant). #}
+   Template, kein DB-Bezug. Urlaub/Zeiterfassung/Meldungen blenden sich passend
+   zu den globalen Modul-Schaltern aus (siehe app_module_flags in main.py),
+   Kühlungen bleibt bewusst unconditional (kein globaler Ein/Aus-Schalter
+   dafür, nur gruppenabhaengiger Zugriff - fuer eine allgemeine Erklaerung
+   irrelevant). #}
 
 <a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
 <div class="mb-6 mt-2">
@@ -17,7 +18,7 @@
 <div class="flex flex-wrap gap-1.5 mb-6">
   <a href="#erste-schritte" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Erste Schritte</a>
   <a href="#bereiche" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Bereiche</a>
-  <a href="#meldungen" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Meldungen</a>
+  {% if modules.reports %}<a href="#meldungen" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Meldungen</a>{% endif %}
   <a href="#historie" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Historie</a>
   <a href="#weitere-module" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Weitere Module</a>
   <a href="#profil" class="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-panel2 text-slate-300 hover:text-slate-100 hover:bg-panel2/70">Profil</a>
@@ -85,6 +86,7 @@
   </div>
 </div>
 
+{% if modules.reports %}
 <div id="meldungen" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
   <h2 class="font-display font-medium mb-3">Meldungen</h2>
   <div class="space-y-2">
@@ -111,6 +113,7 @@
     </details>
   </div>
 </div>
+{% endif %}
 
 <div id="historie" class="rounded-xl border border-line bg-panel p-4 mb-5" style="scroll-margin-top: 1rem;">
   <h2 class="font-display font-medium mb-3">Historie</h2>
@@ -207,6 +210,7 @@
       </summary>
       <p class="text-sm text-slate-400 px-3 pb-3">Nein. Dashboard, Bereiche und Meldungen aktualisieren sich von selbst im Hintergrund, sobald sich etwas ändert.</p>
     </details>
+    {% if modules.reports %}
     <details class="rounded-lg border border-line bg-panel2 group">
       <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
         Ich habe eine Meldung versehentlich falsch eingetragen
@@ -214,6 +218,7 @@
       </summary>
       <p class="text-sm text-slate-400 px-3 pb-3">Eine eigene Meldung lässt sich über das Papierkorb-Symbol löschen. Bei falschen Angaben einfach neu melden und in den Kommentaren kurz auf die alte Meldung verweisen.</p>
     </details>
+    {% endif %}
   </div>
 </div>
 
