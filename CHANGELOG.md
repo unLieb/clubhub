@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.44.4] - 2026-10-01
+- Bug: Sortierung der erledigten Meldungen berücksichtigte fälschlich noch die Priorität (wie bei offenen Meldungen), sodass eine gerade erst erledigte "Normal"-Meldung hinter einer Tage zuvor erledigten "Hoch"-Meldung stehen konnte. Erledigte Meldungen werden jetzt rein nach Erledigungszeitpunkt sortiert (zuletzt erledigt zuerst) - Priorität spielt nach der Erledigung keine Rolle mehr.
+
 ## [1.44.3] - 2026-09-30
 - Kontrast von Versionsnummer und Rollenbezeichnung ("Administrator" etc.) in der Sidebar nachgebessert: Größe/Hintergrund bleiben wie gewohnt, stattdessen deutlich hellere Textfarbe (nahe Weiß, 80% Deckkraft statt des bisherigen Grautons), damit beides auf dem dunklen Sidebar-Hintergrund klar lesbar ist.
 

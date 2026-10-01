@@ -3539,6 +3539,14 @@ def _sort_reports(reports):
     return sorted(by_recency, key=lambda r: REPORT_PRIORITY_RANK.get(r.priority, 2))
 
 
+def _sort_done_reports(reports):
+    """Erledigte Meldungen zuletzt erledigt zuerst - Priorität spielt hier
+    bewusst keine Rolle mehr (war vor der Erledigung relevant fuer die
+    Dringlichkeit, nicht mehr danach), sonst landet eine gerade erledigte
+    "Normal"-Meldung hinter einer vor Tagen erledigten "Hoch"-Meldung."""
+    return sorted(reports, key=lambda r: r.resolved_at or r.created_at, reverse=True)
+
+
 def user_can_see_report(user, report) -> bool:
     """Admin und Schichtleiter sehen alle Meldungen; alle anderen nur
     Meldungen mit "Alle (Betriebsweit)", Meldungen der eigenen Gruppe(n) -
@@ -3730,7 +3738,7 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
     reports = [r for r in db.query(models.Report).all() if user_can_see_report(user, r)]
     now = ntptime.now_utc()
     open_reports = _sort_reports([r for r in reports if r.status != "done"])
-    done_reports = _sort_reports([r for r in reports if r.status == "done"])
+    done_reports = _sort_done_reports([r for r in reports if r.status == "done"])
     report_meta = {r.id: compute_report_meta(r, now) for r in reports}
     visible_rooms = filter_rooms_for_user(db.query(models.Room).order_by(models.Room.name).all(), user)
     return templates.TemplateResponse("reports.html", {
