@@ -3714,16 +3714,63 @@ def admin_feedback_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+def _feedback_status_push(item, status: str):
+    """Titel/Text der Push-Nachricht an den Melder, wenn sein Feedback in
+    Bearbeitung genommen bzw. erledigt wurde - None bei "open" (Zurueck-
+    setzen soll niemanden erneut benachrichtigen)."""
+    if status == "in_progress":
+        return "Dein Feedback wird bearbeitet", f"„{item.title}“ – wir kümmern uns darum."
+    if status == "done":
+        if item.type == "bug":
+            return "Dein gemeldeter Bug wurde behoben", f"„{item.title}“ ist behoben. Danke für die Meldung!"
+        return "Dein Wunsch wurde umgesetzt", f"„{item.title}“ ist umgesetzt. Danke für den Vorschlag!"
+    return None
+
+
+def _my_feedback(db: Session, user, limit: int = 10):
+    """Die eigenen zuletzt gemeldeten Feedback-Tickets fuer den Profil-Abschnitt
+    "Mein Feedback" - damit auch Nutzer ohne aktivierte Push-Benachrichtigung
+    (z.B. iPhone im normalen Safari-Tab) den Bearbeitungsstand sehen."""
+    return (
+        db.query(models.Feedback)
+        .filter(models.Feedback.user_id == user.id)
+        .order_by(models.Feedback.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
 @app.post("/admin/feedback/{feedback_id}/status")
 def admin_feedback_set_status(
-    feedback_id: int, request: Request, status: str = Form(...), db: Session = Depends(get_db)
+    feedback_id: int, request: Request, background_tasks: BackgroundTasks,
+    status: str = Form(...), db: Session = Depends(get_db),
 ):
-    require_admin_or_shift_lead(request, db)
+    """Status eines Feedback-Tickets aendern. Wechselt es auf "In Bearbeitung"
+    oder "Erledigt", bekommt der Melder eine Push-Nachricht (siehe
+    _feedback_status_push) - nicht, wenn er den Status selbst gesetzt hat
+    (Admin meldet/bearbeitet eigenes Feedback) oder sich nichts geaendert hat."""
+    actor = require_admin_or_shift_lead(request, db)
     if status in ("open", "in_progress", "done"):
-        item = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+        item = (
+            db.query(models.Feedback)
+            .options(joinedload(models.Feedback.user).joinedload(models.User.push_subscriptions))
+            .filter(models.Feedback.id == feedback_id)
+            .first()
+        )
         if item:
+            changed = item.status != status
             item.status = status
             db.commit()
+            push_text = _feedback_status_push(item, status) if changed else None
+            reporter = item.user
+            if push_text and reporter and reporter.id != actor.id and reporter.is_active:
+                # Push-Abos jetzt (Session noch offen) laden: der Background-Task
+                # laeuft erst nach dem Schliessen der Session, siehe
+                # reports_set_status fuer dasselbe Muster.
+                list(reporter.push_subscriptions)
+                background_tasks.add_task(
+                    notify_user, reporter, push_text[0], push_text[1], "/profile#mein-feedback",
+                )
     return RedirectResponse("/admin/feedback", status_code=302)
 
 
@@ -5109,6 +5156,7 @@ def profile_view(request: Request, db: Session = Depends(get_db)):
         "user": user,
         "password_error": None,
         "password_success": False,
+        "my_feedback": _my_feedback(db, user),
     })
 
 
@@ -5159,6 +5207,7 @@ def profile_change_password(
         "user": user,
         "password_error": error,
         "password_success": error is None,
+        "my_feedback": _my_feedback(db, user),
     })
 
 
