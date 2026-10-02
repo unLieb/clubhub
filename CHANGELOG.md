@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.47.0] - 2026-10-02
+- Profil: der Schalter „Benachrichtigung erhalten, wenn Aufgaben erledigt werden" ist entfernt - die gebündelte „Erledigt"-Meldung (eine Nachricht je Bereich statt je Aufgabe) ist jetzt Standard und geht an alle Mitglieder der betroffenen Gruppen, nicht mehr nur an Nutzer, die sie vorher selbst aktiviert hatten. Wer die Aufgaben im jeweiligen Sammelfenster selbst erledigt hat, bekommt sie nicht (sonst würde jede/r die eigene Erledigung gemeldet bekommen); deaktivierte Konten werden übersprungen, die Arbeitszeit der Gruppe wird weiterhin respektiert. Ankommen tut sie wie bisher nur auf Geräten mit aktivierten Benachrichtigungen. Die Datenbankspalte `users.notify_on_completion` bleibt als ungenutzte Altlast bestehen (wird nicht mehr gelesen oder geschrieben).
+
 ## [1.46.0] - 2026-10-02
 - Feedback-System: wer einen Bug oder Funktionswunsch über den Feedback-Button meldet, erfährt jetzt, was daraus wird. Stellt ein Admin/Schichtleiter das Ticket auf „In Bearbeitung" oder „Erledigt", bekommt der Melder eine Push-Nachricht („Dein Feedback wird bearbeitet" bzw. „Dein gemeldeter Bug wurde behoben" / „Dein Wunsch wurde umgesetzt"). Keine Nachricht gibt es bei unverändertem Status, beim Zurücksetzen auf „Offen" und wenn man den Status des eigenen Tickets selbst setzt. Zusätzlich zeigt das Profil einen neuen Abschnitt „Mein Feedback" mit den zuletzt gemeldeten Tickets samt Stand (Offen / In Bearbeitung / Behoben bzw. Umgesetzt) - nötig, weil Push nur ankommt, wenn auf dem Gerät Benachrichtigungen aktiv sind (z. B. nicht auf dem iPhone im normalen Safari-Tab). Die Push-Nachricht öffnet direkt diesen Abschnitt. Hilfe um „Woher weiß ich, ob mein gemeldeter Bug behoben ist?" ergänzt.
 

@@ -26,8 +26,8 @@ from . import ntptime
 BATCH_WINDOW_SECONDS = 45
 
 _lock = threading.Lock()
-# room_id -> {"room_name": str, "user_names": set[str], "count": int,
-#             "first_seen": datetime, "group_ids": set[int]}
+# room_id -> {"room_name": str, "user_names": set[str], "user_ids": set[int],
+#             "count": int, "first_seen": datetime, "group_ids": set[int]}
 _pending = {}
 
 
@@ -45,6 +45,7 @@ def queue_task_completion(room, groups, user):
             entry = {
                 "room_name": room.name,
                 "user_names": set(),
+                "user_ids": set(),
                 "count": 0,
                 "first_seen": now,
                 "group_ids": set(),
@@ -52,6 +53,7 @@ def queue_task_completion(room, groups, user):
             _pending[room.id] = entry
         entry["count"] += 1
         entry["user_names"].add(user.name)
+        entry["user_ids"].add(user.id)
         entry["group_ids"].update(g.id for g in groups)
 
 

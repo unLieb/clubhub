@@ -673,13 +673,6 @@ def _migrate_user_personnel_number(db: Session):
     db.commit()
 
 
-def _migrate_user_notify_on_completion(db: Session):
-    """Opt-in-Einstellung fuer die "Erledigt"-Sammel-Pushes (siehe
-    check_completion_batches_job in scheduler.py) - Default False, siehe
-    Kommentar am Feld in models.py."""
-    _ensure_column(db, "users", "notify_on_completion", "INTEGER DEFAULT 0")
-
-
 def _migrate_user_notices_last_seen(db: Session):
     """Fuer den "Neu"-Badge bei Hinweisen (siehe models.py User.notices_last_seen_at
     und nav_badges/dashboard in main.py)."""
@@ -877,7 +870,6 @@ def _startup():
         _migrate_task_active_weekdays(db)
         _migrate_task_snoozed_until(db)
         _migrate_detach_task_groups(db)
-        _migrate_user_notify_on_completion(db)
         _migrate_audit_log_drop_ip(db)
         _migrate_app_settings_module_flags(db)
         _migrate_app_settings_channel_config(db)
@@ -5289,18 +5281,6 @@ def profile_set_pay(
     user = require_login(request, db)
     user.hourly_wage = float(hourly_wage) if hourly_wage.strip() else None
     user.target_hours_per_month = float(target_hours_per_month) if target_hours_per_month.strip() else None
-    db.commit()
-    return RedirectResponse("/profile", status_code=302)
-
-
-@app.post("/profile/notifications")
-def profile_set_notifications(
-    request: Request,
-    notify_on_completion: str = Form(""),
-    db: Session = Depends(get_db),
-):
-    user = require_login(request, db)
-    user.notify_on_completion = bool(notify_on_completion)
     db.commit()
     return RedirectResponse("/profile", status_code=302)
 

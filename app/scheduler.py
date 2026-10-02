@@ -213,12 +213,13 @@ def check_completion_batches_job():
     queue_task_completion in main.py, wo jede Erledigung eingereiht wird,
     statt sofort zu benachrichtigen).
 
-    Opt-in statt Opt-out (siehe User.notify_on_completion in models.py):
-    standardmäßig aus, jeder aktiviert es sich bei Bedarf selbst im eigenen
-    Profil. Geht deshalb bewusst NICHT über notify_group/notify_groups (die
-    würden zusätzlich auch die geteilten Gruppen-Kanäle ntfy/Gotify/Signal
-    bedienen, die keinen Opt-in je Empfänger kennen), sondern nur als
-    persönlicher Web-Push an einzelne, explizit angemeldete Nutzer.
+    Geht an alle Mitglieder der betroffenen Gruppen (seit 1.47.0 ohne Opt-in
+    im Profil), mit Ausnahme derer, die die Aufgaben im Batch selbst
+    erledigt haben - sonst bekaeme jeder die eigene Erledigung gemeldet.
+    Geht bewusst NICHT über notify_group/notify_groups (die würden zusätzlich
+    auch die geteilten Gruppen-Kanäle ntfy/Gotify/Signal bedienen, die
+    jeweils eigene, nicht auf einzelne Erledigungen ausgelegte Zwecke haben),
+    sondern nur als persönlicher Web-Push an einzelne Nutzer.
 
     Respektiert außerdem die Arbeitszeit der jeweiligen Gruppe (wie die
     anderen Job-Typen) - eine Gruppe, die gerade nicht im Dienst ist, wird
@@ -246,7 +247,7 @@ def check_completion_batches_job():
                 if not _within_working_hours(group, now_local):
                     continue
                 for member in group.users:
-                    if member.id in seen_user_ids or not member.notify_on_completion:
+                    if member.id in seen_user_ids or member.id in entry["user_ids"] or member.is_active is False:
                         continue
                     seen_user_ids.add(member.id)
                     notify_user(member, title, msg, url=url)

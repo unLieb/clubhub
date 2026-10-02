@@ -189,12 +189,6 @@ class User(Base):
     # Zeiterfassung erhalten (kein cascade delete wie bei einem echten
     # User-Loeschen).
     is_active = Column(Boolean, default=True)
-    # Opt-in statt Opt-out: "Erledigt"-Sammel-Pushes (siehe
-    # check_completion_batches_job in scheduler.py) sind fuer die meisten
-    # eher Hintergrundrauschen als eine Aktion, die sie selbst ausloesen
-    # muessen - daher Default False, jeder aktiviert es sich bei Bedarf
-    # selbst im eigenen Profil.
-    notify_on_completion = Column(Boolean, default=False)
     # Fuer den "Neu"-Hinweis/Badge bei Hinweisen (siehe nav_badges/dashboard
     # in main.py): wird bei jedem Dashboard-/Hinweise-Aufruf auf jetzt
     # gesetzt - Hinweise, deren created_at danach liegt, gelten als ungesehen.

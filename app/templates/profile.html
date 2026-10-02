@@ -193,25 +193,17 @@
   </section>
   {% endif %}
 
-  <!-- Karte 3: Benachrichtigungen & Geräte - Opt-in-Checkbox als Kopfzeile
-       direkt in dieselbe Karte wie die Geräteliste integriert, statt einer
-       eigenen Karte nur für den einen Schalter. -->
+  <!-- Karte 3: Benachrichtigungen & Geräte. Den frueheren Opt-in-Schalter fuer
+       "Aufgaben erledigt" gibt es nicht mehr - die gebuendelte Meldung geht
+       standardmaessig an alle Mitglieder der betroffenen Gruppen. -->
   <section class="rounded-xl border border-line bg-panel p-4 md:col-span-2">
-    <h2 class="font-display font-medium mb-3">Benachrichtigungen &amp; Geräte</h2>
-
-    <form method="post" action="/profile/notifications">
-      <label class="flex items-center gap-2.5 cursor-pointer">
-        <input type="checkbox" name="notify_on_completion" {% if user.notify_on_completion %}checked{% endif %}
-               onchange="this.form.submit()" class="w-4 h-4 rounded border-line accent-go">
-        <span class="text-sm text-slate-200">Benachrichtigung erhalten, wenn Aufgaben erledigt werden</span>
-      </label>
-    </form>
-    <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
-      Standardmäßig aus - bei Aktivierung bekommst du auf deinen angemeldeten Geräten (siehe unten) eine gebündelte
-      Meldung, sobald in einem deiner Bereiche Aufgaben abgehakt werden.
+    <h2 class="font-display font-medium mb-1">Benachrichtigungen &amp; Geräte</h2>
+    <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
+      Auf den Geräten unten bekommst du Benachrichtigungen zu Fälligkeiten, Meldungen und – gebündelt –
+      wenn in deinen Bereichen Aufgaben erledigt wurden.
     </p>
 
-    <div class="pt-4 mt-4 border-t border-line">
+    <div>
       <h3 class="text-sm font-medium text-slate-300 mb-2">Meine Geräte</h3>
       {% if user.push_subscriptions %}
       <ul class="space-y-2">
