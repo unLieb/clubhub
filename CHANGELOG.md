@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.47.1] - 2026-10-02
+- Profil: der übrig gebliebene Erklärtext zur „Erledigt"-Benachrichtigung in der Karte „Benachrichtigungen & Geräte" ist entfernt (hätte mit dem Schalter in 1.47.0 verschwinden sollen).
+
 ## [1.47.0] - 2026-10-02
 - Profil: der Schalter „Benachrichtigung erhalten, wenn Aufgaben erledigt werden" ist entfernt - die gebündelte „Erledigt"-Meldung (eine Nachricht je Bereich statt je Aufgabe) ist jetzt Standard und geht an alle Mitglieder der betroffenen Gruppen, nicht mehr nur an Nutzer, die sie vorher selbst aktiviert hatten. Wer die Aufgaben im jeweiligen Sammelfenster selbst erledigt hat, bekommt sie nicht (sonst würde jede/r die eigene Erledigung gemeldet bekommen); deaktivierte Konten werden übersprungen, die Arbeitszeit der Gruppe wird weiterhin respektiert. Ankommen tut sie wie bisher nur auf Geräten mit aktivierten Benachrichtigungen. Die Datenbankspalte `users.notify_on_completion` bleibt als ungenutzte Altlast bestehen (wird nicht mehr gelesen oder geschrieben).
 
