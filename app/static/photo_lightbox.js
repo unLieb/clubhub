@@ -69,4 +69,21 @@
     document.addEventListener('keydown', onKeydown);
     closeBtn.focus();
   };
+
+  // Klick auf ein Meldungs-Vorschaubild (Karte in der Liste, Foto-Galerie auf
+  // der Detailseite oder ein Kommentar-Anhang): die zugehoerigen Foto-URLs
+  // stecken als JSON in einem <script> im Button, startend beim
+  // angeklickten Bild (data-idx, Standard 0). Per Delegation auf document,
+  // da Karten per Live-Update ausgetauscht werden und dieses Skript nur
+  // einmal pro Seitenaufruf laeuft (anders als Seiten-Skripte, die das
+  // Live-Update erneut ausfuehrt).
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.report-photo-trigger');
+    if (!btn) return;
+    var dataEl = btn.querySelector('script[type="application/json"]');
+    if (!dataEl) return;
+    var photoUrls;
+    try { photoUrls = JSON.parse(dataEl.textContent); } catch (err) { return; }
+    window.openPhotoLightbox(photoUrls, parseInt(btn.dataset.idx || '0', 10) || 0);
+  });
 })();

@@ -3752,6 +3752,16 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
     })
 
 
+def _report_return_url(return_to: str) -> str:
+    """Rücksprungziel nach Kommentar/Zuständigkeitsänderung: von der
+    Detailseite (/reports/<id>) zurück dorthin, sonst zur Liste. Nur genau
+    dieses Muster ist erlaubt (kein offener Redirect über ein manipuliertes
+    Formularfeld)."""
+    if re.fullmatch(r"/reports/\d+", return_to or ""):
+        return return_to
+    return "/reports"
+
+
 @app.get("/reports/link-preview")
 def reports_link_preview(request: Request, url: str = "", db: Session = Depends(get_db)):
     """Fuer den "Produkt-Link"-Assistenten im "Neue Meldung"-Formular
@@ -3775,6 +3785,33 @@ def reports_link_preview(request: Request, url: str = "", db: Session = Depends(
         "image_url": f"/uploads/reports/{result['image_filename']}" if result["image_filename"] else None,
         "image_filename": result["image_filename"],
     }
+
+
+# Muss NACH /reports/link-preview stehen: "{report_id}" faengt sonst jeden
+# Pfad unter /reports/ ab (Starlette matcht erst, konvertiert den Typ danach).
+@app.get("/reports/{report_id}")
+def report_detail(report_id: int, request: Request, db: Session = Depends(get_db)):
+    """Detailansicht einer Meldung: voller Titel, Beschreibung, Fotos,
+    Zuständigkeit, Kommentare und Verlauf auf einer eigenen Seite statt als
+    Aufklapp-Bereich in der Liste (Rückmeldung aus dem Betrieb: auf dem
+    Handy ließ sich der Titel in der Liste nicht komplett lesen, und
+    kleinere Schrift kommt für Brillenträger nicht in Frage)."""
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
+    blocked = _module_gate(get_app_settings(db).enable_reports, "Meldungen")
+    if blocked:
+        return blocked
+    report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    if not report or not user_can_see_report(user, report):
+        return RedirectResponse(_with_toast("/reports", "Diese Meldung gibt es nicht (mehr).", "error"), status_code=302)
+    return templates.TemplateResponse("report_detail.html", {
+        "request": request,
+        "user": user,
+        "r": report,
+        "meta": compute_report_meta(report, ntptime.now_utc()),
+        "groups": db.query(models.Group).all(),
+    })
 
 
 @app.post("/reports")
@@ -3925,7 +3962,7 @@ async def reports_create(
     )
     msg = f"{title} – {comment}" if comment else title
     msg = msg if len(msg) <= 200 else msg[:197] + "…"
-    focus_url = f"/reports?focus=report-{report.id}"
+    focus_url = f"/reports/{report.id}"
     if roomless:
         if is_company_wide:
             all_groups = db.query(models.Group).options(*group_loaders).all()
@@ -4121,7 +4158,7 @@ async def reports_set_status(
             target_groups = list(report.groups)
         else:
             target_groups = list(report.room.groups) if report.room else []
-        focus_url = f"/reports?focus=report-{report.id}"
+        focus_url = f"/reports/{report.id}"
         if target_groups:
             background_tasks.add_task(notify_groups, target_groups, title, msg, "default", focus_url)
         already_reached = any(report.user.id == member.id for group in target_groups for member in group.users)
@@ -4172,7 +4209,8 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
 @app.post("/reports/{report_id}/comment")
 async def reports_add_comment(
     report_id: int, request: Request, background_tasks: BackgroundTasks,
-    text: str = Form(""), photos: list[UploadFile] = File([]), db: Session = Depends(get_db),
+    text: str = Form(""), return_to: str = Form(""), photos: list[UploadFile] = File([]),
+    db: Session = Depends(get_db),
 ):
     """Kommentar hinzufuegen, optional mit Foto(s) - die Bild-Hinzufuegen-
     Funktion sass frueher direkt auf der Meldungskarte, ist aber dorthin
@@ -4192,10 +4230,11 @@ async def reports_add_comment(
     if blocked:
         return blocked
     text = text.strip()
+    back_url = _report_return_url(return_to)
     has_photo_upload = any(p and p.filename for p in photos)
     if not text and not has_photo_upload:
         return RedirectResponse(
-            _with_toast("/reports", "Bitte einen Kommentar schreiben oder ein Bild anhängen.", "error"),
+            _with_toast(back_url, "Bitte einen Kommentar schreiben oder ein Bild anhängen.", "error"),
             status_code=302,
         )
 
@@ -4242,7 +4281,7 @@ async def reports_add_comment(
         db.delete(comment)
         db.commit()
         return RedirectResponse(
-            _with_toast("/reports", "Die angehängte Datei ist kein gültiges Bild.", "error"), status_code=302,
+            _with_toast(back_url, "Die angehängte Datei ist kein gültiges Bild.", "error"), status_code=302,
         )
     db.commit()
     _bump_live_version()
@@ -4262,7 +4301,7 @@ async def reports_add_comment(
         target_groups = list(report.groups)
     else:
         target_groups = list(report.room.groups) if report.room else []
-    focus_url = f"/reports?focus=report-{report.id}"
+    focus_url = f"/reports/{report.id}"
     if target_groups:
         background_tasks.add_task(notify_groups, target_groups, title, msg, "default", focus_url)
 
@@ -4273,13 +4312,13 @@ async def reports_add_comment(
             background_tasks.add_task(notify_user, target_user, title, msg, focus_url)
             already_reached.add(target_user.id)
 
-    return RedirectResponse("/reports", status_code=302)
+    return RedirectResponse(back_url, status_code=302)
 
 
 @app.post("/reports/{report_id}/assign")
 def reports_assign(
     report_id: int, request: Request, group_mode: str = Form("auto"),
-    assigned_group_ids: list[str] = Form([]), db: Session = Depends(get_db)
+    assigned_group_ids: list[str] = Form([]), return_to: str = Form(""), db: Session = Depends(get_db)
 ):
     """Zustaendigkeit nachtraeglich aendern (Details-Tab, Checkbox-Chips
     hinter einem Dropdown-Button statt <select multiple> - gleiches
@@ -4290,6 +4329,7 @@ def reports_assign(
     blocked = _module_gate(get_app_settings(db).enable_reports, "Meldungen")
     if blocked:
         return blocked
+    back_url = _report_return_url(return_to)
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if report:
         def _assignment_label(is_company_wide: bool, groups) -> str:
@@ -4308,7 +4348,7 @@ def reports_assign(
         # jeden Benachrichtigungsweg zurücklassen, daher hier nicht zulassen
         # (Alle (Betriebsweit) zaehlt als gueltiger Benachrichtigungsweg).
         if report.room_id is None and not new_group_ids and not is_company_wide:
-            return RedirectResponse("/reports", status_code=302)
+            return RedirectResponse(back_url, status_code=302)
         new_groups = (
             db.query(models.Group).filter(models.Group.id.in_(new_group_ids)).all() if new_group_ids else []
         )
@@ -4325,7 +4365,7 @@ def reports_assign(
             )
         db.commit()
         _bump_live_version()
-    return RedirectResponse("/reports", status_code=302)
+    return RedirectResponse(back_url, status_code=302)
 
 
 # ---------- Hinweise ----------

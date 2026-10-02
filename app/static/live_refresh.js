@@ -65,6 +65,10 @@
       fetch(location.href)
         .then(function (resp) {
           if (!resp.ok) throw new Error('http ' + resp.status);
+          // Weitergeleitet (z.B. Detailseite einer inzwischen geloeschten
+          // Meldung -> Liste, oder abgelaufene Sitzung -> Login): den Inhalt
+          // der Zielseite nicht unter die aktuelle URL schieben.
+          if (resp.redirected) throw new Error('redirected');
           return resp.text();
         })
         .then(function (html) {

@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% import "_report_macros.html" as rb %}
+{% import "_group_macros.html" as gm %}
+{% import "_dropzone_macros.html" as dz %}
+{% block title %}Meldung – ClubHUB{% endblock %}
+{% block live_refresh %}1{% endblock %}
+{% block content %}
+{% set r_title, r_body = report_title_parts(r) %}
+{# Fotos der Meldung selbst - Kommentar-Fotos (comment_id gesetzt) erscheinen im jeweiligen Kommentar #}
+{% set header_photos = r.photos|rejectattr("comment_id")|list %}
+{% set assignment_label = "Alle (Betriebsweit)" if r.is_company_wide else (r.groups|map(attribute="name")|join(", ") if r.groups else "Automatisch (Bereich)") %}
+
+<a href="/reports" class="text-sm text-slate-400 hover:text-slate-100">&larr; Meldungen</a>
+
+<!-- Alles in einem [data-ajax-row]: Status-Auswahl (reportStatusChange) und
+     Loeschen-Formular (ajax_actions.js) finden darueber ihre Meldung; nach dem
+     Loeschen geht es per "ajax-row-removed" zurueck zur Liste (Skript unten). -->
+<div id="report-{{ r.id }}" data-ajax-row data-report-status="{{ r.status }}" data-report-title="{{ r_title }}" class="mt-3 space-y-4">
+
+  <div class="rounded-xl border border-line border-l-4 {% if r.status == 'done' %}border-l-line{% else %}{{ rb.priority_border(r.priority)|trim }}{% endif %} bg-panel p-4 sm:p-5">
+    <div class="flex items-center gap-2 flex-wrap mb-2">{% if r.priority %}{{ rb.priority_badge(r.priority) }}{% endif %}{{ rb.category_badge(r.category) }}</div>
+    <h1 class="font-display text-xl sm:text-2xl font-semibold break-words">{{ r_title }}</h1>
+
+    <div class="flex items-center gap-1.5 flex-wrap mt-2.5">
+      {% if r.room %}
+      <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-panel2 text-slate-300">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        {{ r.room.name }}
+      </span>
+      {% endif %}
+      {% if r.is_company_wide %}
+      <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent" title="Gruppe">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>
+        Alle (Betriebsweit)
+      </span>
+      {% elif r.groups %}
+      {{ gm.group_badges(r.groups) }}
+      {% elif r.room %}
+      {% set visible_groups = visible_room_groups_for_user(user, r.room) %}
+      {% if visible_groups %}{{ gm.group_badges(visible_groups) }}{% endif %}
+      {% endif %}
+    </div>
+    <p class="text-sm text-slate-400 mt-2">
+      vor {{ meta.created_rel }} &middot; gemeldet von {{ r.user.name }}
+      {% if r.in_progress_by %} &middot; in Bearbeitung von {{ r.in_progress_by.name }}{% endif %}
+      {% if r.status == "done" and meta.resolved_rel %} &middot; erledigt vor {{ meta.resolved_rel }}{% if r.resolved_by %} von {{ r.resolved_by.name }}{% endif %}{% endif %}
+    </p>
+
+    <form method="post" action="/reports/{{ r.id }}/status" class="ajax-status-form mt-4">
+      <select name="status" onchange="reportStatusChange(this)" aria-label="Status der Meldung"
+              class="report-status-select text-sm font-medium rounded-full pl-4 py-2 border-0 cursor-pointer {{ rb.status_pill_class(r.status) }}">
+        <option value="open" {% if r.status == "open" %}selected{% endif %}>Offen</option>
+        <option value="in_progress" {% if r.status == "in_progress" %}selected{% endif %}>In Bearbeitung</option>
+        <option value="done" {% if r.status == "done" %}selected{% endif %}>Erledigt</option>
+      </select>
+    </form>
+
+    {% if r.status == "done" and r.resolved_note %}
+    <div class="mt-4 rounded-lg border border-go/30 bg-go/10 p-3">
+      <div class="text-xs font-medium text-go mb-0.5">Erledigt{% if r.resolved_by %} von {{ r.resolved_by.name }}{% endif %}</div>
+      <p class="text-base text-slate-200 whitespace-pre-line break-words">{{ r.resolved_note }}</p>
+    </div>
+    {% endif %}
+
+    {% if r_body %}
+    <p class="mt-4 text-base leading-relaxed text-slate-200 whitespace-pre-line break-words">{{ r_body | urlize }}</p>
+    {% endif %}
+
+    {% if r.product_url %}
+    <a href="{{ r.product_url }}" target="_blank" rel="noopener noreferrer"
+       class="inline-flex items-center gap-1.5 {% if r_body %}mt-3{% else %}mt-4{% endif %} text-sm font-medium px-3 py-2 rounded-md bg-accent/15 text-accent hover:bg-accent/25 transition-colors">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+      Zum Shop / Produkt
+    </a>
+    {% endif %}
+
+    {% if header_photos %}
+    {% set header_urls = report_photo_urls(header_photos) %}
+    <div class="mt-4 flex flex-wrap gap-2">
+      {% for p in header_photos %}
+      <button type="button" class="report-photo-trigger relative w-24 h-24 rounded-lg border border-line overflow-hidden shrink-0" data-idx="{{ loop.index0 }}" aria-label="Bild {{ loop.index }} von {{ header_photos|length }} anzeigen">
+        <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-full h-full object-cover">
+        <script type="application/json">{{ header_urls | tojson }}</script>
+      </button>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Infos + Zuständigkeit: Auswahl direkt sichtbar statt hinter einem
+       Aufklapp-Dropdown (gleiche Chips wie im "Neue Meldung"-Formular). -->
+  <div class="rounded-xl border border-line bg-panel p-4 sm:p-5">
+    <h2 class="font-display font-medium mb-3">Infos</h2>
+    <ul class="text-[15px] space-y-2">
+      {% if r.room %}
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Bereich</span><span class="text-slate-200 text-right">{{ r.room.name }}</span></li>
+      {% endif %}
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Kategorie</span><span class="text-slate-200 text-right">{{ rb.category_label(r.category) }}</span></li>
+      {% if r.priority %}
+      <li class="flex justify-between items-center gap-4"><span class="text-slate-500">Priorität</span>{{ rb.priority_badge(r.priority) }}</li>
+      {% endif %}
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Gemeldet von</span><span class="text-slate-200 text-right">{{ r.user.name }}</span></li>
+      {% if r.room %}
+      {% set visible_groups = visible_room_groups_for_user(user, r.room) %}
+      {% if visible_groups %}
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Bereichsgruppe</span><span class="text-slate-200 text-right">{{ visible_groups | map(attribute="name") | join(", ") }}</span></li>
+      {% endif %}
+      {% endif %}
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Erstellt am</span><span class="text-slate-200 text-right">{{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>
+      <li class="flex justify-between gap-4"><span class="text-slate-500">Letzte Änderung</span><span class="text-slate-200 text-right">{{ (meta.last_modified|localtime).strftime("%d.%m.%Y, %H:%M") }}</span></li>
+      <li>
+        <div class="flex justify-between gap-4"><span class="text-slate-500">Zuständigkeit</span><span class="text-slate-200 text-right">{{ assignment_label }}</span></div>
+        <form method="post" action="/reports/{{ r.id }}/assign" class="report-assign-form mt-2 rounded-lg border border-line bg-ink/40 p-3">
+          <input type="hidden" name="return_to" value="/reports/{{ r.id }}">
+          <div class="text-xs text-slate-400 mb-2">Zuständigkeit ändern <span class="text-slate-500">– bei Unsicherheit mehrere Gruppen anklicken</span></div>
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            {% if r.room %}
+            <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+              <input type="radio" name="group_mode" value="auto" class="sr-only" {% if not r.groups and not r.is_company_wide %}checked{% endif %}>Automatisch
+            </label>
+            {% endif %}
+            <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+              <input type="radio" name="group_mode" value="all" class="sr-only" {% if r.is_company_wide %}checked{% endif %}>Alle
+            </label>
+            {% for g in groups %}
+            <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/90 has-checked:border-go has-checked:text-oncolor has-checked:font-medium">
+              <input type="checkbox" name="assigned_group_ids" value="{{ g.id }}" class="sr-only report-assign-checkbox" {% if g in r.groups %}checked{% endif %}>{{ g.name }}
+            </label>
+            {% endfor %}
+          </div>
+          <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Übernehmen</button>
+        </form>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Kommentare als Chat: eigene Beiträge rechts, die der anderen links. -->
+  <div class="rounded-xl border border-line bg-panel p-4 sm:p-5">
+    <h2 class="font-display font-medium mb-3">Kommentare{% if r.comments %} <span class="text-slate-500 font-normal">({{ r.comments|length }})</span>{% endif %}</h2>
+    <ul class="space-y-3 mb-4">
+      {% for c in r.comments %}
+      {% set own = c.user_id == user.id %}
+      <li class="flex {% if own %}justify-end{% endif %}">
+        <div class="max-w-[88%] rounded-2xl px-3.5 py-2.5 {% if own %}bg-go/15 rounded-br-md{% else %}bg-panel2 rounded-bl-md{% endif %}">
+          <div class="text-xs text-slate-400 mb-0.5"><span class="font-medium text-slate-200">{{ c.user.name }}</span> &middot; {{ (c.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</div>
+          {% if c.text %}
+          <p class="text-base text-slate-100 whitespace-pre-line break-words">{{ c.text }}</p>
+          {% endif %}
+          {% if c.photos %}
+          {% set comment_photo_urls = report_photo_urls(c.photos) %}
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            {% for p in c.photos %}
+            <button type="button" class="report-photo-trigger relative w-20 h-20 rounded-lg border border-line overflow-hidden shrink-0" data-idx="{{ loop.index0 }}" aria-label="Bild anzeigen{% if c.photos|length > 1 %} ({{ c.photos|length }} Bilder){% endif %}">
+              <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-full h-full object-cover">
+              <script type="application/json">{{ comment_photo_urls | tojson }}</script>
+            </button>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </li>
+      {% else %}
+      <li class="text-slate-500 text-sm italic">Noch keine Kommentare</li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="/reports/{{ r.id }}/comment" enctype="multipart/form-data" class="space-y-2">
+      <input type="hidden" name="return_to" value="/reports/{{ r.id }}">
+      <div class="flex items-center gap-2">
+        <input name="text" placeholder="Kommentar schreiben…" autocomplete="off" class="flex-1 min-w-0 rounded-md bg-ink border border-line px-3 py-2 text-base">
+        <button class="px-4 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-base font-medium whitespace-nowrap">Senden</button>
+      </div>
+      {{ dz.dropzone("photos", "report-comment-photos-" ~ r.id, accept="image/*", multiple=True, label="Bild anhängen (optional)") }}
+    </form>
+  </div>
+
+  <div class="rounded-xl border border-line bg-panel p-4 sm:p-5">
+    <h2 class="font-display font-medium mb-3">Verlauf</h2>
+    <ul class="space-y-3">
+      <li class="flex gap-3">
+        <div class="w-2 h-2 rounded-full bg-accent mt-2 shrink-0"></div>
+        <div>
+          <div class="text-[15px]">Meldung erstellt</div>
+          <div class="text-xs text-slate-500">{{ (r.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }} &middot; {{ r.user.name }}</div>
+        </div>
+      </li>
+      {% if r.in_progress_by_id and r.in_progress_at %}
+      <li class="flex gap-3">
+        <div class="w-2 h-2 rounded-full bg-warn mt-2 shrink-0"></div>
+        <div>
+          <div class="text-[15px]">Auf „In Bearbeitung“ gestellt</div>
+          <div class="text-xs text-slate-500">{{ (r.in_progress_at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if r.in_progress_by %} &middot; {{ r.in_progress_by.name }}{% endif %}</div>
+        </div>
+      </li>
+      {% elif r.status == "in_progress" %}
+      <li class="flex gap-3">
+        <div class="w-2 h-2 rounded-full bg-warn mt-2 shrink-0"></div>
+        <div class="text-[15px] text-warn">In Bearbeitung</div>
+      </li>
+      {% endif %}
+      {% if r.status == "done" %}
+      <li class="flex gap-3">
+        <div class="w-2 h-2 rounded-full bg-go mt-2 shrink-0"></div>
+        <div>
+          <div class="text-[15px]">Als erledigt markiert</div>
+          <div class="text-xs text-slate-500">{{ (r.resolved_at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if r.resolved_by %} &middot; {{ r.resolved_by.name }}{% endif %}</div>
+        </div>
+      </li>
+      {% elif r.status == "open" %}
+      <li class="flex gap-3">
+        <div class="w-2 h-2 rounded-full bg-panel2 border border-line mt-2 shrink-0"></div>
+        <div class="text-[15px] text-slate-500">Noch nicht erledigt</div>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+
+  {% if user.id == r.user_id or user.is_admin %}
+  <form method="post" action="/reports/{{ r.id }}/delete" class="ajax-delete-form" data-confirm="Meldung wirklich unwiderruflich löschen?">
+    <button type="submit" class="inline-flex items-center gap-2 text-sm text-late hover:bg-late/10 rounded-md px-3 py-2 border border-late/30">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      Meldung löschen
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% include "_report_done_modal.html" %}
+
+<script>
+  // Document-Handler nur einmal pro Seitenaufruf registrieren: das Live-Update
+  // (live_refresh.js) fuehrt dieses Skript nach jedem Austausch erneut aus.
+  if (!window.__reportDetailHandlers) {
+    window.__reportDetailHandlers = true;
+
+    // Zustaendigkeit: "Automatisch"/"Alle" (Radios) und einzelne Gruppen
+    // (Checkboxen) schliessen sich gegenseitig aus - rein optisch, serverseitig
+    // gewinnen echte Gruppen-IDs in reports_assign ohnehin immer.
+    document.addEventListener('change', function (e) {
+      var form = e.target.closest('.report-assign-form');
+      if (!form) return;
+      if (e.target.name === 'group_mode') {
+        form.querySelectorAll('.report-assign-checkbox').forEach(function (cb) { cb.checked = false; });
+      } else if (e.target.classList.contains('report-assign-checkbox') && e.target.checked) {
+        form.querySelectorAll('input[name="group_mode"]').forEach(function (r) { r.checked = false; });
+      }
+    });
+
+    // Statuswechsel (ausser "Erledigt", das laeuft ueber den Dialog und laedt
+    // selbst neu): Seite neu laden, damit Pille, Verlauf und Erledigt-Hinweis
+    // zusammenpassen.
+    document.addEventListener('ajax-form-success', function (e) {
+      if (e.target.classList && e.target.classList.contains('ajax-status-form')) location.reload();
+    });
+
+    // Nach dem Loeschen gibt es diese Seite nicht mehr -> zurueck zur Liste.
+    document.addEventListener('ajax-row-removed', function () { location.href = '/reports'; });
+  }
+</script>
+{% endblock %}
