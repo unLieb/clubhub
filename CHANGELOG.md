@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.47.2] - 2026-10-02
+- Meldungen: die Karten in der Liste sind kürzer. Seit es die Detailansicht gibt, zeigt die Liste nur noch Kategorie/Priorität, Titel, Bereich/Gruppen, Alter bzw. „erledigt vor … von …" sowie Status-Auswahl und Drei-Punkte-Menü. Beschreibungsvorschau und Erledigt-Notiz stehen nur noch auf der Detailseite (die Notiz dort weiterhin in der grünen Box).
+
 ## [1.47.1] - 2026-10-02
 - Profil: der übrig gebliebene Erklärtext zur „Erledigt"-Benachrichtigung in der Karte „Benachrichtigungen & Geräte" ist entfernt (hätte mit dem Schalter in 1.47.0 verschwinden sollen).
 

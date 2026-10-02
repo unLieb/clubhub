@@ -7,7 +7,7 @@
 {% block content %}
 
 {% macro report_card(r, meta) %}
-{% set r_title, r_body = report_title_parts(r) %}
+{% set r_title = report_title_parts(r)[0] %}
 <!-- Erledigte Karten wie vergangene Termine (appointments.html): grauer linker
      Rand statt Prioritaetsfarbe + opacity-60. Die Prioritaetsklasse steht in
      data-priority-border, damit der Statuswechsel per JS sie beim Wiederoeffnen
@@ -16,8 +16,8 @@
      after:absolute after:inset-0 die komplette Karte auf), Status-Auswahl,
      Vorschaubild und Drei-Punkte-Menue liegen per relative z-10 darueber und
      bleiben einzeln bedienbar. Titel bewusst ohne Kuerzung (auf dem Handy war
-     er sonst nicht komplett lesbar) - Beschreibung nur als kurze Vorschau, der
-     volle Text samt Kommentaren/Verlauf steht auf der Detailseite. -->
+     er sonst nicht komplett lesbar) - Beschreibung, Erledigt-Notiz, Kommentare
+     und Verlauf stehen bewusst nur auf der Detailseite, die Karte bleibt kurz. -->
 <div id="report-{{ r.id }}" data-ajax-row data-report-status="{{ r.status }}" data-report-title="{{ r_title }}" data-priority-border="{{ rb.priority_border(r.priority)|trim }}" class="relative rounded-xl border border-line border-l-4 {% if r.status == 'done' %}border-l-line opacity-60{% else %}{{ rb.priority_border(r.priority)|trim }}{% endif %} bg-panel p-4 hover:bg-panel2/40 transition-colors">
 
   <div class="flex items-start gap-4 flex-wrap">
@@ -76,15 +76,6 @@
         {% if r.in_progress_by %} &middot; in Bearbeitung von {{ r.in_progress_by.name }}{% endif %}
         {% if r.status == "done" and meta.resolved_rel %} &middot; erledigt vor {{ meta.resolved_rel }}{% if r.resolved_by %} von {{ r.resolved_by.name }}{% endif %}{% endif %}
       </p>
-      {% if r.status == "done" and r.resolved_note %}
-      <!-- Erledigt-Notiz (Kommentarzwang): direkt auf der Karte sichtbar, damit
-           man in der Liste sieht, was getan wurde. Wird beim Wiederoeffnen per
-           JS entfernt (siehe ajax-form-success-Listener unten). -->
-      <p class="report-done-note text-sm text-slate-300 mt-1.5 whitespace-pre-line break-words line-clamp-3"><span class="font-medium text-go">Erledigt:</span> {{ r.resolved_note }}</p>
-      {% endif %}
-      {% if r_body %}
-      <p class="text-sm text-slate-300 mt-2 whitespace-pre-line break-words line-clamp-3">{{ r_body }}</p>
-      {% endif %}
     </div>
     <div class="shrink-0 flex items-center gap-2 w-full sm:w-auto justify-end">
       {% if user %}
@@ -497,12 +488,6 @@
       // Stylesheet entscheidet, nicht die im class-Attribut.
       card.classList.toggle('opacity-60', isDone);
       card.classList.toggle('border-l-line', isDone);
-      // Erledigt-Notiz gilt nur, solange die Meldung erledigt ist (der Server
-      // leert sie beim Wiederoeffnen ebenfalls).
-      if (!isDone) {
-        var doneNote = card.querySelector('.report-done-note');
-        if (doneNote) doneNote.remove();
-      }
       if (card.dataset.priorityBorder) card.classList.toggle(card.dataset.priorityBorder, !isDone);
 
       var select = form.querySelector('.report-status-select');
