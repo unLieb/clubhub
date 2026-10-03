@@ -87,11 +87,17 @@
     {% endif %}
   </div>
 
-  <!-- Infos + Zuständigkeit: Auswahl direkt sichtbar statt hinter einem
-       Aufklapp-Dropdown (gleiche Chips wie im "Neue Meldung"-Formular). -->
-  <div class="rounded-xl border border-line bg-panel p-4 sm:p-5">
-    <h2 class="font-display font-medium mb-3">Infos</h2>
-    <ul class="text-[15px] space-y-2">
+  <!-- Infos + Zuständigkeit: standardmäßig eingeklappt, damit man bei langen
+       Meldungen schneller bei den Kommentaren ist (Nutzer-Wunsch). Die Gruppen
+       stehen ohnehin als Chips im Kopf der Meldung. Innen: Zuständigkeits-Auswahl
+       direkt sichtbar (gleiche Chips wie im "Neue Meldung"-Formular). -->
+  <details class="group rounded-xl border border-line bg-panel">
+    <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-4 sm:px-5 py-3.5 rounded-xl hover:bg-panel2">
+      <h2 class="font-display font-medium">Infos</h2>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+    </summary>
+    <div class="px-4 sm:px-5 pb-4 sm:pb-5 pt-1 border-t border-line">
+    <ul class="text-[15px] space-y-2 mt-3">
       {% if r.room %}
       <li class="flex justify-between gap-4"><span class="text-slate-500">Bereich</span><span class="text-slate-200 text-right">{{ r.room.name }}</span></li>
       {% endif %}
@@ -132,7 +138,8 @@
         </form>
       </li>
     </ul>
-  </div>
+    </div>
+  </details>
 
   <!-- Kommentare als Chat: eigene Beiträge rechts, die der anderen links. -->
   <div class="rounded-xl border border-line bg-panel p-4 sm:p-5">

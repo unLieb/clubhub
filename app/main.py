@@ -1628,6 +1628,38 @@ def complete_task(room_id: int, task_id: int, request: Request, db: Session = De
     return RedirectResponse(f"/room/{room_id}?done={task_id}", status_code=302)
 
 
+@app.post("/room/{room_id}/complete-on-demand")
+def complete_on_demand_tasks(room_id: int, request: Request, db: Session = Depends(get_db)):
+    """"Alle erledigt"-Button im Abschnitt "Nach Bedarf" der Bereichsseite
+    (room.html): markiert alle noch offenen Nach-Bedarf-Aufgaben (interval_hours
+    == 0, heute noch nicht abgehakt) dieses Bereichs auf einmal als erledigt -
+    Gegenstueck zum "Tägliche erledigen"-Button der Bereichs-Karten (siehe
+    complete_due_tasks). Nach-Bedarf-Aufgaben haben nie einen Faelligkeits-
+    status und tauchen daher nicht auf diesen Karten auf, deshalb sitzt der
+    Button hier an ihrem Abschnitt. Antwortet fuer JS-Clients (fetch) mit den
+    betroffenen Aufgaben-IDs, damit die Karten ohne Reload ausgeblendet
+    werden koennen."""
+    user = require_login(request, db)
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
+    room = db.query(models.Room).filter(models.Room.id == room_id).first()
+    if not room or not user_can_see_room(user, room):
+        if is_fetch:
+            raise HTTPException(status_code=404, detail="Bereich nicht gefunden")
+        return RedirectResponse("/", status_code=302)
+    now = ntptime.now_utc()
+    open_tasks = [
+        t for t in room.tasks
+        if t.interval_hours == 0 and not task_status(t, now)["on_demand_done_today"]
+    ]
+    task_ids = [t.id for t in open_tasks]
+    _complete_tasks(db, open_tasks, user.id)
+    count = len(task_ids)
+    if is_fetch:
+        return {"ok": True, "count": count, "task_ids": task_ids}
+    msg = f"{count} {'Aufgabe' if count == 1 else 'Aufgaben'} nach Bedarf für {room.name} als erledigt markiert"
+    return RedirectResponse(_with_toast(f"/room/{room_id}", msg), status_code=302)
+
+
 @app.post("/room/{room_id}/task/{task_id}/snooze")
 def snooze_task(
     room_id: int, task_id: int, request: Request,

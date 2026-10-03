@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.48.0] - 2026-10-03
+- Meldungen, Detailansicht: der Block „Infos" (Bereich, Kategorie, Zuständigkeit ändern, Zeitstempel ...) ist jetzt standardmäßig eingeklappt und öffnet sich per Tipp - dadurch rücken die Kommentare nach oben und sind schneller erreichbar. Die zuständigen Gruppen stehen weiterhin als Chips im Kopf der Meldung.
+- Bereichsseite: neuer Button „Alle erledigt" im Abschnitt „Nach Bedarf" - hakt alle noch offenen Nach-Bedarf-Aufgaben des Bereichs (z. B. im Backstage) auf einmal ab, als Gegenstück zum „Tägliche erledigen" der Bereichs-Karten. Vorher gibt es eine Rückfrage (Sammelaktion ohne Rückgängig). Die Aufgaben verschwinden wie beim Einzel-Abhaken für den Rest des Tages aus der Liste, die Erledigungen landen einzeln in der Historie und lösen wie sonst die gebündelte „Erledigt"-Benachrichtigung aus. Täglich/Wöchentlich/... sind davon nicht betroffen. Bewusst nicht auf den Bereichs-Karten, da Nach-Bedarf-Aufgaben nie fällig werden und die Karte sonst dauerhaft einen zusätzlichen Button bekäme.
+
 ## [1.47.2] - 2026-10-02
 - Meldungen: die Karten in der Liste sind kürzer. Seit es die Detailansicht gibt, zeigt die Liste nur noch Kategorie/Priorität, Titel, Bereich/Gruppen, Alter bzw. „erledigt vor … von …" sowie Status-Auswahl und Drei-Punkte-Menü. Beschreibungsvorschau und Erledigt-Notiz stehen nur noch auf der Detailseite (die Notiz dort weiterhin in der grünen Box).
 

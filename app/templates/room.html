@@ -142,11 +142,24 @@
 <div class="space-y-6" id="pending-tasks-list">
   {% for section in pending_sections %}
   <section class="turnus-section" data-turnus-key="{{ section.info.key }}">
-    <h2 class="flex items-center gap-2 text-sm font-medium text-slate-200 mb-2.5">
-      <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ section.info.color }}"></span>
-      {{ section.info.label }}
-      <span class="turnus-count text-xs text-slate-500 font-normal">({{ section['tasks']|length }})</span>
-    </h2>
+    <div class="flex items-center justify-between gap-3 mb-2.5">
+      <h2 class="flex items-center gap-2 text-sm font-medium text-slate-200">
+        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ section.info.color }}"></span>
+        {{ section.info.label }}
+        <span class="turnus-count text-xs text-slate-500 font-normal">({{ section['tasks']|length }})</span>
+      </h2>
+      {% if user and section.info.key == '0' %}
+      <!-- "Alle erledigt" nur fuer "Nach Bedarf" (key "0", siehe turnus_info):
+           Gegenstueck zum "Tägliche erledigen" der Bereichs-Karten, siehe
+           complete_on_demand_tasks in main.py und Skript unten. -->
+      <form method="post" action="/room/{{ room.id }}/complete-on-demand" class="on-demand-complete-form">
+        <button type="submit" class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md bg-go/15 text-go hover:bg-go/25 transition-colors disabled:opacity-60">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Alle erledigt
+        </button>
+      </form>
+      {% endif %}
+    </div>
     <div class="space-y-3">
       {% for task in section['tasks'] %}
       {{ task_row(task, statuses[task.id]) }}
@@ -351,6 +364,48 @@
             textEl.textContent = originalText;
             if (card) card.classList.remove('ring-2', 'ring-go');
             showToast('„' + taskName + '“ konnte nicht als erledigt markiert werden.', 'error');
+          });
+      });
+    });
+
+    // "Alle erledigt" im Abschnitt "Nach Bedarf" (siehe complete_on_demand_tasks
+    // in main.py): erst nachfragen (Sammelaktion ohne Rückgängig), dann alle
+    // offenen Nach-Bedarf-Karten wie beim Einzel-Abhaken ausblenden. Im selben
+    // Closure-Scope wie oben, damit collapseCard()/showToast() mitgenutzt werden.
+    document.querySelectorAll('.on-demand-complete-form').forEach(function (form) {
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('button');
+        if (btn.disabled) return;
+        var section = form.closest('.turnus-section');
+        var openCount = section ? Array.prototype.filter.call(section.querySelectorAll('[data-ajax-row]'), function (c) {
+          return c.style.display !== 'none';
+        }).length : 0;
+        var confirmed = await customConfirm({
+          message: openCount === 1
+            ? 'Die offene Aufgabe „Nach Bedarf“ als erledigt markieren?'
+            : 'Alle ' + openCount + ' offenen Aufgaben „Nach Bedarf“ als erledigt markieren?',
+          danger: false,
+          confirmText: 'Alle erledigt',
+        });
+        if (!confirmed) return;
+        btn.disabled = true;
+        fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'fetch' } })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('http ' + resp.status);
+            return resp.json();
+          })
+          .then(function (data) {
+            data.task_ids.forEach(function (id) {
+              var card = document.getElementById('task-' + id);
+              if (card) collapseCard(card);
+            });
+            setTimeout(checkPendingEmptyState, 330);
+            showToast(data.count + (data.count === 1 ? ' Aufgabe' : ' Aufgaben') + ' nach Bedarf als erledigt markiert.', 'success');
+          })
+          .catch(function () {
+            btn.disabled = false;
+            showToast('Aufgaben konnten nicht als erledigt markiert werden.', 'error');
           });
       });
     });
