@@ -727,36 +727,67 @@
     // ---- Drag & Drop ueber Pointer-Events (Finger, Stift, Maus) ----
     // HTML5-Drag&Drop (draggable/dragstart) funktioniert auf Touch-Geraeten
     // nicht, daher eigene Umsetzung: Der Griff (.dash-drag-handle, mit
-    // touch-action:none, damit der Finger nicht stattdessen scrollt) faengt
-    // den Pointer ein; waehrend des Ziehens wird die Zeile selbst live im DOM
-    // verschoben, sobald der Pointer die Mitte der Nachbarzeile in
-    // Bewegungsrichtung ueberschreitet (Richtungsabhaengig, damit Zeilen
-    // unterschiedlicher Hoehe nicht hin- und herspringen). Gespeichert wird
-    // erst beim Loslassen. Am oberen/unteren Rand des scrollbaren Dialogs
-    // scrollt eine kleine Schleife automatisch mit.
+    // touch-action:none, damit der Finger nicht stattdessen scrollt) loest das
+    // Ziehen aus, der Pointer wird vom Listen-Container festgehalten (NICHT vom
+    // Griff - dessen Zeile wird beim Umsortieren im DOM verschoben, dabei
+    // ginge das Capture verloren). Damit es sich fluessig anfuehlt:
+    //  - die gezogene Zeile folgt dem Finger stufenlos per transform (leicht
+    //    angehoben: Schatten + minimal groesser), nicht in Platz-Spruengen;
+    //  - die uebrigen Zeilen gleiten per FLIP-Animation (Position vorher/nachher
+    //    messen, Differenz als transform setzen, dann auf 0 animieren) an
+    //    ihren neuen Platz statt zu springen;
+    //  - alle Berechnungen laufen einmal pro Frame (requestAnimationFrame)
+    //    statt bei jedem pointermove;
+    //  - beim Loslassen gleitet die Zeile in ihren Platz.
+    // Platzbestimmung ueber Layout-Positionen (offsetTop, ohne transform), damit
+    // laufende Animationen sie nicht verfaelschen. Richtungsabhaengig, damit
+    // Zeilen unterschiedlicher Hoehe nicht hin- und herspringen. Gespeichert
+    // wird erst beim Loslassen; am Rand des Dialogs scrollt es automatisch.
     var DRAG_CLASSES = ['bg-panel2', 'shadow-lg', 'rounded-lg', 'ring-1', 'ring-go/50', 'relative', 'z-10'];
-    var dragRow = null, dragPointerId = null, lastY = 0, scrollTimer = null;
+    var SLIDE_MS = 170;
+    var dragRow = null, dragPointerId = null, pointerY = 0, prevY = 0, grabOffset = 0, frameId = null;
     var scroller = list.closest('.overflow-y-auto') || list.parentElement;
 
-    function moveRowTowards(y, dy) {
+    function layoutMid(row) {
+      return row.offsetTop - list.offsetTop + row.offsetHeight / 2;
+    }
+
+    // FLIP: Zeilen (ausser der gezogenen) gleiten von ihrer bisherigen
+    // sichtbaren Position an die neue, nachdem mutate() das DOM umgebaut hat.
+    function flipAround(mutate) {
+      var others = visibleRows().filter(function (r) { return r !== dragRow; });
+      var first = others.map(function (r) { return r.getBoundingClientRect().top; });
+      others.forEach(function (r) { r.style.transition = 'none'; r.style.transform = ''; });
+      mutate();
+      var moved = [];
+      others.forEach(function (r, i) {
+        var dy = first[i] - r.getBoundingClientRect().top;
+        if (Math.abs(dy) < 0.5) return;
+        r.style.transform = 'translateY(' + dy + 'px)';
+        moved.push(r);
+      });
+      if (!moved.length) return;
+      void list.offsetHeight; // Reflow erzwingen, damit die Startposition gilt
+      moved.forEach(function (r) {
+        r.style.transition = 'transform ' + SLIDE_MS + 'ms ease';
+        r.style.transform = '';
+      });
+    }
+
+    function reorderFor(y, dir) {
       var vis = visibleRows();
       var idx = vis.indexOf(dragRow);
-      if (dy < 0) {
-        while (idx > 0) {
-          var prev = vis[idx - 1];
-          var pr = prev.getBoundingClientRect();
-          if (y >= pr.top + pr.height / 2) break;
-          list.insertBefore(dragRow, prev);
+      var yList = y - list.getBoundingClientRect().top;
+      if (dir < 0) {
+        while (idx > 0 && yList < layoutMid(vis[idx - 1])) {
+          (function (before) { flipAround(function () { list.insertBefore(dragRow, before); }); })(vis[idx - 1]);
           vis.splice(idx, 1);
           vis.splice(idx - 1, 0, dragRow);
           idx--;
         }
-      } else if (dy > 0) {
-        while (idx < vis.length - 1) {
-          var next = vis[idx + 1];
-          var nr = next.getBoundingClientRect();
-          if (y <= nr.top + nr.height / 2) break;
-          list.insertBefore(dragRow, next.nextSibling);
+      } else if (dir > 0) {
+        while (idx < vis.length - 1 && yList > layoutMid(vis[idx + 1])) {
+          (function (after) { flipAround(function () { list.insertBefore(dragRow, after.nextSibling); }); })(vis[idx + 1]);
           vis.splice(idx, 1);
           vis.splice(idx + 1, 0, dragRow);
           idx++;
@@ -764,50 +795,70 @@
       }
     }
 
-    function autoScrollStep() {
+    // Gezogene Zeile an die Fingerposition setzen (stufenlos).
+    function followPointer(y) {
+      var naturalTop = list.getBoundingClientRect().top + (dragRow.offsetTop - list.offsetTop);
+      var shift = (y - grabOffset) - naturalTop;
+      dragRow.style.transform = 'translateY(' + shift + 'px) scale(1.02)';
+    }
+
+    function frame() {
       if (!dragRow) return;
+      var dir = pointerY - prevY;
+      prevY = pointerY;
       var rect = scroller.getBoundingClientRect();
-      var edge = 48, speed = 0;
-      if (lastY < rect.top + edge) speed = -Math.ceil((rect.top + edge - lastY) / 6);
-      else if (lastY > rect.bottom - edge) speed = Math.ceil((lastY - (rect.bottom - edge)) / 6);
+      var edge = 56, speed = 0;
+      if (pointerY < rect.top + edge) speed = -Math.ceil((rect.top + edge - pointerY) / 5);
+      else if (pointerY > rect.bottom - edge) speed = Math.ceil((pointerY - (rect.bottom - edge)) / 5);
       if (speed) {
         scroller.scrollTop += speed;
-        moveRowTowards(lastY, speed);
+        dir = speed;
       }
-      scrollTimer = requestAnimationFrame(autoScrollStep);
+      if (dir) reorderFor(pointerY, dir);
+      followPointer(pointerY);
+      frameId = requestAnimationFrame(frame);
     }
 
     function endDrag() {
       if (!dragRow) return;
-      DRAG_CLASSES.forEach(function (c) { dragRow.classList.remove(c); });
+      var row = dragRow;
       dragRow = null;
       dragPointerId = null;
-      if (scrollTimer) { cancelAnimationFrame(scrollTimer); scrollTimer = null; }
+      if (frameId) { cancelAnimationFrame(frameId); frameId = null; }
+      // In den Platz gleiten, danach Anhebe-Optik entfernen.
+      row.style.transition = 'transform ' + SLIDE_MS + 'ms ease';
+      row.style.transform = '';
+      setTimeout(function () {
+        row.style.transition = '';
+        row.style.willChange = '';
+        DRAG_CLASSES.forEach(function (c) { row.classList.remove(c); });
+      }, SLIDE_MS + 20);
       persistOrder();
     }
 
     list.addEventListener('pointerdown', function (e) {
       var handle = e.target.closest('.dash-drag-handle');
-      if (!handle) return;
+      if (!handle || dragRow) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       dragRow = handle.closest('.dash-customize-row');
       dragPointerId = e.pointerId;
-      lastY = e.clientY;
+      pointerY = prevY = e.clientY;
+      grabOffset = e.clientY - dragRow.getBoundingClientRect().top;
       // Der Pointer wird vom (nie verschobenen) Listen-Container festgehalten,
       // NICHT vom Griff: Beim Umsortieren wird die Zeile samt Griff im DOM
       // verschoben, wodurch der Browser dessen Capture verliert
       // (lostpointercapture) und der Zug nach dem ersten Schritt endete.
       try { list.setPointerCapture(e.pointerId); } catch (err) { /* aeltere Browser - Ziehen klappt dann meist trotzdem */ }
+      dragRow.style.transition = 'none';
+      dragRow.style.willChange = 'transform';
       DRAG_CLASSES.forEach(function (c) { dragRow.classList.add(c); });
       e.preventDefault();
-      scrollTimer = requestAnimationFrame(autoScrollStep);
+      frameId = requestAnimationFrame(frame);
     });
 
     list.addEventListener('pointermove', function (e) {
       if (!dragRow || e.pointerId !== dragPointerId) return;
-      var dy = e.clientY - lastY;
-      lastY = e.clientY;
-      moveRowTowards(e.clientY, dy);
+      pointerY = e.clientY;
     });
 
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (type) {

@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.49.3] - 2026-10-03
+- Dashboard anpassen: das Verschieben der Karten fühlt sich flüssiger an. Die gezogene Zeile folgt dem Finger jetzt stufenlos (leicht angehoben, mit Schatten) statt in Platz-Sprüngen, die übrigen Zeilen gleiten sanft an ihren neuen Platz (FLIP-Animation) und die losgelassene Zeile rutscht in ihren Slot. Die Berechnungen laufen einmal pro Frame (requestAnimationFrame) statt bei jeder Pointer-Bewegung; die Platzbestimmung nutzt Layout-Positionen, damit laufende Animationen sie nicht verfälschen. Auto-Scroll am Rand des Dialogs bleibt erhalten.
+
 ## [1.49.2] - 2026-10-03
 - Dashboard anpassen: beim Ziehen am Handy öffnete sich bei längerem Drücken auf den Griff das Browser-Kontextmenü (Zurück/Neu laden/Teilen/...) und unterbrach den Zug. Das Menü wird am Griff und während des Ziehens jetzt unterdrückt; zusätzlich ist am Griff die Textauswahl bzw. das System-Callout abgeschaltet.
 
