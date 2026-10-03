@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.50.0] - 2026-10-03
+- Kühlungen ist jetzt wie Meldungen, Hinweise, Urlaub und Zeiterfassung global deaktivierbar (Verwaltung → System → „Module & Features"). Deaktiviert verschwindet der Menüpunkt (Desktop-Sidebar und mobiles „Mehr"-Menü) samt Warn-Badge für alle - auch für Admins/Schichtleiter -, die Seite leitet mit Hinweis aufs Dashboard um, und alle Endpunkte darunter (Erfassen, Bearbeiten, Löschen, CSV-/PDF-Export) antworten mit 404. Kühlzellen und Messwerte bleiben vollständig erhalten. Bestehende Installationen starten nach dem Update mit aktiviertem Modul. In der Gruppenverwaltung verschwindet die Checkbox „Zugriff auf Kühlungen", der bereits gesetzte Gruppenzugriff geht beim Speichern aber nicht verloren (bleibt als verstecktes Feld erhalten).
+- Hilfe: alle Texte zu abschaltbaren Modulen sind jetzt dynamisch und verschwinden mit dem Modul - nicht nur die eigenen Fragen (Meldungen, Urlaub, Zeiterfassung, neu Kühlungen), sondern auch Erwähnungen in anderen Abschnitten (Benachrichtigungen, Live-Aktualisierung, „Sichtbarkeiten" für Admin/Schichtleiter), deren Aufzählungen sich entsprechend anpassen. Neu: eine Frage „Was sind Hinweise?" (nur bei aktivem Modul Hinweise).
+
 ## [1.49.3] - 2026-10-03
 - Dashboard anpassen: das Verschieben der Karten fühlt sich flüssiger an. Die gezogene Zeile folgt dem Finger jetzt stufenlos (leicht angehoben, mit Schatten) statt in Platz-Sprüngen, die übrigen Zeilen gleiten sanft an ihren neuen Platz (FLIP-Animation) und die losgelassene Zeile rutscht in ihren Slot. Die Berechnungen laufen einmal pro Frame (requestAnimationFrame) statt bei jeder Pointer-Bewegung; die Platzbestimmung nutzt Layout-Positionen, damit laufende Animationen sie nicht verfälschen. Auto-Scroll am Rand des Dialogs bleibt erhalten.
 

@@ -3,11 +3,12 @@
 {% block content %}
 
 {# Statische Hilfe-/FAQ-Seite fuer Mitarbeiter - Inhalte hier direkt im
-   Template, kein DB-Bezug. Urlaub/Zeiterfassung/Meldungen blenden sich passend
-   zu den globalen Modul-Schaltern aus (siehe app_module_flags in main.py),
-   Kühlungen bleibt bewusst unconditional (kein globaler Ein/Aus-Schalter
-   dafür, nur gruppenabhaengiger Zugriff - fuer eine allgemeine Erklaerung
-   irrelevant). #}
+   Template, kein DB-Bezug. Alle global abschaltbaren Module (Meldungen,
+   Hinweise, Urlaub, Zeiterfassung, Kühlungen - siehe app_module_flags in
+   main.py) blenden ihre Hilfetexte aus, sobald sie deaktiviert sind; das
+   gilt auch fuer Erwaehnungen in anderen Abschnitten (Benachrichtigungen,
+   Live-Aktualisierung, Sichtbarkeiten). Neue Module hier mit
+   {% if modules.<name> %} absichern. #}
 
 <a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
 <div class="mb-6 mt-2">
@@ -48,7 +49,7 @@
         Wie aktiviere ich Benachrichtigungen?
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
       </summary>
-      <p class="text-sm text-slate-400 px-3 pb-3">Glocken-Symbol oben antippen. So bekommst du mit, wenn eine Aufgabe fällig wird oder dich eine Meldung betrifft – ganz ohne die App offen zu haben.</p>
+      <p class="text-sm text-slate-400 px-3 pb-3">Glocken-Symbol oben antippen. So bekommst du mit, wenn eine Aufgabe fällig wird{% if modules.reports %} oder dich eine Meldung betrifft{% endif %} – ganz ohne die App offen zu haben.</p>
     </details>
   </div>
 </div>
@@ -146,6 +147,7 @@
       </summary>
       <p class="text-sm text-slate-400 px-3 pb-3">Lagerbestand einsehen und Mengen anpassen, z.&nbsp;B. nach dem Auffüllen eines Reinigungsmittels. Ein niedriger Bestand ist farblich markiert.</p>
     </details>
+    {% if modules.cooling %}
     <details class="rounded-lg border border-line bg-panel2 group">
       <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
         Was mache ich unter „Kühlungen“?
@@ -153,6 +155,16 @@
       </summary>
       <p class="text-sm text-slate-400 px-3 pb-3">Temperaturen von Kühlzellen erfassen – wichtig für die Lebensmittel-Dokumentation. Nur sichtbar für Gruppen, die dafür freigeschaltet sind.</p>
     </details>
+    {% endif %}
+    {% if modules.notices %}
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Was sind „Hinweise“?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <p class="text-sm text-slate-400 px-3 pb-3">Kurze Mitteilungen an alle, z.&nbsp;B. „Samstag bitte früher kommen“ – ohne Zuständigkeit oder Erledigt-Status. Sie stehen auf dem Dashboard und unter <a href="/notices" class="text-go underline">Hinweise</a>, neue sind mit „Neu“ markiert. Beim Schreiben lässt sich optional ein Ablaufdatum wählen, danach verschwindet der Hinweis von selbst.</p>
+    </details>
+    {% endif %}
     <details class="rounded-lg border border-line bg-panel2 group">
       <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
         Was mache ich unter „Termine“?
@@ -190,7 +202,7 @@
         Warum sehe ich mehr als meine Kolleginnen und Kollegen?
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
       </summary>
-      <p class="text-sm text-slate-400 px-3 pb-3">Als Admin oder Schichtleiter siehst du automatisch <strong>alle</strong> Bereiche, das gesamte Inventar, alle Meldungen und alle Kühlzellen – unabhängig davon, welcher Gruppe du selbst angehörst. Reguläre Mitarbeiter sehen dagegen nur, was ihrer eigenen Gruppe zugeordnet ist, plus Inhalte, die ausdrücklich für alle freigegeben wurden ("Alle (Betriebsweit)"). Bei Terminen gibt es einen kleinen Unterschied zwischen den beiden Rollen: Schichtleiter sehen alle betrieblichen Termine (an eine oder mehrere Gruppen gerichtet oder „Alle (Betriebsweit)“), aber <em>nicht</em> die Termine, die jemand als „Nur ich (Privat)“ markiert hat – nur Admins sehen wirklich ausnahmslos alles, auch private Einträge von Kolleg:innen.</p>
+      <p class="text-sm text-slate-400 px-3 pb-3">{% set sees_all = ["Bereiche", "das gesamte Inventar"] + (["alle Meldungen"] if modules.reports else []) + (["alle Kühlzellen"] if modules.cooling else []) %}Als Admin oder Schichtleiter siehst du automatisch <strong>alle</strong> {{ sees_all[:-1]|join(", ") }} und {{ sees_all[-1] }} – unabhängig davon, welcher Gruppe du selbst angehörst. Reguläre Mitarbeiter sehen dagegen nur, was ihrer eigenen Gruppe zugeordnet ist, plus Inhalte, die ausdrücklich für alle freigegeben wurden ("Alle (Betriebsweit)"). Bei Terminen gibt es einen kleinen Unterschied zwischen den beiden Rollen: Schichtleiter sehen alle betrieblichen Termine (an eine oder mehrere Gruppen gerichtet oder „Alle (Betriebsweit)“), aber <em>nicht</em> die Termine, die jemand als „Nur ich (Privat)“ markiert hat – nur Admins sehen wirklich ausnahmslos alles, auch private Einträge von Kolleg:innen.</p>
     </details>
     <details class="rounded-lg border border-line bg-panel2 group">
       <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
@@ -204,7 +216,7 @@
         Betrifft das auch Kolleg:innen oder andere Seiten?
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
       </summary>
-      <p class="text-sm text-slate-400 px-3 pb-3">Nein, „Sichtbarkeit anpassen“ ist eine rein persönliche Einstellung, an deinem Konto gespeichert – sie ändert nichts an dem, was andere sehen, gilt dafür aber auf jedem Gerät, auf dem du angemeldet bist. Sie betrifft außerdem nur die beiden Seiten Bereiche und Inventar: Bei Meldungen, Kühlungen und Terminen gibt es diesen Filter (noch) nicht, dort siehst du als Admin/Schichtleiter immer alles.</p>
+      <p class="text-sm text-slate-400 px-3 pb-3">Nein, „Sichtbarkeit anpassen“ ist eine rein persönliche Einstellung, an deinem Konto gespeichert – sie ändert nichts an dem, was andere sehen, gilt dafür aber auf jedem Gerät, auf dem du angemeldet bist. {% set without_filter = (["Meldungen"] if modules.reports else []) + (["Kühlungen"] if modules.cooling else []) + ["Terminen"] %}Sie betrifft außerdem nur die beiden Seiten Bereiche und Inventar: Bei {{ without_filter[:-1]|join(", ") }}{{ " und " if without_filter|length > 1 }}{{ without_filter[-1] }} gibt es diesen Filter (noch) nicht, dort siehst du als Admin/Schichtleiter immer alles.</p>
     </details>
   </div>
 </div>
@@ -245,7 +257,7 @@
         Muss ich neu laden, um Änderungen von Kollegen zu sehen?
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
       </summary>
-      <p class="text-sm text-slate-400 px-3 pb-3">Nein. Dashboard, Bereiche und Meldungen aktualisieren sich von selbst im Hintergrund, sobald sich etwas ändert.</p>
+      <p class="text-sm text-slate-400 px-3 pb-3">Nein. Dashboard{% if modules.reports %}, Bereiche und Meldungen{% else %} und Bereiche{% endif %} aktualisieren sich von selbst im Hintergrund, sobald sich etwas ändert.</p>
     </details>
     {% if modules.reports %}
     <details class="rounded-lg border border-line bg-panel2 group">

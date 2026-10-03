@@ -743,6 +743,13 @@ def _migrate_app_settings_enable_notices(db: Session):
     _ensure_column(db, "app_settings", "enable_notices", "INTEGER DEFAULT 1")
 
 
+def _migrate_app_settings_enable_cooling(db: Session):
+    """Modul-Schalter fuer Kuehlungen (siehe AppSettings.enable_cooling) -
+    gleiches Prinzip wie enable_reports: bestehende Betriebe behalten das
+    Modul (Default 1)."""
+    _ensure_column(db, "app_settings", "enable_cooling", "INTEGER DEFAULT 1")
+
+
 def _migrate_app_settings_channel_config(db: Session):
     """Basis-URLs/Zugangsdaten fuer ntfy/Gotify/Signal neu direkt in der
     Verwaltung pflegbar statt zwingend per Umgebungsvariable (siehe
@@ -885,6 +892,7 @@ def _startup():
         _migrate_notice_expiry(db)
         _migrate_app_settings_enable_reports(db)
         _migrate_app_settings_enable_notices(db)
+        _migrate_app_settings_enable_cooling(db)
     finally:
         db.close()
 
@@ -2627,6 +2635,16 @@ def filter_cooling_devices_for_user(devices, user):
     return [d for d in devices if user_can_see_cooling_device(user, d)]
 
 
+def _require_cooling_module(db: Session = Depends(get_db)):
+    """Route-Abhaengigkeit fuer alle /kuehlungen-Endpunkte ausser der Seite
+    selbst (die leitet per _module_gate mit Hinweis aufs Dashboard um): bei
+    global deaktiviertem Modul (AppSettings.enable_cooling) 404, damit auch
+    ein direkter POST/Export-Aufruf nicht an der ausgeblendeten Navigation
+    vorbei funktioniert."""
+    if not get_app_settings(db).enable_cooling:
+        raise HTTPException(status_code=404, detail="Kühlungen ist deaktiviert")
+
+
 _OG_IMAGE_PATTERNS = [
     re.compile(r'<meta[^>]+property=["\']og:image(?::secure_url)?["\'][^>]+content=["\']([^"\']+)["\']', re.I),
     re.compile(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image(?::secure_url)?["\']', re.I),
@@ -2807,8 +2825,11 @@ def nav_badges(request: Request) -> dict:
             reports_open = 0
         items = filter_inventory_for_user(db.query(models.InventoryItem).all(), user)
         inventory_critical = sum(1 for i in items if compute_inventory_status(i)["status"] == "low")
-        devices = filter_cooling_devices_for_user(db.query(models.CoolingDevice).all(), user)
-        cooling_alerts = sum(1 for d in devices if d.readings and d.readings[0].is_over_limit)
+        if settings.enable_cooling:
+            devices = filter_cooling_devices_for_user(db.query(models.CoolingDevice).all(), user)
+            cooling_alerts = sum(1 for d in devices if d.readings and d.readings[0].is_over_limit)
+        else:
+            cooling_alerts = 0
         return {
             "reports": reports_open, "inventory": inventory_critical, "cooling": cooling_alerts,
             "notices": _unseen_notices_count(db, user) if settings.enable_notices else 0,
@@ -2821,7 +2842,7 @@ templates.env.globals["nav_badges"] = nav_badges
 
 
 def app_module_flags() -> dict:
-    """Globale Modul-Schalter (Zeiterfassung/Urlaub/Meldungen/Hinweise, siehe
+    """Globale Modul-Schalter (Zeiterfassung/Urlaub/Meldungen/Hinweise/Kühlungen, siehe
     "Module & Features" unter /admin/system) - läuft wie nav_badges als Jinja-
     Global mit eigener kurzlebiger DB-Session, damit Navigation (base.html)
     und Dashboard-Widgets sie ohne eigenen Kontext-Eintrag abfragen können,
@@ -2834,6 +2855,7 @@ def app_module_flags() -> dict:
         return {
             "time_tracking": settings.enable_time_tracking, "vacation": settings.enable_vacation,
             "reports": settings.enable_reports, "notices": settings.enable_notices,
+            "cooling": settings.enable_cooling,
         }
     finally:
         db.close()
@@ -3139,6 +3161,9 @@ def cooling_overview(request: Request, db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
     if redirect:
         return redirect
+    blocked = _module_gate(get_app_settings(db).enable_cooling, "Kühlungen")
+    if blocked:
+        return blocked
     blocked = _module_gate(user_can_access_cooling(user), "Kühlungen")
     if blocked:
         return blocked
@@ -3156,7 +3181,7 @@ def cooling_overview(request: Request, db: Session = Depends(get_db)):
     })
 
 
-@app.post("/kuehlungen")
+@app.post("/kuehlungen", dependencies=[Depends(_require_cooling_module)])
 def cooling_device_create(
     request: Request,
     name: str = Form(...),
@@ -3175,7 +3200,7 @@ def cooling_device_create(
     return RedirectResponse("/kuehlungen", status_code=302)
 
 
-@app.post("/kuehlungen/{device_id}/edit")
+@app.post("/kuehlungen/{device_id}/edit", dependencies=[Depends(_require_cooling_module)])
 def cooling_device_edit(
     device_id: int,
     request: Request,
@@ -3198,7 +3223,7 @@ def cooling_device_edit(
     return RedirectResponse("/kuehlungen", status_code=302)
 
 
-@app.post("/kuehlungen/{device_id}/delete")
+@app.post("/kuehlungen/{device_id}/delete", dependencies=[Depends(_require_cooling_module)])
 def cooling_device_delete(device_id: int, request: Request, db: Session = Depends(get_db)):
     require_admin(request, db)
     is_fetch = request.headers.get("X-Requested-With") == "fetch"
@@ -3274,7 +3299,7 @@ def _recompute_cooling_notified(db: Session, device) -> None:
     device.notified = bool(latest and latest.is_over_limit)
 
 
-@app.post("/kuehlungen/{device_id}/log")
+@app.post("/kuehlungen/{device_id}/log", dependencies=[Depends(_require_cooling_module)])
 def cooling_device_log(
     device_id: int,
     request: Request,
@@ -3323,7 +3348,7 @@ def cooling_device_log(
     return RedirectResponse("/kuehlungen", status_code=302)
 
 
-@app.post("/kuehlungen/{device_id}/readings/{reading_id}/edit")
+@app.post("/kuehlungen/{device_id}/readings/{reading_id}/edit", dependencies=[Depends(_require_cooling_module)])
 def cooling_reading_edit(
     device_id: int,
     reading_id: int,
@@ -3361,7 +3386,7 @@ def cooling_reading_edit(
     return RedirectResponse("/kuehlungen", status_code=302)
 
 
-@app.post("/kuehlungen/{device_id}/readings/{reading_id}/delete")
+@app.post("/kuehlungen/{device_id}/readings/{reading_id}/delete", dependencies=[Depends(_require_cooling_module)])
 def cooling_reading_delete(
     device_id: int,
     reading_id: int,
@@ -3417,7 +3442,7 @@ def _cooling_month_readings(db: Session, device, month: str):
     return [r for r in readings if start <= _to_local(r.timestamp) < end]
 
 
-@app.get("/kuehlungen/{device_id}/export.csv")
+@app.get("/kuehlungen/{device_id}/export.csv", dependencies=[Depends(_require_cooling_module)])
 def cooling_device_export_csv(device_id: int, request: Request, month: str, db: Session = Depends(get_db)):
     user = require_login(request, db)
     device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
@@ -3456,7 +3481,7 @@ def cooling_device_export_csv(device_id: int, request: Request, month: str, db: 
     )
 
 
-@app.get("/kuehlungen/{device_id}/export.pdf")
+@app.get("/kuehlungen/{device_id}/export.pdf", dependencies=[Depends(_require_cooling_module)])
 def cooling_device_export_pdf(device_id: int, request: Request, month: str, db: Session = Depends(get_db)):
     user = require_login(request, db)
     device = db.query(models.CoolingDevice).filter(models.CoolingDevice.id == device_id).first()
@@ -6363,6 +6388,7 @@ def _admin_system_context(
         "enable_vacation": settings.enable_vacation,
         "enable_reports": settings.enable_reports,
         "enable_notices": settings.enable_notices,
+        "enable_cooling": settings.enable_cooling,
     }
 
 
@@ -6477,6 +6503,7 @@ def admin_system_modules(
     enable_vacation: str = Form(""),
     enable_reports: str = Form(""),
     enable_notices: str = Form(""),
+    enable_cooling: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Globale Modul-Schalter (siehe AppSettings, Karte "Module & Features")
@@ -6489,12 +6516,14 @@ def admin_system_modules(
     settings.enable_vacation = bool(enable_vacation)
     settings.enable_reports = bool(enable_reports)
     settings.enable_notices = bool(enable_notices)
+    settings.enable_cooling = bool(enable_cooling)
     log_audit(
         db, admin, "UPDATE", "System",
         f"Module aktualisiert: Zeiterfassung {'an' if settings.enable_time_tracking else 'aus'}, "
         f"Urlaub {'an' if settings.enable_vacation else 'aus'}, "
         f"Meldungen {'an' if settings.enable_reports else 'aus'}, "
-        f"Hinweise {'an' if settings.enable_notices else 'aus'}.",
+        f"Hinweise {'an' if settings.enable_notices else 'aus'}, "
+        f"Kühlungen {'an' if settings.enable_cooling else 'aus'}.",
     )
     db.commit()
     return RedirectResponse(_with_toast("/admin/system", "Module gespeichert."), status_code=302)

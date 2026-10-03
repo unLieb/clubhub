@@ -738,6 +738,12 @@ class AppSettings(Base):
     # Gleiches Prinzip wie enable_reports direkt darueber (seit jeher aktiv,
     # Default True statt False).
     enable_notices = Column(Boolean, nullable=False, default=True)
+    # Kuehlungen (HACCP-Temperaturdokumentation) gab es ebenfalls schon vor dem
+    # Schalter und wird in manchen Betrieben aktiv genutzt - Default True wie
+    # bei Meldungen/Hinweise. Zusaetzlich zum gruppenweisen Zugriff
+    # (Group.cooling_access): deaktiviert verschwindet das Modul fuer ALLE,
+    # auch fuer Admins/Schichtleiter; Kuehlzellen/Messwerte bleiben erhalten.
+    enable_cooling = Column(Boolean, nullable=False, default=True)
     # Basis-URLs/Zugangsdaten fuer die Benachrichtigungskanal-Typen (ntfy/
     # Gotify/Signal) - in der Verwaltung direkt pflegbar, statt zwingend per
     # Umgebungsvariable im Docker-Stack gesetzt werden zu muessen (siehe
