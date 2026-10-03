@@ -614,7 +614,7 @@
     <ul id="dash-customize-list" class="divide-y divide-line">
       {% for key, label in dashboard_widgets %}
       <li class="dash-customize-row flex items-center gap-2 py-2" data-widget-row="{{ key }}">
-        <button type="button" class="dash-drag-handle touch-none select-none w-11 h-11 -ml-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2 flex items-center justify-center cursor-grab active:cursor-grabbing shrink-0" aria-label="„{{ label }}“ verschieben – ziehen oder Pfeiltasten hoch/runter">
+        <button type="button" style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent" class="dash-drag-handle touch-none select-none w-11 h-11 -ml-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2 flex items-center justify-center cursor-grab active:cursor-grabbing shrink-0" aria-label="„{{ label }}“ verschieben – ziehen oder Pfeiltasten hoch/runter">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
         </button>
         <span class="text-sm text-slate-200 flex-1 min-w-0">{{ label }}</span>
@@ -817,6 +817,14 @@
         if (type === 'lostpointercapture' && e.target !== list) return;
         if (dragRow && e.pointerId === dragPointerId) endDrag();
       });
+    });
+
+    // Langes Druecken auf den Griff oeffnet auf Android/Vivaldi/Chrome sonst
+    // das Browser-Kontextmenue (Zurueck/Neu laden/Teilen ...) mitten im Zug -
+    // dort das contextmenu-Ereignis abfangen, solange der Finger auf dem Griff
+    // liegt oder gerade gezogen wird (der Finger kann dabei den Griff verlassen).
+    list.addEventListener('contextmenu', function (e) {
+      if (dragRow || e.target.closest('.dash-drag-handle')) e.preventDefault();
     });
 
     // Tastatur-Alternative: Griff fokussieren, dann Pfeil hoch/runter.

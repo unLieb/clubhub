@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.49.2] - 2026-10-03
+- Dashboard anpassen: beim Ziehen am Handy öffnete sich bei längerem Drücken auf den Griff das Browser-Kontextmenü (Zurück/Neu laden/Teilen/...) und unterbrach den Zug. Das Menü wird am Griff und während des Ziehens jetzt unterdrückt; zusätzlich ist am Griff die Textauswahl bzw. das System-Callout abgeschaltet.
+
 ## [1.49.1] - 2026-10-03
 - Dashboard anpassen: die Reihenfolge der Karten wird jetzt per Drag & Drop geändert statt mit den kleinen Pfeilen, die am Handy schwer zu treffen waren. Jede Zeile hat links einen großen Griff (sechs Punkte), den man mit Finger oder Maus in die gewünschte Position zieht; die Zeilen rücken live nach, gespeichert wird beim Loslassen, am Rand des Dialogs scrollt es automatisch mit. Als Alternative ohne Maus/Touch lässt sich der Griff fokussieren und mit Pfeil hoch/runter bedienen. Beim echten Test mit der Maus fiel ein Fehler auf, den nachgestellte Ereignisse nicht gezeigt hatten: der Zug endete nach dem ersten Schritt, weil der Browser den Pointer verliert, sobald die gezogene Zeile im DOM verschoben wird. Der Pointer wird deshalb vom (unbewegten) Listen-Container festgehalten.
 
