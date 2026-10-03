@@ -5,29 +5,52 @@
 {% block content %}
 {% set modules = app_module_flags() %}
 
-<!-- Verhindert ein kurzes Aufblitzen bereits ausgeblendeter Widgets: laeuft
-     synchron ganz am Anfang des Bodys, noch bevor irgendein Widget geparst
-     wurde, und injiziert bei Bedarf sofort ein <style>, das sie per
-     Attribut-Selektor versteckt - analog zum bestehenden Dark-Mode-Skript
-     im <head> von base.html (dasselbe Prinzip: Praeferenz aus localStorage
-     anwenden, bevor ueberhaupt etwas gerendert wird). Interaktives Ein-/
-     Ausblenden per Toggle (siehe Skript weiter unten) ueberschreibt das
-     danach per Inline-style, das immer Vorrang vor dieser Regel hat. -->
+<!-- Verhindert ein kurzes Aufblitzen bereits ausgeblendeter bzw. umsortierter
+     Widgets: laeuft synchron ganz am Anfang des Bodys, noch bevor irgendein
+     Widget geparst wurde, und schreibt bei Bedarf sofort ein <style> (id
+     dash-widget-style, wird bei jedem Lauf ersetzt statt angehaengt) - analog
+     zum bestehenden Dark-Mode-Skript im <head> von base.html (dasselbe
+     Prinzip: Praeferenz aus localStorage anwenden, bevor ueberhaupt etwas
+     gerendert wird). Zwei Dinge: (1) ausgeblendete Widgets per Attribut-
+     Selektor verstecken, (2) die Handy-Reihenfolge per CSS "order" - nur in
+     einer Media-Query unterhalb von lg, damit das Desktop-Raster unberuehrt
+     bleibt. Die Reihenfolge wird IMMER gesetzt (Standard = Reihenfolge der
+     dashboard_widgets-Liste), da die Karten am Handy in einem gemeinsamen
+     Flex-Container (#dash-sections) liegen und sonst Karten ohne order-Wert
+     vor allen anderen landen wuerden. Interaktives Ein-/Ausblenden per
+     Toggle (siehe Skript weiter unten) ueberschreibt die Sichtbarkeit danach
+     per Inline-style, das immer Vorrang vor dieser Regel hat. -->
 <script>
   (function () {
-    try {
-      var raw = localStorage.getItem('clubhub_dashboard_widgets');
-      var hidden = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(hidden) || !hidden.length) return;
-      var knownKeys = ['kpi', 'notices', 'appointments', 'rooms', 'reports', 'history', 'overdue'];
-      var css = hidden.filter(function (k) { return knownKeys.indexOf(k) !== -1; })
+    var DEFAULT_ORDER = {{ dashboard_widgets|map(attribute=0)|list|tojson }};
+    window.clubhubDashboardWidgetStyle = function () {
+      var hidden = [], order = [];
+      try {
+        var rawHidden = JSON.parse(localStorage.getItem('clubhub_dashboard_widgets') || '[]');
+        if (Array.isArray(rawHidden)) hidden = rawHidden;
+        var rawOrder = JSON.parse(localStorage.getItem('clubhub_dashboard_order') || '[]');
+        if (Array.isArray(rawOrder)) order = rawOrder;
+      } catch (e) { /* localStorage nicht verfuegbar (z.B. Privatmodus) - dann Standard */ }
+      // Gespeicherte Reihenfolge + (neu hinzugekommene) unbekannte Schluessel
+      // in Standard-Reihenfolge hinten dran; Unbekanntes/Veraltetes entfernen.
+      var full = order.filter(function (k, i) { return DEFAULT_ORDER.indexOf(k) !== -1 && order.indexOf(k) === i; });
+      DEFAULT_ORDER.forEach(function (k) { if (full.indexOf(k) === -1) full.push(k); });
+      var css = hidden.filter(function (k) { return DEFAULT_ORDER.indexOf(k) !== -1; })
         .map(function (k) { return '[data-dashboard-widget="' + k + '"]{display:none}'; })
         .join('');
-      if (!css) return;
-      var style = document.createElement('style');
+      css += '@media (max-width:1023.98px){' + full.map(function (k, i) {
+        return '[data-dashboard-widget="' + k + '"]{order:' + ((i + 1) * 10) + '}';
+      }).join('') + '}';
+      var style = document.getElementById('dash-widget-style');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'dash-widget-style';
+        document.head.appendChild(style);
+      }
       style.textContent = css;
-      document.head.appendChild(style);
-    } catch (e) { /* localStorage nicht verfuegbar (z.B. Privatmodus) - dann bleibt alles sichtbar */ }
+      return full;
+    };
+    window.clubhubDashboardWidgetStyle();
   })();
 </script>
 
@@ -49,13 +72,20 @@
   {% endif %}
 </div>
 
+<!-- Alle Karten in einem gemeinsamen Container: am Handy eine Flex-Spalte,
+     damit die Reihenfolge per CSS "order" frei aenderbar ist (siehe Skript
+     oben und "Dashboard anpassen"); ab lg normaler Block-Fluss wie bisher.
+     Die beiden Raster weiter unten sind am Handy "contents" (loesen sich auf,
+     ihre Karten werden direkte Kinder dieses Containers). -->
+<div id="dash-sections" class="flex flex-col lg:block">
+
 {% if user %}
 <!-- "Heute anstehend": auf dem Handy ganz oben direkt unter dem Header -
      Termine heute/binnen 24h + überfällige Reinigungen sind unmittelbar
      handlungsrelevant, alles andere folgt weiter unten (siehe Reihenfolge
      der übrigen lg:hidden-/hidden lg:block-Bloecke in dieser Datei). -->
 {% if todays_appointments or overdue_tasks %}
-<div class="lg:hidden rounded-xl border border-line bg-panel p-3 mb-6 space-y-3">
+<div data-dashboard-widget="today" class="lg:hidden rounded-xl border border-line bg-panel p-3 mb-6 space-y-3">
   <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Heute anstehend</div>
 
   {% if todays_appointments %}
@@ -98,7 +128,7 @@
 {% if user and modules.time_tracking and (device_authorized or timeclock_user_mode) %}
 <!-- Ein-/Ausstempeln: im Terminal-Modus nur auf dem autorisierten Gerät,
      im Nutzer-Modus auf jedem eigenen, eingeloggten Gerät sichtbar -->
-<div class="rounded-xl border {% if timeclock_open_entry %}border-go/40 bg-go/10{% else %}border-line bg-panel{% endif %} p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
+<div data-dashboard-widget="timeclock" class="rounded-xl border {% if timeclock_open_entry %}border-go/40 bg-go/10{% else %}border-line bg-panel{% endif %} p-4 mb-6 flex items-center justify-between gap-4 flex-wrap">
   <div class="flex items-center gap-3.5">
     <div class="w-11 h-11 rounded-full {% if timeclock_open_entry %}bg-go/20 text-go{% else %}bg-panel2 text-slate-400{% endif %} flex items-center justify-center shrink-0">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
@@ -301,7 +331,7 @@
 
 {% if modules.time_tracking and currently_clocked_in %}
 <!-- Wer ist gerade da: nur für Admin/Schichtleiter (siehe main.py) -->
-<div class="rounded-xl border border-line bg-panel p-4 mb-6">
+<div data-dashboard-widget="presence" class="rounded-xl border border-line bg-panel p-4 mb-6">
   <h3 class="font-display font-medium flex items-center gap-2 mb-3">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
     Wer ist gerade da?
@@ -321,7 +351,7 @@
 {% if modules.vacation and on_vacation_now %}
 <!-- Wer hat gerade Urlaub: für alle eingeloggten Nutzer sichtbar, anders als
      "Wer ist gerade da" (das bleibt Admin/Schichtleiter vorbehalten) -->
-<div class="rounded-xl border border-line bg-panel p-4 mb-6">
+<div data-dashboard-widget="presence" class="rounded-xl border border-line bg-panel p-4 mb-6">
   <h3 class="font-display font-medium flex items-center gap-2 mb-3">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
     Wer hat gerade Urlaub?
@@ -383,7 +413,7 @@
 {% endif %}
 
 {% if modules.reports and report_stats.needs_attention %}
-<a href="/reports" class="lg:hidden flex items-center justify-between gap-2 rounded-xl border border-late/40 bg-late/10 p-3 mb-6">
+<a href="/reports" data-dashboard-widget="reports" class="lg:hidden flex items-center justify-between gap-2 rounded-xl border border-late/40 bg-late/10 p-3 mb-6">
   <span class="flex items-center gap-1.5 text-late text-sm font-medium">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     {{ report_stats.needs_attention }} {{ "Meldung benötigt" if report_stats.needs_attention == 1 else "Meldungen benötigen" }} Aufmerksamkeit
@@ -392,17 +422,18 @@
 </a>
 {% endif %}
 
-<!-- Bereiche mit Handlungsbedarf + Meldungen. Auf dem Handy (einspaltig,
-     order-first/-none steuert nur dort die Reihenfolge) steht Meldungen
-     bewusst VOR Bereiche, direkt an den "X Meldungen benötigen
-     Aufmerksamkeit"-Hinweis von oben anschließend - vorher lag die lange
-     Bereiche-Liste dazwischen, wirkte dadurch wie ein unzusammenhängender,
-     verwirrender Bruch (Nutzer-Feedback). Auf dem Desktop unveraendert
-     nebeneinander (Bereiche breiter links, Meldungen rechts). Ist das Modul
+<!-- Bereiche mit Handlungsbedarf + Meldungen. Am Handy (Karten direkt im
+     Flex-Container #dash-sections) steht Meldungen standardmäßig VOR Bereiche,
+     direkt an den "X Meldungen benötigen Aufmerksamkeit"-Hinweis von oben
+     anschließend - vorher lag die lange Bereiche-Liste dazwischen, wirkte
+     dadurch wie ein unzusammenhängender, verwirrender Bruch (Nutzer-
+     Feedback). Die Reihenfolge ist dort pro Gerät frei änderbar (siehe
+     "Dashboard anpassen"). Auf dem Desktop nebeneinander (Bereiche breiter
+     links, Meldungen rechts). Ist das Modul
      Meldungen deaktiviert, faellt die rechte Spalte ganz weg und Bereiche
      nimmt die volle Breite ein (siehe lg:col-span-3 statt -2 unten). -->
-<div class="grid lg:grid-cols-3 gap-4 mb-6">
-  <div data-dashboard-widget="rooms" class="order-2 lg:order-none {% if modules.reports %}lg:col-span-2{% else %}lg:col-span-3{% endif %} rounded-xl border border-line bg-panel p-4 min-w-0">
+<div class="contents lg:grid lg:grid-cols-3 gap-4 mb-6">
+  <div data-dashboard-widget="rooms" class="mb-6 lg:mb-0 {% if modules.reports %}lg:col-span-2{% else %}lg:col-span-3{% endif %} rounded-xl border border-line bg-panel p-4 min-w-0">
     <div class="mb-4">
       <a href="/rooms" class="font-display font-medium flex items-center gap-2 hover:text-go w-fit">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -425,7 +456,7 @@
   </div>
 
   {% if modules.reports %}
-  <div data-dashboard-widget="reports" class="order-1 lg:order-none rounded-xl border border-line bg-panel p-4 min-w-0">
+  <div data-dashboard-widget="reports" class="mb-6 lg:mb-0 rounded-xl border border-line bg-panel p-4 min-w-0">
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-display font-medium flex items-center gap-2">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -486,8 +517,8 @@
 </div>
 
 <!-- Letzte Reinigungen + Überfällige Aufgaben -->
-<div class="grid lg:grid-cols-2 gap-4">
-  <div data-dashboard-widget="history" class="rounded-xl border border-line bg-panel p-4 min-w-0">
+<div class="contents lg:grid lg:grid-cols-2 gap-4">
+  <div data-dashboard-widget="history" class="mb-6 lg:mb-0 rounded-xl border border-line bg-panel p-4 min-w-0">
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-display font-medium flex items-center gap-2">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
@@ -554,30 +585,43 @@
 </div>
 {% endif %}
 
+</div><!-- /#dash-sections -->
+
 {% if user %}
-<!-- "Dashboard anpassen"-Modal (siehe Button oben im Header): Toggle je
-     Widget, wirkt sofort clientseitig (kein Reload noetig, da alle Widgets
-     ohnehin schon serverseitig gerendert sind - nur ihre Sichtbarkeit wird
-     umgeschaltet). Die Auswahl selbst lebt rein im localStorage dieses
-     Geraets/Browsers (Key "clubhub_dashboard_widgets", siehe Skript unten
-     und das Anti-Flackern-Skript ganz oben im Content-Block) - bewusst
-     geraetespezifisch statt an den Account gebunden, kein Server-Request
-     noetig. Checkbox-Vorbelegung hier ist immer "an" (serverseitig ist ja
-     keine Praeferenz bekannt); das Skript unten korrigiert den tatsaechlichen
-     Zustand beim Laden anhand von localStorage. -->
+<!-- "Dashboard anpassen"-Modal (siehe Button oben im Header): je Karte ein
+     Toggle (Ein-/Ausblenden) sowie Pfeile hoch/runter fuer die Reihenfolge am
+     Handy. Beides wirkt sofort clientseitig (kein Reload noetig, da alle
+     Widgets ohnehin schon serverseitig gerendert sind). Die Auswahl selbst
+     lebt rein im localStorage dieses Geraets/Browsers (Keys
+     "clubhub_dashboard_widgets" = ausgeblendete Karten und
+     "clubhub_dashboard_order" = Reihenfolge, siehe Skript unten und das
+     Anti-Flackern-Skript ganz oben im Content-Block) - bewusst geraete-
+     spezifisch statt an den Account gebunden, kein Server-Request noetig.
+     Checkbox-Vorbelegung hier ist immer "an" (serverseitig ist ja keine
+     Praeferenz bekannt); das Skript unten korrigiert den tatsaechlichen
+     Zustand beim Laden anhand von localStorage und blendet Zeilen fuer
+     Karten aus, die auf dieser Seite gar nicht vorkommen. -->
 <div id="dash-customize-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-  <div class="w-full max-w-sm rounded-xl border border-line bg-panel p-4">
+  <div class="w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-xl border border-line bg-panel p-4">
     <div class="flex items-center justify-between mb-1">
       <h2 class="font-display font-medium">Dashboard anpassen</h2>
       <button type="button" id="dash-customize-close-btn" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <p class="text-xs text-slate-500 mb-3">Wähle, welche Bereiche auf diesem Gerät auf deinem Dashboard angezeigt werden.</p>
-    <ul class="divide-y divide-line">
+    <p class="text-xs text-slate-500 mb-3">Wähle, welche Karten auf diesem Gerät angezeigt werden. Mit den Pfeilen bestimmst du ihre Reihenfolge – die gilt nur auf dem Handy (schmaler Bildschirm), am PC bleibt das Raster wie es ist.</p>
+    <ul id="dash-customize-list" class="divide-y divide-line">
       {% for key, label in dashboard_widgets %}
-      <li class="flex items-center justify-between gap-3 py-2.5">
-        <span class="text-sm text-slate-200">{{ label }}</span>
+      <li class="dash-customize-row flex items-center gap-2 py-2" data-widget-row="{{ key }}">
+        <div class="flex flex-col shrink-0">
+          <button type="button" class="dash-move-btn w-7 h-6 rounded text-slate-500 hover:text-slate-100 hover:bg-panel2 flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent" data-dir="up" aria-label="„{{ label }}“ nach oben">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+          </button>
+          <button type="button" class="dash-move-btn w-7 h-6 rounded text-slate-500 hover:text-slate-100 hover:bg-panel2 flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent" data-dir="down" aria-label="„{{ label }}“ nach unten">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </div>
+        <span class="text-sm text-slate-200 flex-1 min-w-0">{{ label }}</span>
         <label class="relative inline-flex items-center cursor-pointer shrink-0">
           <input type="checkbox" class="dash-widget-toggle sr-only peer" data-widget="{{ key }}" checked>
           <div class="w-9 h-5 bg-panel2 border border-line rounded-full peer-checked:bg-go peer-checked:border-go transition-colors"></div>
@@ -586,16 +630,19 @@
       </li>
       {% endfor %}
     </ul>
+    <button type="button" id="dash-order-reset-btn" class="mt-3 text-xs text-slate-400 hover:text-slate-100 underline underline-offset-2">Reihenfolge zurücksetzen</button>
   </div>
 </div>
 
 <script>
   (function () {
     var STORAGE_KEY = 'clubhub_dashboard_widgets';
+    var ORDER_KEY = 'clubhub_dashboard_order';
     var openBtn = document.getElementById('dash-customize-btn');
     if (!openBtn) return;
     var modal = document.getElementById('dash-customize-modal');
     var closeBtn = document.getElementById('dash-customize-close-btn');
+    var list = document.getElementById('dash-customize-list');
     var toggles = document.querySelectorAll('.dash-widget-toggle');
 
     function readHidden() {
@@ -626,19 +673,92 @@
       applyVisibility(t.dataset.widget, !isHidden);
     });
 
-    function persist() {
+    function persistHidden() {
       var hidden = [];
       toggles.forEach(function (t) { if (!t.checked) hidden.push(t.dataset.widget); });
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(hidden));
       } catch (e) { /* z.B. Privatmodus/Speicher voll - Auswahl gilt dann nur fuer diese Sitzung */ }
+      window.clubhubDashboardWidgetStyle();
     }
 
     toggles.forEach(function (t) {
       t.addEventListener('change', function () {
         applyVisibility(t.dataset.widget, t.checked);
-        persist();
+        persistHidden();
       });
+    });
+
+    // ---- Reihenfolge (Handy) ----
+    // Zeilen fuer Karten, die auf dieser Seite gar nicht existieren (z.B.
+    // Hinweise ohne Eintraege, deaktiviertes Meldungen-Modul), werden
+    // ausgeblendet - Pfeile dafuer waeren wirkungslos und verwirrend. Sie
+    // bleiben aber in der gespeicherten Reihenfolge enthalten.
+    var rows = Array.prototype.slice.call(list.querySelectorAll('.dash-customize-row'));
+    rows.forEach(function (row) {
+      var present = document.querySelector('[data-dashboard-widget="' + row.dataset.widgetRow + '"]');
+      row.classList.toggle('hidden', !present);
+    });
+
+    function sortRowsBy(order) {
+      order.forEach(function (key) {
+        var row = list.querySelector('[data-widget-row="' + key + '"]');
+        if (row) list.appendChild(row);
+      });
+    }
+
+    function visibleRows() {
+      return Array.prototype.filter.call(list.querySelectorAll('.dash-customize-row'), function (r) {
+        return !r.classList.contains('hidden');
+      });
+    }
+
+    function updateArrowStates() {
+      var vis = visibleRows();
+      vis.forEach(function (row, i) {
+        row.querySelector('[data-dir="up"]').disabled = i === 0;
+        row.querySelector('[data-dir="down"]').disabled = i === vis.length - 1;
+      });
+    }
+
+    function persistOrder() {
+      var order = Array.prototype.map.call(list.querySelectorAll('.dash-customize-row'), function (r) {
+        return r.dataset.widgetRow;
+      });
+      try {
+        localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+      } catch (e) { /* siehe persistHidden */ }
+      window.clubhubDashboardWidgetStyle();
+      updateArrowStates();
+    }
+
+    // clubhubDashboardWidgetStyle() liefert die vollstaendige, bereinigte
+    // Reihenfolge (gespeichert + neue Standard-Schluessel hinten dran) und
+    // aktualisiert dabei das <style> - hier nur fuer die Modal-Sortierung.
+    sortRowsBy(window.clubhubDashboardWidgetStyle());
+    updateArrowStates();
+
+    list.addEventListener('click', function (e) {
+      var btn = e.target.closest('.dash-move-btn');
+      if (!btn || btn.disabled) return;
+      var row = btn.closest('.dash-customize-row');
+      var vis = visibleRows();
+      var idx = vis.indexOf(row);
+      if (btn.dataset.dir === 'up' && idx > 0) {
+        list.insertBefore(row, vis[idx - 1]);
+      } else if (btn.dataset.dir === 'down' && idx < vis.length - 1) {
+        list.insertBefore(row, vis[idx + 1].nextSibling);
+      } else {
+        return;
+      }
+      persistOrder();
+      btn.focus();
+    });
+
+    document.getElementById('dash-order-reset-btn').addEventListener('click', function () {
+      try { localStorage.removeItem(ORDER_KEY); } catch (e) {}
+      sortRowsBy(window.clubhubDashboardWidgetStyle());
+      updateArrowStates();
     });
 
     function openModal() { modal.classList.remove('hidden'); }

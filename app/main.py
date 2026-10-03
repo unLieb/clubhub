@@ -254,18 +254,24 @@ GROUP_DEFAULT_COLOR = GROUP_COLOR_PALETTE[0][0]
 templates.env.globals["group_color_palette"] = GROUP_COLOR_PALETTE
 templates.env.globals["group_default_color"] = GROUP_DEFAULT_COLOR
 
-# Fuer "Dashboard anpassen" (siehe dashboard.html) - liefert nur die
-# Schluessel/Label-Paare fuers Anpassen-Modal, Reihenfolge hier bestimmt auch
-# die Reihenfolge dort. Welche Widgets ein Nutzer ausgeblendet hat, wird
-# NICHT hier/serverseitig verwaltet, sondern rein clientseitig im
-# localStorage des jeweiligen Geraets (siehe dashboard.html) - bewusst
-# geraetespezifisch statt kontospezifisch.
+# Fuer "Dashboard anpassen" (siehe dashboard.html) - liefert die Schluessel/
+# Label-Paare fuers Anpassen-Modal. Die Reihenfolge hier ist zugleich die
+# STANDARD-Reihenfolge der Karten im Handy-Layout (der Nutzer kann sie dort
+# pro Geraet per Pfeilen aendern; am Desktop gilt weiterhin das feste Raster)
+# und die Quelle fuer die Schluesselliste im Anti-Flackern-Skript. Welche
+# Widgets ein Nutzer ausgeblendet hat und in welcher Reihenfolge er sie am
+# Handy sehen will, wird NICHT serverseitig verwaltet, sondern rein
+# clientseitig im localStorage des jeweiligen Geraets (siehe dashboard.html) -
+# bewusst geraetespezifisch statt kontospezifisch.
 DASHBOARD_WIDGETS = [
+    ("today", "Heute anstehend (nur Handy)"),
+    ("timeclock", "Einstempeln (Zeiterfassung)"),
     ("kpi", "KPI-Karten (Erledigt/Fällig/Überfällig/Bereiche)"),
     ("notices", "Hinweise"),
+    ("presence", "Wer ist da / Wer hat Urlaub"),
     ("appointments", "Nächste Termine"),
-    ("rooms", "Bereiche"),
     ("reports", "Meldungen"),
+    ("rooms", "Bereiche"),
     ("history", "Letzte Reinigungen"),
     ("overdue", "Überfällige Aufgaben"),
 ]
