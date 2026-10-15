@@ -65,6 +65,7 @@ object Ui {
     fun filledButton(ctx: Context, label: String, fn: () -> Unit) = MaterialButton(ctx).apply {
         text = label
         isAllCaps = false
+        maxLines = 1
         setOnClickListener { fn() }
     }
 
@@ -73,6 +74,7 @@ object Ui {
     ).apply {
         text = label
         isAllCaps = false
+        maxLines = 1
         setOnClickListener { fn() }
     }
 

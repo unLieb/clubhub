@@ -29,7 +29,7 @@ class ServersActivity : Activity() {
         ThemeMode.apply(this)
         super.onCreate(savedInstanceState)
         val root = Ui.root(this)
-        root.addView(Ui.toolbar(this, "Server", "Instanzen, zwischen denen du wechseln kannst"))
+        root.addView(Ui.toolbar(this, "Server", "Zwischen Instanzen wechseln"))
 
         val body = FrameLayout(this)
         list = ListView(this).apply {

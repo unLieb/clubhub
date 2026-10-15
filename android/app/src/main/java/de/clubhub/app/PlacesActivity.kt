@@ -25,7 +25,7 @@ class PlacesActivity : Activity() {
         ThemeMode.apply(this)
         super.onCreate(savedInstanceState)
         val root = Ui.root(this)
-        root.addView(Ui.toolbar(this, "Orte", "Wo du Mitteilungen bekommen möchtest"))
+        root.addView(Ui.toolbar(this, "Orte", "Wo Mitteilungen ankommen"))
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(8), dp(16), dp(24))
@@ -98,13 +98,21 @@ class PlacesActivity : Activity() {
             ), Ui.margins(inner, t = 8)
         )
 
+        // Alle Buttons gleich breit und einzeilig, damit nichts umbricht
         val row = LinearLayout(this)
-        row.addView(Ui.filledButton(this, if (place == null) "Standort verwenden" else "Neu setzen") { capture(key) })
+        fun slot(b: android.view.View, first: Boolean) {
+            (b as com.google.android.material.button.MaterialButton).apply {
+                textSize = 13f
+                setPadding(dp(6), 0, dp(6), 0)
+                insetTop = 0
+                insetBottom = 0
+            }
+            row.addView(b, LinearLayout.LayoutParams(0, dp(44), 1f).apply { if (!first) leftMargin = dp(8) })
+        }
+        slot(Ui.filledButton(this, if (place == null) "Standort verwenden" else "Neu setzen") { capture(key) }, true)
         if (place != null) {
-            row.addView(Ui.tonalButton(this, "Radius") { askRadius(key, place) },
-                LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
-            row.addView(Ui.tonalButton(this, "Entfernen") { Places.set(this, key, null); render() },
-                LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
+            slot(Ui.tonalButton(this, "Radius") { askRadius(key, place) }, false)
+            slot(Ui.tonalButton(this, "Entfernen") { Places.set(this, key, null); render() }, false)
         }
         inner.addView(row, Ui.margins(inner, t = 12))
 
