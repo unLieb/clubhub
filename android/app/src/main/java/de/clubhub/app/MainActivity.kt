@@ -26,12 +26,11 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
-import android.widget.ProgressBar
 import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
-    private lateinit var progress: ProgressBar
+    private lateinit var progress: View
     private var loadedServerId: String? = null
 
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -52,14 +51,15 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         web = WebView(this)
-        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 100
+        // Duenner Ladebalken (ohne helle Spur wie beim Standard-ProgressBar)
+        progress = View(this).apply {
+            setBackgroundColor(Color.parseColor("#5BB381"))
             visibility = View.GONE
         }
         val root = FrameLayout(this)
         root.setBackgroundColor(Color.parseColor("#12161F"))
         root.addView(web, FrameLayout.LayoutParams(-1, -1))
-        root.addView(progress, FrameLayout.LayoutParams(-1, 8))
+        root.addView(progress, FrameLayout.LayoutParams(0, (3 * resources.displayMetrics.density).toInt()))
         setContentView(root)
         // Edge-to-Edge (targetSdk 35): Platz fuer Statusleiste, Navigation und Tastatur selbst freihalten
         root.setOnApplyWindowInsetsListener { v, insets ->
@@ -142,7 +142,7 @@ class MainActivity : Activity() {
         }
         web.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView, newProgress: Int) {
-                progress.progress = newProgress
+                progress.layoutParams = progress.layoutParams.apply { width = web.width * newProgress / 100 }
             }
 
             // Kamera (Barcode-Scan): erst Android-Berechtigung holen, dann an die Seite weitergeben
