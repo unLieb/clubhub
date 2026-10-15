@@ -35,7 +35,19 @@ class ServersActivity : Activity() {
             setBackgroundColor(Color.parseColor("#12161F"))
             divider = null
         }
-        setContentView(list)
+        // Edge-to-Edge: Liste unterhalb von Statusleiste + Action Bar beginnen lassen
+        val barH = obtainStyledAttributes(intArrayOf(android.R.attr.actionBarSize)).let {
+            val h = it.getDimensionPixelSize(0, 0); it.recycle(); h
+        }
+        val root = android.widget.FrameLayout(this)
+        root.setBackgroundColor(Color.parseColor("#12161F"))
+        root.addView(list, android.widget.FrameLayout.LayoutParams(-1, -1))
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars())
+            v.setPadding(bars.left, bars.top + barH, bars.right, bars.bottom)
+            android.view.WindowInsets.CONSUMED
+        }
+        setContentView(root)
         list.adapter = adapter
         refresh()
         if (servers.isEmpty()) showEditDialog(null)
