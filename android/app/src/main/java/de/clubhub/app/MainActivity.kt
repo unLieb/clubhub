@@ -2,13 +2,11 @@ package de.clubhub.app
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.DownloadManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -26,6 +24,11 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.widget.Toast
 
 class MainActivity : Activity() {
@@ -41,9 +44,6 @@ class MainActivity : Activity() {
         private const val REQ_CAMERA = 3
         private const val REQ_NOTIFY = 4
 
-        fun styleActionBar(a: Activity) {
-            a.actionBar?.setBackgroundDrawable(ColorDrawable(Color.parseColor("#1B2130")))
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,7 +51,7 @@ class MainActivity : Activity() {
 
         web = WebView(this)
         val root = FrameLayout(this)
-        root.setBackgroundColor(Color.parseColor("#12161F"))
+        root.setBackgroundColor(Ui.color(this, Ui.surface))
         root.addView(web, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
         // Edge-to-Edge (targetSdk 35): Platz fuer Statusleiste, Navigation und Tastatur selbst freihalten
@@ -80,7 +80,7 @@ class MainActivity : Activity() {
 
     private fun setupWebView() {
         // Dunkler Untergrund, sonst blitzt beim Laden/Serverwechsel der weisse WebView-Standard auf
-        web.setBackgroundColor(Color.parseColor("#12161F"))
+        web.setBackgroundColor(Ui.color(this, Ui.surface))
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false)
         web.settings.apply {
@@ -169,14 +169,14 @@ class MainActivity : Activity() {
 
             // Ohne diese Overrides werden alert()/confirm() der Seite stillschweigend abgebrochen
             override fun onJsAlert(view: WebView, url: String, message: String, result: JsResult): Boolean {
-                AlertDialog.Builder(this@MainActivity).setMessage(message)
+                MaterialAlertDialogBuilder(this@MainActivity).setMessage(message)
                     .setPositiveButton("OK") { _, _ -> result.confirm() }
                     .setOnCancelListener { result.cancel() }.show()
                 return true
             }
 
             override fun onJsConfirm(view: WebView, url: String, message: String, result: JsResult): Boolean {
-                AlertDialog.Builder(this@MainActivity).setMessage(message)
+                MaterialAlertDialogBuilder(this@MainActivity).setMessage(message)
                     .setPositiveButton("OK") { _, _ -> result.confirm() }
                     .setNegativeButton("Abbrechen") { _, _ -> result.cancel() }
                     .setOnCancelListener { result.cancel() }.show()
@@ -251,25 +251,66 @@ class MainActivity : Activity() {
         if (cur != null && cur.id != loadedServerId) loadCurrent()
     }
 
+    /** Material-3-Bottom-Sheet: nur die Server (aktiver mit Haken) und "Server verwalten...". */
     private fun showSwitcher() {
         val servers = ServerStore.load(this)
         val cur = ServerStore.current(this)?.id
-        val labels = servers.map { (if (it.id == cur) "✓ " else "") + it.name } +
-            "Neu laden" + "Orte (Standort-Regel)…" + "Server verwalten…"
-        AlertDialog.Builder(this)
-            .setTitle("Server")
-            .setItems(labels.toTypedArray()) { _, i ->
-                when {
-                    i < servers.size -> {
-                        ServerStore.setCurrent(this, servers[i].id)
-                        loadCurrent()
-                    }
-                    i == servers.size -> web.reload()
-                    i == servers.size + 1 -> startActivity(Intent(this, PlacesActivity::class.java))
-                    else -> startActivityForResult(Intent(this, ServersActivity::class.java), REQ_SERVERS)
+        val sheet = BottomSheetDialog(this)
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, Ui.dp(this@MainActivity, 8), 0, Ui.dp(this@MainActivity, 16))
+        }
+        fun dp(v: Int) = Ui.dp(this, v)
+        col.addView(TextView(this).apply {
+            text = "Server wechseln"
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+            setTextColor(Ui.color(context, Ui.onSurface))
+            setPadding(dp(24), dp(8), dp(24), dp(12))
+        })
+
+        fun row(title: String, subtitle: String?, icon: Int?, checked: Boolean, onClick: () -> Unit) = LinearLayout(this).apply {
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(24), 0, dp(24), 0)
+            minimumHeight = dp(if (subtitle != null) 64 else 56)
+            setBackgroundResource(Ui.ripple(context))
+            val tc = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+            tc.addView(TextView(context).apply {
+                text = title
+                textSize = 16f
+                setTextColor(Ui.color(context, Ui.onSurface))
+                if (checked) setTypeface(null, android.graphics.Typeface.BOLD)
+            })
+            if (subtitle != null) tc.addView(TextView(context).apply {
+                text = subtitle
+                textSize = 13f
+                setTextColor(Ui.color(context, Ui.onSurfaceVariant))
+            })
+            addView(tc, LinearLayout.LayoutParams(0, -2, 1f))
+            if (icon != null) addView(android.widget.ImageView(context).apply {
+                setImageResource(icon)
+                if (checked) setColorFilter(Ui.color(context, Ui.primary))
+            }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            setOnClickListener { sheet.dismiss(); onClick() }
+        }
+
+        servers.forEach { sv ->
+            col.addView(row(sv.name, sv.url.substringAfter("://"), if (sv.id == cur) R.drawable.ic_check else null, sv.id == cur) {
+                if (sv.id != cur) {
+                    ServerStore.setCurrent(this, sv.id)
+                    loadCurrent()
                 }
-            }
-            .show()
+            }, LinearLayout.LayoutParams(-1, -2))
+        }
+        col.addView(com.google.android.material.divider.MaterialDivider(this).apply {
+            dividerInsetStart = dp(24)
+            dividerInsetEnd = dp(24)
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(8) })
+        col.addView(row("Server verwalten…", null, R.drawable.ic_settings, false) {
+            startActivityForResult(Intent(this, ServersActivity::class.java), REQ_SERVERS)
+        }, LinearLayout.LayoutParams(-1, -2))
+
+        sheet.setContentView(ScrollView(this).apply { addView(col) })
+        sheet.show()
     }
 
     /** Bruecke fuer die Ueberschrift auf der Dashboard-Seite (Tippen/Langdruck oeffnet das Servermenue). */

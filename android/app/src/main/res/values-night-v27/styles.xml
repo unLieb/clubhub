@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/ch_primary</item>
+        <item name="colorOnPrimary">@color/ch_on_primary</item>
+        <item name="colorPrimaryContainer">@color/ch_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/ch_on_primary_container</item>
+        <item name="colorSurface">@color/ch_surface</item>
+        <item name="colorOnSurface">@color/ch_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/ch_on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/ch_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/ch_surface_container_high</item>
+        <item name="colorOutline">@color/ch_outline</item>
+        <item name="colorOutlineVariant">@color/ch_outline_variant</item>
+        <item name="android:colorBackground">@color/ch_surface</item>
+        <item name="android:windowBackground">@color/ch_surface</item>
+        <item name="android:statusBarColor">@color/ch_surface</item>
+        <item name="android:navigationBarColor">@color/ch_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

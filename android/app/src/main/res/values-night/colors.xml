@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ch_primary">#5BB381</color>
+    <color name="ch_on_primary">#0B1410</color>
+    <color name="ch_primary_container">#1F3A2C</color>
+    <color name="ch_on_primary_container">#B7F0D0</color>
+    <color name="ch_surface">#12161F</color>
+    <color name="ch_on_surface">#E3E8E4</color>
+    <color name="ch_on_surface_variant">#9AA3B2</color>
+    <color name="ch_surface_container">#1B2130</color>
+    <color name="ch_surface_container_high">#232B3D</color>
+    <color name="ch_outline">#6B7586</color>
+    <color name="ch_outline_variant">#2A3245</color>
+</resources>
