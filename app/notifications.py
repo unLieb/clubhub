@@ -107,10 +107,13 @@ def notify_feedback_channel(title: str, message: str, priority: str = "default")
         db.close()
 
 
-def notify_group(group, title: str, message: str, priority: str = "default", url: str = "/"):
+def notify_group(group, title: str, message: str, priority: str = "default", url: str = "/",
+                 exclude_user_id: int | None = None):
     """Schickt eine Push-Nachricht über alle Benachrichtigungskanäle einer
     Gruppe sowie zusätzlich per Browser-Push (Web Push) an alle Mitglieder,
-    die das in ihrem Browser aktiviert haben - kein extra Kanal nötig."""
+    die das in ihrem Browser aktiviert haben - kein extra Kanal nötig.
+    exclude_user_id: Autor der Aktion, bekommt keinen Browser-Push (Gruppen-
+    kanäle wie ntfy sind gemeinsam und lassen sich nicht pro Person ausnehmen)."""
     channels = list(group.channels)
     # group kann auch das nicht an eine Session gebundene _MergedGroup-
     # Platzhalterobjekt aus notify_groups sein - die Session daher ueber
@@ -127,6 +130,8 @@ def notify_group(group, title: str, message: str, priority: str = "default", url
 
     stale_subscription_ids = []
     for member in group.users:
+        if exclude_user_id is not None and member.id == exclude_user_id:
+            continue
         for subscription in member.push_subscriptions:
             if not webpush_module.send_web_push(subscription, title, message, url):
                 stale_subscription_ids.append(subscription.id)
@@ -146,7 +151,8 @@ def notify_group(group, title: str, message: str, priority: str = "default", url
             cleanup_db.close()
 
 
-def notify_groups(groups, title: str, message: str, priority: str = "default", url: str = "/"):
+def notify_groups(groups, title: str, message: str, priority: str = "default", url: str = "/",
+                  exclude_user_id: int | None = None):
     """Wie notify_group, aber fuer mehrere Gruppen gleichzeitig (z.B. ein
     Termin mit mehreren ausgewaehlten Gruppen oder "Alle (Betriebsweit)") -
     dedupliziert Kanaele und Mitglieder ueber alle Gruppen hinweg, damit
@@ -176,7 +182,7 @@ def notify_groups(groups, title: str, message: str, priority: str = "default", u
     merged = _MergedGroup()
     merged.channels = deduped_channels
     merged.users = deduped_users
-    notify_group(merged, title, message, priority, url)
+    notify_group(merged, title, message, priority, url, exclude_user_id)
 
 
 def notify_user(user, title: str, message: str, url: str = "/"):

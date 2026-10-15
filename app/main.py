@@ -4093,7 +4093,7 @@ async def reports_create(
             if is_company_wide:
                 all_groups = db.query(models.Group).options(*group_loaders).all()
                 if all_groups:
-                    background_tasks.add_task(notify_groups, all_groups, notify_title, msg, "default", focus_url)
+                    background_tasks.add_task(notify_groups, all_groups, notify_title, msg, "default", focus_url, user.id)
             elif selected_group_ids:
                 # Explizite Zuständigkeit(en) gewählt (z.B. "Technik") - nur
                 # diese Gruppe(n) benachrichtigen, unabhängig davon, welche
@@ -4105,10 +4105,10 @@ async def reports_create(
                     .all()
                 )
                 if assigned_groups:
-                    background_tasks.add_task(notify_groups, assigned_groups, notify_title, msg, "default", focus_url)
+                    background_tasks.add_task(notify_groups, assigned_groups, notify_title, msg, "default", focus_url, user.id)
             else:
                 for group in room.groups:
-                    background_tasks.add_task(notify_group, group, notify_title, msg, "default", focus_url)
+                    background_tasks.add_task(notify_group, group, notify_title, msg, "default", focus_url, user.id)
 
     return RedirectResponse("/reports", status_code=302)
 
@@ -4263,7 +4263,7 @@ async def reports_set_status(
             target_groups = list(report.room.groups) if report.room else []
         focus_url = f"/reports/{report.id}"
         if target_groups:
-            background_tasks.add_task(notify_groups, target_groups, title, msg, "default", focus_url)
+            background_tasks.add_task(notify_groups, target_groups, title, msg, "default", focus_url, user.id)
         already_reached = any(report.user.id == member.id for group in target_groups for member in group.users)
         if report.user.id != user.id and not already_reached:
             background_tasks.add_task(notify_user, report.user, title, msg, focus_url)
@@ -4406,7 +4406,7 @@ async def reports_add_comment(
         target_groups = list(report.room.groups) if report.room else []
     focus_url = f"/reports/{report.id}"
     if target_groups:
-        background_tasks.add_task(notify_groups, target_groups, title, msg, "default", focus_url)
+        background_tasks.add_task(notify_groups, target_groups, title, msg, "default", focus_url, user.id)
 
     already_reached = {member.id for group in target_groups for member in group.users}
     already_reached.add(user.id)  # der eigene, gerade geschriebene Kommentar braucht keine Benachrichtigung

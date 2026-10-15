@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.51.1] - 2026-10-15
+- Meldungen: wer selbst einen Kommentar schreibt, eine neue Meldung anlegt oder den Status ändert, bekommt dafür keine eigene Browser-/App-Benachrichtigung mehr (bisher ging sie an alle Mitglieder der Zielgruppe, den Autor eingeschlossen). Gemeinsame Gruppenkanäle (ntfy/Gotify/Signal) lassen sich nicht pro Person ausnehmen und bleiben unverändert.
+
 ## [1.51.0] - 2026-10-15
 - Neue Android-App (Ordner `android/`, WebView-Wrapper): beliebig viele Server frei hinterlegbar und per Tipp auf den Servernamen im Dashboard wechselbar, Kamera-Scan, Datei-Upload und NFC-Links (`/room/<id>`) funktionieren in der App.
 - Benachrichtigungen in der App ohne Gotify/ntfy/Google: die App meldet sich als eigenes Push-Abo des Nutzers an (Endpoint `app:<Geräte-ID>`, neue Tabelle `app_inbox`) und holt Nachrichten per Long-Polling von `GET /api/app/inbox` (Anmeldung über das Session-Cookie). Alles, was bisher per Web-Push an Mitglieder ging (Gruppen- und persönliche Benachrichtigungen), kommt so auch in der App an - gleichzeitig von mehreren Servern. Nachrichten werden 3 Tage vorgehalten.
