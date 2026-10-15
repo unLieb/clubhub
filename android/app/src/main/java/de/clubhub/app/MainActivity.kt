@@ -30,7 +30,6 @@ import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
-    private lateinit var progress: View
     private var loadedServerId: String? = null
 
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -51,15 +50,9 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         web = WebView(this)
-        // Duenner Ladebalken (ohne helle Spur wie beim Standard-ProgressBar)
-        progress = View(this).apply {
-            setBackgroundColor(Color.parseColor("#5BB381"))
-            visibility = View.GONE
-        }
         val root = FrameLayout(this)
         root.setBackgroundColor(Color.parseColor("#12161F"))
         root.addView(web, FrameLayout.LayoutParams(-1, -1))
-        root.addView(progress, FrameLayout.LayoutParams(0, (3 * resources.displayMetrics.density).toInt()))
         setContentView(root)
         // Edge-to-Edge (targetSdk 35): Platz fuer Statusleiste, Navigation und Tastatur selbst freihalten
         root.setOnApplyWindowInsetsListener { v, insets ->
@@ -116,12 +109,7 @@ class MainActivity : Activity() {
                 }
             }
 
-            override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
-                progress.visibility = View.VISIBLE
-            }
-
             override fun onPageFinished(view: WebView, url: String) {
-                progress.visibility = View.GONE
                 val cur = ServerStore.current(this@MainActivity)?.let { Uri.parse(it.url) }
                 val u = Uri.parse(url)
                 if (cur != null && u.host == cur.host && u.port == cur.port) injectHeading(view)
@@ -141,10 +129,6 @@ class MainActivity : Activity() {
             }
         }
         web.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView, newProgress: Int) {
-                progress.layoutParams = progress.layoutParams.apply { width = web.width * newProgress / 100 }
-            }
-
             // Kamera (Barcode-Scan): erst Android-Berechtigung holen, dann an die Seite weitergeben
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread {
