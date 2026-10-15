@@ -86,6 +86,8 @@ class MainActivity : Activity() {
     }
 
     private fun setupWebView() {
+        // Dunkler Untergrund, sonst blitzt beim Laden/Serverwechsel der weisse WebView-Standard auf
+        web.setBackgroundColor(Color.parseColor("#12161F"))
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false)
         web.settings.apply {
