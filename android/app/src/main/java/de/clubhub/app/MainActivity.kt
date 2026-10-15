@@ -93,6 +93,16 @@ class MainActivity : Activity() {
             userAgentString = userAgentString + " ClubHUBApp/" + BuildConfig.VERSION_NAME
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
+        // Kopfzeile schon beim Dokumentstart ausblenden, damit das Logo nicht kurz aufblitzt
+        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
+                web,
+                "(function(){var s=document.createElement('style');s.id='ch-app-css';" +
+                    "s.textContent='header[class~=\"lg:hidden\"]{display:none !important}';" +
+                    "(document.head||document.documentElement).appendChild(s);})();",
+                setOf("*")
+            )
+        }
         web.addJavascriptInterface(Bridge(), "ClubHubApp")
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
