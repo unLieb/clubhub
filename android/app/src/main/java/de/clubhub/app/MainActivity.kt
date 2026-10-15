@@ -323,7 +323,58 @@ class MainActivity : Activity() {
             })();
         """.trimIndent()
         view.evaluateJavascript(js, null)
+        view.evaluateJavascript(CHROME_JS, null)
     }
+
+    /**
+     * Blendet die mobile Kopfzeile der Seite aus (Platz!) und legt ihre Funktionen
+     * (Profil, Mitteilungen, Design, Abmelden, Version) als Eintraege ins "Mehr"-Menue.
+     * Rein app-seitig - funktioniert mit jeder Serverversion, im Browser aendert sich nichts.
+     */
+    private val CHROME_JS = """
+        (function () {
+          var hdr = document.querySelector('header[class~="lg:hidden"]');
+          if (hdr && !document.getElementById('ch-app-css')) {
+            var st = document.createElement('style');
+            st.id = 'ch-app-css';
+            st.textContent = 'header[class~="lg:hidden"]{display:none !important}';
+            document.head.appendChild(st);
+          }
+          var grid = document.querySelector('#mobile-more-sheet .grid');
+          if (!grid || grid.dataset.chApp) return;
+          grid.dataset.chApp = '1';
+          var cls = 'flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs';
+          var ico = function (p) { return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; };
+          function cell(tag, icon, label, fn, href) {
+            var e = document.createElement(tag);
+            e.className = cls;
+            if (href) e.href = href; else e.type = 'button';
+            e.innerHTML = icon + '<span>' + label + '</span>';
+            if (fn) e.addEventListener('click', fn);
+            grid.appendChild(e);
+            return e;
+          }
+          cell('a', ico('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'), 'Profil', null, '/profile');
+          var n = cell('button', ico('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'), '', function () {
+            ClubHubApp.toggleNotifications();
+            setTimeout(label, 400);
+          });
+          function label() { n.querySelector('span').textContent = 'Mitteilungen ' + (ClubHubApp.notificationsEnabled() ? 'an' : 'aus'); }
+          label();
+          cell('button', ico('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>'), 'Design', function () {
+            var b = hdr && hdr.querySelector('.theme-toggle-btn');
+            if (b) b.click();
+          });
+          cell('a', ico('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>'), 'Abmelden', null, '/logout');
+          var v = hdr && hdr.querySelector('a[href="/changelog"]');
+          if (v) {
+            var f = document.createElement('div');
+            f.className = 'px-4 pb-3 text-center';
+            f.innerHTML = '<a href="/changelog" class="text-[11px] text-slate-500 hover:underline">ClubHUB ' + v.textContent.trim() + '</a>';
+            grid.parentNode.appendChild(f);
+          }
+        })();
+    """.trimIndent()
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

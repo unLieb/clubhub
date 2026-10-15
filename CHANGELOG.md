@@ -8,7 +8,6 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 
 ## [1.51.0] - 2026-10-15
 - Neue Android-App (Ordner `android/`, WebView-Wrapper): beliebig viele Server frei hinterlegbar und per Tipp auf den Servernamen im Dashboard wechselbar, Kamera-Scan, Datei-Upload und NFC-Links (`/room/<id>`) funktionieren in der App.
-- In der App entfällt die mobile Kopfzeile (erkannt am User-Agent-Zusatz `ClubHUBApp`): mehr Platz, die Funktionen daraus (Profil, Mitteilungen an/aus, Design, Abmelden, Versionsnummer) liegen im „Mehr"-Menü.
 - Benachrichtigungen in der App ohne Gotify/ntfy/Google: die App meldet sich als eigenes Push-Abo des Nutzers an (Endpoint `app:<Geräte-ID>`, neue Tabelle `app_inbox`) und holt Nachrichten per Long-Polling von `GET /api/app/inbox` (Anmeldung über das Session-Cookie). Alles, was bisher per Web-Push an Mitglieder ging (Gruppen- und persönliche Benachrichtigungen), kommt so auch in der App an - gleichzeitig von mehreren Servern. Nachrichten werden 3 Tage vorgehalten.
 
 ## [1.50.0] - 2026-10-03
