@@ -1,0 +1,7 @@
+<resources>
+    <style name="AppTheme" parent="android:Theme.DeviceDefault">
+        <item name="android:colorBackground">#12161F</item>
+        <item name="android:statusBarColor">#12161F</item>
+        <item name="android:navigationBarColor">#12161F</item>
+    </style>
+</resources>
