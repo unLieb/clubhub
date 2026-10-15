@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppThemeLight" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/chl_primary</item>
+        <item name="colorOnPrimary">@color/chl_on_primary</item>
+        <item name="colorPrimaryContainer">@color/chl_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/chl_on_primary_container</item>
+        <item name="colorSurface">@color/chl_surface</item>
+        <item name="colorOnSurface">@color/chl_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/chl_on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/chl_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/chl_surface_container_high</item>
+        <item name="colorOutline">@color/chl_outline</item>
+        <item name="colorOutlineVariant">@color/chl_outline_variant</item>
+        <item name="android:colorBackground">@color/chl_surface</item>
+        <item name="android:windowBackground">@color/chl_surface</item>
+        <item name="android:statusBarColor">@color/chl_surface</item>
+        <item name="android:navigationBarColor">@color/chl_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+    <style name="AppThemeDark" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/chd_primary</item>
+        <item name="colorOnPrimary">@color/chd_on_primary</item>
+        <item name="colorPrimaryContainer">@color/chd_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/chd_on_primary_container</item>
+        <item name="colorSurface">@color/chd_surface</item>
+        <item name="colorOnSurface">@color/chd_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/chd_on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/chd_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/chd_surface_container_high</item>
+        <item name="colorOutline">@color/chd_outline</item>
+        <item name="colorOutlineVariant">@color/chd_outline_variant</item>
+        <item name="android:colorBackground">@color/chd_surface</item>
+        <item name="android:windowBackground">@color/chd_surface</item>
+        <item name="android:statusBarColor">@color/chd_surface</item>
+        <item name="android:navigationBarColor">@color/chd_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

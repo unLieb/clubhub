@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="chl_primary">#2E7D5B</color>
+    <color name="chl_on_primary">#FFFFFF</color>
+    <color name="chl_primary_container">#B7F0D0</color>
+    <color name="chl_on_primary_container">#002114</color>
+    <color name="chl_surface">#F6F8F5</color>
+    <color name="chl_on_surface">#191C1A</color>
+    <color name="chl_on_surface_variant">#404943</color>
+    <color name="chl_surface_container">#EAEFEA</color>
+    <color name="chl_surface_container_high">#E2E8E2</color>
+    <color name="chl_outline">#707973</color>
+    <color name="chl_outline_variant">#C0C9C1</color>
+    <color name="chd_primary">#5BB381</color>
+    <color name="chd_on_primary">#0B1410</color>
+    <color name="chd_primary_container">#1F3A2C</color>
+    <color name="chd_on_primary_container">#B7F0D0</color>
+    <color name="chd_surface">#12161F</color>
+    <color name="chd_on_surface">#E3E8E4</color>
+    <color name="chd_on_surface_variant">#9AA3B2</color>
+    <color name="chd_surface_container">#1B2130</color>
+    <color name="chd_surface_container_high">#232B3D</color>
+    <color name="chd_outline">#6B7586</color>
+    <color name="chd_outline_variant">#2A3245</color>
+</resources>

@@ -47,6 +47,7 @@ class MainActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeMode.apply(this)
         super.onCreate(savedInstanceState)
 
         web = WebView(this)
@@ -321,6 +322,15 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun setThemeMode(mode: String) {
+            runOnUiThread {
+                val before = ThemeMode.isDark(this@MainActivity)
+                ThemeMode.setMode(this@MainActivity, mode)
+                if (ThemeMode.isDark(this@MainActivity) != before) recreate()
+            }
+        }
+
+        @JavascriptInterface
         fun openPlaces() {
             runOnUiThread { startActivity(Intent(this@MainActivity, PlacesActivity::class.java)) }
         }
@@ -376,6 +386,7 @@ class MainActivity : Activity() {
      */
     private val CHROME_JS = """
         (function () {
+          try { ClubHubApp.setThemeMode(localStorage.getItem('theme') || 'auto'); } catch (e) {}
           var hdr = document.querySelector('header[class~="lg:hidden"]');
           if (hdr && !document.getElementById('ch-app-css')) {
             var st = document.createElement('style');
@@ -408,6 +419,7 @@ class MainActivity : Activity() {
           cell('button', ico('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>'), 'Design', function () {
             var b = hdr && hdr.querySelector('.theme-toggle-btn');
             if (b) b.click();
+            setTimeout(function () { try { ClubHubApp.setThemeMode(localStorage.getItem('theme') || 'auto'); } catch (e) {} }, 300);
           });
           cell('a', ico('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>'), 'Abmelden', null, '/logout');
           var v = hdr && hdr.querySelector('a[href="/changelog"]');

@@ -22,6 +22,7 @@ class PlacesActivity : Activity() {
     private fun dp(v: Int) = Ui.dp(this, v)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeMode.apply(this)
         super.onCreate(savedInstanceState)
         val root = Ui.root(this)
         root.addView(Ui.toolbar(this, "Orte", "Wo du Mitteilungen bekommen möchtest"))

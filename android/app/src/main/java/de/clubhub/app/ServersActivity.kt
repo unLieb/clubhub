@@ -26,6 +26,7 @@ class ServersActivity : Activity() {
     private fun dp(v: Int) = Ui.dp(this, v)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeMode.apply(this)
         super.onCreate(savedInstanceState)
         val root = Ui.root(this)
         root.addView(Ui.toolbar(this, "Server", "Instanzen, zwischen denen du wechseln kannst"))
