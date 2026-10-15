@@ -255,7 +255,7 @@ class MainActivity : Activity() {
         val servers = ServerStore.load(this)
         val cur = ServerStore.current(this)?.id
         val labels = servers.map { (if (it.id == cur) "✓ " else "") + it.name } +
-            "Neu laden" + "Server verwalten…"
+            "Neu laden" + "Orte (Standort-Regel)…" + "Server verwalten…"
         AlertDialog.Builder(this)
             .setTitle("Server")
             .setItems(labels.toTypedArray()) { _, i ->
@@ -265,6 +265,7 @@ class MainActivity : Activity() {
                         loadCurrent()
                     }
                     i == servers.size -> web.reload()
+                    i == servers.size + 1 -> startActivity(Intent(this, PlacesActivity::class.java))
                     else -> startActivityForResult(Intent(this, ServersActivity::class.java), REQ_SERVERS)
                 }
             }
@@ -276,6 +277,11 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun openSwitcher() {
             runOnUiThread { showSwitcher() }
+        }
+
+        @JavascriptInterface
+        fun openPlaces() {
+            runOnUiThread { startActivity(Intent(this@MainActivity, PlacesActivity::class.java)) }
         }
 
         @JavascriptInterface
@@ -357,6 +363,7 @@ class MainActivity : Activity() {
           });
           function label() { n.querySelector('span').textContent = 'Mitteilungen ' + (ClubHubApp.notificationsEnabled() ? 'an' : 'aus'); }
           label();
+          cell('button', ico('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'), 'Orte', function () { ClubHubApp.openPlaces(); });
           cell('button', ico('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>'), 'Design', function () {
             var b = hdr && hdr.querySelector('.theme-toggle-btn');
             if (b) b.click();

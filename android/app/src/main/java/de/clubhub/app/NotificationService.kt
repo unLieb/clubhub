@@ -133,6 +133,8 @@ class NotificationService : Service() {
     }
 
     private fun show(server: Server, id: Int, title: String, message: String, path: String) {
+        // Orte-Regel (Zu Hause / Arbeit): verpasste Mitteilungen werden verworfen
+        if (!Places.shouldNotify(this)) return
         val target = Uri.parse(server.url + (if (path.startsWith("/")) path else "/$path"))
         val open = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
