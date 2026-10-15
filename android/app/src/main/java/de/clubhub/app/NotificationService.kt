@@ -103,6 +103,9 @@ class NotificationService : Service() {
                     conn.disconnect()
                     throw RuntimeException("HTTP $code")
                 }
+                // Der Server verlaengert die Sitzung bei jeder Antwort (Set-Cookie) - ins WebView
+                // uebernehmen, damit man auch ohne App-Nutzung angemeldet bleibt.
+                conn.headerFields["Set-Cookie"]?.forEach { CookieManager.getInstance().setCookie(server.url, it) }
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 conn.disconnect()
                 val json = JSONObject(body)
