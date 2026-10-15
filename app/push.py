@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from pywebpush import webpush, WebPushException
 
-from .database import DB_PATH
+from .database import DB_PATH, SessionLocal
 
 logger = logging.getLogger("reinigungsplan.push")
 
@@ -67,12 +67,39 @@ def get_vapid_public_key() -> str:
     return _public_key_b64
 
 
+# Die native Android-App meldet sich als "Subscription" mit diesem Endpoint-
+# Praefix an (WebView kennt kein Web Push) - statt eines Push-Dienstes landet
+# die Nachricht in der Tabelle app_inbox und wird von der App abgeholt.
+APP_ENDPOINT_PREFIX = "app:"
+APP_INBOX_KEEP_DAYS = 3
+
+
+def _queue_for_app(endpoint: str, title: str, message: str, url: str) -> bool:
+    from datetime import datetime, timedelta, timezone
+    from .models import AppInboxMessage
+    db = SessionLocal()
+    try:
+        db.add(AppInboxMessage(device=endpoint[len(APP_ENDPOINT_PREFIX):], title=title, message=message, url=url))
+        db.query(AppInboxMessage).filter(
+            AppInboxMessage.created_at < datetime.now(timezone.utc) - timedelta(days=APP_INBOX_KEEP_DAYS)
+        ).delete(synchronize_session=False)
+        db.commit()
+    except Exception:
+        logger.exception("App-Inbox: Nachricht konnte nicht abgelegt werden")
+        db.rollback()
+    finally:
+        db.close()
+    return True
+
+
 def send_web_push(subscription, title: str, message: str, url: str = "/") -> bool:
     """Schickt eine Web-Push-Benachrichtigung an eine einzelne Subscription.
     Gibt False zurück, wenn die Subscription nicht mehr gültig ist (Nutzer hat
     Benachrichtigungen im Browser deaktiviert o.ä.) - der Aufrufer sollte sie
     dann aus der Datenbank entfernen. True bei Erfolg oder unbekanntem Fehler
     (z.B. Server kurz nicht erreichbar - nicht gleich die Subscription killen)."""
+    if subscription.endpoint.startswith(APP_ENDPOINT_PREFIX):
+        return _queue_for_app(subscription.endpoint, title, message, url)
     _ensure_keys()
     try:
         webpush(

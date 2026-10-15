@@ -64,6 +64,28 @@ object ServerStore {
         save(ctx, load(ctx).filter { it.id != id })
     }
 
+    fun notificationsEnabled(ctx: Context) = prefs(ctx).getBoolean("notify", true)
+
+    fun setNotificationsEnabled(ctx: Context, on: Boolean) {
+        prefs(ctx).edit().putBoolean("notify", on).apply()
+    }
+
+    /** Zufaellige, dauerhafte Geraete-ID (identifiziert die App-Installation gegenueber dem Server). */
+    fun deviceId(ctx: Context): String {
+        var id = prefs(ctx).getString("device", null)
+        if (id == null) {
+            id = UUID.randomUUID().toString()
+            prefs(ctx).edit().putString("device", id).apply()
+        }
+        return id
+    }
+
+    fun lastInboxId(ctx: Context, serverId: String) = prefs(ctx).getInt("inbox_$serverId", -1)
+
+    fun setLastInboxId(ctx: Context, serverId: String, id: Int) {
+        prefs(ctx).edit().putInt("inbox_$serverId", id).apply()
+    }
+
     /** Ergaenzt fehlendes Schema (https) und entfernt abschliessende Schraegstriche. */
     fun normalizeUrl(input: String): String {
         var u = input.trim()

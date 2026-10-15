@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ClubHUB</string>
+    <string name="shortcut_servers">Server verwalten</string>
 </resources>

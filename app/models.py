@@ -806,6 +806,21 @@ class PushSubscription(Base):
     user = relationship("User", back_populates="push_subscriptions")
 
 
+class AppInboxMessage(Base):
+    """Nachricht fuer die native Android-App (siehe push.py: Abos mit Endpoint
+    "app:<geraete-id>"). Die App holt sie per Long-Polling (/api/app/inbox) ab
+    und zeigt sie als System-Benachrichtigung; alte Eintraege werden beim
+    Anlegen neuer aufgeraeumt."""
+    __tablename__ = "app_inbox"
+
+    id = Column(Integer, primary_key=True)
+    device = Column(String, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    url = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
 class WebauthnCredential(Base):
     """Ein registrierter Passkey (WebAuthn/FIDO2) eines Nutzers fuer den
     Login im Dashboard (/) - unabhaengig vom Passwort, ein Nutzer kann beliebig

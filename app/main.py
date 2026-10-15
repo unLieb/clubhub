@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import html
 import json
@@ -4891,6 +4892,57 @@ def push_subscribe(payload: PushSubscribeIn, request: Request, db: Session = Dep
         ))
     db.commit()
     return {"ok": True}
+
+
+@app.get("/api/app/inbox")
+async def app_inbox(request: Request, device: str = Query(..., min_length=8, max_length=64),
+                    after: int = Query(-1), wait: int = Query(0, ge=0, le=30)):
+    """Long-Polling-Abholung fuer die Android-App (Session-Cookie des WebViews).
+    Registriert das Geraet beim ersten Aufruf als Push-Abo des angemeldeten
+    Nutzers (Endpoint "app:<device>") und liefert neue Nachrichten ab id
+    `after`. after < 0 = erster Aufruf: nur die aktuelle Position melden,
+    keine alten Nachrichten nachliefern."""
+    if not re.fullmatch(r"[A-Za-z0-9-]+", device):
+        raise HTTPException(status_code=400, detail="Ungueltige Geraete-ID")
+    endpoint = f"{push.APP_ENDPOINT_PREFIX}{device}"
+
+    db = SessionLocal()
+    try:
+        user = get_current_user(request, db)
+        if not user:
+            return Response('{"ok": false}', status_code=401, media_type="application/json")
+        sub = db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == endpoint).first()
+        if sub:
+            sub.user_id = user.id
+        else:
+            db.add(models.PushSubscription(
+                user_id=user.id, endpoint=endpoint, p256dh="-", auth="-",
+                user_agent=request.headers.get("user-agent", "")[:255],
+            ))
+        db.commit()
+    finally:
+        db.close()
+
+    deadline = datetime.now().timestamp() + wait
+    while True:
+        db = SessionLocal()
+        try:
+            q = db.query(models.AppInboxMessage).filter(models.AppInboxMessage.device == device)
+            if after < 0:
+                last = db.query(models.AppInboxMessage.id).order_by(models.AppInboxMessage.id.desc()).first()
+                return {"ok": True, "messages": [], "last_id": last[0] if last else 0}
+            rows = q.filter(models.AppInboxMessage.id > after).order_by(models.AppInboxMessage.id).limit(50).all()
+            if rows:
+                return {
+                    "ok": True,
+                    "messages": [{"id": r.id, "title": r.title, "message": r.message, "url": r.url or "/"} for r in rows],
+                    "last_id": rows[-1].id,
+                }
+        finally:
+            db.close()
+        if datetime.now().timestamp() >= deadline:
+            return {"ok": True, "messages": [], "last_id": after}
+        await asyncio.sleep(1.5)
 
 
 @app.post("/push/unsubscribe")

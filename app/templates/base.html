@@ -223,7 +223,11 @@
   <button type="button" class="theme-toggle-btn w-9 h-9 rounded-full bg-panel/90 backdrop-blur border border-line flex items-center justify-center text-slate-300 hover:text-slate-100 hover:border-go/50 shrink-0" aria-label="Design umschalten"></button>
 </div>
 
+{# In der Android-App (User-Agent-Zusatz "ClubHUBApp") entfaellt die Kopfzeile -
+   Design, Profil, Abmelden und Benachrichtigungen liegen stattdessen im "Mehr"-Menue. #}
+{% set in_app = 'ClubHUBApp' in request.headers.get('user-agent', '') %}
 <!-- Mobile-Kopfzeile (nur < lg) -->
+{% if not in_app %}
 <header class="lg:hidden sticky top-0 z-40 bg-sidebar/95 border-b border-sidebar-line px-4 py-3 flex items-center justify-between">
   <div class="flex items-center gap-2">
     <a href="/" class="w-8 h-8 shrink-0 flex items-center justify-center">
@@ -268,6 +272,7 @@
     {% endif %}
   </div>
 </header>
+{% endif %}
 
 <div class="flex min-h-screen">
 
@@ -504,7 +509,37 @@
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 1 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Hilfe
     </a>
+    {% if in_app %}
+    <a href="/profile" class="tab-link flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profil
+    </a>
+    <button type="button" id="app-notify-btn" class="flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <span id="app-notify-label">Mitteilungen</span>
+    </button>
+    <div class="flex flex-col items-center gap-1 py-3 text-slate-300 text-xs">
+      <button type="button" class="theme-toggle-btn w-[21px] h-[21px] flex items-center justify-center" aria-label="Design umschalten"></button>
+      Design
+    </div>
+    <a href="/logout" class="flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      Abmelden
+    </a>
+    {% endif %}
   </div>
+  {% if in_app %}
+  <div class="px-4 pb-3 text-center"><a href="/changelog" class="text-[11px] text-slate-500 hover:underline">ClubHUB v{{ app_version }}</a></div>
+  <script>
+  (function () {
+    var b = document.getElementById('app-notify-btn'), l = document.getElementById('app-notify-label');
+    if (!b || !window.ClubHubApp) { if (b) b.classList.add('hidden'); return; }
+    function render() { l.textContent = 'Mitteilungen ' + (ClubHubApp.notificationsEnabled() ? 'an' : 'aus'); }
+    b.addEventListener('click', function () { ClubHubApp.toggleNotifications(); setTimeout(render, 400); });
+    render();
+  })();
+  </script>
+  {% endif %}
 </div>
 {% endif %}
 

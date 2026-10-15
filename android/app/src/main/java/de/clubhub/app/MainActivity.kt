@@ -12,10 +12,10 @@ import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
+import android.view.WindowInsets
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
 import android.webkit.URLUtil
@@ -41,6 +41,7 @@ class MainActivity : Activity() {
         private const val REQ_SERVERS = 1
         private const val REQ_FILE = 2
         private const val REQ_CAMERA = 3
+        private const val REQ_NOTIFY = 4
 
         fun styleActionBar(a: Activity) {
             a.actionBar?.setBackgroundDrawable(ColorDrawable(Color.parseColor("#1B2130")))
@@ -49,7 +50,6 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        styleActionBar(this)
 
         web = WebView(this)
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -61,6 +61,13 @@ class MainActivity : Activity() {
         root.addView(web, FrameLayout.LayoutParams(-1, -1))
         root.addView(progress, FrameLayout.LayoutParams(-1, 8))
         setContentView(root)
+        // Edge-to-Edge (targetSdk 35): Platz fuer Statusleiste, Navigation und Tastatur selbst freihalten
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val bars = insets.getInsets(WindowInsets.Type.systemBars())
+            val ime = insets.getInsets(WindowInsets.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            WindowInsets.CONSUMED
+        }
 
         setupWebView()
         if (savedInstanceState != null) web.restoreState(savedInstanceState)
@@ -88,8 +95,10 @@ class MainActivity : Activity() {
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
             allowContentAccess = false
+            userAgentString = userAgentString + " ClubHUBApp/" + BuildConfig.VERSION_NAME
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
+        web.addJavascriptInterface(Bridge(), "ClubHubApp")
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
@@ -111,6 +120,9 @@ class MainActivity : Activity() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 progress.visibility = View.GONE
+                val cur = ServerStore.current(this@MainActivity)?.let { Uri.parse(it.url) }
+                val u = Uri.parse(url)
+                if (cur != null && u.host == cur.host && u.port == cur.port) injectHeading(view)
             }
 
             override fun onReceivedError(
@@ -121,7 +133,7 @@ class MainActivity : Activity() {
                 if (request.isForMainFrame) {
                     val html = "<html><body style='background:#12161F;color:#e5e7eb;font-family:sans-serif;" +
                         "padding:32px;text-align:center'><h2>Server nicht erreichbar</h2><p>" +
-                        "${error.description}</p><p>Menü → Neu laden oder anderen Server wählen.</p></body></html>"
+                        "${error.description}</p><p>Seite neu laden oder über die App-Verknüpfung (Icon lange gedrückt halten) „Server verwalten“ öffnen.</p></body></html>"
                     view.loadDataWithBaseURL(null, html, "text/html", "utf-8", request.url.toString())
                 }
             }
@@ -206,7 +218,6 @@ class MainActivity : Activity() {
             if (match != null) {
                 ServerStore.setCurrent(this, match.id)
                 loadedServerId = match.id
-                title = match.name
                 web.loadUrl(data.toString())
             } else {
                 Toast.makeText(this, "Dieser Server ist in der App nicht hinterlegt", Toast.LENGTH_LONG).show()
@@ -216,7 +227,6 @@ class MainActivity : Activity() {
         }
         if (restored && web.url != null) {
             loadedServerId = ServerStore.current(this)?.id
-            title = ServerStore.current(this)?.name
         } else {
             loadCurrent()
         }
@@ -225,12 +235,21 @@ class MainActivity : Activity() {
     private fun loadCurrent() {
         val server = ServerStore.current(this) ?: return
         loadedServerId = server.id
-        title = server.name
         web.loadUrl(server.url)
+    }
+
+    private fun askNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFY)
     }
 
     override fun onResume() {
         super.onResume()
+        if (ServerStore.notificationsEnabled(this)) {
+            askNotificationPermission()
+            NotificationService.start(this) // gleicht Threads mit evtl. geaenderter Serverliste ab
+        }
         // Nach dem Zurueckkehren aus der Serververwaltung evtl. Server gewechselt/geloescht
         val cur = ServerStore.current(this)
         if (cur != null && cur.id != loadedServerId) loadCurrent()
@@ -238,34 +257,72 @@ class MainActivity : Activity() {
 
     private fun showSwitcher() {
         val servers = ServerStore.load(this)
-        val labels = servers.map { it.name } + "Server verwalten…"
+        val cur = ServerStore.current(this)?.id
+        val labels = servers.map { (if (it.id == cur) "✓ " else "") + it.name } +
+            "Neu laden" + "Server verwalten…"
         AlertDialog.Builder(this)
-            .setTitle("Server wechseln")
+            .setTitle("Server")
             .setItems(labels.toTypedArray()) { _, i ->
-                if (i < servers.size) {
-                    ServerStore.setCurrent(this, servers[i].id)
-                    loadCurrent()
-                } else {
-                    startActivityForResult(Intent(this, ServersActivity::class.java), REQ_SERVERS)
+                when {
+                    i < servers.size -> {
+                        ServerStore.setCurrent(this, servers[i].id)
+                        loadCurrent()
+                    }
+                    i == servers.size -> web.reload()
+                    else -> startActivityForResult(Intent(this, ServersActivity::class.java), REQ_SERVERS)
                 }
             }
             .show()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(0, 1, 0, "Server wechseln")
-        menu.add(0, 2, 1, "Neu laden")
-        menu.add(0, 3, 2, "Startseite")
-        return true
+    /** Bruecke fuer die Ueberschrift auf der Dashboard-Seite (Tippen/Langdruck oeffnet das Servermenue). */
+    inner class Bridge {
+        @JavascriptInterface
+        fun openSwitcher() {
+            runOnUiThread { showSwitcher() }
+        }
+
+        @JavascriptInterface
+        fun notificationsEnabled(): Boolean = ServerStore.notificationsEnabled(this@MainActivity)
+
+        @JavascriptInterface
+        fun toggleNotifications() {
+            runOnUiThread {
+                val on = !ServerStore.notificationsEnabled(this@MainActivity)
+                ServerStore.setNotificationsEnabled(this@MainActivity, on)
+                if (on) {
+                    askNotificationPermission()
+                    NotificationService.start(this@MainActivity)
+                } else {
+                    NotificationService.stop(this@MainActivity)
+                }
+                Toast.makeText(this@MainActivity, if (on) "Mitteilungen eingeschaltet" else "Mitteilungen ausgeschaltet", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            1 -> showSwitcher()
-            2 -> web.reload()
-            3 -> loadCurrent()
-        }
-        return true
+    /** Ersetzt auf dem Dashboard die Ueberschrift durch den Servernamen (nur bei mehreren Servern). */
+    private fun injectHeading(view: WebView) {
+        val servers = ServerStore.load(this)
+        val cur = ServerStore.current(this) ?: return
+        val name = org.json.JSONObject.quote(cur.name)
+        val multi = servers.size > 1
+        val js = """
+            (function () {
+              var h = document.querySelector('h1');
+              if (!h || h.dataset.chApp || h.textContent.trim() !== 'Dashboard') return;
+              h.dataset.chApp = '1';
+              if ($multi) {
+                h.textContent = $name + ' ▾';
+                h.style.cursor = 'pointer';
+                h.addEventListener('click', function () { ClubHubApp.openSwitcher(); });
+              }
+              var t;
+              h.addEventListener('touchstart', function () { t = setTimeout(function () { ClubHubApp.openSwitcher(); }, 600); });
+              ['touchend', 'touchmove', 'touchcancel'].forEach(function (e) { h.addEventListener(e, function () { clearTimeout(t); }); });
+            })();
+        """.trimIndent()
+        view.evaluateJavascript(js, null)
     }
 
     @Deprecated("Deprecated in Java")

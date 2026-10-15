@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.51.0] - 2026-10-15
+- Neue Android-App (Ordner `android/`, WebView-Wrapper): beliebig viele Server frei hinterlegbar und per Tipp auf den Servernamen im Dashboard wechselbar, Kamera-Scan, Datei-Upload und NFC-Links (`/room/<id>`) funktionieren in der App.
+- In der App entfällt die mobile Kopfzeile (erkannt am User-Agent-Zusatz `ClubHUBApp`): mehr Platz, die Funktionen daraus (Profil, Mitteilungen an/aus, Design, Abmelden, Versionsnummer) liegen im „Mehr"-Menü.
+- Benachrichtigungen in der App ohne Gotify/ntfy/Google: die App meldet sich als eigenes Push-Abo des Nutzers an (Endpoint `app:<Geräte-ID>`, neue Tabelle `app_inbox`) und holt Nachrichten per Long-Polling von `GET /api/app/inbox` (Anmeldung über das Session-Cookie). Alles, was bisher per Web-Push an Mitglieder ging (Gruppen- und persönliche Benachrichtigungen), kommt so auch in der App an - gleichzeitig von mehreren Servern. Nachrichten werden 3 Tage vorgehalten.
+
 ## [1.50.0] - 2026-10-03
 - Kühlungen ist jetzt wie Meldungen, Hinweise, Urlaub und Zeiterfassung global deaktivierbar (Verwaltung → System → „Module & Features"). Deaktiviert verschwindet der Menüpunkt (Desktop-Sidebar und mobiles „Mehr"-Menü) samt Warn-Badge für alle - auch für Admins/Schichtleiter -, die Seite leitet mit Hinweis aufs Dashboard um, und alle Endpunkte darunter (Erfassen, Bearbeiten, Löschen, CSV-/PDF-Export) antworten mit 404. Kühlzellen und Messwerte bleiben vollständig erhalten. Bestehende Installationen starten nach dem Update mit aktiviertem Modul. In der Gruppenverwaltung verschwindet die Checkbox „Zugriff auf Kühlungen", der bereits gesetzte Gruppenzugriff geht beim Speichern aber nicht verloren (bleibt als verstecktes Feld erhalten).
 - Hilfe: alle Texte zu abschaltbaren Modulen sind jetzt dynamisch und verschwinden mit dem Modul - nicht nur die eigenen Fragen (Meldungen, Urlaub, Zeiterfassung, neu Kühlungen), sondern auch Erwähnungen in anderen Abschnitten (Benachrichtigungen, Live-Aktualisierung, „Sichtbarkeiten" für Admin/Schichtleiter), deren Aufzählungen sich entsprechend anpassen. Neu: eine Frage „Was sind Hinweise?" (nur bei aktivem Modul Hinweise).

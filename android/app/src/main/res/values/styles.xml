@@ -4,4 +4,9 @@
         <item name="android:statusBarColor">#12161F</item>
         <item name="android:navigationBarColor">#12161F</item>
     </style>
+    <style name="AppTheme.NoBar" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:colorBackground">#12161F</item>
+        <item name="android:statusBarColor">#12161F</item>
+        <item name="android:navigationBarColor">#12161F</item>
+    </style>
 </resources>
