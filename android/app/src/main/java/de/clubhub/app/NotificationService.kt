@@ -28,6 +28,13 @@ class NotificationService : Service() {
         private const val CH_SERVICE = "service"
         private const val CH_MESSAGES = "messages"
         private const val ID_SERVICE = 1
+        private val PALETTE = intArrayOf(
+            0xFF2E7D5B.toInt(), 0xFF1E6FD9.toInt(), 0xFFD9822B.toInt(),
+            0xFF8E44AD.toInt(), 0xFFC0392B.toInt(), 0xFF16A0A8.toInt()
+        )
+
+        private fun channelId(server: Server) = "srv_" + server.id
+        private fun colorFor(server: Server) = PALETTE[Math.floorMod(server.id.hashCode(), PALETTE.size)]
 
         fun start(ctx: Context) {
             if (!ServerStore.notificationsEnabled(ctx) || ServerStore.load(ctx).isEmpty()) return
@@ -50,13 +57,18 @@ class NotificationService : Service() {
         nm.createNotificationChannel(
             NotificationChannel(CH_SERVICE, "Verbindung", NotificationManager.IMPORTANCE_MIN)
         )
-        nm.createNotificationChannel(
-            NotificationChannel(CH_MESSAGES, "Benachrichtigungen", NotificationManager.IMPORTANCE_HIGH)
-        )
+        nm.deleteNotificationChannel(CH_MESSAGES)
+        val all = ServerStore.load(this)
+        // Eigener Kanal je Server: in den Android-Einstellungen mit Servernamen sichtbar und einzeln einstellbar
+        all.forEach {
+            nm.createNotificationChannel(
+                NotificationChannel(channelId(it), "Mitteilungen: ${it.name}", NotificationManager.IMPORTANCE_HIGH)
+            )
+        }
         val n = Notification.Builder(this, CH_SERVICE)
             .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
             .setContentTitle("ClubHUB")
-            .setContentText("Empfang von Benachrichtigungen aktiv")
+            .setContentText("Empfang aktiv: " + all.joinToString(", ") { it.name })
             .setOngoing(true)
             .build()
         startForeground(ID_SERVICE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -145,15 +157,36 @@ class NotificationService : Service() {
             this, (server.id.hashCode() xor id), open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val n = Notification.Builder(this, CH_MESSAGES)
+        val color = colorFor(server)
+        val n = Notification.Builder(this, channelId(server))
             .setSmallIcon(android.R.drawable.stat_notify_chat)
-            .setContentTitle(title)
+            .setColor(color)
+            .setLargeIcon(avatar(server.name, color))
+            .setContentTitle("${server.name} · $title")
             .setContentText(message)
             .setStyle(Notification.BigTextStyle().bigText(message))
             .setSubText(server.name)
+            .setGroup("srv_" + server.id)
             .setContentIntent(pi)
             .setAutoCancel(true)
             .build()
         getSystemService(NotificationManager::class.java).notify(server.id.hashCode() xor id, n)
+    }
+
+    /** Runder Buchstaben-Avatar in der Farbe des Servers (grosses Symbol der Mitteilung). */
+    private fun avatar(name: String, color: Int): android.graphics.Bitmap {
+        val size = 128
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        p.color = color
+        c.drawCircle(size / 2f, size / 2f, size / 2f, p)
+        p.color = android.graphics.Color.WHITE
+        p.textSize = size * 0.5f
+        p.typeface = android.graphics.Typeface.DEFAULT_BOLD
+        p.textAlign = android.graphics.Paint.Align.CENTER
+        val letter = name.trim().firstOrNull()?.uppercase() ?: "?"
+        c.drawText(letter, size / 2f, size / 2f - (p.ascent() + p.descent()) / 2f, p)
+        return bmp
     }
 }
