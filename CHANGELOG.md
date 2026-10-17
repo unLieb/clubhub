@@ -7,7 +7,7 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
 ## [1.53.0] - 2026-10-17
-- Die Android-App wird jetzt vom Server selbst ausgeliefert: In der Hilfe gibt es die neue Frage „Gibt es eine App?" mit Download-Link (`/static/app/clubhub.apk`), Installationshinweis (Installation aus dieser Quelle zulassen) und dem Hinweis, dass es für iOS keine App gibt. Der Link erscheint nur, wenn der Build die App-Datei enthält, und entfällt in der App selbst. Die App liest `/static/app/latest.json` (Version, Prüfsumme) und aktualisiert sich selbst, ohne dass eine Datei von Hand geladen werden muss. `.apk` wird mit dem richtigen Dateityp ausgeliefert. Bereitgestellt wird die Datei mit `android/release.sh` (signierte Release-APK nach `app/static/app/`).
+- Die Android-App wird jetzt vom Server selbst ausgeliefert: In der Hilfe gibt es die neue Frage „Gibt es auch eine native App?" (Unterpunkt von „Wie bekomme ich ClubHUB als App aufs Handy?") mit Download-Link (`/static/app/clubhub.apk`), Installationshinweis (Installation aus dieser Quelle zulassen) und dem Hinweis, dass es für iOS keine App gibt. Der Link erscheint nur, wenn der Build die App-Datei enthält, und entfällt in der App selbst. Die App liest `/static/app/latest.json` (Version, Prüfsumme) und aktualisiert sich selbst, ohne dass eine Datei von Hand geladen werden muss. `.apk` wird mit dem richtigen Dateityp ausgeliefert. Bereitgestellt wird die Datei mit `android/release.sh` (signierte Release-APK nach `app/static/app/`).
 - „Meine Geräte" (Profil) zeigt die App als „ClubHUB-App (Android)" statt „Unbekanntes Gerät".
 
 ## [1.52.1] - 2026-10-17
