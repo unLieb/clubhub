@@ -23,6 +23,8 @@ cp app/build/outputs/apk/release/app-release.apk "$DEST/clubhub.apk"
 
 CODE=$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts)
 NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts)
-printf '{"versionCode": %s, "versionName": "%s", "apk": "/static/app/clubhub.apk"}\n' "$CODE" "$NAME" > "$DEST/latest.json"
+SHA=$(sha256sum "$DEST/clubhub.apk" | cut -d' ' -f1)
+SIZE=$(stat -c %s "$DEST/clubhub.apk")
+printf '{"versionCode": %s, "versionName": "%s", "apk": "/static/app/clubhub.apk", "sha256": "%s", "size": %s}\n' "$CODE" "$NAME" "$SHA" "$SIZE" > "$DEST/latest.json"
 
 echo "==> App ${NAME} (Code ${CODE}) liegt in app/static/app/ ($(du -h "$DEST/clubhub.apk" | cut -f1))"
