@@ -9,6 +9,11 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.4.1] - 2026-10-17
+- Server-Wechsel-Fenster klappt auf Tablets und im Querformat jetzt immer ganz auf (vorher nur ein schmaler Streifen, den man hochziehen musste).
+- Update-Prüfung schaut bei allen hinterlegten Servern nach und bietet die neueste Version an (nicht nur beim gerade aktiven Server).
+- „Mehr"-Menü: neuer Eintrag „Update" prüft sofort auf eine neue App-Version und meldet auch „App ist aktuell"; im Fuß steht jetzt neben der Server- auch die App-Version.
+
 ## [1.4.0] - 2026-10-17
 - Verteilung vom eigenen Server: signierte Release-APK (eigener Schlüssel außerhalb des Repos, `android/release.sh` baut sie und legt sie samt `latest.json` in den Server-Ordner `app/static/app/`). Der Download-Link steht in der Hilfe der Serveroberfläche, Frage „Gibt es auch eine native App?" (Server 1.53.0).
 - Integrierter Updater: die App fragt höchstens alle 12 Stunden beim aktuellen Server nach einer neueren Version, lädt die APK mit Fortschrittsanzeige, prüft die SHA-256-Prüfsumme und übergibt sie dem Android-Installer. Einmalig muss „Installation aus dieser Quelle zulassen" erlaubt werden, bei jedem Update bleibt eine Bestätigung am Handy (Android-Vorgabe; ab Android 12 entfällt sie, wenn die App selbst die Vorversion installiert hat). Android prüft zusätzlich, dass die neue APK denselben Signaturschlüssel hat. (Commit am Abend, kein Hash - siehe `git log`)

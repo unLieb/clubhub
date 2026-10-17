@@ -253,16 +253,24 @@ class MainActivity : Activity() {
         checkForUpdate()
     }
 
-    /** Fragt hoechstens alle 12 Stunden beim aktuellen Server nach einer neueren App-Version (static/app/latest.json). */
-    private fun checkForUpdate() {
-        val server = ServerStore.current(this) ?: return
+    /**
+     * Fragt hoechstens alle 12 Stunden (force = sofort) bei allen hinterlegten Servern nach einer neueren
+     * App-Version (static/app/latest.json) und bietet die neueste an. notify = auch "aktuell" melden.
+     */
+    private fun checkForUpdate(force: Boolean = false, notify: Boolean = false) {
+        val servers = ServerStore.load(this)
+        if (servers.isEmpty()) return
         val prefs = getSharedPreferences("clubhub", MODE_PRIVATE)
-        if (System.currentTimeMillis() - prefs.getLong("update_check", 0) < 12 * 3600 * 1000L) return
+        if (!force && System.currentTimeMillis() - prefs.getLong("update_check", 0) < 12 * 3600 * 1000L) return
         prefs.edit().putLong("update_check", System.currentTimeMillis()).apply()
         Thread {
-            val info = try { Updater.fetchInfo(server) } catch (e: Exception) { null } ?: return@Thread
+            val info = servers.mapNotNull { runCatching { Updater.fetchInfo(it) }.getOrNull() }.maxByOrNull { it.code }
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
+                if (info == null) {
+                    if (notify) Toast.makeText(this, "Die App ist aktuell (Version ${BuildConfig.VERSION_NAME})", Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
                 MaterialAlertDialogBuilder(this)
                     .setTitle("Neue App-Version")
                     .setMessage("Version ${info.name} ist verfügbar (installiert: ${BuildConfig.VERSION_NAME}).")
@@ -372,6 +380,9 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, -2))
 
         sheet.setContentView(ScrollView(this).apply { addView(col) })
+        // Auf Tablets/im Querformat sonst nur ein schmaler Streifen: immer ganz aufklappen
+        sheet.behavior.skipCollapsed = true
+        sheet.behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
         sheet.show()
     }
 
@@ -390,6 +401,14 @@ class MainActivity : Activity() {
                 if (ThemeMode.isDark(this@MainActivity) != before) recreate()
             }
         }
+
+        @JavascriptInterface
+        fun checkUpdate() {
+            runOnUiThread { checkForUpdate(force = true, notify = true) }
+        }
+
+        @JavascriptInterface
+        fun appVersion(): String = BuildConfig.VERSION_NAME
 
         @JavascriptInterface
         fun openPlaces() {
@@ -482,12 +501,13 @@ class MainActivity : Activity() {
             if (b) b.click();
             setTimeout(function () { try { ClubHubApp.setThemeMode(localStorage.getItem('theme') || 'auto'); } catch (e) {} }, 300);
           });
+          cell('button', ico('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'), 'Update', function () { ClubHubApp.checkUpdate(); });
           cell('a', ico('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>'), 'Abmelden', null, '/logout');
           var v = hdr && hdr.querySelector('a[href="/changelog"]');
           if (v) {
             var f = document.createElement('div');
             f.className = 'px-4 pb-3 text-center';
-            f.innerHTML = '<a href="/changelog" class="text-[11px] text-slate-500 hover:underline">ClubHUB ' + v.textContent.trim() + '</a>';
+            f.innerHTML = '<a href="/changelog" class="text-[11px] text-slate-500 hover:underline">ClubHUB ' + v.textContent.trim() + ' · App ' + ClubHubApp.appVersion() + '</a>';
             grid.parentNode.appendChild(f);
           }
         })();
