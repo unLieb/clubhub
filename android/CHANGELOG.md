@@ -9,6 +9,11 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.4.0] - 2026-10-17
+- Verteilung vom eigenen Server: signierte Release-APK (eigener Schlüssel außerhalb des Repos, `android/release.sh` baut sie und legt sie samt `latest.json` in den Server-Ordner `app/static/app/`). Der Download-Link steht im Profil der Serveroberfläche (Server 1.53.0).
+- Update-Hinweis: die App fragt höchstens alle 12 Stunden beim aktuellen Server nach einer neueren Version und bietet den Download an. (Commit am Abend, kein Hash - siehe `git log`)
+- Hinweis: Die Release-Signatur unterscheidet sich von der bisherigen Debug-Installation. Beim ersten Wechsel muss die Debug-Version einmal deinstalliert werden (Server, Orte und Anmeldung danach neu eintragen). Ab dann laufen Updates ohne Deinstallation.
+
 ## [1.3.0] - 2026-10-17
 - Orte: Verpasste Mitteilungen gehen nicht mehr verloren. Wer „Arbeit" festgelegt hat und gerade woanders ist, bekommt sie gesammelt als **eine** Mitteilung je Server („Kantine · 3 Mitteilungen verpasst"), sobald er auf Arbeit ankommt (höchstens 24 Stunden alt). Nur mit „Zu Hause" festgelegt bleibt es beim Verwerfen.
 - Standortprüfung nur in der Arbeitszeit: die App nutzt die Arbeitszeit der Gruppen des Nutzers vom Server (keine zweite Einstellung in der App), prüft beim Zurückhalten alle 10 Minuten, ob man angekommen ist, und fragt außerhalb der Arbeitszeit gar nicht nach dem Standort (spart Akku). Benötigt Server 1.52.1.

@@ -250,6 +250,41 @@ class MainActivity : Activity() {
         // Nach dem Zurueckkehren aus der Serververwaltung evtl. Server gewechselt/geloescht
         val cur = ServerStore.current(this)
         if (cur != null && cur.id != loadedServerId) loadCurrent()
+        checkForUpdate()
+    }
+
+    /** Fragt hoechstens alle 12 Stunden beim aktuellen Server nach einer neueren App-Version (static/app/latest.json). */
+    private fun checkForUpdate() {
+        val server = ServerStore.current(this) ?: return
+        val prefs = getSharedPreferences("clubhub", MODE_PRIVATE)
+        if (System.currentTimeMillis() - prefs.getLong("update_check", 0) < 12 * 3600 * 1000L) return
+        prefs.edit().putLong("update_check", System.currentTimeMillis()).apply()
+        Thread {
+            try {
+                val conn = java.net.URL("${server.url}/static/app/latest.json").openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 10_000
+                if (conn.responseCode != 200) { conn.disconnect(); return@Thread }
+                val j = org.json.JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+                conn.disconnect()
+                if (j.getInt("versionCode") <= BuildConfig.VERSION_CODE) return@Thread
+                val name = j.getString("versionName")
+                val apk = server.url + j.optString("apk", "/static/app/clubhub.apk")
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle("Neue App-Version")
+                        .setMessage("Version $name ist verfügbar (installiert: ${BuildConfig.VERSION_NAME}). Jetzt herunterladen?")
+                        .setPositiveButton("Herunterladen") { _, _ ->
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apk)))
+                        }
+                        .setNegativeButton("Später", null)
+                        .show()
+                }
+            } catch (e: Exception) {
+                // kein Update-Hinweis - der Server hat evtl. (noch) keine App-Datei
+            }
+        }.start()
     }
 
     /** Material-3-Bottom-Sheet: nur die Server (aktiver mit Haken) und "Server verwalten...". */

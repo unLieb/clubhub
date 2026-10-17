@@ -232,6 +232,19 @@ def service_worker():
 # App-Version + Git-Kurz-Hash (aus VERSION/BUILD_HASH, beim Docker-Build erzeugt)
 # auf jeder Seite verfügbar (Sidebar-Fußzeile + Verwaltung/System im Detail).
 templates.env.globals["app_version"] = version.VERSION
+
+
+def _android_app_info():
+    """Versionsdaten der mitgelieferten Android-App (app/static/app/latest.json, siehe
+    android/release.sh) oder None, wenn dieser Build keine App-Datei enthaelt."""
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "static", "app", "latest.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+templates.env.globals["android_app"] = _android_app_info
 templates.env.globals["app_build_hash"] = version.BUILD_HASH
 
 # Feste Auswahl statt freiem Hex-Eingabefeld (siehe admin_groups.html) - jede
@@ -1016,6 +1029,8 @@ def device_label(user_agent: str | None) -> str:
     "Chrome"), daher keine exakte Browsererkennung möglich."""
     if not user_agent:
         return "Unbekanntes Gerät"
+    if user_agent.startswith("ClubHUBApp"):
+        return "ClubHUB-App (Android)"
     ua = user_agent
     if "Android" in ua:
         os_label = "Android"

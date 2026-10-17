@@ -196,6 +196,25 @@
   <!-- Karte 3: Benachrichtigungen & Geräte. Den frueheren Opt-in-Schalter fuer
        "Aufgaben erledigt" gibt es nicht mehr - die gebuendelte Meldung geht
        standardmaessig an alle Mitglieder der betroffenen Gruppen. -->
+  {# Android-App zum Herunterladen (nur wenn dieser Build sie enthaelt; in der App selbst ausgeblendet) #}
+  {% set android_apk = android_app() %}
+  {% if android_apk and 'ClubHUBApp' not in request.headers.get('user-agent', '') %}
+  <section class="rounded-xl border border-line bg-panel p-4 md:col-span-2">
+    <h2 class="font-display font-medium mb-1">Android-App</h2>
+    <p class="text-sm text-slate-400 mb-3">
+      Mehrere Server zum Umschalten und Benachrichtigungen direkt auf dem Handy, ohne weitere App.
+    </p>
+    <a href="{{ android_apk.apk }}" download class="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Herunterladen (Version {{ android_apk.versionName }})
+    </a>
+    <p class="text-[11px] text-slate-500 leading-relaxed mt-3">
+      Datei am Handy öffnen und die Installation erlauben (&bdquo;Installation aus dieser Quelle zulassen&ldquo;). Neue
+      Versionen meldet die App danach selbst.
+    </p>
+  </section>
+  {% endif %}
+
   <section class="rounded-xl border border-line bg-panel p-4 md:col-span-2">
     <h2 class="font-display font-medium mb-3">Benachrichtigungen &amp; Geräte</h2>
 

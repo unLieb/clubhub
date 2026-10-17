@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.53.0] - 2026-10-17
+- Die Android-App wird jetzt vom Server selbst ausgeliefert: Im Profil gibt es die Karte „Android-App" mit Download-Link (`/static/app/clubhub.apk`) und Hinweis zur Installation. Die Karte erscheint nur, wenn der Build die App-Datei enthält, und ist in der App selbst ausgeblendet. Die App liest `/static/app/latest.json` und meldet Updates selbst. Bereitgestellt wird die Datei mit `android/release.sh` (signierte Release-APK nach `app/static/app/`).
+- „Meine Geräte" (Profil) zeigt die App als „ClubHUB-App (Android)" statt „Unbekanntes Gerät".
+
 ## [1.52.1] - 2026-10-17
 - Android-App: `GET /api/app/inbox` liefert zusätzlich `work_hours` - die Arbeitszeiten (Stunden) der Gruppen des Nutzers. Die App fragt den Standort für ihre „Zu Hause/Arbeit"-Regel nur innerhalb dieser Zeiten ab (Akku). Leere Liste = keine Einschränkung (eine Gruppe ohne Arbeitszeit oder keine Gruppe).
 
