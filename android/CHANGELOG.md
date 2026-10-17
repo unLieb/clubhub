@@ -9,6 +9,10 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.3.0] - 2026-10-17
+- Orte: Verpasste Mitteilungen gehen nicht mehr verloren. Wer „Arbeit" festgelegt hat und gerade woanders ist, bekommt sie gesammelt als **eine** Mitteilung je Server („Kantine · 3 Mitteilungen verpasst"), sobald er auf Arbeit ankommt (höchstens 24 Stunden alt). Nur mit „Zu Hause" festgelegt bleibt es beim Verwerfen.
+- Standortprüfung nur in der Arbeitszeit: die App nutzt die Arbeitszeit der Gruppen des Nutzers vom Server (keine zweite Einstellung in der App), prüft beim Zurückhalten alle 10 Minuten, ob man angekommen ist, und fragt außerhalb der Arbeitszeit gar nicht nach dem Standort (spart Akku). Benötigt Server 1.52.1.
+
 ## [1.2.1] - 2026-10-17
 - Mitteilungen zeigen den Server deutlich: Servername im Titel („Kantine · Titel"), runder
   Avatar mit Anfangsbuchstabe in fester Serverfarbe, Gruppierung je Server, eigener

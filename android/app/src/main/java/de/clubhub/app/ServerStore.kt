@@ -80,6 +80,13 @@ object ServerStore {
         return id
     }
 
+    /** Arbeitszeiten der Gruppen des Nutzers auf diesem Server als JSON [[start,end],...]; "[]" = keine Einschraenkung. */
+    fun setWorkHours(ctx: Context, serverId: String, json: String) {
+        prefs(ctx).edit().putString("hours_$serverId", json).apply()
+    }
+
+    fun workHours(ctx: Context, serverId: String): String? = prefs(ctx).getString("hours_$serverId", null)
+
     fun lastInboxId(ctx: Context, serverId: String) = prefs(ctx).getInt("inbox_$serverId", -1)
 
     fun setLastInboxId(ctx: Context, serverId: String, id: Int) {

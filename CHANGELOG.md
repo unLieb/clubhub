@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.52.1] - 2026-10-17
+- Android-App: `GET /api/app/inbox` liefert zusätzlich `work_hours` - die Arbeitszeiten (Stunden) der Gruppen des Nutzers. Die App fragt den Standort für ihre „Zu Hause/Arbeit"-Regel nur innerhalb dieser Zeiten ab (Akku). Leere Liste = keine Einschränkung (eine Gruppe ohne Arbeitszeit oder keine Gruppe).
+
 ## [1.52.0] - 2026-10-17
 - Aufgaben lassen sich jetzt zwischen Bereichen verschieben oder kopieren: im Aufgaben-Menü (⋮) auf der Bereichsseite neuer Punkt „Verschieben / Kopieren…“ (nur Admins/Schichtleiter). Verschieben nimmt die Erledigungs-Historie mit (nur `room_id` ändert sich). Kopieren legt je gewähltem Zielbereich eine eigenständige Aufgabe ohne Historie an, Mehrfachauswahl möglich. Ist die Aufgabe expliziten Gruppen zugeordnet, die nicht zum Zielbereich passen, zeigt der Dialog einen Hinweis. Beides wird im Audit-Log festgehalten.
 

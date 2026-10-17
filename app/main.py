@@ -4930,6 +4930,12 @@ async def app_inbox(request: Request, device: str = Query(..., min_length=8, max
         user = get_current_user(request, db)
         if not user:
             return Response('{"ok": false}', status_code=401, media_type="application/json")
+        # Arbeitszeiten der eigenen Gruppen (Stunden): die App fragt den Standort nur dann
+        # regelmaessig ab, wenn gerade Arbeitszeit ist (Akku). Leere Liste = keine Einschraenkung
+        # (mind. eine Gruppe ohne Arbeitszeit oder gar keine Gruppe).
+        windows = [[g.work_start_hour, g.work_end_hour] for g in user.groups]
+        if not windows or any(g.work_start_hour is None or g.work_end_hour is None for g in user.groups):
+            windows = []
         sub = db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == endpoint).first()
         if sub:
             sub.user_id = user.id
@@ -4949,18 +4955,19 @@ async def app_inbox(request: Request, device: str = Query(..., min_length=8, max
             q = db.query(models.AppInboxMessage).filter(models.AppInboxMessage.device == device)
             if after < 0:
                 last = db.query(models.AppInboxMessage.id).order_by(models.AppInboxMessage.id.desc()).first()
-                return {"ok": True, "messages": [], "last_id": last[0] if last else 0}
+                return {"ok": True, "messages": [], "last_id": last[0] if last else 0, "work_hours": windows}
             rows = q.filter(models.AppInboxMessage.id > after).order_by(models.AppInboxMessage.id).limit(50).all()
             if rows:
                 return {
                     "ok": True,
                     "messages": [{"id": r.id, "title": r.title, "message": r.message, "url": r.url or "/"} for r in rows],
                     "last_id": rows[-1].id,
+                    "work_hours": windows,
                 }
         finally:
             db.close()
         if datetime.now().timestamp() >= deadline:
-            return {"ok": True, "messages": [], "last_id": after}
+            return {"ok": True, "messages": [], "last_id": after, "work_hours": windows}
         await asyncio.sleep(1.5)
 
 

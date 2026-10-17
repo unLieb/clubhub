@@ -78,6 +78,7 @@ class NotificationService : Service() {
         ServerStore.load(this).forEach { server ->
             Thread { pollLoop(server, gen) }.apply { isDaemon = true }.start()
         }
+        Thread { arrivalLoop(gen) }.apply { isDaemon = true }.start()
         return START_STICKY
     }
 
@@ -126,6 +127,7 @@ class NotificationService : Service() {
                     val m = msgs.getJSONObject(i)
                     show(server, m.getInt("id"), m.getString("title"), m.getString("message"), m.optString("url", "/"))
                 }
+                json.optJSONArray("work_hours")?.let { ServerStore.setWorkHours(this, server.id, it.toString()) }
                 after = json.getInt("last_id")
                 ServerStore.setLastInboxId(this, server.id, after)
                 backoff = 10_000L
@@ -145,8 +147,78 @@ class NotificationService : Service() {
     }
 
     private fun show(server: Server, id: Int, title: String, message: String, path: String) {
-        // Orte-Regel (Zu Hause / Arbeit): verpasste Mitteilungen werden verworfen
-        if (!Places.shouldNotify(this)) return
+        // Orte-Regel (Zu Hause / Arbeit)
+        when (Places.decide(this)) {
+            Places.Decision.DROP -> return
+            Places.Decision.HOLD -> {
+                Held.add(this, HeldMessage(server.id, title, message, path, System.currentTimeMillis()))
+                return
+            }
+            Places.Decision.SHOW -> {
+                flushHeld() // evtl. Zurueckgehaltenes zuerst als Sammelmitteilung
+                post(server, id, title, message, path)
+            }
+        }
+    }
+
+    /** Solange etwas zurueckgehalten wird und Arbeitszeit ist: alle 10 Min. pruefen, ob man auf Arbeit angekommen ist. */
+    private fun arrivalLoop(gen: Int) {
+        while (alive(gen)) {
+            sleep(gen, 10 * 60_000L)
+            if (!alive(gen)) return
+            try {
+                if (Held.count(this) > 0 && Places.get(this, Places.WORK) != null && Places.inWindow(this)) {
+                    val loc = Places.currentLocation(this)
+                    if (loc != null && Places.atWork(this, loc)) flushHeld()
+                }
+            } catch (e: Exception) {
+                // naechster Durchlauf
+            }
+        }
+    }
+
+    /** Zeigt zurueckgehaltene Mitteilungen je Server als eine Sammelmitteilung und leert die Liste. */
+    private fun flushHeld() {
+        val items = Held.all(this)
+        if (items.isEmpty()) return
+        Held.clear(this)
+        val servers = ServerStore.load(this).associateBy { it.id }
+        items.groupBy { it.serverId }.forEach { (sid, list) ->
+            val server = servers[sid] ?: return@forEach
+            if (list.size == 1) {
+                val m = list[0]
+                post(server, (m.time and 0x7FFFFFFF).toInt(), m.title, m.message, m.path)
+                return@forEach
+            }
+            val color = colorFor(server)
+            val open = Intent(this, MainActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
+                data = Uri.parse(server.url + "/")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pi = PendingIntent.getActivity(
+                this, server.id.hashCode() xor 0x5EED, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val style = Notification.InboxStyle()
+            list.takeLast(7).forEach { style.addLine(it.title + ": " + it.message.lineSequence().first()) }
+            if (list.size > 7) style.setSummaryText("+${list.size - 7} weitere")
+            val n = Notification.Builder(this, channelId(server))
+                .setSmallIcon(android.R.drawable.stat_notify_chat)
+                .setColor(color)
+                .setLargeIcon(avatar(server.name, color))
+                .setContentTitle("${server.name} \u00b7 ${list.size} Mitteilungen verpasst")
+                .setContentText(list.last().title)
+                .setStyle(style)
+                .setSubText(server.name)
+                .setGroup("srv_" + server.id)
+                .setContentIntent(pi)
+                .setAutoCancel(true)
+                .build()
+            getSystemService(NotificationManager::class.java).notify(server.id.hashCode() xor 0x5EED, n)
+        }
+    }
+
+    private fun post(server: Server, id: Int, title: String, message: String, path: String) {
         val target = Uri.parse(server.url + (if (path.startsWith("/")) path else "/$path"))
         val open = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW

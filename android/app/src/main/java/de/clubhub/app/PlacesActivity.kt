@@ -112,7 +112,7 @@ class PlacesActivity : Activity() {
         slot(Ui.filledButton(this, if (place == null) "Standort verwenden" else "Neu setzen") { capture(key) }, true)
         if (place != null) {
             slot(Ui.tonalButton(this, "Radius") { askRadius(key, place) }, false)
-            slot(Ui.tonalButton(this, "Entfernen") { Places.set(this, key, null); render() }, false)
+            slot(Ui.tonalButton(this, "Entfernen") { Places.set(this, key, null); if (key == Places.WORK) Held.clear(this); render() }, false)
         }
         inner.addView(row, Ui.margins(inner, t = 12))
 

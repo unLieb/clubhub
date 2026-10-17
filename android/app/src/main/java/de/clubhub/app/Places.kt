@@ -101,14 +101,53 @@ object Places {
         return out[0]
     }
 
-    /** Blockierend. Im Zweifel (kein Standort) wird angezeigt - lieber eine Mitteilung zu viel als eine verpasste. */
-    fun shouldNotify(ctx: Context): Boolean {
+    /**
+     * Ist gerade Arbeitszeit? Quelle: die Arbeitszeiten der Gruppen des Nutzers (vom Server mitgeliefert,
+     * Stunden). Ausserhalb wird nicht nach dem Standort gefragt (Akku). Ist irgendwo keine Arbeitszeit
+     * hinterlegt, gilt das als "immer"; ohne bekannte Daten greift 06-20 Uhr.
+     */
+    fun inWindow(ctx: Context): Boolean {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        var known = false
+        for (s in ServerStore.load(ctx)) {
+            val raw = ServerStore.workHours(ctx, s.id) ?: continue
+            known = true
+            val arr = try { org.json.JSONArray(raw) } catch (e: Exception) { continue }
+            if (arr.length() == 0) return true // keine Einschraenkung
+            for (i in 0 until arr.length()) {
+                val w = arr.getJSONArray(i)
+                if (hour >= w.getInt(0) && hour < w.getInt(1)) return true
+            }
+        }
+        return if (known) false else hour in 6 until 20
+    }
+
+    /** Ist der Standort auf Arbeit? (grosszuegig: Genauigkeit wird zugunsten von "ja" gewertet) */
+    fun atWork(ctx: Context, loc: Location): Boolean {
+        val work = get(ctx, WORK) ?: return false
+        return distance(loc, work) - loc.accuracy / 2f <= work.radius
+    }
+
+    enum class Decision { SHOW, HOLD, DROP }
+
+    /**
+     * Blockierend (nicht auf dem UI-Thread). Im Zweifel (kein Standort, keine Berechtigung) wird angezeigt -
+     * lieber eine Mitteilung zu viel als eine verpasste.
+     *  - nichts festgelegt: anzeigen
+     *  - "Arbeit" gesetzt: auf Arbeit anzeigen, sonst zurueckhalten und beim Ankommen gebuendelt zeigen;
+     *    ausserhalb der Arbeitszeit wird gar nicht erst nach dem Standort gefragt
+     *  - nur "Zu Hause": zu Hause verwerfen, sonst anzeigen
+     */
+    fun decide(ctx: Context): Decision {
         val home = get(ctx, HOME)
         val work = get(ctx, WORK)
-        if (home == null && work == null) return true
-        val loc = currentLocation(ctx) ?: return true
-        val margin = loc.accuracy / 2f
-        if (work != null) return distance(loc, work) - margin <= work.radius
-        return distance(loc, home!!) + margin > home.radius
+        if (home == null && work == null) return Decision.SHOW
+        if (work != null) {
+            if (!inWindow(ctx)) return Decision.HOLD
+            val loc = currentLocation(ctx) ?: return Decision.SHOW
+            return if (atWork(ctx, loc)) Decision.SHOW else Decision.HOLD
+        }
+        val loc = currentLocation(ctx) ?: return Decision.SHOW
+        return if (distance(loc, home!!) + loc.accuracy / 2f > home.radius) Decision.SHOW else Decision.DROP
     }
 }
