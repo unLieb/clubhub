@@ -5,7 +5,7 @@ import httpx
 from sqlalchemy.orm import object_session
 
 from .database import SessionLocal
-from .models import PushSubscription, AppSettings, NotificationChannel
+from .models import PushSubscription, AppSettings, NotificationChannel, User
 from . import push as webpush_module
 
 logger = logging.getLogger("reinigungsplan.notifications")
@@ -183,6 +183,24 @@ def notify_groups(groups, title: str, message: str, priority: str = "default", u
     merged.channels = deduped_channels
     merged.users = deduped_users
     notify_group(merged, title, message, priority, url, exclude_user_id)
+
+
+def notify_developers(title: str, message: str, url: str = "/", exclude_user_id: int | None = None) -> None:
+    """Push (Browser/Android-App) an alle aktiven Nutzer mit dem Kennzeichen
+    'Entwickler' - z.B. bei neuem Feedback. Eigene Session, da das als
+    Background-Task nach dem Response laeuft. Wer die Meldung selbst
+    abgegeben hat, wird nicht benachrichtigt. Wirft nie."""
+    db = SessionLocal()
+    try:
+        users = db.query(User).filter(User.is_developer == True, User.is_active == True).all()  # noqa: E712
+        for dev in users:
+            if exclude_user_id is not None and dev.id == exclude_user_id:
+                continue
+            notify_user(dev, title, message, url)
+    except Exception:
+        logger.exception("Entwickler-Benachrichtigung fehlgeschlagen")
+    finally:
+        db.close()
 
 
 def notify_user(user, title: str, message: str, url: str = "/"):

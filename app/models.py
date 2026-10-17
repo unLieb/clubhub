@@ -169,6 +169,11 @@ class User(Base):
     # Die vormalige separate "Entwickler"-Rolle (technischer Vollzugriff ohne
     # Personal-/Zeiterfassungsdaten) wurde wieder entfernt - ein Admin, der
     # alles kann, reicht aus (siehe Git-Historie fuer den frueheren Zustand).
+    # "Entwickler" (nur Benachrichtigung): kein Rechte-Rolle wie frueher, sondern ein
+    # zusaetzliches Kennzeichen, das zu jeder Rolle dazukommen kann (siehe
+    # notify_developers) - wer es hat, bekommt neues Feedback/Bugmeldungen als
+    # Push (Browser/App). Gibt keine zusaetzlichen Zugriffsrechte.
+    is_developer = Column(Boolean, default=False)
     # Pauschalkraft: eigene Rolle (schließt sich mit Admin/Schichtleiter
     # gegenseitig aus, siehe "Rolle"-Auswahl in admin_users.html) -
     # verhindert aktuell das Anlegen von Aufbauten (siehe RoomSetup).

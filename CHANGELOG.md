@@ -12,6 +12,9 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 ## [1.51.1] - 2026-10-15
 - Meldungen: wer selbst einen Kommentar schreibt, eine neue Meldung anlegt oder den Status ändert, bekommt dafür keine eigene Browser-/App-Benachrichtigung mehr (bisher ging sie an alle Mitglieder der Zielgruppe, den Autor eingeschlossen). Gemeinsame Gruppenkanäle (ntfy/Gotify/Signal) lassen sich nicht pro Person ausnehmen und bleiben unverändert.
 
+## [1.52.0] - 2026-10-17
+- Neues Feedback/neue Bugmeldungen kommen jetzt zusätzlich als Push (Browser und Android-App) bei den Entwicklern an - unabhängig vom Feedback-Kanal (Gotify/ntfy/Signal), der unverändert weiterläuft. Dafür gibt es in Verwaltung → Nutzer beim Bearbeiten das Kennzeichen „Entwickler" (zusätzlich zur Rolle wählbar, gibt keine weiteren Rechte; in der Liste als „(Entwickler)" markiert). Wer das Feedback selbst abgibt, bekommt keine Push für die eigene Meldung. Meldungen mit hoher Priorität tragen „(Priorität hoch)" im Titel; die Push führt zur Feedback-Liste. Neue Spalte `users.is_developer` (wird beim Start automatisch angelegt, Standard: niemand).
+
 ## [1.51.0] - 2026-10-15
 - Neuer Endpunkt für die Android-App (die App selbst steht im eigenen Changelog `android/CHANGELOG.md`): Benachrichtigungen ohne Gotify/ntfy/Google. Die App meldet sich als eigenes Push-Abo des Nutzers an (Endpoint `app:<Geräte-ID>`, neue Tabelle `app_inbox`) und holt Nachrichten per Long-Polling von `GET /api/app/inbox` (Anmeldung über das Session-Cookie). Alles, was bisher per Web-Push an Mitglieder ging (Gruppen- und persönliche Benachrichtigungen), kommt so auch in der App an - gleichzeitig von mehreren Servern. Nachrichten werden 3 Tage vorgehalten.
 

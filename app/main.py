@@ -45,7 +45,7 @@ from .auth import (
 from .status import task_status, compute_inventory_status
 from .scheduler import start_scheduler, APP_TIMEZONE, BACKUP_SCHEDULE_HOURS, BACKUP_RETENTION_DAYS
 from .notifications import (
-    notify_group, notify_groups, notify_user, notify_feedback_channel, send_to_channel,
+    notify_group, notify_groups, notify_user, notify_feedback_channel, notify_developers, send_to_channel,
     _channel_config as notification_channel_config,
 )
 
@@ -363,6 +363,11 @@ def _migrate_group_color(db: Session):
 def _migrate_user_shift_lead(db: Session):
     """Neue Rolle 'Schichtleiter' (kein Altdaten-Bezug, Standard: False)."""
     _ensure_column(db, "users", "is_shift_lead", "INTEGER DEFAULT 0")
+
+
+def _migrate_user_developer(db: Session):
+    """Kennzeichen 'Entwickler' (Push bei neuem Feedback), Standard: False."""
+    _ensure_column(db, "users", "is_developer", "INTEGER DEFAULT 0")
 
 
 def _migrate_report_priority_category(db: Session):
@@ -850,6 +855,7 @@ def _startup():
         _migrate_group_color(db)
         _migrate_legacy_group_channels(db)
         _migrate_user_shift_lead(db)
+        _migrate_user_developer(db)
         _migrate_report_priority_category(db)
         _migrate_report_assigned_group(db)
         _migrate_report_room_optional(db)
@@ -3731,6 +3737,13 @@ async def feedback_create(
         lines.append("(mit Screenshot – siehe Verwaltung → Feedback)")
     background_tasks.add_task(
         notify_feedback_channel, f"Neues Feedback: {kind}", "\n".join(lines), "high" if priority == "high" else "default",
+    )
+    # Zusaetzlich als Push (Browser/Android-App) an alle Entwickler - unabhaengig vom Kanal,
+    # damit die Meldung auch ankommt, wenn Gotify/ntfy nicht erreichbar ist.
+    background_tasks.add_task(
+        notify_developers,
+        f"Neues Feedback: {kind}" + (" (Priorität hoch)" if priority == "high" else ""),
+        "\n".join(lines), "/admin/feedback", user.id,
     )
 
     target = next if next.startswith("/") else "/"
@@ -7073,6 +7086,7 @@ def admin_edit_user(
     personnel_number: str = Form(""),
     group_id: str = Form(""),
     role: str = Form(""),
+    is_developer: str = Form(""),
     target_hours_per_month: str = Form(""),
     db: Session = Depends(get_db),
 ):
@@ -7136,6 +7150,8 @@ def admin_edit_user(
             target.is_admin = desired_role == "admin"
             target.is_shift_lead = desired_role == "schichtleiter"
             target.is_flat_rate = desired_role == "pauschalkraft"
+            # Zusaetzliches Kennzeichen unabhaengig von der Rolle (Checkbox im Formular).
+            target.is_developer = bool(is_developer)
             # Hier nur von einem vollen Admin änderbar; der Nutzer selbst kann sie
             # zusätzlich im eigenen Profil anpassen - beide pflegen denselben Wert.
             # Nur bei aktivierter Zeiterfassung uebernommen: das Formularfeld
