@@ -37,6 +37,33 @@
       </summary>
       <p class="text-sm text-slate-400 px-3 pb-3">Mit deinem Benutzernamen (oder deiner Personalnummer) und deinem Passwort. Auf einem Gerät, das du oft benutzt, kannst du dir in deinem <a href="/profile" class="text-go underline">Profil</a> zusätzlich einen <strong>Passkey</strong> einrichten – dann reicht Face&nbsp;ID, Fingerabdruck oder Geräte-PIN statt Passwort.</p>
     </details>
+    {# Android-App: Download-Link nur, wenn dieser Build die App-Datei enthaelt (android/release.sh); in der App selbst entfaellt er #}
+    {% set android_apk = android_app() %}
+    {% set in_app = 'ClubHUBApp' in request.headers.get('user-agent', '') %}
+    <details class="rounded-lg border border-line bg-panel2 group">
+      <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
+        Gibt es eine App?
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="text-sm text-slate-400 px-3 pb-3 space-y-2">
+        <p>Ja, für <strong>Android</strong>. Die App gibt es allerdings nicht im Play Store, sondern nur als <strong>Direktdownload</strong>.</p>
+        {% if in_app %}
+        <p>Du nutzt die App bereits. Neue Versionen meldet und installiert sie selbst (einmal bestätigen).</p>
+        {% elif android_apk %}
+        <p>
+          <a href="{{ android_apk.apk }}" download class="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Android-App herunterladen
+          </a>
+        </p>
+        <p>Datei am Handy öffnen. Android fragt dabei, ob die Installation aus dieser Quelle erlaubt sein soll („Installation aus unbekannten Quellen“ bzw. „Unbekannte Apps installieren“) – das einmal zulassen. Danach aktualisiert sich die App selbst, du musst nie wieder eine Datei laden.</p>
+        {% else %}
+        <p>Der Download ist auf diesem Server derzeit nicht hinterlegt.</p>
+        {% endif %}
+        <p>Die App kann mehrere Server (z.&nbsp;B. mehrere Clubs) verwalten und bequem zwischen ihnen wechseln, schickt Benachrichtigungen direkt aufs Handy und lässt dich festlegen, wo du sie bekommst (z.&nbsp;B. nur auf Arbeit).</p>
+        <p>Für das <strong>iPhone</strong> gibt es leider keine App – Entwicklung und Veröffentlichung im App Store sind dafür zu aufwendig und kostspielig. Nutze dort stattdessen ClubHUB als Home-Bildschirm-App (nächste Frage).</p>
+      </div>
+    </details>
     <details class="rounded-lg border border-line bg-panel2 group">
       <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium">
         Wie bekomme ich ClubHUB als App aufs Handy?
