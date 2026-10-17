@@ -1,0 +1,49 @@
+# Changelog – ClubHUB Android-App
+
+Änderungen an der Android-App (Ordner `android/`), neueste zuerst. Die Versionsnummer
+entspricht `versionName` in `app/build.gradle.kts`. Server-Änderungen stehen im
+[CHANGELOG.md](../CHANGELOG.md) im Projektstamm (App und Server werden getrennt versioniert).
+
+Jeder Eintrag nennt Datum, Commit-Uhrzeiten und Commit-Hashes (`git show <hash>` zeigt den
+vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Arbeitsverlauf
+wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
+sind darin nicht abgebildet).
+
+## [1.2.1] - 2026-10-17
+- Mitteilungen zeigen den Server deutlich: Servername im Titel („Kantine · Titel"), runder
+  Avatar mit Anfangsbuchstabe in fester Serverfarbe, Gruppierung je Server, eigener
+  Android-Benachrichtigungskanal je Server („Mitteilungen: Kantine", einzeln einstellbar),
+  die Dauer-Meldung des Dienstes listet die aktiven Server. (20:11, `476ad22`)
+
+## [1.2.0] - 2026-10-15
+- Material 3: Server-Verwaltung und Orte neu mit M3-Komponenten (Leiste, Karten, Buttons,
+  Eingabefelder, Dialoge), Farben als Theme-Rollen, Hell und Dunkel. (16:18, `363b7cc`)
+- Server-Wechsel als Bottom Sheet (von unten, abgerundet, per Wischen schließbar): nur die
+  Server mit Häkchen am aktiven und „Server verwalten…". „Neu laden" und „Orte" sind nicht
+  mehr im Server-Menü („Orte" bleibt unter „Mehr"). (16:18, `363b7cc`)
+- Hell/Dunkel der App-Bildschirme folgt der Design-Einstellung der Webseite (Hell/Dunkel/
+  Automatisch), nicht nur dem Android-System. (16:26, `c556136`)
+- Orte: Buttons einzeilig und gleich breit, kürzere Untertitel in den Kopfzeilen. (16:28, `1504f9c`)
+
+## [1.1.0] - 2026-10-15
+- Server-Wechsel über die Dashboard-Überschrift (Servername ▾ statt „Dashboard", sobald mehr
+  als ein Server hinterlegt ist). (14:05, `3b8a462`)
+- Mobile Kopfzeile der Seite nur in der App ausgeblendet (Platz), ihre Funktionen (Profil,
+  Mitteilungen an/aus, Design, Abmelden, Version) liegen im „Mehr"-Menü; beim Dokumentstart
+  ausgeblendet, damit das Logo nicht aufblitzt. (14:05 `3b8a462`, 14:13 `1c1f125`, 14:44 `040b1a6`)
+- Eigener Benachrichtigungsdienst (Vordergrunddienst mit Long-Polling gegen `/api/app/inbox`,
+  Start nach Neustart/Update, Mitteilungen an/aus). Kommt ohne Gotify/ntfy/Google aus und
+  empfängt von mehreren Servern gleichzeitig. Gegenstück am Server: v1.51.0. (14:05, `3b8a462`)
+- Sitzungs-Cookie aus dem Hintergrunddienst wird übernommen – Anmeldung bleibt bestehen,
+  auch wenn die App länger nicht geöffnet wird. (14:26, `48ac61b`)
+- Server-Verwaltung als Karten (Avatar, „AKTIV"-Markierung, „Server hinzufügen"). (14:28, `3b921aa`)
+- Fehlerbehebungen: Serverliste unter der Action Bar verdeckt (14:17, `e66b21d`), weißes
+  Aufblitzen beim Serverwechsel durch dunklen WebView-Untergrund (14:33, `c007987`), Ladebalken
+  eingeführt und wieder entfernt (14:35 `8cda92a`, 14:41 `ace6d8a`).
+- Orte „Zu Hause" / „Arbeit": Mitteilungen werden nur auf Arbeit bzw. nicht zu Hause angezeigt;
+  Standort wird nur beim Eintreffen einer Mitteilung geprüft und bleibt auf dem Gerät. (14:50, `9f6c207`)
+
+## [1.0.0] - 2026-10-15
+- Erste Version: native Kotlin-App als WebView-Wrapper. Beliebig viele Server frei hinterlegbar
+  (nichts fest eingebaut), Kamera für den Barcode-Scan, Datei-Upload, Downloads,
+  alert()/confirm()-Dialoge der Seite, NFC-/Link-Aufruf von `/room/<id>`. (13:47, `ca08286`)
