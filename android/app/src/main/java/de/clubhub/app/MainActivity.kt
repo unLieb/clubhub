@@ -99,7 +99,10 @@ class MainActivity : Activity() {
             androidx.webkit.WebViewCompat.addDocumentStartJavaScript(
                 web,
                 "(function(){var s=document.createElement('style');s.id='ch-app-css';" +
-                    "s.textContent='header[class~=\"lg:hidden\"]{display:none !important}';" +
+                    "s.textContent='header[class~=\"lg:hidden\"]{display:none !important}" +
+                    // Druck-Effekt fuer die Server-Symbole: leicht verkleinert + Hintergrund, solange gedrueckt
+                    ".ch-press{transition:transform .12s,background-color .12s;-webkit-tap-highlight-color:transparent}" +
+                    ".ch-press:active{transform:scale(.86);background-color:rgba(128,128,128,.32) !important}';" +
                     "(document.head||document.documentElement).appendChild(s);})();",
                 setOf("*")
             )
@@ -460,7 +463,7 @@ class MainActivity : Activity() {
               w.style.cssText = 'display:inline-flex;align-items:center;gap:6px';
               var ib = document.createElement('button');
               ib.type = 'button';
-              ib.className = 'ch-srv-icon';
+              ib.className = 'ch-srv-icon ch-press';
               ib.setAttribute('aria-label', 'Server wechseln');
               ib.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin-left:-10px;border-radius:12px;background:none;border:0;color:inherit';
               ib.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><line x1="7" y1="7" x2="7.01" y2="7"/><line x1="7" y1="17" x2="7.01" y2="17"/></svg>';
@@ -499,7 +502,7 @@ class MainActivity : Activity() {
             side.dataset.chSrv = '1';
             var sb = document.createElement('button');
             sb.type = 'button';
-            sb.className = 'ml-auto p-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong shrink-0';
+            sb.className = 'ml-auto p-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong shrink-0 ch-press';
             sb.title = 'Server wechseln (' + ClubHubApp.serverName() + ')';
             sb.setAttribute('aria-label', 'Server wechseln');
             sb.innerHTML = SRV;
@@ -511,7 +514,7 @@ class MainActivity : Activity() {
           var grid = document.querySelector('#mobile-more-sheet .grid');
           if (!grid || grid.dataset.chApp) return;
           grid.dataset.chApp = '1';
-          var cls = 'flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs';
+          var cls = 'flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs ch-press';
           var ico = function (p) { return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; };
           function cell(tag, icon, label, fn, href) {
             var e = document.createElement(tag);
