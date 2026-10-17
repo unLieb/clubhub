@@ -448,21 +448,29 @@ class MainActivity : Activity() {
               var h = document.querySelector('h1');
               if (!h || h.dataset.chApp || h.textContent.trim() !== 'Dashboard') return;
               h.dataset.chApp = '1';
-              if ($multi) {
-                var w = document.createElement('span');
-                w.style.cssText = 'display:inline-flex;align-items:center;gap:10px';
-                w.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><line x1="7" y1="7" x2="7.01" y2="7"/><line x1="7" y1="17" x2="7.01" y2="17"/></svg>';
-                var nm = document.createElement('span');
-                nm.textContent = $name;
-                w.appendChild(nm);
-                h.textContent = '';
-                h.appendChild(w);
-                h.style.cursor = 'pointer';
-                h.addEventListener('click', function () { ClubHubApp.openSwitcher(); });
+              if (!$multi) return;
+              // Nur das Symbol ist klickbar (Handy); auf Tablet/Desktop sitzt es in der Seitenleiste
+              if (!document.getElementById('ch-app-css2')) {
+                var st = document.createElement('style');
+                st.id = 'ch-app-css2';
+                st.textContent = '@media (min-width:1024px){.ch-srv-icon{display:none !important}}';
+                document.head.appendChild(st);
               }
-              var t;
-              h.addEventListener('touchstart', function () { t = setTimeout(function () { ClubHubApp.openSwitcher(); }, 600); });
-              ['touchend', 'touchmove', 'touchcancel'].forEach(function (e) { h.addEventListener(e, function () { clearTimeout(t); }); });
+              var w = document.createElement('span');
+              w.style.cssText = 'display:inline-flex;align-items:center;gap:6px';
+              var ib = document.createElement('button');
+              ib.type = 'button';
+              ib.className = 'ch-srv-icon';
+              ib.setAttribute('aria-label', 'Server wechseln');
+              ib.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin-left:-10px;border-radius:12px;background:none;border:0;color:inherit';
+              ib.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><line x1="7" y1="7" x2="7.01" y2="7"/><line x1="7" y1="17" x2="7.01" y2="17"/></svg>';
+              ib.addEventListener('click', function () { ClubHubApp.openSwitcher(); });
+              var nm = document.createElement('span');
+              nm.textContent = $name;
+              w.appendChild(ib);
+              w.appendChild(nm);
+              h.textContent = '';
+              h.appendChild(w);
             })();
         """.trimIndent()
         view.evaluateJavascript(js, null)
