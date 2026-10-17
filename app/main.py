@@ -1561,6 +1561,12 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
         # sichtbar nur für Admins/Schichtleiter (siehe room.html).
         "groups": db.query(models.Group).order_by(models.Group.name).all(),
         "visible_room_groups": visible_room_groups_for_user(user, room),
+        # Zielbereiche für den Verschieben/Kopieren-Dialog (inkl. Gruppen-IDs
+        # für den Hinweis bei nicht passender Gruppenzuordnung).
+        "other_rooms": [
+            {"id": r.id, "name": r.name, "group_ids": [g.id for g in r.groups]}
+            for r in db.query(models.Room).filter(models.Room.id != room_id).order_by(models.Room.name).all()
+        ],
     })
 
 
@@ -7339,6 +7345,73 @@ def admin_edit_task(
         )
     db.commit()
     return RedirectResponse(f"/room/{task.room_id}", status_code=302)
+
+
+@app.post("/admin/tasks/{task_id}/move")
+def admin_move_task(
+    task_id: int,
+    request: Request,
+    target_room_id: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Verschiebt eine Aufgabe in einen anderen Bereich. Es wird nur room_id
+    geändert - Erledigungs-Historie, Snooze und Benachrichtigungsstatus hängen
+    an der Aufgabe und wandern daher mit."""
+    actor = require_admin_or_shift_lead(request, db)
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    target = db.query(models.Room).filter(models.Room.id == target_room_id).first()
+    if not task or not target:
+        return RedirectResponse("/rooms", status_code=302)
+    source_room = task.room
+    if source_room.id == target.id:
+        return RedirectResponse(_with_toast(f"/room/{source_room.id}", "Die Aufgabe liegt bereits in diesem Bereich.", "error"), status_code=302)
+    task.room_id = target.id
+    log_audit(
+        db, actor, "UPDATE", "Aufgabe",
+        f"Aufgabe „{task.name}“ von Bereich {source_room.name} nach {target.name} verschoben (Historie übernommen).",
+    )
+    db.commit()
+    _bump_live_version()
+    return RedirectResponse(
+        _with_toast(f"/room/{source_room.id}", f"„{task.name}“ nach {target.name} verschoben."), status_code=302
+    )
+
+
+@app.post("/admin/tasks/{task_id}/copy")
+def admin_copy_task(
+    task_id: int,
+    request: Request,
+    target_room_ids: list[int] = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Kopiert eine Aufgabe in einen oder mehrere Bereiche - jede Kopie ist
+    eigenständig und startet ohne Erledigungs-Historie (analog admin_add_task)."""
+    actor = require_admin_or_shift_lead(request, db)
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        return RedirectResponse("/rooms", status_code=302)
+    targets = db.query(models.Room).filter(models.Room.id.in_(set(target_room_ids))).order_by(models.Room.name).all()
+    for target in targets:
+        db.add(models.Task(
+            room_id=target.id, name=task.name, interval_hours=task.interval_hours,
+            warn_hours=task.warn_hours, note=task.note, groups=list(task.groups),
+            active_weekdays=task.active_weekdays,
+        ))
+    if targets:
+        names = ", ".join(t.name for t in targets)
+        log_audit(
+            db, actor, "CREATE", "Aufgabe",
+            f"Aufgabe „{task.name}“ aus Bereich {task.room.name} nach {names} kopiert.",
+        )
+        db.commit()
+        _bump_live_version()
+    msg = (
+        f"„{task.name}“ in {len(targets)} {'Bereich' if len(targets) == 1 else 'Bereiche'} kopiert."
+        if targets else "Kein gültiger Zielbereich gewählt."
+    )
+    return RedirectResponse(
+        _with_toast(f"/room/{task.room_id}", msg, "success" if targets else "error"), status_code=302
+    )
 
 
 @app.post("/admin/tasks/{task_id}/delete")

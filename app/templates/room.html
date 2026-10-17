@@ -90,7 +90,7 @@
       <button type="button" class="task-kebab-btn p-2 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Optionen für „{{ task.name }}“" aria-haspopup="true" aria-expanded="false">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
       </button>
-      <div class="task-kebab-menu hidden absolute right-0 top-full mt-1 w-36 rounded-md border border-line bg-panel shadow-lg z-20 py-1">
+      <div class="task-kebab-menu hidden absolute right-0 top-full mt-1 w-56 rounded-md border border-line bg-panel shadow-lg z-20 py-1">
         <button type="button" class="task-edit-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" aria-label="„{{ task.name }}“ bearbeiten"
           data-id="{{ task.id }}"
           data-name="{{ task.name }}"
@@ -102,6 +102,15 @@
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           Bearbeiten
+        </button>
+        <button type="button" class="task-move-btn w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-slate-200 hover:bg-panel2" aria-label="„{{ task.name }}“ verschieben oder kopieren"
+          data-id="{{ task.id }}"
+          data-name="{{ task.name }}"
+          data-group-ids="{{ task.groups|map(attribute='id')|join(',') }}"
+          data-group-names="{{ task.groups|map(attribute='name')|join(', ') }}"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Verschieben / Kopieren…
         </button>
         {% if can_delete_tasks %}
         <form method="post" action="/admin/tasks/{{ task.id }}/delete" class="ajax-delete-form" data-confirm="„{{ task.name }}“ wirklich löschen?">
@@ -661,6 +670,139 @@
     </div>
   </form>
 </div>
+
+<!-- Dialog: Aufgabe in anderen Bereich verschieben oder kopieren. -->
+<div id="task-move-overlay" class="hidden fixed inset-0 bg-black/50 z-40"></div>
+<div id="task-move" class="hidden fixed z-50 bg-panel border border-line shadow-xl inset-x-0 bottom-0 rounded-t-2xl sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[440px] sm:rounded-xl max-h-[85vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="task-move-title">
+  <div class="flex items-center justify-between px-4 py-3.5 border-b border-line">
+    <h2 id="task-move-title" class="font-display font-medium"></h2>
+    <button type="button" id="task-move-close" class="p-1.5 rounded-md text-slate-500 hover:text-slate-100 hover:bg-panel2" aria-label="Schließen">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <form id="task-move-form" method="post" class="p-4 space-y-4">
+    <div>
+      <label class="block text-[11px] text-slate-400 mb-1">Aktion</label>
+      <div class="flex gap-1.5">
+        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+          <input type="radio" name="move_mode" value="move" checked class="sr-only">Verschieben
+        </label>
+        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+          <input type="radio" name="move_mode" value="copy" class="sr-only">Kopieren
+        </label>
+      </div>
+      <p id="task-move-mode-hint" class="text-[11px] text-slate-500 mt-1"></p>
+    </div>
+    <div>
+      <label id="task-move-target-label" class="block text-[11px] text-slate-400 mb-1">Zielbereich</label>
+      <div id="task-move-targets" class="flex flex-wrap gap-1.5">
+        {% for r in other_rooms %}
+        <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-go/15 has-checked:border-go has-checked:text-go">
+          <input type="checkbox" value="{{ r.id }}" data-group-ids="{{ r.group_ids|join(',') }}" data-room-name="{{ r.name }}" class="sr-only">{{ r.name }}
+        </label>
+        {% else %}
+        <span class="text-sm text-slate-500 italic">Keine weiteren Bereiche vorhanden.</span>
+        {% endfor %}
+      </div>
+      <p id="task-move-error" class="hidden text-[11px] text-late mt-1">Bitte mindestens einen Zielbereich wählen.</p>
+      <div id="task-move-warning" class="hidden mt-2 rounded-md border border-warn/50 bg-warn/10 text-warn text-[12px] px-2.5 py-1.5"></div>
+    </div>
+    <div class="flex gap-2 pt-2 border-t border-line">
+      <button type="submit" id="task-move-submit" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium"></button>
+      <button type="button" id="task-move-cancel" class="px-3 py-1.5 rounded-md border border-line text-sm text-slate-300 hover:bg-panel2">Abbrechen</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    var mOverlay = document.getElementById('task-move-overlay');
+    var mDialog = document.getElementById('task-move');
+    var mForm = document.getElementById('task-move-form');
+    var mTitle = document.getElementById('task-move-title');
+    var mSubmit = document.getElementById('task-move-submit');
+    var mHint = document.getElementById('task-move-mode-hint');
+    var mLabel = document.getElementById('task-move-target-label');
+    var mError = document.getElementById('task-move-error');
+    var mWarning = document.getElementById('task-move-warning');
+    var mTargets = Array.prototype.slice.call(document.querySelectorAll('#task-move-targets input[type="checkbox"]'));
+    var mModes = document.querySelectorAll('input[name="move_mode"]');
+    var mTask = null;
+
+    function mode() { return mForm.querySelector('input[name="move_mode"]:checked').value; }
+    function selected() { return mTargets.filter(function (cb) { return cb.checked; }); }
+
+    function refresh() {
+      var isMove = mode() === 'move';
+      var sel = selected();
+      mHint.textContent = isMove
+        ? 'Verschieben nimmt die Erledigungs-Historie mit.'
+        : 'Kopieren startet ohne Erledigungs-Historie, mehrere Bereiche möglich.';
+      mLabel.textContent = isMove ? 'Zielbereich' : 'Zielbereiche';
+      mSubmit.textContent = isMove ? 'Verschieben' : (sel.length > 1 ? 'In ' + sel.length + ' Bereiche kopieren' : 'Kopieren');
+      mForm.action = '/admin/tasks/' + mTask.id + (isMove ? '/move' : '/copy');
+      // Gruppen-Hinweis: nur bei explizit gesetzten Gruppen relevant (leer = automatisch Bereichsgruppen).
+      var taskGroups = mTask.groupIds ? mTask.groupIds.split(',') : [];
+      var bad = taskGroups.length ? sel.filter(function (cb) {
+        var rg = cb.dataset.groupIds ? cb.dataset.groupIds.split(',') : [];
+        return !taskGroups.some(function (g) { return rg.indexOf(g) !== -1; });
+      }) : [];
+      if (bad.length) {
+        mWarning.textContent = 'Die Aufgabe ist der Gruppe „' + mTask.groupNames + '“ zugeordnet, ' +
+          bad.map(function (cb) { return '„' + cb.dataset.roomName + '“'; }).join(', ') +
+          ' gehört aber nicht zu dieser Gruppe.';
+        mWarning.classList.remove('hidden');
+      } else {
+        mWarning.classList.add('hidden');
+      }
+      mError.classList.add('hidden');
+    }
+
+    function openMove(btn) {
+      mTask = btn.dataset;
+      mTitle.textContent = '„' + mTask.name + '“ verschieben / kopieren';
+      mTargets.forEach(function (cb) { cb.checked = false; cb.name = ''; });
+      mModes[0].checked = true;
+      refresh();
+      mOverlay.classList.remove('hidden');
+      mDialog.classList.remove('hidden');
+    }
+    function closeMove() { mOverlay.classList.add('hidden'); mDialog.classList.add('hidden'); }
+
+    mTargets.forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        // Verschieben: genau ein Ziel (wie Radio-Auswahl).
+        if (mode() === 'move' && cb.checked) mTargets.forEach(function (o) { if (o !== cb) o.checked = false; });
+        refresh();
+      });
+    });
+    mModes.forEach(function (r) {
+      r.addEventListener('change', function () {
+        if (mode() === 'move') { var s = selected(); s.slice(1).forEach(function (cb) { cb.checked = false; }); }
+        refresh();
+      });
+    });
+    mForm.addEventListener('submit', function (e) {
+      var sel = selected();
+      if (!sel.length) { e.preventDefault(); mError.classList.remove('hidden'); return; }
+      var field = mode() === 'move' ? 'target_room_id' : 'target_room_ids';
+      mTargets.forEach(function (cb) { cb.name = cb.checked ? field : ''; });
+    });
+
+    document.querySelectorAll('.task-move-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.task-kebab-menu').forEach(function (m) { m.classList.add('hidden'); });
+        openMove(btn);
+      });
+    });
+    document.getElementById('task-move-close').addEventListener('click', closeMove);
+    document.getElementById('task-move-cancel').addEventListener('click', closeMove);
+    mOverlay.addEventListener('click', closeMove);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !mDialog.classList.contains('hidden')) closeMove();
+    });
+  })();
+</script>
 
 <script>
   (function () {
