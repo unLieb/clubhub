@@ -411,6 +411,9 @@ class MainActivity : Activity() {
         fun appVersion(): String = BuildConfig.VERSION_NAME
 
         @JavascriptInterface
+        fun serverName(): String = ServerStore.current(this@MainActivity)?.name ?: ""
+
+        @JavascriptInterface
         fun openPlaces() {
             runOnUiThread { startActivity(Intent(this@MainActivity, PlacesActivity::class.java)) }
         }
@@ -446,7 +449,14 @@ class MainActivity : Activity() {
               if (!h || h.dataset.chApp || h.textContent.trim() !== 'Dashboard') return;
               h.dataset.chApp = '1';
               if ($multi) {
-                h.textContent = $name + ' ▾';
+                var w = document.createElement('span');
+                w.style.cssText = 'display:inline-flex;align-items:center;gap:10px';
+                w.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><line x1="7" y1="7" x2="7.01" y2="7"/><line x1="7" y1="17" x2="7.01" y2="17"/></svg>';
+                var nm = document.createElement('span');
+                nm.textContent = $name;
+                w.appendChild(nm);
+                h.textContent = '';
+                h.appendChild(w);
                 h.style.cursor = 'pointer';
                 h.addEventListener('click', function () { ClubHubApp.openSwitcher(); });
               }
@@ -474,6 +484,22 @@ class MainActivity : Activity() {
             st.textContent = 'header[class~="lg:hidden"]{display:none !important}';
             document.head.appendChild(st);
           }
+          var SRV = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><line x1="7" y1="7" x2="7.01" y2="7"/><line x1="7" y1="17" x2="7.01" y2="17"/></svg>';
+          // Tablet/Desktop: Server-Symbol neben dem Logo in der (mitscrollenden) Seitenleiste
+          var side = document.querySelector('aside > div');
+          if (side && !side.dataset.chSrv) {
+            side.dataset.chSrv = '1';
+            var sb = document.createElement('button');
+            sb.type = 'button';
+            sb.className = 'ml-auto p-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong shrink-0';
+            sb.title = 'Server wechseln (' + ClubHubApp.serverName() + ')';
+            sb.setAttribute('aria-label', 'Server wechseln');
+            sb.innerHTML = SRV;
+            sb.addEventListener('click', function () { ClubHubApp.openSwitcher(); });
+            side.appendChild(sb);
+            var sv = side.querySelector('a[href="/changelog"]');
+            if (sv) sv.textContent = ClubHubApp.serverName() + ' · ' + sv.textContent;
+          }
           var grid = document.querySelector('#mobile-more-sheet .grid');
           if (!grid || grid.dataset.chApp) return;
           grid.dataset.chApp = '1';
@@ -488,6 +514,7 @@ class MainActivity : Activity() {
             grid.appendChild(e);
             return e;
           }
+          cell('button', SRV, ClubHubApp.serverName(), function () { ClubHubApp.openSwitcher(); });
           cell('a', ico('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'), 'Profil', null, '/profile');
           var n = cell('button', ico('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'), '', function () {
             ClubHubApp.toggleNotifications();

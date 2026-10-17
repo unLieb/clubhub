@@ -11,6 +11,7 @@ sind darin nicht abgebildet).
 
 ## [1.4.1] - 2026-10-17
 - Server-Wechsel-Fenster klappt auf Tablets und im Querformat jetzt immer ganz auf (vorher nur ein schmaler Streifen, den man hochziehen musste).
+- Server-Wechsel als dauerhaftes Symbol (Server-Icon wie in Mattermost) statt nur über den Namen in der Dashboard-Überschrift: auf Tablet/Desktop neben dem Logo in der Seitenleiste (scrollt nicht weg, darunter steht „Servername · Version"), auf dem Handy als Eintrag „Servername" im „Mehr"-Menü auf jeder Seite; die Dashboard-Überschrift zeigt Symbol und Name. Auch mit nur einem Server vorhanden, damit weitere Server hinzugefügt werden können.
 - Update-Prüfung schaut bei allen hinterlegten Servern nach und bietet die neueste Version an (nicht nur beim gerade aktiven Server).
 - „Mehr"-Menü: neuer Eintrag „Update" prüft sofort auf eine neue App-Version und meldet auch „App ist aktuell"; im Fuß steht jetzt neben der Server- auch die App-Version.
 
