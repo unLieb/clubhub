@@ -11,7 +11,7 @@ sind darin nicht abgebildet).
 
 ## [1.4.0] - 2026-10-17
 - Verteilung vom eigenen Server: signierte Release-APK (eigener Schlüssel außerhalb des Repos, `android/release.sh` baut sie und legt sie samt `latest.json` in den Server-Ordner `app/static/app/`). Der Download-Link steht im Profil der Serveroberfläche (Server 1.53.0).
-- Update-Hinweis: die App fragt höchstens alle 12 Stunden beim aktuellen Server nach einer neueren Version und bietet den Download an. (Commit am Abend, kein Hash - siehe `git log`)
+- Integrierter Updater: die App fragt höchstens alle 12 Stunden beim aktuellen Server nach einer neueren Version, lädt die APK mit Fortschrittsanzeige, prüft die SHA-256-Prüfsumme und übergibt sie dem Android-Installer. Einmalig muss „Installation aus dieser Quelle zulassen" erlaubt werden, bei jedem Update bleibt eine Bestätigung am Handy (Android-Vorgabe; ab Android 12 entfällt sie, wenn die App selbst die Vorversion installiert hat). Android prüft zusätzlich, dass die neue APK denselben Signaturschlüssel hat. (Commit am Abend, kein Hash - siehe `git log`)
 - Hinweis: Die Release-Signatur unterscheidet sich von der bisherigen Debug-Installation. Beim ersten Wechsel muss die Debug-Version einmal deinstalliert werden (Server, Orte und Anmeldung danach neu eintragen). Ab dann laufen Updates ohne Deinstallation.
 
 ## [1.3.0] - 2026-10-17

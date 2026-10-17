@@ -260,29 +260,55 @@ class MainActivity : Activity() {
         if (System.currentTimeMillis() - prefs.getLong("update_check", 0) < 12 * 3600 * 1000L) return
         prefs.edit().putLong("update_check", System.currentTimeMillis()).apply()
         Thread {
-            try {
-                val conn = java.net.URL("${server.url}/static/app/latest.json").openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 10_000
-                conn.readTimeout = 10_000
-                if (conn.responseCode != 200) { conn.disconnect(); return@Thread }
-                val j = org.json.JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
-                conn.disconnect()
-                if (j.getInt("versionCode") <= BuildConfig.VERSION_CODE) return@Thread
-                val name = j.getString("versionName")
-                val apk = server.url + j.optString("apk", "/static/app/clubhub.apk")
-                runOnUiThread {
-                    if (isFinishing || isDestroyed) return@runOnUiThread
-                    MaterialAlertDialogBuilder(this)
-                        .setTitle("Neue App-Version")
-                        .setMessage("Version $name ist verfügbar (installiert: ${BuildConfig.VERSION_NAME}). Jetzt herunterladen?")
-                        .setPositiveButton("Herunterladen") { _, _ ->
-                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apk)))
-                        }
-                        .setNegativeButton("Später", null)
-                        .show()
+            val info = try { Updater.fetchInfo(server) } catch (e: Exception) { null } ?: return@Thread
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Neue App-Version")
+                    .setMessage("Version ${info.name} ist verfügbar (installiert: ${BuildConfig.VERSION_NAME}).")
+                    .setPositiveButton("Jetzt aktualisieren") { _, _ -> startUpdate(info) }
+                    .setNegativeButton("Später", null)
+                    .show()
+            }
+        }.start()
+    }
+
+    /** Laedt die neue APK mit Fortschrittsanzeige und startet die Installation. */
+    private fun startUpdate(info: UpdateInfo) {
+        if (!packageManager.canRequestPackageInstalls()) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Erlaubnis nötig")
+                .setMessage("Damit sich ClubHUB selbst aktualisieren kann, muss einmalig „Installation aus dieser Quelle zulassen“ aktiviert werden. Danach das Update erneut starten.")
+                .setPositiveButton("Einstellungen") { _, _ ->
+                    startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
                 }
+                .setNegativeButton("Abbrechen", null)
+                .show()
+            return
+        }
+        val bar = com.google.android.material.progressindicator.LinearProgressIndicator(this).apply {
+            max = 100
+            isIndeterminate = false
+        }
+        val box = LinearLayout(this).apply {
+            setPadding(Ui.dp(context, 24), Ui.dp(context, 16), Ui.dp(context, 24), Ui.dp(context, 8))
+            addView(bar, LinearLayout.LayoutParams(-1, -2))
+        }
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("Lade Version ${info.name} …")
+            .setView(box)
+            .setCancelable(false)
+            .show()
+        Thread {
+            try {
+                val file = Updater.download(this, info) { pct -> runOnUiThread { bar.setProgressCompat(pct, true) } }
+                runOnUiThread { dialog.dismiss() }
+                Updater.install(this, file)
             } catch (e: Exception) {
-                // kein Update-Hinweis - der Server hat evtl. (noch) keine App-Datei
+                runOnUiThread {
+                    dialog.dismiss()
+                    Toast.makeText(this, "Update fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }.start()
     }

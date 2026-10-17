@@ -65,6 +65,8 @@ logger = logging.getLogger("reinigungsplan.main")
 
 app = FastAPI(title="ClubHUB")
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "change-me-in-production"))
+import mimetypes
+mimetypes.add_type("application/vnd.android.package-archive", ".apk")
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 
 # Foto-Uploads zu Meldungen liegen im persistenten Datenverzeichnis (nicht im
