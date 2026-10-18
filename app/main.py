@@ -3614,6 +3614,28 @@ templates.env.globals["report_photo_urls"] = report_photo_urls
 # für Defekte, passt hier nicht). "kuehlung" ist ebenfalls roomless - eine
 # Kuehlzelle ist kein Bereich (Room), sondern ein eigenes CoolingDevice.
 REPORT_ROOMLESS_CATEGORIES = ("anschaffung", "kuehlung")
+# Sentinel-Wert im "Bereich"-Dropdown des Meldungs-Formulars: "Sonstiges" =
+# alles, wofuer kein eigener Bereich angelegt ist (z.B. ein Fahrzeug). Wird wie
+# "kein Bereich" (room_id NULL) gespeichert, behaelt aber Kategorie und
+# Prioritaet - anders als die roomless-Kategorien oben.
+REPORT_OTHER_AREA = "other"
+
+
+def report_is_other_area(report) -> bool:
+    """True bei einer Meldung ohne Bereich, die nicht zu einer roomless-
+    Kategorie gehoert (also bewusst unter "Sonstiges" gemeldet wurde)."""
+    return report.room_id is None and report.category not in REPORT_ROOMLESS_CATEGORIES
+
+
+def report_place_label(report) -> str:
+    """Anzeigename des Orts einer Meldung fuer Push-Titel: Bereichsname,
+    "Sonstiges" oder "Materialwunsch" (Anschaffung/Kuehlung ohne Bereich)."""
+    if report.room:
+        return report.room.name
+    return "Sonstiges" if report_is_other_area(report) else "Materialwunsch"
+
+
+templates.env.globals["report_is_other_area"] = report_is_other_area
 REPORT_STATUSES = ("open", "in_progress", "done")
 
 
@@ -4017,7 +4039,8 @@ async def reports_create(
     # reports.html, die group_mode beim Ankreuzen einer Gruppe zuruecksetzt.
     selected_group_ids = sorted({int(g) for g in assigned_group_ids if g.strip().isdigit()})
     is_company_wide = group_mode == "all" and not selected_group_ids
-    room_id_int = int(room_id) if room_id.strip() else None
+    other_area = room_id.strip() == REPORT_OTHER_AREA
+    room_id_int = int(room_id) if room_id.strip().isdigit() else None
 
     # "Anschaffung" hängt an keinem Bereich, sondern an einer zuständigen
     # Gruppe (man bestellt für die eigene Gruppe, nicht für einen Raum) - und
@@ -4029,6 +4052,16 @@ async def reports_create(
         if not selected_group_ids and not is_company_wide:
             return RedirectResponse(
                 _with_toast("/reports", "Für „Anschaffung“ bitte eine zuständige Gruppe auswählen.", "error"),
+                status_code=302,
+            )
+    elif other_area:
+        # "Sonstiges": kein Bereich, aber Prioritaet bleibt. Ohne Bereich gibt
+        # es keine Bereichsgruppen-Ableitung, also Zustaendigkeit Pflicht.
+        if priority not in REPORT_PRIORITIES:
+            priority = "normal"
+        if not selected_group_ids and not is_company_wide:
+            return RedirectResponse(
+                _with_toast("/reports", "Für „Sonstiges“ bitte eine zuständige Gruppe auswählen.", "error"),
                 status_code=302,
             )
     else:
@@ -4060,7 +4093,9 @@ async def reports_create(
     if selected_group_ids:
         report.groups = db.query(models.Group).filter(models.Group.id.in_(selected_group_ids)).all()
     db.add(report)
-    room_label = room_for_check.name if not roomless else "kein Bereich (Anschaffung)"
+    room_label = (
+        "kein Bereich (Anschaffung)" if roomless else "Sonstiges (kein Bereich)" if other_area else room_for_check.name
+    )
     log_audit(
         db, user, "CREATE", "Meldung",
         f'Meldung „{title}“ angelegt (Kategorie: {category}{f", Priorität: {priority}" if priority else ""}, '
@@ -4102,11 +4137,12 @@ async def reports_create(
     msg = f"{title} – {comment}" if comment else title
     msg = msg if len(msg) <= 200 else msg[:197] + "…"
     focus_url = f"/reports/{report.id}"
-    if roomless:
+    if roomless or other_area:
+        no_room_title = "Neuer Materialwunsch" if roomless else "Neue Meldung: Sonstiges"
         if is_company_wide:
             all_groups = db.query(models.Group).options(*group_loaders).all()
             if all_groups:
-                background_tasks.add_task(notify_groups, all_groups, "Neuer Materialwunsch", msg, "default", focus_url)
+                background_tasks.add_task(notify_groups, all_groups, no_room_title, msg, "default", focus_url)
         elif selected_group_ids:
             # Kein Bereich -> immer genau die (Pflicht-)Zuständigkeitsgruppe(n)
             # benachrichtigen, keine Bereichsgruppen-Ableitung möglich.
@@ -4115,7 +4151,7 @@ async def reports_create(
             )
             if assigned_groups:
                 background_tasks.add_task(
-                    notify_groups, assigned_groups, "Neuer Materialwunsch", msg, "default", focus_url
+                    notify_groups, assigned_groups, no_room_title, msg, "default", focus_url
                 )
     else:
         room = (
@@ -4271,7 +4307,7 @@ async def reports_set_status(
         report_title, _ = split_report_text(report)
         log_audit(
             db, user, "UPDATE", "Meldung",
-            f'Meldung „{report_title}“ ({report.room.name if report.room else "kein Bereich"}) '
+            f'Meldung „{report_title}“ ({report_place_label(report) if report.room or report_is_other_area(report) else "kein Bereich"}) '
             f"Status: {REPORT_STATUS_LABELS.get(old_status, old_status)} → {REPORT_STATUS_LABELS.get(status, status)}.",
         )
         db.commit()
@@ -4282,7 +4318,7 @@ async def reports_set_status(
         # kümmert, ohne dass es doppelt gemacht wird. Anders als bei einer
         # neuen Meldung bewusst ohne Arbeitszeit-Fenster: bleibt konsistent
         # mit dem Verhalten der ursprünglichen Meldungs-Benachrichtigung.
-        title = f"{STATUS_CHANGE_TITLES[status]}: {report.room.name if report.room else 'Materialwunsch'}"
+        title = f"{STATUS_CHANGE_TITLES[status]}: {report_place_label(report)}"
         report_title, _body = split_report_text(report)
         comment_preview = report_title if len(report_title) <= 120 else report_title[:117] + "…"
         msg = f"{user.name}: „{comment_preview}“"
@@ -4332,7 +4368,7 @@ def reports_delete(report_id: int, request: Request, db: Session = Depends(get_d
         report_title, _ = split_report_text(report)
         log_audit(
             db, user, "DELETE", "Meldung",
-            f'Meldung „{report_title}“ ({report.room.name if report.room else "kein Bereich"}, '
+            f'Meldung „{report_title}“ ({report_place_label(report) if report.room or report_is_other_area(report) else "kein Bereich"}, '
             f"Status: {REPORT_STATUS_LABELS.get(report.status, report.status)}) gelöscht.",
         )
         db.delete(report)
@@ -4425,7 +4461,7 @@ async def reports_add_comment(
     db.commit()
     _bump_live_version()
 
-    title = f"Neuer Kommentar: {report.room.name if report.room else 'Materialwunsch'}"
+    title = f"Neuer Kommentar: {report_place_label(report)}"
     if text:
         preview = text if len(text) <= 120 else text[:117] + "…"
         msg = f"{user.name}: „{preview}“"
@@ -4499,7 +4535,7 @@ def reports_assign(
             report_title, _ = split_report_text(report)
             log_audit(
                 db, user, "UPDATE", "Meldung",
-                f'Meldung „{report_title}“ ({report.room.name if report.room else "kein Bereich"}) '
+                f'Meldung „{report_title}“ ({report_place_label(report) if report.room or report_is_other_area(report) else "kein Bereich"}) '
                 f"Zuständigkeit: {old_label} → {new_label}.",
             )
         db.commit()
