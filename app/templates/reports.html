@@ -138,8 +138,9 @@
         <div id="report-f-room-field">
           <label class="block text-[11px] text-slate-400 mb-1">Bereich</label>
           <select name="room_id" id="report-f-room" required class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-            {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
             <option value="other">Sonstiges (kein Bereich)</option>
+            {% if rooms %}<option disabled>──────────</option>{% endif %}
+            {% for r in rooms %}<option value="{{ r.id }}" {% if loop.first %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
           </select>
         </div>
         <div>
