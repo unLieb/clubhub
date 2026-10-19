@@ -61,6 +61,27 @@ class PlacesActivity : Activity() {
         card("home", "Zu Hause", "Hier gibt es keine Mitteilungen.")
         card("work", "Arbeit", "Nur hier gibt es Mitteilungen.")
 
+        // Diagnose: was hat die Regel zuletzt entschieden und warum
+        val diag = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+        }
+        diag.addView(text("Letzte Entscheidung", 15f, Ui.color(this, Ui.onSurface), true))
+        diag.addView(
+            text(Places.lastDecision(this) ?: "Noch keine Mitteilung gepr\u00fcft.", 13f, Ui.color(this, Ui.onSurfaceVariant)),
+            Ui.margins(diag, t = 4)
+        )
+        diag.addView(Ui.tonalButton(this, "Jetzt pr\u00fcfen") {
+            Toast.makeText(this, "Standort wird bestimmt \u2026", Toast.LENGTH_SHORT).show()
+            Thread {
+                val (_, why) = Places.evaluate(this)
+                runOnUiThread {
+                    MaterialAlertDialogBuilder(this).setTitle("Ergebnis").setMessage("Jetzt: $why").setPositiveButton("OK", null).show()
+                }
+            }.start()
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10) })
+        content.addView(Ui.card(this, false).apply { addView(diag) }, Ui.margins(content, t = 4, b = 10))
+
         if (Places.get(this, Places.HOME) != null || Places.get(this, Places.WORK) != null) {
             if (!Places.hasForegroundPermission(this) || !Places.hasBackgroundPermission(this)) {
                 content.addView(

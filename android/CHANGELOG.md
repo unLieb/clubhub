@@ -9,6 +9,12 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.4.2] - 2026-10-19
+- Flutschutz bei Mitteilungen: Kommen mehr als 4 Mitteilungen eines Servers binnen 2 Minuten (z. B. morgens, wenn viele Aufgaben gleichzeitig fällig werden), werden die weiteren zu **einer** leise aktualisierten Sammelmitteilung („Kantine · 12 weitere Mitteilungen") zusammengefasst statt einzeln anzuzeigen.
+- Orte-Regel zuverlässiger: pro Abruf wird nur noch **einmal** entschieden (vorher je Mitteilung eine eigene Standortabfrage mit bis zu 12 s Wartezeit), und wenn gerade kein neuer Standort zu bekommen ist, gilt der zuletzt bestimmte (bis 6 Stunden alt) – bisher wurde in dem Fall zur Sicherheit angezeigt, auch wenn man zu Hause war.
+- Orte-Seite zeigt die **letzte Entscheidung mit Begründung** („zu Hause (40 m, aktuell) – verworfen", „kein Standort verfügbar – angezeigt") und hat den Knopf „Jetzt prüfen", der den Standort sofort bestimmt und das Ergebnis anzeigt. So lässt sich nachvollziehen, warum eine Mitteilung angezeigt wurde.
+- Server-Symbol, „Orte", „Update" usw. verschwinden nicht mehr nach der Live-Aktualisierung der Seite: die App baut ihre Elemente automatisch wieder ein, sobald die Seite sich ändert.
+
 ## [1.4.1] - 2026-10-17
 - Server-Wechsel-Fenster klappt auf Tablets und im Querformat jetzt immer ganz auf (vorher nur ein schmaler Streifen, den man hochziehen musste).
 - Server-Wechsel als dauerhaftes Symbol (Server-Icon wie in Mattermost) statt nur über den Namen in der Dashboard-Überschrift: auf Tablet/Desktop neben dem Logo in der Seitenleiste (scrollt nicht weg, darunter steht „Servername · Version"), auf dem Handy als Eintrag „Servername" im „Mehr"-Menü auf jeder Seite; die Dashboard-Überschrift zeigt auf dem Handy Symbol und Name – nur das Symbol ist klickbar, auf dem Tablet steht dort nur der Name (das Symbol sitzt in der Seitenleiste). Die Symbole geben beim Antippen sichtbar Rückmeldung (kurz verkleinert mit Hintergrund). Auch mit nur einem Server vorhanden, damit weitere Server hinzugefügt werden können.

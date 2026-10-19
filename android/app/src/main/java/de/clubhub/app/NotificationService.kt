@@ -123,9 +123,12 @@ class NotificationService : Service() {
                 conn.disconnect()
                 val json = JSONObject(body)
                 val msgs = json.getJSONArray("messages")
-                for (i in 0 until msgs.length()) {
-                    val m = msgs.getJSONObject(i)
-                    show(server, m.getInt("id"), m.getString("title"), m.getString("message"), m.optString("url", "/"))
+                if (msgs.length() > 0) {
+                    val list = (0 until msgs.length()).map {
+                        val m = msgs.getJSONObject(it)
+                        Incoming(m.getInt("id"), m.getString("title"), m.getString("message"), m.optString("url", "/"))
+                    }
+                    handleBatch(server, list)
                 }
                 json.optJSONArray("work_hours")?.let { ServerStore.setWorkHours(this, server.id, it.toString()) }
                 after = json.getInt("last_id")
@@ -146,19 +149,77 @@ class NotificationService : Service() {
         }
     }
 
-    private fun show(server: Server, id: Int, title: String, message: String, path: String) {
-        // Orte-Regel (Zu Hause / Arbeit)
+    private class Incoming(val id: Int, val title: String, val message: String, val path: String)
+    private class Burst(var count: Int, val lines: MutableList<String>, var last: Long)
+
+    private val recent = HashMap<String, java.util.ArrayDeque<Long>>()
+    private val bursts = HashMap<String, Burst>()
+
+    /** Eine Entscheidung (Orte-Regel) je Abruf statt je Mitteilung - spart Standortabfragen und Zeit. */
+    private fun handleBatch(server: Server, list: List<Incoming>) {
         when (Places.decide(this)) {
             Places.Decision.DROP -> return
-            Places.Decision.HOLD -> {
-                Held.add(this, HeldMessage(server.id, title, message, path, System.currentTimeMillis()))
-                return
+            Places.Decision.HOLD -> list.forEach {
+                Held.add(this, HeldMessage(server.id, it.title, it.message, it.path, System.currentTimeMillis()))
             }
             Places.Decision.SHOW -> {
                 flushHeld() // evtl. Zurueckgehaltenes zuerst als Sammelmitteilung
-                post(server, id, title, message, path)
+                list.forEach { deliver(server, it) }
             }
         }
+    }
+
+    /**
+     * Flutschutz: kommen mehr als 4 Mitteilungen binnen 2 Minuten (z.B. morgens, wenn viele Aufgaben auf
+     * einmal faellig werden), werden die weiteren zu EINER leise aktualisierten Sammelmitteilung zusammengefasst.
+     */
+    private fun deliver(server: Server, m: Incoming) {
+        val now = System.currentTimeMillis()
+        synchronized(lock) {
+            val q = recent.getOrPut(server.id) { java.util.ArrayDeque() }
+            while (q.isNotEmpty() && now - q.first() > 120_000) q.removeFirst()
+            var b = bursts[server.id]
+            if (b != null && now - b.last >= 10 * 60_000L) { bursts.remove(server.id); b = null }
+            if (b == null && q.size < 4) {
+                q.addLast(now)
+                post(server, m.id, m.title, m.message, m.path)
+                return
+            }
+            if (b == null) { b = Burst(0, mutableListOf(), now); bursts[server.id] = b }
+            b.count++
+            b.last = now
+            b.lines.add(m.title + ": " + m.message.lineSequence().first())
+            postBurst(server, b)
+        }
+    }
+
+    private fun postBurst(server: Server, b: Burst) {
+        val color = colorFor(server)
+        val open = Intent(this, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
+            data = Uri.parse(server.url + "/")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pi = PendingIntent.getActivity(
+            this, server.id.hashCode() xor 0xB00, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val style = Notification.InboxStyle()
+        b.lines.takeLast(7).forEach { style.addLine(it) }
+        if (b.count > 7) style.setSummaryText("+${b.count - 7} weitere")
+        val n = Notification.Builder(this, channelId(server))
+            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setColor(color)
+            .setLargeIcon(avatar(server.name, color))
+            .setContentTitle("${server.name} \u00b7 ${b.count} weitere Mitteilungen")
+            .setContentText(b.lines.last())
+            .setStyle(style)
+            .setSubText(server.name)
+            .setGroup("srv_" + server.id)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(server.id.hashCode() xor 0xB00, n)
     }
 
     /** Solange etwas zurueckgehalten wird und Arbeitszeit ist: alle 10 Min. pruefen, ob man auf Arbeit angekommen ist. */

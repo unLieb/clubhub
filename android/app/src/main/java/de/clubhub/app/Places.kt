@@ -70,7 +70,7 @@ object Places {
         val fresh = providers.mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
             .filter { System.currentTimeMillis() - it.time < 180_000 }
             .minByOrNull { it.accuracy }
-        if (fresh != null) return fresh
+        if (fresh != null) { saveFix(ctx, fresh); return fresh }
 
         val latch = CountDownLatch(1)
         var result: Location? = null
@@ -92,7 +92,37 @@ object Places {
             runCatching { lm.removeUpdates(listener) }
             thread.quitSafely()
         }
+        result?.let { saveFix(ctx, it) }
         return result
+    }
+
+    /** Letzte gute Standortbestimmung merken: Notnagel, wenn spaeter gerade keine neue gelingt. */
+    private fun saveFix(ctx: Context, l: Location) {
+        prefs(ctx).edit()
+            .putLong("fix_lat", l.latitude.toBits()).putLong("fix_lon", l.longitude.toBits())
+            .putFloat("fix_acc", l.accuracy).putLong("fix_time", System.currentTimeMillis()).apply()
+    }
+
+    private fun lastFix(ctx: Context, maxAgeMs: Long): Location? {
+        val p = prefs(ctx)
+        val t = p.getLong("fix_time", 0)
+        if (t == 0L || System.currentTimeMillis() - t > maxAgeMs) return null
+        return Location("saved").apply {
+            latitude = Double.fromBits(p.getLong("fix_lat", 0))
+            longitude = Double.fromBits(p.getLong("fix_lon", 0))
+            accuracy = p.getFloat("fix_acc", 100f)
+        }
+    }
+
+    /** Aktueller Standort, sonst der zuletzt gespeicherte (max. 6 Stunden alt); null = gar keiner. */
+    private fun locate(ctx: Context): Pair<Location, String>? {
+        currentLocation(ctx)?.let { return it to "aktuell" }
+        val p = prefs(ctx)
+        lastFix(ctx, 6 * 3600_000L)?.let {
+            val min = (System.currentTimeMillis() - p.getLong("fix_time", 0)) / 60_000
+            return it to "gespeichert, vor $min Min."
+        }
+        return null
     }
 
     fun distance(a: Location, p: Place): Float {
@@ -139,15 +169,36 @@ object Places {
      *  - nur "Zu Hause": zu Hause verwerfen, sonst anzeigen
      */
     fun decide(ctx: Context): Decision {
+        val (d, why) = evaluate(ctx)
+        prefs(ctx).edit()
+            .putString("last_decision", why).putLong("last_decision_time", System.currentTimeMillis()).apply()
+        return d
+    }
+
+    /** Letzte Entscheidung als Text fuer die Orte-Seite ("17.10. 05:21 - zu Hause (40 m) - verworfen"). */
+    fun lastDecision(ctx: Context): String? {
+        val p = prefs(ctx)
+        val why = p.getString("last_decision", null) ?: return null
+        val t = java.text.SimpleDateFormat("dd.MM. HH:mm", java.util.Locale.GERMANY)
+            .format(java.util.Date(p.getLong("last_decision_time", 0)))
+        return "$t \u2013 $why"
+    }
+
+    /** Die Entscheidung samt Begruendung (ohne sie zu speichern), auch fuer "Jetzt pruefen". */
+    fun evaluate(ctx: Context): Pair<Decision, String> {
         val home = get(ctx, HOME)
         val work = get(ctx, WORK)
-        if (home == null && work == null) return Decision.SHOW
+        if (home == null && work == null) return Decision.SHOW to "keine Orte festgelegt \u2013 angezeigt"
         if (work != null) {
-            if (!inWindow(ctx)) return Decision.HOLD
-            val loc = currentLocation(ctx) ?: return Decision.SHOW
-            return if (atWork(ctx, loc)) Decision.SHOW else Decision.HOLD
+            if (!inWindow(ctx)) return Decision.HOLD to "au\u00dferhalb der Arbeitszeit \u2013 zur\u00fcckgehalten"
+            val (loc, src) = locate(ctx) ?: return Decision.SHOW to "kein Standort verf\u00fcgbar \u2013 angezeigt"
+            val d = distance(loc, work).toInt()
+            return if (atWork(ctx, loc)) Decision.SHOW to "auf Arbeit ($d m, $src) \u2013 angezeigt"
+            else Decision.HOLD to "nicht auf Arbeit ($d m entfernt, $src) \u2013 zur\u00fcckgehalten"
         }
-        val loc = currentLocation(ctx) ?: return Decision.SHOW
-        return if (distance(loc, home!!) + loc.accuracy / 2f > home.radius) Decision.SHOW else Decision.DROP
+        val (loc, src) = locate(ctx) ?: return Decision.SHOW to "kein Standort verf\u00fcgbar \u2013 angezeigt"
+        val d = distance(loc, home!!).toInt()
+        return if (d + loc.accuracy / 2f > home.radius) Decision.SHOW to "nicht zu Hause ($d m entfernt, $src) \u2013 angezeigt"
+        else Decision.DROP to "zu Hause ($d m, $src) \u2013 verworfen"
     }
 }

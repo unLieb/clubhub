@@ -406,6 +406,11 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun reinject() {
+            runOnUiThread { injectHeading(web) }
+        }
+
+        @JavascriptInterface
         fun checkUpdate() {
             runOnUiThread { checkForUpdate(force = true, notify = true) }
         }
@@ -478,7 +483,29 @@ class MainActivity : Activity() {
         """.trimIndent()
         view.evaluateJavascript(js, null)
         view.evaluateJavascript(CHROME_JS, null)
+        view.evaluateJavascript(OBSERVER_JS, null)
     }
+
+    /**
+     * Die Live-Aktualisierung der Seite ersetzt Teile des Dokuments und loescht dabei die eingebauten
+     * App-Elemente (Server-Symbol, Mehr-Eintraege). Dieser Beobachter baut sie nach jeder Aenderung wieder ein.
+     */
+    private val OBSERVER_JS = """
+        (function () {
+          if (window.__chObs) return;
+          window.__chObs = true;
+          var t = null, last = 0;
+          new MutationObserver(function () {
+            if (t) return;
+            t = setTimeout(function () {
+              t = null;
+              if (Date.now() - last < 1500) return;
+              last = Date.now();
+              try { ClubHubApp.reinject(); } catch (e) {}
+            }, 500);
+          }).observe(document.body, { childList: true, subtree: true });
+        })();
+    """.trimIndent()
 
     /**
      * Blendet die mobile Kopfzeile der Seite aus (Platz!) und legt ihre Funktionen
