@@ -28,6 +28,7 @@ class NotificationService : Service() {
         private const val CH_SERVICE = "service"
         private const val CH_MESSAGES = "messages"
         private const val ID_SERVICE = 1
+        const val ACTION_TEST = "de.clubhub.app.TEST_PLACES"
         private val PALETTE = intArrayOf(
             0xFF2E7D5B.toInt(), 0xFF1E6FD9.toInt(), 0xFFD9822B.toInt(),
             0xFF8E44AD.toInt(), 0xFFC0392B.toInt(), 0xFF16A0A8.toInt()
@@ -79,6 +80,22 @@ class NotificationService : Service() {
             Thread { pollLoop(server, gen) }.apply { isDaemon = true }.start()
         }
         Thread { arrivalLoop(gen) }.apply { isDaemon = true }.start()
+        if (intent?.action == ACTION_TEST) {
+            // Orte-Test aus dem Hintergrund: nach 20 s entscheiden und das Ergebnis als Mitteilung zeigen
+            Thread {
+                Thread.sleep(20_000)
+                val (_, why) = Places.evaluate(this)
+                Places.decide(this)
+                val n = Notification.Builder(this, CH_SERVICE)
+                    .setSmallIcon(android.R.drawable.stat_notify_chat)
+                    .setContentTitle("Orte-Test (Hintergrund)")
+                    .setContentText(why)
+                    .setStyle(Notification.BigTextStyle().bigText(why))
+                    .setAutoCancel(true)
+                    .build()
+                nm.notify(0x7E57, n)
+            }.start()
+        }
         return START_STICKY
     }
 
@@ -225,12 +242,14 @@ class NotificationService : Service() {
     /** Solange etwas zurueckgehalten wird und Arbeitszeit ist: alle 10 Min. pruefen, ob man auf Arbeit angekommen ist. */
     private fun arrivalLoop(gen: Int) {
         while (alive(gen)) {
-            sleep(gen, 10 * 60_000L)
+            sleep(gen, 5 * 60_000L)
             if (!alive(gen)) return
             try {
                 if (Held.count(this) > 0 && Places.get(this, Places.WORK) != null && Places.inWindow(this)) {
                     val loc = Places.currentLocation(this)
                     if (loc != null && Places.atWork(this, loc)) flushHeld()
+                    // Notausgang: laesst sich gar kein Standort bestimmen, nach 30 Min. trotzdem gesammelt zeigen
+                    else if (loc == null && System.currentTimeMillis() - (Held.all(this).minOfOrNull { it.time } ?: Long.MAX_VALUE) >= 30 * 60_000L) flushHeld()
                 }
             } catch (e: Exception) {
                 // naechster Durchlauf

@@ -80,6 +80,17 @@ class PlacesActivity : Activity() {
                 }
             }.start()
         }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10) })
+        diag.addView(Ui.tonalButton(this, "Test aus dem Hintergrund (20 s)") {
+            try {
+                startForegroundService(Intent(this, NotificationService::class.java).setAction(NotificationService.ACTION_TEST))
+                Toast.makeText(
+                    this, "Jetzt App schlie\u00dfen und Handy sperren \u2013 in 20 Sekunden kommt das Ergebnis als Mitteilung",
+                    Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Test konnte nicht gestartet werden: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(8) })
         content.addView(Ui.card(this, false).apply { addView(diag) }, Ui.margins(content, t = 4, b = 10))
 
         if (Places.get(this, Places.HOME) != null || Places.get(this, Places.WORK) != null) {

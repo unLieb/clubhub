@@ -9,6 +9,10 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.4.3] - 2026-10-19
+- Orte: „Test aus dem Hintergrund (20 s)" – bestimmt nach 20 Sekunden (App geschlossen, Handy gesperrt) den Standort aus dem Dienst heraus und zeigt das Ergebnis als Mitteilung. Damit lässt sich prüfen, ob die Ortung im Hintergrund funktioniert, nicht nur bei geöffneter App.
+- Ist „Arbeit" gesetzt und lässt sich kein Standort bestimmen, werden Mitteilungen jetzt **zurückgehalten** statt angezeigt (vorher: angezeigt). Der Dienst prüft alle 5 Minuten (vorher 10) und zeigt Zurückgehaltenes spätestens nach 30 Minuten als eine Sammelmitteilung, auch wenn der Standort weiter unbekannt bleibt – nichts geht verloren, es gibt aber keine Flut.
+
 ## [1.4.2] - 2026-10-19
 - Flutschutz bei Mitteilungen: Kommen mehr als 4 Mitteilungen eines Servers binnen 2 Minuten (z. B. morgens, wenn viele Aufgaben gleichzeitig fällig werden), werden die weiteren zu **einer** leise aktualisierten Sammelmitteilung („Kantine · 12 weitere Mitteilungen") zusammengefasst statt einzeln anzuzeigen.
 - Orte-Regel zuverlässiger: pro Abruf wird nur noch **einmal** entschieden (vorher je Mitteilung eine eigene Standortabfrage mit bis zu 12 s Wartezeit), und wenn gerade kein neuer Standort zu bekommen ist, gilt der zuletzt bestimmte (bis 6 Stunden alt) – bisher wurde in dem Fall zur Sicherheit angezeigt, auch wenn man zu Hause war.

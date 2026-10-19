@@ -191,7 +191,8 @@ object Places {
         if (home == null && work == null) return Decision.SHOW to "keine Orte festgelegt \u2013 angezeigt"
         if (work != null) {
             if (!inWindow(ctx)) return Decision.HOLD to "au\u00dferhalb der Arbeitszeit \u2013 zur\u00fcckgehalten"
-            val (loc, src) = locate(ctx) ?: return Decision.SHOW to "kein Standort verf\u00fcgbar \u2013 angezeigt"
+            val (loc, src) = locate(ctx)
+                ?: return Decision.HOLD to "kein Standort verf\u00fcgbar \u2013 zur\u00fcckgehalten (sp\u00e4testens nach 30 Min. gesammelt)"
             val d = distance(loc, work).toInt()
             return if (atWork(ctx, loc)) Decision.SHOW to "auf Arbeit ($d m, $src) \u2013 angezeigt"
             else Decision.HOLD to "nicht auf Arbeit ($d m entfernt, $src) \u2013 zur\u00fcckgehalten"
