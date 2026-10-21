@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.53.4] - 2026-10-21
+- Meldungen: die Kategorie „Defekt“ heißt jetzt „Reparatur / Wartung“ (Auswahl, Badge, Hilfe). Interner Wert und bestehende Meldungen bleiben unverändert.
+
 ## [1.53.3] - 2026-10-19
 - Mitgelieferte Android-App auf Version 1.4.3 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderungen stehen in `android/CHANGELOG.md`.
 
