@@ -15,30 +15,24 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 ## [1.53.2] - 2026-10-19
 - Mitgelieferte Android-App auf Version 1.4.2 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderungen stehen in `android/CHANGELOG.md`.
 
-## [1.53.1] - 2026-10-17
+## [1.53.1] - 2026-10-17 / 2026-10-18
 - Mitgelieferte Android-App auf Version 1.4.1 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderungen stehen in `android/CHANGELOG.md`.
-
-## [1.53.1] - 2026-10-18
 - Meldungen: „Sonstiges (kein Bereich)“ steht im Bereich-Dropdown jetzt ganz oben (durch eine Trennlinie von den Bereichen abgesetzt) statt am Ende der Liste. Vorausgewählt bleibt weiterhin der erste echte Bereich.
 
-## [1.53.0] - 2026-10-17
+## [1.53.0] - 2026-10-17 / 2026-10-18
 - Die Android-App wird jetzt vom Server selbst ausgeliefert: In der Hilfe gibt es die neue Frage „Gibt es auch eine native App?" (Unterpunkt von „Wie bekomme ich ClubHUB als App aufs Handy?") mit Download-Link (`/static/app/clubhub.apk`), Installationshinweis (Installation aus dieser Quelle zulassen) und dem Hinweis, dass es für iOS keine App gibt. Der Link erscheint nur, wenn der Build die App-Datei enthält, und entfällt in der App selbst. Die App liest `/static/app/latest.json` (Version, Prüfsumme) und aktualisiert sich selbst, ohne dass eine Datei von Hand geladen werden muss. `.apk` wird mit dem richtigen Dateityp ausgeliefert. Bereitgestellt wird die Datei mit `android/release.sh` (signierte Release-APK nach `app/static/app/`).
 - „Meine Geräte" (Profil) zeigt die App als „ClubHUB-App (Android)" statt „Unbekanntes Gerät".
+- Meldungen: im Bereich-Dropdown beim Erstellen gibt es jetzt „Sonstiges (kein Bereich)“ für alles, wofür kein eigener Bereich angelegt ist (z.B. Reparaturen am Limo-Laster). Kategorie und Priorität bleiben erhalten; weil ohne Bereich keine Gruppe abgeleitet werden kann, ist eine Zuständigkeit (Gruppe oder „Alle“) Pflicht - das Formular blendet „automatisch (Bereich)“ dann aus. Karten und Detailseite zeigen „Sonstiges“ als Ort, Push-Titel lauten „Neue Meldung: Sonstiges“. Keine Datenbank-Änderung (gespeichert als Meldung ohne Bereich).
 
 ## [1.52.1] - 2026-10-17
 - Android-App: `GET /api/app/inbox` liefert zusätzlich `work_hours` - die Arbeitszeiten (Stunden) der Gruppen des Nutzers. Die App fragt den Standort für ihre „Zu Hause/Arbeit"-Regel nur innerhalb dieser Zeiten ab (Akku). Leere Liste = keine Einschränkung (eine Gruppe ohne Arbeitszeit oder keine Gruppe).
 
-## [1.53.0] - 2026-10-18
-- Meldungen: im Bereich-Dropdown beim Erstellen gibt es jetzt „Sonstiges (kein Bereich)“ für alles, wofür kein eigener Bereich angelegt ist (z.B. Reparaturen am Limo-Laster). Kategorie und Priorität bleiben erhalten; weil ohne Bereich keine Gruppe abgeleitet werden kann, ist eine Zuständigkeit (Gruppe oder „Alle“) Pflicht - das Formular blendet „automatisch (Bereich)“ dann aus. Karten und Detailseite zeigen „Sonstiges“ als Ort, Push-Titel lauten „Neue Meldung: Sonstiges“. Keine Datenbank-Änderung (gespeichert als Meldung ohne Bereich).
-
 ## [1.52.0] - 2026-10-17
 - Aufgaben lassen sich jetzt zwischen Bereichen verschieben oder kopieren: im Aufgaben-Menü (⋮) auf der Bereichsseite neuer Punkt „Verschieben / Kopieren…“ (nur Admins/Schichtleiter). Verschieben nimmt die Erledigungs-Historie mit (nur `room_id` ändert sich). Kopieren legt je gewähltem Zielbereich eine eigenständige Aufgabe ohne Historie an, Mehrfachauswahl möglich. Ist die Aufgabe expliziten Gruppen zugeordnet, die nicht zum Zielbereich passen, zeigt der Dialog einen Hinweis. Beides wird im Audit-Log festgehalten.
+- Neues Feedback/neue Bugmeldungen kommen jetzt zusätzlich als Push (Browser und Android-App) bei den Entwicklern an - unabhängig vom Feedback-Kanal (Gotify/ntfy/Signal), der unverändert weiterläuft. Dafür gibt es in Verwaltung → Nutzer beim Bearbeiten das Kennzeichen „Entwickler" (zusätzlich zur Rolle wählbar, gibt keine weiteren Rechte; in der Liste als „(Entwickler)" markiert). Wer das Feedback selbst abgibt, bekommt keine Push für die eigene Meldung. Meldungen mit hoher Priorität tragen „(Priorität hoch)" im Titel; die Push führt zur Feedback-Liste. Neue Spalte `users.is_developer` (wird beim Start automatisch angelegt, Standard: niemand).
 
 ## [1.51.1] - 2026-10-15
 - Meldungen: wer selbst einen Kommentar schreibt, eine neue Meldung anlegt oder den Status ändert, bekommt dafür keine eigene Browser-/App-Benachrichtigung mehr (bisher ging sie an alle Mitglieder der Zielgruppe, den Autor eingeschlossen). Gemeinsame Gruppenkanäle (ntfy/Gotify/Signal) lassen sich nicht pro Person ausnehmen und bleiben unverändert.
-
-## [1.52.0] - 2026-10-17
-- Neues Feedback/neue Bugmeldungen kommen jetzt zusätzlich als Push (Browser und Android-App) bei den Entwicklern an - unabhängig vom Feedback-Kanal (Gotify/ntfy/Signal), der unverändert weiterläuft. Dafür gibt es in Verwaltung → Nutzer beim Bearbeiten das Kennzeichen „Entwickler" (zusätzlich zur Rolle wählbar, gibt keine weiteren Rechte; in der Liste als „(Entwickler)" markiert). Wer das Feedback selbst abgibt, bekommt keine Push für die eigene Meldung. Meldungen mit hoher Priorität tragen „(Priorität hoch)" im Titel; die Push führt zur Feedback-Liste. Neue Spalte `users.is_developer` (wird beim Start automatisch angelegt, Standard: niemand).
 
 ## [1.51.0] - 2026-10-15
 - Neuer Endpunkt für die Android-App (die App selbst steht im eigenen Changelog `android/CHANGELOG.md`): Benachrichtigungen ohne Gotify/ntfy/Google. Die App meldet sich als eigenes Push-Abo des Nutzers an (Endpoint `app:<Geräte-ID>`, neue Tabelle `app_inbox`) und holt Nachrichten per Long-Polling von `GET /api/app/inbox` (Anmeldung über das Session-Cookie). Alles, was bisher per Web-Push an Mitglieder ging (Gruppen- und persönliche Benachrichtigungen), kommt so auch in der App an - gleichzeitig von mehreren Servern. Nachrichten werden 3 Tage vorgehalten.
