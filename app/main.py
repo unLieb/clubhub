@@ -764,6 +764,77 @@ def _migrate_app_settings_enable_notices(db: Session):
     _ensure_column(db, "app_settings", "enable_notices", "INTEGER DEFAULT 1")
 
 
+def _migrate_app_settings_task_dedupe(db: Session):
+    """Marker-Spalte fuer _migrate_merge_duplicate_tasks. Bestehende Zeilen
+    starten mit 0, die Bereinigung laeuft also genau einmal."""
+    _ensure_column(db, "app_settings", "task_dedupe_done", "INTEGER DEFAULT 0")
+
+
+def _migrate_merge_duplicate_tasks(db: Session):
+    """EINMALIGE Datenbereinigung (Marker AppSettings.task_dedupe_done): legt
+    voellig identische Aufgaben desselben Bereichs zusammen - gleicher Bereich,
+    Name, Turnus, Vorwarnzeit, Notiz, aktive Wochentage und gleiche zustaendige
+    Gruppen. Anlass: im Betrieb existierte "Wandfliesen reinigen" im Unisex WC
+    doppelt, nur eine der beiden wurde abgehakt, die andere blieb dauerhaft
+    gelb/rot. Behalten wird die Aufgabe mit der juengsten Erledigung (bei
+    Gleichstand die mit der kleineren ID); die Erledigungen der anderen werden
+    an sie angehaengt, die Historie geht also nicht verloren. Aufgaben, die sich
+    in irgendeinem dieser Merkmale unterscheiden, bleiben unberuehrt. Jede
+    Zusammenlegung steht im Audit-Log. Schlaegt etwas fehl, wird alles
+    zurueckgerollt und der Marker nicht gesetzt (naechster Start versucht es
+    erneut), der Start der App wird dadurch nie blockiert."""
+    settings = get_app_settings(db)
+    if settings.task_dedupe_done:
+        return
+    try:
+        groups_by_task: dict[int, list] = {}
+        for task_id, group_id in db.execute(text("SELECT task_id, group_id FROM task_group")).fetchall():
+            groups_by_task.setdefault(task_id, []).append(group_id)
+        buckets: dict[tuple, list] = {}
+        for t in db.query(models.Task).order_by(models.Task.id).all():
+            key = (
+                t.room_id, (t.name or "").strip().lower(), t.interval_hours, t.warn_hours,
+                (t.note or "").strip(), t.active_weekdays or "",
+                tuple(sorted(groups_by_task.get(t.id, []))),
+            )
+            buckets.setdefault(key, []).append(t)
+        merged = 0
+        for tasks in buckets.values():
+            if len(tasks) < 2:
+                continue
+
+            def newest(t):
+                return max((c.timestamp for c in t.completions if c.timestamp), default=None)
+
+            dated = [t for t in tasks if newest(t) is not None]
+            keep = max(dated, key=lambda t: (_aware(newest(t)), -t.id)) if dated else tasks[0]
+            for dup in tasks:
+                if dup.id == keep.id:
+                    continue
+                moved = db.execute(
+                    text("UPDATE completions SET task_id = :keep WHERE task_id = :dup"),
+                    {"keep": keep.id, "dup": dup.id},
+                ).rowcount
+                db.execute(text("DELETE FROM task_group_notices WHERE task_id = :dup"), {"dup": dup.id})
+                db.execute(text("DELETE FROM task_group WHERE task_id = :dup"), {"dup": dup.id})
+                db.execute(text("DELETE FROM tasks WHERE id = :dup"), {"dup": dup.id})
+                room_name = keep.room.name if keep.room else f"Bereich {keep.room_id}"
+                log_audit(
+                    db, None, "UPDATE", "Aufgabe",
+                    f"Doppelte Aufgabe „{keep.name}“ ({room_name}) zusammengelegt: {moved} Erledigung"
+                    f"{'en' if moved != 1 else ''} an Aufgabe #{keep.id} übernommen, Duplikat #{dup.id} entfernt "
+                    f"(automatische Datenbereinigung beim Update).",
+                )
+                merged += 1
+        settings.task_dedupe_done = True
+        db.commit()
+        if merged:
+            logging.getLogger(__name__).info("Doppelte Aufgaben zusammengelegt: %s", merged)
+    except Exception:
+        db.rollback()
+        logging.getLogger(__name__).exception("Zusammenlegen doppelter Aufgaben fehlgeschlagen - wird beim naechsten Start erneut versucht")
+
+
 def _migrate_app_settings_enable_cooling(db: Session):
     """Modul-Schalter fuer Kuehlungen (siehe AppSettings.enable_cooling) -
     gleiches Prinzip wie enable_reports: bestehende Betriebe behalten das
@@ -915,6 +986,8 @@ def _startup():
         _migrate_app_settings_enable_reports(db)
         _migrate_app_settings_enable_notices(db)
         _migrate_app_settings_enable_cooling(db)
+        _migrate_app_settings_task_dedupe(db)
+        _migrate_merge_duplicate_tasks(db)
     finally:
         db.close()
 

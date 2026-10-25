@@ -749,6 +749,11 @@ class AppSettings(Base):
     # (Group.cooling_access): deaktiviert verschwindet das Modul fuer ALLE,
     # auch fuer Admins/Schichtleiter; Kuehlzellen/Messwerte bleiben erhalten.
     enable_cooling = Column(Boolean, nullable=False, default=True)
+    # Marker fuer die einmalige Bereinigung doppelter Aufgaben (siehe
+    # _migrate_merge_duplicate_tasks in main.py): ohne ihn wuerde sie bei JEDEM
+    # Start laufen und absichtlich doppelt angelegte Aufgaben still
+    # zusammenlegen. Neue Installationen setzen ihn beim ersten Start.
+    task_dedupe_done = Column(Boolean, nullable=False, default=False)
     # Basis-URLs/Zugangsdaten fuer die Benachrichtigungskanal-Typen (ntfy/
     # Gotify/Signal) - in der Verwaltung direkt pflegbar, statt zwingend per
     # Umgebungsvariable im Docker-Stack gesetzt werden zu muessen (siehe
