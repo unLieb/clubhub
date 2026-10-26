@@ -972,3 +972,32 @@ class AuditLog(Base):
     details = Column(String, nullable=False)
 
     user = relationship("User")
+
+
+class ErrorLog(Base):
+    """Fehlerprotokoll fuer Verbindungs-/Upload-/Serverprobleme (siehe
+    error_log.py fuer Middleware und Schreib-Helfer, /admin/error-log fuer
+    die Ansicht). Zwei Quellen: "server" (Middleware: unbehandelte Fehler,
+    5xx-Antworten, vom Client mitten im Senden abgebrochene Anfragen, sehr
+    langsame Anfragen) und "browser" (client_log.js meldet per /client-log,
+    wenn z.B. das Absenden einer Meldung fehlgeschlagen ist - das sieht der
+    Server sonst nie, weil die Anfrage ihn gar nicht erreicht hat).
+
+    Wie beim AuditLog bewusst KEINE Client-IP-Adresse (DSGVO); der User-Agent
+    reicht, um Browser/Geraet einzugrenzen. Eintraege werden nach
+    error_log.KEEP_DAYS Tagen automatisch geloescht (scheduler.py)."""
+    __tablename__ = "error_logs"
+
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime(timezone=True), default=utcnow, index=True)
+    source = Column(String, nullable=False)          # server | browser
+    kind = Column(String, nullable=False)            # serverfehler | abgebrochen | langsam | senden_fehlgeschlagen | js_fehler
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_name = Column(String, nullable=True)
+    method = Column(String, nullable=True)
+    path = Column(String, nullable=True)             # ohne Query-String
+    status = Column(Integer, nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+    size_bytes = Column(Integer, nullable=True)      # Upload-Groesse (Anfrage)
+    user_agent = Column(String, nullable=True)
+    details = Column(String, nullable=True)

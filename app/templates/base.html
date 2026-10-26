@@ -15,6 +15,9 @@
 <title>{% block title %}ClubHUB{% endblock %}</title>
 <link rel="icon" type="image/png" href="/static/favicon.png?v={{ app_build_hash }}">
 <link rel="stylesheet" href="/static/style.css?v={{ app_build_hash }}">
+<!-- Stellt window.clubhubLog() bereit und meldet Browser-Fehler ans Fehlerprotokoll
+     (siehe client_log.js). Defer reicht: wird nur bei Fehlern/Nutzeraktionen aufgerufen. -->
+<script src="/static/client_log.js?v={{ app_build_hash }}" defer></script>
 <script src="/static/dropzone.js?v={{ app_build_hash }}" defer></script>
 <!-- Stellt window.customConfirm() bereit (siehe confirm_modal.js) - muss vor
      ajax_actions.js stehen, das customConfirm() beim Absenden von

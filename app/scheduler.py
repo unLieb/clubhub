@@ -14,6 +14,7 @@ from . import ntptime
 from . import backup
 from . import nextcloud
 from . import notification_batching
+from .error_log import prune_error_log
 
 logger = logging.getLogger("reinigungsplan.scheduler")
 
@@ -425,6 +426,12 @@ def start_scheduler():
         scheduled_backup_job,
         CronTrigger(hour=BACKUP_SCHEDULE_HOURS, minute=0, timezone=APP_TIMEZONE),
         id="scheduled_backup",
+    )
+    # Fehlerprotokoll taeglich aufraeumen (siehe error_log.KEEP_DAYS/MAX_ROWS)
+    scheduler.add_job(
+        prune_error_log,
+        CronTrigger(hour=3, minute=30, timezone=APP_TIMEZONE),
+        id="prune_error_log",
     )
     scheduler.start()
     return scheduler

@@ -9,6 +9,7 @@ import secrets
 import shutil
 import signal
 import tempfile
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin, urlparse, quote, urlencode
@@ -38,6 +39,7 @@ from . import pdf_export
 from . import webauthn_auth
 from . import notification_batching
 from .audit import log_audit
+from .error_log import ErrorLogMiddleware, record_error, KEEP_DAYS
 from .auth import (
     hash_password, verify_password, find_user_by_identifier, get_current_user, require_login,
     require_admin, require_admin_or_shift_lead,
@@ -64,6 +66,10 @@ logging.getLogger("uvicorn.access").addFilter(_HealthzLogFilter())
 logger = logging.getLogger("reinigungsplan.main")
 
 app = FastAPI(title="ClubHUB")
+# Fehlerprotokoll (siehe error_log.py): muss VOR der SessionMiddleware
+# registriert werden, damit sie innerhalb davon sitzt und die Session kennt
+# (spaeter per add_middleware hinzugefuegt = weiter aussen).
+app.add_middleware(ErrorLogMiddleware)
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "change-me-in-production"))
 import mimetypes
 mimetypes.add_type("application/vnd.android.package-archive", ".apk")
@@ -5574,6 +5580,8 @@ def admin_home(request: Request, db: Session = Depends(get_db)):
         "feedback_count": db.query(models.Feedback).count(),
         "feedback_open_count": db.query(models.Feedback).filter(models.Feedback.status != "done").count(),
         "audit_log_count": db.query(models.AuditLog).count(),
+        "error_log_week_count": db.query(models.ErrorLog)
+            .filter(models.ErrorLog.timestamp >= ntptime.now_utc() - timedelta(days=7)).count(),
         "ntp_status": ntptime.status(),
     })
 
@@ -5628,6 +5636,103 @@ def admin_audit_log_page(
         "q": q,
         "selected_user_id": user_id,
         "selected_target_type": target_type,
+    })
+
+
+_ERROR_LOG_SOURCES = {"server": "Server", "browser": "Browser"}
+_CLIENT_LOG_KINDS = {"senden_fehlgeschlagen", "js_fehler", "verbindung"}
+_client_log_hits: dict = {}
+
+
+@app.post("/client-log")
+async def client_log_create(request: Request, db: Session = Depends(get_db)):
+    """Nimmt Fehlermeldungen aus dem Browser entgegen (client_log.js), z.B.
+    wenn das Absenden einer Meldung am Netz gescheitert ist - das sieht die
+    Middleware in error_log.py nicht, da die Anfrage den Server dann nie
+    erreicht hat. Nur fuer angemeldete Nutzer; Eingaben werden gekuerzt und
+    pro Nutzer auf wenige Eintraege je Minute begrenzt."""
+    user = get_current_user(request, db)
+    if not user:
+        return Response(status_code=204)
+    now = time.monotonic()
+    hits = [t for t in _client_log_hits.get(user.id, []) if now - t < 60]
+    if len(hits) >= 10:
+        return Response(status_code=204)
+    hits.append(now)
+    _client_log_hits[user.id] = hits
+    try:
+        data = await request.json()
+    except Exception:
+        return Response(status_code=400)
+    if not isinstance(data, dict) or data.get("kind") not in _CLIENT_LOG_KINDS:
+        return Response(status_code=400)
+
+    def _int(key):
+        try:
+            return max(0, int(data.get(key)))
+        except (TypeError, ValueError):
+            return None
+
+    occurred = None
+    raw_ts = data.get("occurred_at")
+    if isinstance(raw_ts, str):
+        try:
+            occurred = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
+            if occurred.tzinfo is None or occurred > ntptime.now_utc() or occurred < ntptime.now_utc() - timedelta(days=7):
+                occurred = None
+        except ValueError:
+            occurred = None
+    record_error(
+        "browser", data["kind"],
+        user_id=user.id, method=str(data.get("method") or "")[:10] or None,
+        path=str(data.get("path") or "")[:300], status=_int("status"),
+        duration_ms=_int("duration_ms"), size_bytes=_int("size_bytes"),
+        user_agent=request.headers.get("user-agent"),
+        details=str(data.get("details") or "")[:1500] or None, timestamp=occurred,
+    )
+    return Response(status_code=204)
+
+
+@app.get("/admin/error-log")
+def admin_error_log_page(
+    request: Request,
+    q: str = "",
+    source: str = "",
+    kind: str = "",
+    db: Session = Depends(get_db),
+):
+    """Fehlerprotokoll (siehe ErrorLog in models.py) - wie das Audit-Log nur
+    fuer Admin/Schichtleiter, da es Nutzernamen und Adressen enthaelt."""
+    admin = require_admin_or_shift_lead(request, db)
+    query = db.query(models.ErrorLog).order_by(models.ErrorLog.timestamp.desc())
+    q = q.strip()
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            models.ErrorLog.details.ilike(like)
+            | models.ErrorLog.user_name.ilike(like)
+            | models.ErrorLog.path.ilike(like)
+            | models.ErrorLog.user_agent.ilike(like)
+        )
+    if source in _ERROR_LOG_SOURCES:
+        query = query.filter(models.ErrorLog.source == source)
+    if kind.strip():
+        query = query.filter(models.ErrorLog.kind == kind)
+    entries = query.limit(500).all()
+    all_kinds = [
+        row[0] for row in db.query(models.ErrorLog.kind).distinct().order_by(models.ErrorLog.kind).all()
+    ]
+    return templates.TemplateResponse("admin_error_log.html", {
+        "request": request,
+        "user": admin,
+        "entries": entries,
+        "entries_truncated": len(entries) == 500,
+        "all_kinds": all_kinds,
+        "sources": _ERROR_LOG_SOURCES,
+        "q": q,
+        "selected_source": source,
+        "selected_kind": kind,
+        "keep_days": KEEP_DAYS,
     })
 
 

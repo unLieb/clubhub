@@ -204,7 +204,8 @@
         <label class="block text-[11px] text-slate-400 mb-1">Bilder (optional, mehrere möglich)</label>
         {{ dz.dropzone("photos", "report-f-photos", accept="image/*", multiple=True, label="Fotos hierher ziehen oder klicken / antippen") }}
       </div>
-      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Meldung erstellen</button>
+      <button id="report-create-submit" class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Meldung erstellen</button>
+      <p id="report-create-error" class="hidden text-xs text-late mt-1" role="alert"></p>
     </form>
   </div>
 </details>
@@ -351,7 +352,53 @@
         if (!createForm.checkValidity()) {
           e.preventDefault();
           createForm.reportValidity();
+          return;
         }
+        if (!window.fetch || !window.FormData || !window.AbortController) return;  // alter Browser: normales Absenden
+
+        // Absenden per fetch() statt normalem Formular-Submit: scheitert die
+        // Verbindung (v.a. bei Fotos), bleibt das ausgefuellte Formular samt
+        // Bildern stehen statt der Browser-Fehlerseite "Website nicht
+        // erreichbar", und der Fehler landet im Fehlerprotokoll (siehe
+        // client_log.js, Verwaltung -> Fehlerprotokoll). Bei Erfolg folgt die
+        // Weiterleitung des Servers (inkl. Toast-Parameter) wie gewohnt.
+        e.preventDefault();
+        var btn = document.getElementById('report-create-submit');
+        var errBox = document.getElementById('report-create-error');
+        var label = btn.textContent;
+        var fd = new FormData(createForm);
+        var bytes = 0;
+        fd.forEach(function (v) { if (v instanceof File) bytes += v.size; });
+        var started = Date.now();
+        var controller = new AbortController();
+        var timer = setTimeout(function () { controller.abort(); }, 180000);
+        btn.disabled = true;
+        btn.textContent = 'Wird gesendet…';
+        errBox.classList.add('hidden');
+
+        function fail(reason, status) {
+          clearTimeout(timer);
+          btn.disabled = false;
+          btn.textContent = label;
+          errBox.textContent = 'Senden fehlgeschlagen (' + reason + '). Deine Eingaben sind noch da – bitte nochmal versuchen.';
+          errBox.classList.remove('hidden');
+          if (window.clubhubLog) {
+            window.clubhubLog('senden_fehlgeschlagen', {
+              path: '/reports', method: 'POST', status: status || null,
+              duration_ms: Date.now() - started, size_bytes: bytes, details: reason
+            });
+          }
+        }
+
+        fetch(createForm.action, { method: 'POST', body: fd, credentials: 'same-origin', signal: controller.signal })
+          .then(function (resp) {
+            if (!resp.ok) { fail('Serverantwort ' + resp.status, resp.status); return; }
+            clearTimeout(timer);
+            window.location.href = resp.url || '/reports';
+          })
+          .catch(function (err) {
+            fail(err && err.name === 'AbortError' ? 'Zeitüberschreitung nach 3 Minuten' : 'keine Verbindung zum Server');
+          });
       });
     }
 

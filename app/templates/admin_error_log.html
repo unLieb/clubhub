@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Fehlerprotokoll – Verwaltung{% endblock %}
+{% block content %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-1">Fehlerprotokoll</h1>
+<p class="text-slate-400 text-sm mb-6">
+  Verbindungs-, Upload- und Serverfehler - neueste zuerst, Einträge werden nach {{ keep_days }} Tagen automatisch gelöscht.
+  <strong class="text-slate-300">Server</strong> = hat die App selbst gesehen (Fehler, abgebrochene oder sehr langsame Anfragen).
+  <strong class="text-slate-300">Browser</strong> = vom Gerät nachgemeldet, z.B. wenn das Absenden an der Verbindung gescheitert ist (der Zeitpunkt ist der des Fehlers, nicht der der Meldung).
+</p>
+
+<div class="rounded-xl border border-line bg-panel p-4 mb-4">
+  <form method="get" action="/admin/error-log" class="flex flex-col sm:flex-row gap-2">
+    <input type="text" name="q" value="{{ q }}" placeholder="Suche (Details, Nutzer, Adresse, Browser)…"
+           class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <select name="source" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <option value="">Alle Quellen</option>
+      {% for key, label in sources.items() %}
+      <option value="{{ key }}" {% if selected_source == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="kind" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <option value="">Alle Arten</option>
+      {% for k in all_kinds %}
+      <option value="{{ k }}" {% if selected_kind == k %}selected{% endif %}>{{ k }}</option>
+      {% endfor %}
+    </select>
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Filtern</button>
+    {% if q or selected_source or selected_kind %}
+    <a href="/admin/error-log" class="px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium whitespace-nowrap text-center">Zurücksetzen</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="rounded-xl border border-line bg-panel overflow-hidden">
+  {% if entries %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-line text-left text-[11px] text-slate-500 uppercase tracking-wide">
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">Zeitpunkt</th>
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">Quelle / Art</th>
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">Nutzer</th>
+          <th class="px-4 py-2.5 font-medium whitespace-nowrap">Anfrage</th>
+          <th class="px-4 py-2.5 font-medium w-full">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr class="border-b border-line/50 last:border-0 hover:bg-panel2/50">
+          <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap align-top">{{ (e.timestamp|localtime).strftime("%d.%m.%Y, %H:%M:%S") }}</td>
+          <td class="px-4 py-2.5 align-top whitespace-nowrap">
+            <span class="inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium
+              {% if e.kind == 'serverfehler' or e.kind == 'js_fehler' %}bg-late/15 text-late
+              {% elif e.kind == 'abgebrochen' or e.kind == 'senden_fehlgeschlagen' %}bg-warn/15 text-warn
+              {% else %}bg-panel2 text-slate-300{% endif %}">{{ e.kind }}</span>
+            <div class="text-[11px] text-slate-500 mt-0.5">{{ sources.get(e.source, e.source) }}</div>
+          </td>
+          <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap align-top">{{ e.user_name or "–" }}</td>
+          <td class="px-4 py-2.5 text-slate-300 whitespace-nowrap align-top">
+            {% if e.path %}{{ e.method or "" }} {{ e.path }}{% else %}–{% endif %}
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              {% if e.status %}Status {{ e.status }}{% endif %}
+              {% if e.duration_ms is not none %}{{ "· " if e.status }}{{ (e.duration_ms / 1000)|round(1) }} s{% endif %}
+              {% if e.size_bytes %}· {{ (e.size_bytes / 1048576)|round(1) }} MB{% endif %}
+            </div>
+          </td>
+          <td class="px-4 py-2.5 text-slate-300 align-top">
+            {{ e.details or "–" }}
+            {% if e.user_agent %}<div class="text-[11px] text-slate-500 mt-1 break-all">{{ e.user_agent }}</div>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if entries_truncated %}
+  <p class="text-[11px] text-slate-500 px-4 py-2.5 border-t border-line">
+    Zeigt die neuesten 500 Einträge - über Suche/Filter weiter eingrenzen, um ältere zu finden.
+  </p>
+  {% endif %}
+  {% else %}
+  <p class="text-slate-500 text-sm italic p-8 text-center">
+    {% if q or selected_source or selected_kind %}Keine Einträge für diese Filter gefunden.{% else %}Keine Fehler protokolliert - gut so.{% endif %}
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}
