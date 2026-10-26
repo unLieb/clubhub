@@ -754,6 +754,12 @@ class AppSettings(Base):
     # Start laufen und absichtlich doppelt angelegte Aufgaben still
     # zusammenlegen. Neue Installationen setzen ihn beim ersten Start.
     task_dedupe_done = Column(Boolean, nullable=False, default=False)
+    # Frei waehlbarer Name dieser Installation (Verwaltung -> System). Steckt im
+    # PWA-Manifest (Name beim "App installieren"/auf dem Homescreen), im
+    # iOS-Homescreen-Titel, im Seitentitel und in der Seitenleiste, damit sich
+    # mehrere parallel installierte Instanzen (z.B. Verein und Test) auseinander-
+    # halten lassen. NULL/leer = "ClubHUB".
+    instance_name = Column(String, nullable=True)
     # Basis-URLs/Zugangsdaten fuer die Benachrichtigungskanal-Typen (ntfy/
     # Gotify/Signal) - in der Verwaltung direkt pflegbar, statt zwingend per
     # Umgebungsvariable im Docker-Stack gesetzt werden zu muessen (siehe

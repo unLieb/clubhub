@@ -12,7 +12,11 @@
     document.documentElement.dataset.theme = resolved;
   })();
 </script>
-<title>{% block title %}ClubHUB{% endblock %}</title>
+{# Instanzname (Verwaltung -> System): ersetzt "ClubHUB" im Seitentitel, damit
+   mehrere Instanzen im Browser/Task-Switcher unterscheidbar sind. #}
+{% set modules = app_module_flags() %}
+{% set brand = modules.instance_name %}
+<title>{% filter replace('ClubHUB', brand) %}{% block title %}ClubHUB{% endblock %}{% endfilter %}</title>
 <link rel="icon" type="image/png" href="/static/favicon.png?v={{ app_build_hash }}">
 <link rel="stylesheet" href="/static/style.css?v={{ app_build_hash }}">
 <!-- Stellt window.clubhubLog() bereit und meldet Browser-Fehler ans Fehlerprotokoll
@@ -52,14 +56,14 @@
      taeglich) - eine geaenderte Manifest-URL pro Build erzwingt den
      sofortigen Neuabruf inkl. der darin verlinkten Icons, statt auf diesen
      Zyklus zu warten (relevant fuer den "App installieren"-Dialog). -->
-<link rel="manifest" href="/static/manifest.json?v={{ app_build_hash }}">
+<link rel="manifest" href="/manifest.webmanifest?v={{ app_build_hash }}&amp;n={{ brand|urlencode }}">
 <meta name="theme-color" content="#12161f">
 <!-- iOS unterstützt den Web-App-Manifest-Standard nur teilweise - diese
      Tags sorgen dort zusätzlich für "Zum Home-Bildschirm"-Icon und ein
      Fenster ohne Safari-Chrome, analog zu Android/Chrome über das Manifest. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ClubHUB">
+<meta name="apple-mobile-web-app-title" content="{{ brand }}">
 <link rel="apple-touch-icon" href="/static/favicon.png?v={{ app_build_hash }}">
 <script>
   // Nur auf echten http(s)-Aufrufen laden, nie bei lokalem/Datei-Vorschau-
@@ -138,7 +142,7 @@
 </head>
 <body class="bg-bg text-slate-100 font-body min-h-screen" data-vapid-key="{{ vapid_public_key() if user else '' }}" data-live-refresh="{% block live_refresh %}{% endblock %}">
 {% set badges = nav_badges(request) %}
-{% set modules = app_module_flags() %}
+
 
 <!-- Toast fuer Sammel-Aktionen (siehe ?bulk_toast= in base.html-Skript unten) -->
 <div id="bulk-toast" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100%-2rem)]">
@@ -233,7 +237,7 @@
       <img src="/static/logo-icon.png?v={{ app_build_hash }}" alt="ClubHUB" class="w-8 h-8 object-contain">
     </a>
     <div class="flex flex-col leading-tight">
-      <a href="/" class="font-display font-semibold text-sm text-sidebar-text-strong">ClubHUB</a>
+      <a href="/" class="font-display font-semibold text-sm text-sidebar-text-strong truncate max-w-[9rem]" title="{{ brand }}">{{ brand }}</a>
       <a href="/changelog" class="w-fit text-[10px] text-sidebar-text-strong/80 hover:text-sidebar-text-strong hover:underline" title="Änderungshistorie ansehen">v{{ app_version }}</a>
     </div>
   </div>
@@ -281,7 +285,7 @@
         <img src="/static/logo-icon.png?v={{ app_build_hash }}" alt="" class="w-8 h-8 object-contain">
       </a>
       <div class="flex flex-col leading-tight">
-        <a href="/" class="font-display font-semibold text-sidebar-text-strong">ClubHUB</a>
+        <a href="/" class="font-display font-semibold text-sidebar-text-strong truncate max-w-[9rem]" title="{{ brand }}">{{ brand }}</a>
         <a href="/changelog" class="w-fit text-[10px] text-sidebar-text-strong/80 mt-0.5 hover:text-sidebar-text-strong hover:underline" title="Änderungshistorie ansehen">v{{ app_version }}</a>
       </div>
     </div>

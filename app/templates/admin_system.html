@@ -16,6 +16,32 @@
      items-start, damit keine der beiden sinnlos auf die Hoehe der anderen
      gestreckt wird. -->
 
+{% if user.is_admin %}
+<!-- Name dieser Installation: erscheint beim "App installieren" (PWA-Manifest),
+     als Homescreen-Titel auf dem iPhone, im Seitentitel und in der Seiten-
+     leiste. Wichtig, wenn man mehrere Instanzen (z.B. Verein und Test) als
+     App installiert - sonst heissen alle gleich. -->
+<section class="rounded-xl border border-line bg-panel p-4 mb-6">
+  <h2 class="font-display font-medium mb-1">Name dieser Installation</h2>
+  <p class="text-[11px] text-slate-500 leading-relaxed mb-3">
+    Standard ist „ClubHUB“. Der Name erscheint beim Installieren als App, auf dem Homescreen, im Browser-Tab
+    und in der Seitenleiste – nützlich, wenn du mehrere Instanzen als App installierst. Bereits installierte
+    Apps übernehmen den neuen Namen nicht immer von selbst (siehe Hinweis unten).
+  </p>
+  <form method="post" action="/admin/system/instance-name" class="flex flex-col sm:flex-row gap-2 sm:items-center">
+    <input name="instance_name" value="{{ instance_name_value }}" maxlength="{{ instance_name_max }}" placeholder="ClubHUB" autocomplete="off"
+           class="flex-1 min-w-0 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Speichern</button>
+  </form>
+  <p class="text-[11px] text-slate-500 leading-relaxed mt-2">
+    Hinweis: Eine schon installierte App behält ihren alten Namen, bis sie neu installiert wird (iPhone/iPad) bzw.
+    Android sie von selbst aktualisiert (kann einige Tage dauern). Am schnellsten: App deinstallieren und neu
+    installieren. Maximal {{ instance_name_max }} Zeichen; lange Namen werden auf dem Homescreen vom System gekürzt –
+    kurz halten, z.&nbsp;B. „Verein“ oder „ClubHUB Test“.
+  </p>
+</section>
+{% endif %}
+
 <!-- Reihe 1: kompakte System-Optionen. -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch mb-6">
 

@@ -770,6 +770,11 @@ def _migrate_app_settings_enable_notices(db: Session):
     _ensure_column(db, "app_settings", "enable_notices", "INTEGER DEFAULT 1")
 
 
+def _migrate_app_settings_instance_name(db: Session):
+    """Instanzname (siehe AppSettings.instance_name) - NULL = "ClubHUB"."""
+    _ensure_column(db, "app_settings", "instance_name", "TEXT")
+
+
 def _migrate_app_settings_task_dedupe(db: Session):
     """Marker-Spalte fuer _migrate_merge_duplicate_tasks. Bestehende Zeilen
     starten mit 0, die Bereinigung laeuft also genau einmal."""
@@ -993,6 +998,7 @@ def _startup():
         _migrate_app_settings_enable_notices(db)
         _migrate_app_settings_enable_cooling(db)
         _migrate_app_settings_task_dedupe(db)
+        _migrate_app_settings_instance_name(db)
         _migrate_merge_duplicate_tasks(db)
     finally:
         db.close()
@@ -2950,6 +2956,17 @@ def nav_badges(request: Request) -> dict:
 templates.env.globals["nav_badges"] = nav_badges
 
 
+DEFAULT_INSTANCE_NAME = "ClubHUB"
+INSTANCE_NAME_MAX = 30
+
+
+def _clean_instance_name(raw: str) -> str:
+    """Whitespace zusammenfassen, Steuerzeichen entfernen, auf INSTANCE_NAME_MAX
+    kuerzen. Leer = Standardname (wird dann als NULL gespeichert)."""
+    cleaned = re.sub(r"[\x00-\x1f\x7f]", " ", raw or "")
+    return re.sub(r"\s+", " ", cleaned).strip()[:INSTANCE_NAME_MAX].strip()
+
+
 def app_module_flags() -> dict:
     """Globale Modul-Schalter (Zeiterfassung/Urlaub/Meldungen/Hinweise/Kühlungen, siehe
     "Module & Features" unter /admin/system) - läuft wie nav_badges als Jinja-
@@ -2965,6 +2982,7 @@ def app_module_flags() -> dict:
             "time_tracking": settings.enable_time_tracking, "vacation": settings.enable_vacation,
             "reports": settings.enable_reports, "notices": settings.enable_notices,
             "cooling": settings.enable_cooling,
+            "instance_name": (settings.instance_name or "").strip() or DEFAULT_INSTANCE_NAME,
         }
     finally:
         db.close()
@@ -6701,7 +6719,46 @@ def _admin_system_context(
         "enable_reports": settings.enable_reports,
         "enable_notices": settings.enable_notices,
         "enable_cooling": settings.enable_cooling,
+        "instance_name_value": settings.instance_name or "",
+        "instance_name_max": INSTANCE_NAME_MAX,
     }
+
+
+@app.get("/manifest.webmanifest")
+def web_manifest(db: Session = Depends(get_db)):
+    """PWA-Manifest mit dem in der Verwaltung gesetzten Instanznamen (siehe
+    AppSettings.instance_name). Basis ist die statische static/manifest.json
+    (Icons, Farben, start_url ...), nur name/short_name werden ersetzt. Kein
+    Cache, damit eine Namensaenderung beim naechsten Abruf greift - die
+    verlinkende base.html haengt den Namen zusaetzlich als Query-Parameter an."""
+    with open(os.path.join(os.path.dirname(__file__), "static", "manifest.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+    name = (get_app_settings(db).instance_name or "").strip() or DEFAULT_INSTANCE_NAME
+    manifest["name"] = name
+    manifest["short_name"] = name
+    return Response(
+        json.dumps(manifest, ensure_ascii=False),
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+@app.post("/admin/system/instance-name")
+def admin_system_instance_name(
+    request: Request, instance_name: str = Form(""), db: Session = Depends(get_db),
+):
+    """Name dieser Installation setzen (siehe AppSettings.instance_name) -
+    require_admin wie die Modul-Schalter: wirkt fuer alle Nutzer."""
+    admin = require_admin(request, db)
+    settings = get_app_settings(db)
+    new_name = _clean_instance_name(instance_name)
+    old_name = (settings.instance_name or "").strip() or DEFAULT_INSTANCE_NAME
+    settings.instance_name = new_name or None
+    shown = new_name or DEFAULT_INSTANCE_NAME
+    if shown != old_name:
+        log_audit(db, admin, "UPDATE", "System", f"Instanzname geändert: „{old_name}“ → „{shown}“.")
+    db.commit()
+    return RedirectResponse(_with_toast("/admin/system", f"Name gespeichert: {shown}."), status_code=302)
 
 
 @app.get("/admin/system")

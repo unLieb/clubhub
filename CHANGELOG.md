@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.55.0] - 2026-10-26
+- Name dieser Installation: unter Verwaltung → System (nur Admin) lässt sich jetzt ein eigener Name festlegen, Standard bleibt „ClubHUB". Der Name steckt im PWA-Manifest (Name beim „App installieren" und auf dem Homescreen, `name` und `short_name`), im iOS-Homescreen-Titel, im Seitentitel („Dashboard – <Name>") und in der Seitenleiste bzw. mobilen Kopfzeile. Damit lassen sich mehrere parallel installierte Instanzen (z. B. Verein und Test) auseinanderhalten, bei der Installation ließ sich der Name im Browser bisher nicht ändern. Maximal 30 Zeichen, Leerraum wird zusammengefasst, Steuerzeichen entfernt, leer = „ClubHUB"; jede Änderung steht im Audit-Log.
+- Technisch: das Manifest kommt jetzt von `/manifest.webmanifest` (auf Basis von `static/manifest.json`, nur name/short_name werden ersetzt, ohne Cache, der Name hängt zusätzlich als Query-Parameter am Link, damit Browser es neu laden). Neue Spalte `app_settings.instance_name`. Hinweis: eine bereits installierte App übernimmt den neuen Namen nicht immer von selbst - iPhone/iPad erst nach Neuinstallation, Android aktualisiert die App-Daten von selbst nach einigen Tagen, am schnellsten geht Deinstallieren und neu Installieren.
+
 ## [1.54.1] - 2026-10-26
 - Fehlerprotokoll: Meldungen aus der Android-App (ab App 1.5.0, auch JavaScript-Fehler aus deren WebView) erscheinen als eigene Quelle „Android-App“ statt unter „Browser“.
 
