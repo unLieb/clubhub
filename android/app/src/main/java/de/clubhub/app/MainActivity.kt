@@ -126,7 +126,24 @@ class MainActivity : Activity() {
             override fun onPageFinished(view: WebView, url: String) {
                 val cur = ServerStore.current(this@MainActivity)?.let { Uri.parse(it.url) }
                 val u = Uri.parse(url)
-                if (cur != null && u.host == cur.host && u.port == cur.port) injectHeading(view)
+                if (cur != null && u.host == cur.host && u.port == cur.port) {
+                    injectHeading(view)
+                    ErrorReporter.flush(this@MainActivity) // Seite lief -> Server erreichbar, Warteschlange senden
+                }
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView,
+                request: WebResourceRequest,
+                errorResponse: android.webkit.WebResourceResponse
+            ) {
+                // Nur die Hauptseite und nur Serverfehler; Fehler einzelner Bilder/Skripte waeren Rauschen
+                if (!request.isForMainFrame || errorResponse.statusCode < 500) return
+                val server = ServerStore.current(this@MainActivity) ?: return
+                ErrorReporter.report(
+                    this@MainActivity, server, "verbindung", request.url.path ?: "/", request.method,
+                    errorResponse.statusCode, "Serverantwort ${errorResponse.statusCode} beim Laden der Seite"
+                )
             }
 
             override fun onReceivedError(
@@ -135,6 +152,14 @@ class MainActivity : Activity() {
                 error: android.webkit.WebResourceError
             ) {
                 if (request.isForMainFrame) {
+                    // ERR_ABORTED = Ladevorgang wurde durch eine neue Navigation ersetzt, kein Fehler
+                    val server = ServerStore.current(this@MainActivity)
+                    if (server != null && !error.description.toString().contains("ERR_ABORTED")) {
+                        ErrorReporter.report(
+                            this@MainActivity, server, "verbindung", request.url.path ?: "/", request.method, null,
+                            "WebView-Fehler ${error.errorCode}: ${error.description}"
+                        )
+                    }
                     val html = "<html><body style='background:#12161F;color:#e5e7eb;font-family:sans-serif;" +
                         "padding:32px;text-align:center'><h2>Server nicht erreichbar</h2><p>" +
                         "${error.description}</p><p>Seite neu laden oder über die App-Verknüpfung (Icon lange gedrückt halten) „Server verwalten“ öffnen.</p></body></html>"
@@ -250,6 +275,7 @@ class MainActivity : Activity() {
             askNotificationPermission()
             NotificationService.start(this) // gleicht Threads mit evtl. geaenderter Serverliste ab
         }
+        ErrorReporter.flush(this)
         // Nach dem Zurueckkehren aus der Serververwaltung evtl. Server gewechselt/geloescht
         val cur = ServerStore.current(this)
         if (cur != null && cur.id != loadedServerId) loadCurrent()

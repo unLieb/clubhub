@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.54.1] - 2026-10-26
+- Fehlerprotokoll: Meldungen aus der Android-App (ab App 1.5.0, auch JavaScript-Fehler aus deren WebView) erscheinen als eigene Quelle „Android-App“ statt unter „Browser“.
+
 ## [1.54.0] - 2026-10-26
 - Neu: Fehlerprotokoll unter Verwaltung → Fehlerprotokoll (Admin/Schichtleiter), um Verbindungs- und Upload-Probleme nachvollziehen zu können (Anlass: eine Meldung mit Foto scheiterte bei einem Kollegen mit der Browser-Fehlerseite „Website nicht erreichbar“, ohne dass der Server etwas davon sah). Erfasst werden serverseitig unbehandelte Fehler/5xx, mitten im Senden abgebrochene Anfragen (mit empfangener Upload-Größe) und Anfragen über 10 Sekunden sowie browserseitig fehlgeschlagene Meldungs-Uploads und JavaScript-Fehler (werden nachgemeldet, sobald der Server wieder erreichbar ist). Ohne IP-Adresse, Einträge werden nach 30 Tagen automatisch gelöscht.
 - Meldungen: „Meldung erstellen“ sendet jetzt per fetch(). Scheitert die Verbindung, bleibt das Formular samt Fotos stehen und eine Fehlermeldung erscheint, statt der Browser-Fehlerseite mit verlorenen Eingaben.

@@ -5639,7 +5639,7 @@ def admin_audit_log_page(
     })
 
 
-_ERROR_LOG_SOURCES = {"server": "Server", "browser": "Browser"}
+_ERROR_LOG_SOURCES = {"server": "Server", "browser": "Browser", "app": "Android-App"}
 _CLIENT_LOG_KINDS = {"senden_fehlgeschlagen", "js_fehler", "verbindung"}
 _client_log_hits: dict = {}
 
@@ -5682,8 +5682,11 @@ async def client_log_create(request: Request, db: Session = Depends(get_db)):
                 occurred = None
         except ValueError:
             occurred = None
+    # Die Android-App haengt "ClubHUBApp/<Version>" an den User-Agent (Browser-
+    # Meldungen aus ihrem WebView und die nativen ErrorReporter-Meldungen).
+    source = "app" if "ClubHUBApp/" in (request.headers.get("user-agent") or "") else "browser"
     record_error(
-        "browser", data["kind"],
+        source, data["kind"],
         user_id=user.id, method=str(data.get("method") or "")[:10] or None,
         path=str(data.get("path") or "")[:300], status=_int("status"),
         duration_ms=_int("duration_ms"), size_bytes=_int("size_bytes"),

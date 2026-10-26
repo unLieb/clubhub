@@ -9,6 +9,9 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.5.0] - 2026-10-26
+- Fehlerprotokoll: Scheitert das Laden einer Seite im WebView (Server nicht erreichbar, Verbindung zurückgesetzt, Zeitüberschreitung) oder antwortet der Server mit einem Fehler (5xx), meldet die App das mit dem genauen Android-Fehlercode (z. B. `net::ERR_CONNECTION_RESET`), der betroffenen Seite, der Verbindungsart (WLAN/Mobilfunk/kein Netz) und der App-Version an den Server (Verwaltung → Fehlerprotokoll, Quelle „Android-App“). Weil der Server in dem Moment meist nicht erreichbar ist, wird der Eintrag zwischengespeichert und beim nächsten erfolgreich geladenen Seitenaufruf bzw. beim Zurückkehren in die App nachgesendet (höchstens 20 Einträge, nicht älter als 6 Tage). Neue Berechtigung: Netzwerkstatus abfragen (keine Rückfrage am Handy).
+
 ## [1.4.3] - 2026-10-19
 - Orte: „Test aus dem Hintergrund (20 s)" – bestimmt nach 20 Sekunden (App geschlossen, Handy gesperrt) den Standort aus dem Dienst heraus und zeigt das Ergebnis als Mitteilung. Damit lässt sich prüfen, ob die Ortung im Hintergrund funktioniert, nicht nur bei geöffneter App.
 - Ist „Arbeit" gesetzt und lässt sich kein Standort bestimmen, werden Mitteilungen jetzt **zurückgehalten** statt angezeigt (vorher: angezeigt). Der Dienst prüft alle 5 Minuten (vorher 10) und zeigt Zurückgehaltenes spätestens nach 30 Minuten als eine Sammelmitteilung, auch wenn der Standort weiter unbekannt bleibt – nichts geht verloren, es gibt aber keine Flut.
