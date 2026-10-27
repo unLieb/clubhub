@@ -33,6 +33,14 @@ import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
+    private lateinit var errorView: LinearLayout
+    private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var loadFailed = false
+    private val loadTimeout = Runnable {
+        val server = ServerStore.current(this) ?: return@Runnable
+        showLoadProblem("${server.name} antwortet nicht", "Die Seite konnte nicht innerhalb von 25 Sekunden geladen werden.")
+        ErrorReporter.report(this, server, "verbindung", "/", "GET", null, "Zeit\u00fcberschreitung: Server antwortet nicht (25 s)")
+    }
     private var loadedServerId: String? = null
 
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -54,6 +62,15 @@ class MainActivity : Activity() {
         val root = FrameLayout(this)
         root.setBackgroundColor(Ui.color(this, Ui.surface))
         root.addView(web, FrameLayout.LayoutParams(-1, -1))
+        errorView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+            setBackgroundColor(Ui.color(context, Ui.surface))
+            setPadding(Ui.dp(context, 28), Ui.dp(context, 24), Ui.dp(context, 28), Ui.dp(context, 24))
+            visibility = View.GONE
+            isClickable = true // schluckt Beruehrungen, damit nichts durch die Ansicht auf die Seite faellt
+        }
+        root.addView(errorView, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
         // Edge-to-Edge (targetSdk 35): Platz fuer Statusleiste, Navigation und Tastatur selbst freihalten
         root.setOnApplyWindowInsetsListener { v, insets ->
@@ -123,7 +140,15 @@ class MainActivity : Activity() {
                 }
             }
 
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                loadFailed = false
+                uiHandler.removeCallbacks(loadTimeout)
+                uiHandler.postDelayed(loadTimeout, 25_000)
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
+                uiHandler.removeCallbacks(loadTimeout)
+                if (!loadFailed) errorView.visibility = View.GONE
                 val cur = ServerStore.current(this@MainActivity)?.let { Uri.parse(it.url) }
                 val u = Uri.parse(url)
                 if (cur != null && u.host == cur.host && u.port == cur.port) {
@@ -140,6 +165,13 @@ class MainActivity : Activity() {
                 // Nur die Hauptseite und nur Serverfehler; Fehler einzelner Bilder/Skripte waeren Rauschen
                 if (!request.isForMainFrame || errorResponse.statusCode < 500) return
                 val server = ServerStore.current(this@MainActivity) ?: return
+                loadFailed = true
+                runOnUiThread {
+                    showLoadProblem(
+                        "${server.name} hat ein Problem",
+                        "Der Server antwortet mit Fehler ${errorResponse.statusCode} (${errorResponse.reasonPhrase ?: "Serverfehler"})."
+                    )
+                }
                 ErrorReporter.report(
                     this@MainActivity, server, "verbindung", request.url.path ?: "/", request.method,
                     errorResponse.statusCode, "Serverantwort ${errorResponse.statusCode} beim Laden der Seite"
@@ -160,10 +192,10 @@ class MainActivity : Activity() {
                             "WebView-Fehler ${error.errorCode}: ${error.description}"
                         )
                     }
-                    val html = "<html><body style='background:#12161F;color:#e5e7eb;font-family:sans-serif;" +
-                        "padding:32px;text-align:center'><h2>Server nicht erreichbar</h2><p>" +
-                        "${error.description}</p><p>Seite neu laden oder über die App-Verknüpfung (Icon lange gedrückt halten) „Server verwalten“ öffnen.</p></body></html>"
-                    view.loadDataWithBaseURL(null, html, "text/html", "utf-8", request.url.toString())
+                    loadFailed = true
+                    uiHandler.removeCallbacks(loadTimeout)
+                    val name = ServerStore.current(this@MainActivity)?.name ?: "Der Server"
+                    showLoadProblem("$name ist nicht erreichbar", friendlyError(error.errorCode, error.description.toString()))
                 }
             }
         }
@@ -259,6 +291,8 @@ class MainActivity : Activity() {
 
     private fun loadCurrent() {
         val server = ServerStore.current(this) ?: return
+        errorView.visibility = View.GONE
+        loadFailed = false
         loadedServerId = server.id
         web.loadUrl(server.url)
     }
@@ -348,6 +382,59 @@ class MainActivity : Activity() {
                 }
             }
         }.start()
+    }
+
+    private fun friendlyError(code: Int, desc: String): String {
+        val net = (getSystemService(CONNECTIVITY_SERVICE) as android.net.ConnectivityManager)
+        val online = net.activeNetwork?.let { net.getNetworkCapabilities(it) }
+            ?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        val hint = when {
+            !online -> "Das Handy hat gerade keine Internetverbindung."
+            code == android.webkit.WebViewClient.ERROR_HOST_LOOKUP -> "Der Servername wird nicht gefunden."
+            code == android.webkit.WebViewClient.ERROR_TIMEOUT -> "Der Server antwortet nicht rechtzeitig."
+            code == android.webkit.WebViewClient.ERROR_CONNECT -> "Mit dem Server kann keine Verbindung aufgebaut werden."
+            else -> "Der Server ist gerade vermutlich nicht erreichbar."
+        }
+        return "$hint\n($desc)"
+    }
+
+    /** App-eigene Fehleransicht (nicht Teil der Webseite): Erklaerung, "Erneut versuchen" und Wechsel zu den anderen Servern. */
+    private fun showLoadProblem(title: String, detail: String) {
+        fun dp(v: Int) = Ui.dp(this, v)
+        errorView.removeAllViews()
+        errorView.addView(TextView(this).apply {
+            text = title
+            textSize = 22f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = android.view.Gravity.CENTER
+            setTextColor(Ui.color(context, Ui.onSurface))
+        }, LinearLayout.LayoutParams(-1, -2))
+        errorView.addView(TextView(this).apply {
+            text = detail
+            textSize = 14f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(Ui.color(context, Ui.onSurfaceVariant))
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(24) })
+
+        val lp = { LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8) } }
+        errorView.addView(Ui.filledButton(this, "Erneut versuchen") {
+            errorView.visibility = View.GONE
+            loadFailed = false
+            val cur = ServerStore.current(this)
+            if (cur != null) web.loadUrl(cur.url) else web.reload()
+        }, lp())
+        val cur = ServerStore.current(this)
+        ServerStore.load(this).filter { it.id != cur?.id }.forEach { other ->
+            errorView.addView(Ui.tonalButton(this, "Zu ${other.name} wechseln") {
+                ServerStore.setCurrent(this, other.id)
+                errorView.visibility = View.GONE
+                loadCurrent()
+            }, lp())
+        }
+        errorView.addView(Ui.tonalButton(this, "Server verwalten\u2026") {
+            startActivityForResult(Intent(this, ServersActivity::class.java), REQ_SERVERS)
+        }, lp())
+        errorView.visibility = View.VISIBLE
     }
 
     /** Material-3-Bottom-Sheet: nur die Server (aktiver mit Haken) und "Server verwalten...". */

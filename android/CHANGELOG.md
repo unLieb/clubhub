@@ -9,6 +9,11 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.5.1] - 2026-10-27
+- Ist ein Server nicht erreichbar, bleibt die App nicht mehr leer/weiß: Sie zeigt eine eigene Fehleransicht mit Erklärung („Frannz ist nicht erreichbar – Das Handy hat gerade keine Internetverbindung" bzw. Servername, Fehlerursache), „Erneut versuchen" und je einem Knopf „Zu <Server> wechseln" für die anderen Server sowie „Server verwalten…". Die Ansicht gehört zur App und nicht zur Webseite und ist deshalb auch erreichbar, wenn die Seite selbst nicht lädt.
+- Antwortet ein Server gar nicht (hängt), erscheint die Fehleransicht nach 25 Sekunden statt nach minutenlangem leerem Bildschirm; Serverfehler (5xx, z. B. 502 vom Proxy) werden ebenfalls so angezeigt. Beides geht zusätzlich ins Fehlerprotokoll des Servers.
+- Die Fehleransicht verschwindet von selbst, sobald die Seite doch lädt; beim Wechsel auf einen anderen Server wird sie zurückgesetzt.
+
 ## [1.5.0] - 2026-10-26
 - Fehlerprotokoll: Scheitert das Laden einer Seite im WebView (Server nicht erreichbar, Verbindung zurückgesetzt, Zeitüberschreitung) oder antwortet der Server mit einem Fehler (5xx), meldet die App das mit dem genauen Android-Fehlercode (z. B. `net::ERR_CONNECTION_RESET`), der betroffenen Seite, der Verbindungsart (WLAN/Mobilfunk/kein Netz) und der App-Version an den Server (Verwaltung → Fehlerprotokoll, Quelle „Android-App“). Weil der Server in dem Moment meist nicht erreichbar ist, wird der Eintrag zwischengespeichert und beim nächsten erfolgreich geladenen Seitenaufruf bzw. beim Zurückkehren in die App nachgesendet (höchstens 20 Einträge, nicht älter als 6 Tage). Neue Berechtigung: Netzwerkstatus abfragen (keine Rückfrage am Handy).
 
