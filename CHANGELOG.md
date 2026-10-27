@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.56.0] - 2026-10-27
+- Neuer Endpunkt `GET /api/app/snapshot` für die Offline-Ansicht der Android-App (Anmeldung über das Session-Cookie, sonst 401): liefert schreibgeschützt, was der angemeldete Nutzer auf Dashboard und Bereiche sieht – heute anstehende Aufgaben (gelb/rot), Termine heute, offene Meldungen (höchstens 40, nur bei aktivem Modul Meldungen) und alle sichtbaren Bereiche mit Aufgaben, Zustand und letzter Erledigung. Keine Datenbankänderung, nichts wird geschrieben. Mitgelieferte App-Datei: Version 1.6.0 (`android/CHANGELOG.md`).
+
 ## [1.55.2] - 2026-10-27
 - Mitgelieferte Android-App auf Version 1.5.2 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderungen stehen in `android/CHANGELOG.md`.
 

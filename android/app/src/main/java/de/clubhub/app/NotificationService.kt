@@ -148,6 +148,7 @@ class NotificationService : Service() {
                     handleBatch(server, list)
                 }
                 json.optJSONArray("work_hours")?.let { ServerStore.setWorkHours(this, server.id, it.toString()) }
+                Snapshot.refresh(this, server) // haelt die Offline-Ansicht auch ohne geoeffnete App frisch (max. alle 15 Min.)
                 after = json.getInt("last_id")
                 ServerStore.setLastInboxId(this, server.id, after)
                 backoff = 10_000L

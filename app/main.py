@@ -5063,6 +5063,76 @@ def push_subscribe(payload: PushSubscribeIn, request: Request, db: Session = Dep
     return {"ok": True}
 
 
+@app.get("/api/app/snapshot")
+def app_snapshot(request: Request, db: Session = Depends(get_db)):
+    """Schreibgeschuetzter Schnappschuss fuer die Offline-Ansicht der Android-App: heute anstehende
+    Aufgaben (gelb/rot), offene Meldungen und alle sichtbaren Bereiche mit ihren Aufgaben - so, wie
+    der angemeldete Nutzer sie auf Dashboard/Bereiche sieht. Die App legt ihn je Server ab und zeigt ihn,
+    wenn der Server nicht erreichbar ist. Anmeldung ueber das Session-Cookie, sonst 401."""
+    user = get_current_user(request, db)
+    if not user:
+        return Response('{"ok": false}', status_code=401, media_type="application/json")
+    now = ntptime.now_utc()
+    rooms = filter_rooms_for_user(db.query(models.Room).all(), user)
+    room_status, _, _, _, _, _ = compute_room_statuses(rooms, now)
+
+    def _task_row(task):
+        st = task_status(task, now)
+        if st.get("on_demand"):
+            text = "Nach Bedarf"
+        elif st["status"] == "red":
+            text = "Noch nie erledigt" if st["last_completed"] is None else f"Überfällig seit {format_duration_de(now - st['due_at'])}"
+        elif st["status"] == "yellow":
+            text = f"Fällig in {format_duration_de(st['due_at'] - now)}"
+        else:
+            text = "Erledigt"
+        last = st.get("last_completed")
+        return {
+            "id": task.id, "name": task.name, "status": st["status"], "text": text,
+            "last": _aware(last).astimezone(APP_TIMEZONE).strftime("%d.%m. %H:%M") if last else None,
+        }
+
+    room_rows, todo = [], []
+    for r in sorted(rooms, key=lambda r: (-STATUS_RANK[room_status[r.id]["status"]], r.name.lower())):
+        tasks = [_task_row(t) for t in r.tasks]
+        tasks.sort(key=lambda t: (-STATUS_RANK[t["status"]], t["name"].lower()))
+        rs = room_status[r.id]
+        room_rows.append({
+            "id": r.id, "name": r.name, "status": rs["status"], "text": rs["duration_text"], "tasks": tasks,
+        })
+        for t in tasks:
+            if t["status"] in ("red", "yellow"):
+                todo.append({"room": r.name, "task": t["name"], "status": t["status"], "text": t["text"]})
+    todo.sort(key=lambda t: -STATUS_RANK[t["status"]])
+
+    now_local_date = now.astimezone(APP_TIMEZONE).date()
+    appointments = [
+        a.name for a in db.query(models.Appointment).order_by(models.Appointment.date.asc()).all()
+        if _aware(a.date).astimezone(APP_TIMEZONE).date() == now_local_date and user_can_see_appointment(user, a)
+    ]
+
+    reports = []
+    if get_app_settings(db).enable_reports:
+        visible = [r for r in db.query(models.Report).all() if user_can_see_report(user, r) and r.status != "done"]
+        for r in _sort_reports(visible)[:40]:
+            title, body = split_report_text(r)
+            reports.append({
+                "title": title, "body": body[:400], "room": r.room.name if r.room else None,
+                "priority": r.priority, "status": r.status, "category": r.category,
+                "created": _aware(r.created_at).astimezone(APP_TIMEZONE).strftime("%d.%m. %H:%M"),
+            })
+
+    return {
+        "ok": True,
+        "generated_ms": int(now.timestamp() * 1000),
+        "user": user.name,
+        "appointments": appointments,
+        "todo": todo[:120],
+        "reports": reports,
+        "rooms": room_rows,
+    }
+
+
 @app.get("/api/app/inbox")
 async def app_inbox(request: Request, device: str = Query(..., min_length=8, max_length=64),
                     after: int = Query(-1), wait: int = Query(0, ge=0, le=30)):

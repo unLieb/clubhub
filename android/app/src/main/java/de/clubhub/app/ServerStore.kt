@@ -61,6 +61,7 @@ object ServerStore {
     }
 
     fun delete(ctx: Context, id: String) {
+        Snapshot.delete(ctx, id)
         save(ctx, load(ctx).filter { it.id != id })
     }
 

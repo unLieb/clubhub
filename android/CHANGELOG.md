@@ -9,6 +9,10 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.6.0] - 2026-10-27
+- Offline-Ansicht (nur lesen): Die App legt je Server einen Schnappschuss ab – heute anstehende Aufgaben (rot/gelb), offene Meldungen und alle Bereiche mit ihren Aufgaben, so wie der angemeldete Nutzer sie sieht. Ist ein Server nicht erreichbar, bietet die Fehleransicht den Knopf „Offline-Ansicht (Stand 17:02)" mit den Reitern Aufgaben, Meldungen und Bereiche (Bereiche aufklappbar mit allen Aufgaben, Zustand und letzter Erledigung). Jeder Server hat seinen eigenen Schnappschuss; Inventar ist bewusst nicht enthalten.
+- Der Schnappschuss wird nach jedem erfolgreichen Laden und zusätzlich vom Hintergrunddienst höchstens alle 15 Minuten aktualisiert, ist also auch ohne geöffnete App frisch. Ist der Stand älter als 6 Stunden, weist die Ansicht darauf hin. Abhaken ist offline nicht möglich (verhindert doppelte Erledigungen). Benötigt Server 1.56.0.
+
 ## [1.5.2] - 2026-10-27
 - Korrektur zu 1.5.1: Die Fehleransicht erschien bei einem hängenden Server (Verbindungsaufbau bleibt offen, z. B. Server offline) nicht, weil die Zeitüberschreitung erst mit dem Start der Seite begann und Android bei hängendem Verbindungsaufbau gar keinen Seitenstart meldet. Sie startet jetzt selbst beim Laden (Server öffnen, Server wechseln, „Erneut versuchen", Link aus Mitteilung) und löst nach 15 Sekunden aus, falls die Seite noch nicht fertig geladen ist.
 

@@ -160,6 +160,9 @@ class MainActivity : Activity() {
                 if (cur != null && u.host == cur.host && u.port == cur.port) {
                     injectHeading(view)
                     ErrorReporter.flush(this@MainActivity) // Seite lief -> Server erreichbar, Warteschlange senden
+                    ServerStore.current(this@MainActivity)?.let { sv ->
+                        Thread { Snapshot.refresh(this@MainActivity, sv) }.start() // Stand fuer die Offline-Ansicht
+                    }
                 }
             }
 
@@ -433,6 +436,14 @@ class MainActivity : Activity() {
             startLoadGuard()
         }, lp())
         val cur = ServerStore.current(this)
+        val offlineServer = cur?.takeIf { Snapshot.load(this, it.id) != null }
+        if (offlineServer != null) {
+            val at = java.text.SimpleDateFormat("dd.MM. HH:mm", java.util.Locale.GERMANY)
+                .format(java.util.Date(Snapshot.savedAt(this, offlineServer.id)))
+            errorView.addView(Ui.tonalButton(this, "Offline-Ansicht (Stand $at)") {
+                startActivity(Intent(this, OfflineActivity::class.java).putExtra("server_id", offlineServer.id))
+            }, lp())
+        }
         ServerStore.load(this).filter { it.id != cur?.id }.forEach { other ->
             errorView.addView(Ui.tonalButton(this, "Zu ${other.name} wechseln") {
                 ServerStore.setCurrent(this, other.id)
