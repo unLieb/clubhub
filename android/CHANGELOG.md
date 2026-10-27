@@ -9,9 +9,12 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.5.2] - 2026-10-27
+- Korrektur zu 1.5.1: Die Fehleransicht erschien bei einem hängenden Server (Verbindungsaufbau bleibt offen, z. B. Server offline) nicht, weil die Zeitüberschreitung erst mit dem Start der Seite begann und Android bei hängendem Verbindungsaufbau gar keinen Seitenstart meldet. Sie startet jetzt selbst beim Laden (Server öffnen, Server wechseln, „Erneut versuchen", Link aus Mitteilung) und löst nach 15 Sekunden aus, falls die Seite noch nicht fertig geladen ist.
+
 ## [1.5.1] - 2026-10-27
 - Ist ein Server nicht erreichbar, bleibt die App nicht mehr leer/weiß: Sie zeigt eine eigene Fehleransicht mit Erklärung („Frannz ist nicht erreichbar – Das Handy hat gerade keine Internetverbindung" bzw. Servername, Fehlerursache), „Erneut versuchen" und je einem Knopf „Zu <Server> wechseln" für die anderen Server sowie „Server verwalten…". Die Ansicht gehört zur App und nicht zur Webseite und ist deshalb auch erreichbar, wenn die Seite selbst nicht lädt.
-- Antwortet ein Server gar nicht (hängt), erscheint die Fehleransicht nach 25 Sekunden statt nach minutenlangem leerem Bildschirm; Serverfehler (5xx, z. B. 502 vom Proxy) werden ebenfalls so angezeigt. Beides geht zusätzlich ins Fehlerprotokoll des Servers.
+- Antwortet ein Server gar nicht (hängt), erscheint die Fehleransicht nach 15 Sekunden statt nach minutenlangem leerem Bildschirm; Serverfehler (5xx, z. B. 502 vom Proxy) werden ebenfalls so angezeigt. Beides geht zusätzlich ins Fehlerprotokoll des Servers.
 - Die Fehleransicht verschwindet von selbst, sobald die Seite doch lädt; beim Wechsel auf einen anderen Server wird sie zurückgesetzt.
 
 ## [1.5.0] - 2026-10-26

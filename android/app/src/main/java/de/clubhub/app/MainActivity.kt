@@ -37,9 +37,16 @@ class MainActivity : Activity() {
     private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var loadFailed = false
     private val loadTimeout = Runnable {
+        if (loadFailed || web.progress >= 100) return@Runnable
         val server = ServerStore.current(this) ?: return@Runnable
-        showLoadProblem("${server.name} antwortet nicht", "Die Seite konnte nicht innerhalb von 25 Sekunden geladen werden.")
-        ErrorReporter.report(this, server, "verbindung", "/", "GET", null, "Zeit\u00fcberschreitung: Server antwortet nicht (25 s)")
+        showLoadProblem("${server.name} antwortet nicht", "Der Server hat nicht innerhalb von 15 Sekunden geantwortet.")
+        ErrorReporter.report(this, server, "verbindung", "/", "GET", null, "Zeitüberschreitung: Server antwortet nicht (15 s)")
+    }
+
+    /** Zeitueberschreitung selbst starten: bei haengendem Verbindungsaufbau meldet das WebView gar keinen Seitenstart. */
+    private fun startLoadGuard() {
+        uiHandler.removeCallbacks(loadTimeout)
+        uiHandler.postDelayed(loadTimeout, 15_000)
     }
     private var loadedServerId: String? = null
 
@@ -142,8 +149,7 @@ class MainActivity : Activity() {
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 loadFailed = false
-                uiHandler.removeCallbacks(loadTimeout)
-                uiHandler.postDelayed(loadTimeout, 25_000)
+                startLoadGuard()
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -276,6 +282,7 @@ class MainActivity : Activity() {
                 ServerStore.setCurrent(this, match.id)
                 loadedServerId = match.id
                 web.loadUrl(data.toString())
+                startLoadGuard()
             } else {
                 Toast.makeText(this, "Dieser Server ist in der App nicht hinterlegt", Toast.LENGTH_LONG).show()
                 if (loadedServerId == null && !restored) loadCurrent()
@@ -295,6 +302,7 @@ class MainActivity : Activity() {
         loadFailed = false
         loadedServerId = server.id
         web.loadUrl(server.url)
+        startLoadGuard()
     }
 
     private fun askNotificationPermission() {
@@ -422,6 +430,7 @@ class MainActivity : Activity() {
             loadFailed = false
             val cur = ServerStore.current(this)
             if (cur != null) web.loadUrl(cur.url) else web.reload()
+            startLoadGuard()
         }, lp())
         val cur = ServerStore.current(this)
         ServerStore.load(this).filter { it.id != cur?.id }.forEach { other ->
