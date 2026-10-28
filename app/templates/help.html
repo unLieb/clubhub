@@ -44,7 +44,7 @@
       </summary>
       {# Android-App: Download-Link nur, wenn dieser Build die App-Datei enthaelt (android/release.sh); in der App selbst entfaellt er #}
       {% set android_apk = android_app() %}
-      {% set in_app = 'ClubHUBApp' in request.headers.get('user-agent', '') %}
+      {% set in_app = request_from_app(request) %}
       <div class="text-sm text-slate-400 px-3 pb-3 space-y-3">
               <p>ClubHUB im Browser öffnen, dann „Zum Home-Bildschirm hinzufügen“ wählen (in Safari: Teilen-Symbol antippen → „Zum Home-Bildschirm“). Startet danach wie eine normale App, ohne Adressleiste – und ist auf dem iPhone Voraussetzung dafür, dass Benachrichtigungen überhaupt aktiviert werden können.</p>
         <details class="rounded-lg border border-line bg-panel group/sub">

@@ -253,6 +253,7 @@ def _android_app_info():
 
 
 templates.env.globals["android_app"] = _android_app_info
+templates.env.globals["request_from_app"] = lambda request: _request_from_app(request)
 templates.env.globals["app_build_hash"] = version.BUILD_HASH
 
 # Feste Auswahl statt freiem Hex-Eingabefeld (siehe admin_groups.html) - jede
@@ -4120,7 +4121,7 @@ async def reports_create(
             f"{(f.filename or '-')[:40]} {f.content_type or '?'} {getattr(f, 'size', None)} B" for f in photos
         ]
         record_error(
-            "app" if "ClubHUBApp/" in _ua else "browser", "meldung", user_id=user.id, method="POST", path="/reports",
+            "app" if _request_from_app(request) else "browser", "meldung", user_id=user.id, method="POST", path="/reports",
             user_agent=_ua,
             details=f"Meldung wird gespeichert: {len(photos)} Foto-Teil(e)" + (": " + "; ".join(_parts) if _parts else ""),
         )
@@ -5765,6 +5766,16 @@ def admin_audit_log_page(
 
 
 _ERROR_LOG_SOURCES = {"server": "Server", "browser": "Browser", "app": "Android-App"}
+def _request_from_app(request) -> bool:
+    """Kommt die Anfrage aus der Android-App? Kennzeichen: User-Agent "ClubHUBApp/<Version>" ODER das Cookie
+    "clubhub_app" (die App setzt es zusaetzlich, weil der Service-Worker der Seite Anfragen mit dem Standard-
+    User-Agent des WebViews neu sendet und das Kennzeichen sonst verloren geht)."""
+    try:
+        return "ClubHUBApp/" in (request.headers.get("user-agent") or "") or bool(request.cookies.get("clubhub_app"))
+    except Exception:
+        return False
+
+
 _CLIENT_LOG_KINDS = {"senden_fehlgeschlagen", "js_fehler", "verbindung", "datei_auswahl", "diagnose"}
 _client_log_hits: dict = {}
 
@@ -5809,7 +5820,7 @@ async def client_log_create(request: Request, db: Session = Depends(get_db)):
             occurred = None
     # Die Android-App haengt "ClubHUBApp/<Version>" an den User-Agent (Browser-
     # Meldungen aus ihrem WebView und die nativen ErrorReporter-Meldungen).
-    source = "app" if "ClubHUBApp/" in (request.headers.get("user-agent") or "") else "browser"
+    source = "app" if _request_from_app(request) else "browser"
     record_error(
         source, data["kind"],
         user_id=user.id, method=str(data.get("method") or "")[:10] or None,

@@ -34,6 +34,9 @@ import android.widget.Toast
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var errorView: LinearLayout
+    private var lastChooserParams: WebChromeClient.FileChooserParams? = null
+    private var pickerRetried = false
+    private var pickViaFallback = false
     private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var loadFailed = false
     private val loadTimeout = Runnable {
@@ -103,10 +106,19 @@ class MainActivity : Activity() {
         web.saveState(outState)
     }
 
+    /** Cookie "clubhub_app=<Version>" fuer alle Server: der Server erkennt die App daran (der User-Agent geht beim Service-Worker verloren). */
+    private fun markAppCookie() {
+        ServerStore.load(this).forEach { sv ->
+            CookieManager.getInstance().setCookie(sv.url, "clubhub_app=${BuildConfig.VERSION_NAME}; Max-Age=31536000; Path=/; SameSite=Lax")
+        }
+        CookieManager.getInstance().flush()
+    }
+
     private fun setupWebView() {
         // Dunkler Untergrund, sonst blitzt beim Laden/Serverwechsel der weisse WebView-Standard auf
         web.setBackgroundColor(Ui.color(this, Ui.surface))
         CookieManager.getInstance().setAcceptCookie(true)
+        markAppCookie()
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false)
         web.settings.apply {
             javaScriptEnabled = true
@@ -228,6 +240,8 @@ class MainActivity : Activity() {
             ): Boolean {
                 fileCallback?.onReceiveValue(null)
                 fileCallback = callback
+                lastChooserParams = params
+                pickerRetried = false
                 reportFile("Dateiauswahl ge\u00f6ffnet (Seite ${view.url?.let { Uri.parse(it).path }}): mode=${params.mode}, accept=${params.acceptTypes?.joinToString()}, capture=${params.isCaptureEnabled}")
                 return try {
                     startActivityForResult(params.createIntent(), REQ_FILE)
@@ -326,6 +340,7 @@ class MainActivity : Activity() {
         // Nach dem Zurueckkehren aus der Serververwaltung evtl. Server gewechselt/geloescht
         val cur = ServerStore.current(this)
         if (cur != null && cur.id != loadedServerId) loadCurrent()
+        markAppCookie()
         checkForUpdate()
     }
 
@@ -412,6 +427,48 @@ class MainActivity : Activity() {
     }
 
     /** App-eigene Fehleransicht (nicht Teil der Webseite): Erklaerung, "Erneut versuchen" und Wechsel zu den anderen Servern. */
+    /** Holt die gewaehlten Dateien aus dem Ergebnis der Galerie - zuerst wie Android, dann auch aus ungewoehnlichen Formen. */
+    private fun extractUris(resultCode: Int, data: Intent?): Array<Uri>? {
+        if (resultCode != RESULT_OK) return null
+        pickViaFallback = false
+        WebChromeClient.FileChooserParams.parseResult(resultCode, data)?.takeIf { it.isNotEmpty() }?.let { return it }
+        if (data == null) return null
+        pickViaFallback = true
+        val out = LinkedHashSet<Uri>()
+        fun collect(v: Any?) {
+            when (v) {
+                is Uri -> out.add(v)
+                is String -> if (v.startsWith("content://")) out.add(Uri.parse(v))
+                is Collection<*> -> v.forEach { collect(it) }
+                is Array<*> -> v.forEach { collect(it) }
+            }
+        }
+        data.data?.let { out.add(it) }
+        data.clipData?.let { c -> for (i in 0 until c.itemCount) c.getItemAt(i).uri?.let { out.add(it) } }
+        @Suppress("DEPRECATION")
+        data.extras?.let { b -> for (k in b.keySet()) collect(b.get(k)) }
+        return if (out.isEmpty()) null else out.toTypedArray()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun describeIntent(data: Intent?): String {
+        if (data == null) return "null"
+        val ex = data.extras?.keySet()?.joinToString { k -> k + "=" + (data.extras?.get(k)?.javaClass?.simpleName ?: "null") }
+        return "$data clip=${data.clipData?.itemCount} extras=[$ex]"
+    }
+
+    /** Zweiter Versuch: der Dokumentenwaehler des Systems (ACTION_OPEN_DOCUMENT) statt der Galerie-App. */
+    private fun alternativePickerIntent(): Intent? {
+        val params = lastChooserParams ?: return null
+        val types = params.acceptTypes?.filter { it.isNotBlank() } ?: emptyList()
+        return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = if (types.size == 1) types[0] else "*/*"
+            if (types.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, types.toTypedArray())
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE)
+        }
+    }
+
     /** Foto-/Dateiauswahl ins Fehlerprotokoll des aktuellen Servers (Art "datei_auswahl", Quelle App). */
     private fun reportFile(text: String) {
         val server = ServerStore.current(this) ?: return
@@ -423,7 +480,7 @@ class MainActivity : Activity() {
     /** Sendet den Diagnosebericht (AppInfo.diagnostics) an den aktuellen Server. */
     fun sendDiagnostics() {
         val server = ServerStore.current(this) ?: return
-        ErrorReporter.report(this, server, "diagnose", "/", null, null, AppInfo.diagnostics(this))
+        ErrorReporter.report(this, server, "diagnose", "/", null, null, AppInfo.diagnostics(this) + "\nWebView-UA: " + web.settings.userAgentString)
         Toast.makeText(this, "Diagnose an ${server.name} gesendet", Toast.LENGTH_SHORT).show()
     }
 
@@ -737,15 +794,33 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQ_FILE) {
-            val uris = if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
+            val uris = extractUris(resultCode, data)
             val kinds = uris?.joinToString { u -> (contentResolver.getType(u) ?: "?") + " " + (u.authority ?: "") }
             reportFile(
                 "Dateiauswahl Ergebnis: code=$resultCode, ${uris?.size ?: 0} Datei(en)" + (if (kinds != null) " [$kinds]" else "") +
-                    (if (fileCallback == null) " \u2013 ACHTUNG: Auswahl der Seite war nicht mehr vorhanden (App wurde zwischenzeitlich neu gestartet)" else "")
+                    (if (fileCallback == null) " \u2013 ACHTUNG: Auswahl der Seite war nicht mehr vorhanden (App wurde zwischenzeitlich neu gestartet)" else "") +
+                    (if (!uris.isNullOrEmpty() && pickViaFallback) " (aus Zusatzdaten gelesen: Standard-Auswertung war leer | Intent: ${describeIntent(data)})" else "") +
+                    (if (uris.isNullOrEmpty() && resultCode == RESULT_OK) " | Intent: ${describeIntent(data)}" else "")
             )
-            fileCallback?.onReceiveValue(
-                if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
-            )
+            if (uris.isNullOrEmpty() && resultCode == RESULT_OK && fileCallback != null && !pickerRetried) {
+                // Die Galerie meldete "OK", lieferte aber keine Datei: einmal mit dem System-Dokumentenwaehler versuchen
+                pickerRetried = true
+                val alt = alternativePickerIntent()
+                if (alt != null) {
+                    try {
+                        reportFile("Auswahl leer \u2013 versuche den System-Dokumentenw\u00e4hler")
+                        Toast.makeText(this, "Die Foto-Auswahl hat nichts geliefert \u2013 zweiter Versuch", Toast.LENGTH_SHORT).show()
+                        startActivityForResult(alt, REQ_FILE)
+                        return
+                    } catch (e: Exception) {
+                        reportFile("Alternativer Dokumentenw\u00e4hler nicht startbar: $e")
+                    }
+                }
+            }
+            if (uris.isNullOrEmpty() && resultCode == RESULT_OK) {
+                Toast.makeText(this, "Es wurde keine Datei \u00fcbernommen \u2013 bitte erneut ausw\u00e4hlen", Toast.LENGTH_LONG).show()
+            }
+            fileCallback?.onReceiveValue(uris)
             fileCallback = null
             return
         }

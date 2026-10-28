@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.57.1] - 2026-10-28
+- Android-App wird jetzt zuverlässig erkannt: zusätzlich zum User-Agent „ClubHUBApp/…" (der bei Seitenanfragen durch den Service-Worker verloren ging) gilt das Cookie `clubhub_app`, das die App setzt. Betrifft die Quelle im Fehlerprotokoll (App/Browser) für Meldungen und Browser-Einträge sowie die Hilfe (Download-Knopf entfällt in der App).
+- Mitgelieferte Android-App: Version 1.7.1 (Fix für Fotos an Meldungen, siehe `android/CHANGELOG.md`).
+
 ## [1.57.0] - 2026-10-28
 - Diagnose für Foto-Probleme: Jede neue Meldung schreibt ins Fehlerprotokoll (Art „meldung"), woher sie kam (App oder Browser) und wie viele Fotos tatsächlich ankamen (Dateiname, Typ, Größe). Die Foto-Auswahl im Browser/in der App meldet, was die Auswahl geliefert hat („datei_auswahl"), ebenso leere/verworfene Dateien. Neue Protokoll-Arten für die Android-App: „datei_auswahl" und „diagnose" (Bericht über Gerät, Speicher, Akku-Einstellungen, Berechtigungen).
 - „Meine Geräte" (Profil) zeigt die App jetzt mit Version und Gerät („ClubHUB-App 1.7.0 (Android 16; Xiaomi …)"); der Eintrag wird bei jedem Abruf der App aktualisiert.

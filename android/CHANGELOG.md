@@ -9,6 +9,12 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.7.1] - 2026-10-28
+- **Fehler behoben: Fotos ließen sich an Meldungen nicht anhängen.** Die Galerie-App des Handys meldete bei der Foto-Auswahl „OK", lieferte aber keine Datei zurück (im Fehlerprotokoll: `code=-1, 0 Datei(en)`); die Meldung ging dann ohne Fotos raus, ohne jede Rückmeldung. Die App liest das Ergebnis jetzt auch aus ungewöhnlichen Formen (Zusatzdaten, mehrere Uri-Felder). Liefert die Galerie trotzdem nichts, startet sie einmal automatisch den System-Dokumentenwähler und weist per Hinweis darauf hin („Die Foto-Auswahl hat nichts geliefert – zweiter Versuch"); bleibt auch das leer, erscheint „Es wurde keine Datei übernommen – bitte erneut auswählen" statt Schweigen.
+- Die Protokollzeile der Foto-Auswahl vermerkt, wenn die Standard-Auswertung leer war und die Dateien aus Zusatzdaten gelesen wurden, samt Inhalt des Ergebnisses.
+- Erkennung der App am Server: Der User-Agent mit „ClubHUBApp/…" kam bei Seitenanfragen nicht an (der Service-Worker der Seite sendet sie mit dem Standard-Kennzeichen neu). Die App setzt deshalb zusätzlich das Cookie `clubhub_app=<Version>` für alle Server. Dadurch erscheinen Einträge der Seite im Fehlerprotokoll künftig als Quelle „App", und die Hilfe erkennt die App (statt Download-Knopf: „Du nutzt die App bereits"). Benötigt Server 1.57.1.
+- „Mehr → Diagnose" nennt zusätzlich den tatsächlich gesetzten WebView-User-Agent.
+
 ## [1.7.0] - 2026-10-28
 - Diagnose für die Fehlersuche (Anlass: Fotos ließen sich in der App nicht an eine Meldung anhängen, ohne dass etwas im Protokoll erschien):
   - Foto-/Dateiauswahl wird ins Fehlerprotokoll geschrieben (Art „datei_auswahl", Quelle App): Auswahl geöffnet, Ergebnis der Galerie (Anzahl, Dateityp, liefernde App), freier Arbeitsspeicher – und ein deutlicher Vermerk, wenn die App zwischenzeitlich neu gestartet wurde und die Auswahl der Seite dadurch verloren ging.
