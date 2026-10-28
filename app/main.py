@@ -33,6 +33,7 @@ from . import ntptime
 from . import backup
 from . import nextcloud
 from . import data_export
+from . import event_days
 from . import version
 from . import push
 from . import pdf_export
@@ -886,6 +887,19 @@ def _migrate_app_settings_nextcloud(db: Session):
     _ensure_column(db, "app_settings", "nextcloud_images_error_at", "DATETIME")
 
 
+def _migrate_event_days(db: Session):
+    """Event-Tage (siehe event_days.py): Bereichs-Schalter und Einstellungen
+    fuer den Abgleich mit der Programmseite. Die Tabelle event_days selbst legt
+    create_all() an. Bestehende Bereiche bleiben unveraendert (0 = Nach-
+    Bedarf-Aufgaben wie bisher immer sichtbar)."""
+    _ensure_column(db, "rooms", "event_day_only", "INTEGER DEFAULT 0")
+    _ensure_column(db, "app_settings", "event_import_url", "TEXT")
+    _ensure_column(db, "app_settings", "event_import_categories", "TEXT")
+    _ensure_column(db, "app_settings", "event_import_last_at", "DATETIME")
+    _ensure_column(db, "app_settings", "event_import_last_summary", "TEXT")
+    _ensure_column(db, "app_settings", "event_import_last_error", "TEXT")
+
+
 def _migrate_remove_timeclock_nfc_tags(db: Session):
     """Das Ein-/Ausstempeln lief anfangs über einen gemeinsamen NFC-Tag
     (/timeclock/scan), wurde aber durch ein autorisiertes Terminal ersetzt
@@ -1001,6 +1015,7 @@ def _startup():
         _migrate_app_settings_task_dedupe(db)
         _migrate_app_settings_instance_name(db)
         _migrate_merge_duplicate_tasks(db)
+        _migrate_event_days(db)
     finally:
         db.close()
 
@@ -1612,6 +1627,16 @@ def group_tasks_by_turnus(tasks: list) -> list[dict]:
     return sections
 
 
+def _room_event_mode(db: Session, room: models.Room, now) -> dict | None:
+    """None bei normalen Bereichen. Bei Bereichen mit event_day_only (z.B.
+    Backstage) die Event-Lage: {"today": [EventDay], "next_label": str | None}
+    - ohne Veranstaltung heute bleiben die Nach-Bedarf-Aufgaben ausgeblendet
+    (siehe event_days.py)."""
+    if not room.event_day_only:
+        return None
+    return event_days.event_status(db, now, APP_TIMEZONE)
+
+
 @app.get("/room/{room_id}")
 def room_view(room_id: int, request: Request, done: str = "", db: Session = Depends(get_db)):
     user, redirect = require_login_page(request, db)
@@ -1621,6 +1646,8 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     if not room or not user_can_see_room(user, room):
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
+    event_mode = _room_event_mode(db, room, now)
+    hide_on_demand = bool(event_mode) and not event_mode["today"]
     statuses = {t.id: _task_display_status(t, now) for t in room.tasks}
     # Erledigte (grüne) Aufgaben aus der Hauptliste ausblenden, damit man beim
     # Abarbeiten nicht an bereits Erledigtem vorbeischeitzen muss - sie tauchen
@@ -1631,7 +1658,7 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     # aus der Liste und tauchen am naechsten Tag automatisch wieder auf.
     pending_tasks = [
         t for t in room.tasks
-        if (statuses[t.id]["on_demand"] and not statuses[t.id]["on_demand_done_today"])
+        if (statuses[t.id]["on_demand"] and not hide_on_demand and not statuses[t.id]["on_demand_done_today"])
         or (not statuses[t.id]["on_demand"] and statuses[t.id]["status"] != "green")
     ]
     # Turnus kurz -> lang (Tagesgeschäft zuerst, Grundreinigungen darunter),
@@ -1641,7 +1668,10 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     # behaelt statt bei jedem Aufruf in Einfuege-/ID-Reihenfolge zu springen.
     pending_tasks.sort(key=lambda t: (t.interval_hours or float("inf"), t.name.lower()))
     pending_task_ids = {t.id for t in pending_tasks}
-    done_tasks = [t for t in room.tasks if t.id not in pending_task_ids]
+    done_tasks = [
+        t for t in room.tasks
+        if t.id not in pending_task_ids and not (hide_on_demand and statuses[t.id]["on_demand"])
+    ]
     setups = (
         db.query(models.RoomSetup)
         .filter(models.RoomSetup.room_id == room_id)
@@ -1666,6 +1696,7 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
         "pending_tasks": pending_tasks,
         "pending_sections": group_tasks_by_turnus(pending_tasks),
         "done_tasks": done_tasks,
+        "event_mode": event_mode,
         "setups": setups,
         "attachable_events": attachable_events,
         "just_done_task_name": just_done_task_name,
@@ -1780,7 +1811,10 @@ def complete_on_demand_tasks(room_id: int, request: Request, db: Session = Depen
             raise HTTPException(status_code=404, detail="Bereich nicht gefunden")
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
-    open_tasks = [
+    event_mode = _room_event_mode(db, room, now)
+    # Ohne Event heute sind die Nach-Bedarf-Aufgaben ausgeblendet (siehe
+    # room_view) und duerfen auch nicht ueber diesen Knopf abgehakt werden.
+    open_tasks = [] if event_mode and not event_mode["today"] else [
         t for t in room.tasks
         if t.interval_hours == 0 and not task_status(t, now)["on_demand_done_today"]
     ]
@@ -5129,7 +5163,9 @@ def app_snapshot(request: Request, db: Session = Depends(get_db)):
 
     room_rows, todo = [], []
     for r in sorted(rooms, key=lambda r: (-STATUS_RANK[room_status[r.id]["status"]], r.name.lower())):
-        tasks = [_task_row(t) for t in r.tasks]
+        event_mode = _room_event_mode(db, r, now)
+        hide_on_demand = bool(event_mode) and not event_mode["today"]
+        tasks = [_task_row(t) for t in r.tasks if not (hide_on_demand and t.interval_hours == 0)]
         tasks.sort(key=lambda t: (-STATUS_RANK[t["status"]], t["name"].lower()))
         rs = room_status[r.id]
         room_rows.append({
@@ -7620,11 +7656,12 @@ def admin_add_room(
     request: Request,
     name: str = Form(...),
     group_ids: list[int] = Form([]),
+    event_day_only: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
     groups = db.query(models.Group).filter(models.Group.id.in_(group_ids)).all()
-    db.add(models.Room(name=name, groups=groups))
+    db.add(models.Room(name=name, groups=groups, event_day_only=event_day_only))
     log_audit(db, actor, "CREATE", "Bereich", f"Bereich „{name}“ angelegt.")
     db.commit()
     return RedirectResponse("/admin/rooms", status_code=302)
@@ -7636,6 +7673,7 @@ def admin_edit_room(
     request: Request,
     name: str = Form(...),
     group_ids: list[int] = Form([]),
+    event_day_only: bool = Form(False),
     db: Session = Depends(get_db),
 ):
     actor = require_admin_or_shift_lead(request, db)
@@ -7657,8 +7695,14 @@ def admin_edit_room(
                 f"Gruppen {', '.join(old_group_names) or '–'} → {', '.join(new_group_names) or '–'}"
             )
 
+        if bool(room.event_day_only) != event_day_only:
+            changes.append(
+                "Nach-Bedarf-Aufgaben nur an Event-Tagen " + ("an" if event_day_only else "aus")
+            )
+
         room.name = name
         room.groups = new_groups
+        room.event_day_only = event_day_only
         if changes:
             log_audit(db, actor, "UPDATE", "Bereich", f"Bereich „{name}“ bearbeitet: {'; '.join(changes)}.")
         db.commit()
@@ -7677,6 +7721,105 @@ def admin_delete_room(room_id: int, request: Request, db: Session = Depends(get_
     if is_fetch:
         return {"ok": True}
     return RedirectResponse("/admin/rooms", status_code=302)
+
+
+@app.get("/admin/events")
+def admin_events_page(request: Request, db: Session = Depends(get_db)):
+    admin = require_admin_or_shift_lead(request, db)
+    settings = get_app_settings(db)
+    day = event_days.effective_day(ntptime.now_utc(), APP_TIMEZONE)
+    return templates.TemplateResponse("admin_events.html", {
+        "request": request,
+        "user": admin,
+        "settings": settings,
+        "default_categories": event_days.DEFAULT_CATEGORIES,
+        "today": day,
+        "upcoming": db.query(models.EventDay).filter(models.EventDay.date >= day)
+            .order_by(models.EventDay.date, models.EventDay.title).all(),
+        "event_rooms": db.query(models.Room).filter(models.Room.event_day_only.is_(True)).order_by(models.Room.name).all(),
+        "last_at": _aware(settings.event_import_last_at),
+        "app_tz": APP_TIMEZONE,
+    })
+
+
+@app.post("/admin/events/settings")
+def admin_events_settings(
+    request: Request,
+    event_import_url: str = Form(""),
+    event_import_categories: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    actor = require_admin_or_shift_lead(request, db)
+    url = event_import_url.strip()
+    if url and urlparse(url).scheme not in ("http", "https"):
+        return RedirectResponse(
+            _with_toast("/admin/events", "Die Adresse muss mit http:// oder https:// beginnen.", "error"), status_code=302,
+        )
+    settings = get_app_settings(db)
+    settings.event_import_url = url or None
+    settings.event_import_categories = ", ".join(
+        c.strip() for c in event_import_categories.split(",") if c.strip()
+    ) or None
+    log_audit(db, actor, "UPDATE", "Event-Tage", "Einstellungen für den Abgleich der Event-Tage geändert.")
+    db.commit()
+    return RedirectResponse(_with_toast("/admin/events", "Gespeichert"), status_code=302)
+
+
+@app.post("/admin/events/import")
+def admin_events_import(request: Request, db: Session = Depends(get_db)):
+    actor = require_admin_or_shift_lead(request, db)
+    ok = event_days.run_import(db, APP_TIMEZONE)
+    settings = get_app_settings(db)
+    if not ok:
+        return RedirectResponse(
+            _with_toast("/admin/events", f"Abgleich fehlgeschlagen: {settings.event_import_last_error}", "error"),
+            status_code=302,
+        )
+    log_audit(db, actor, "UPDATE", "Event-Tage", f"Event-Tage abgeglichen: {settings.event_import_last_summary}.")
+    db.commit()
+    return RedirectResponse(
+        _with_toast("/admin/events", f"Abgeglichen: {settings.event_import_last_summary}"), status_code=302,
+    )
+
+
+@app.post("/admin/events/add")
+def admin_events_add(
+    request: Request,
+    date_value: str = Form(..., alias="date"),
+    title: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    actor = require_admin_or_shift_lead(request, db)
+    try:
+        day = datetime.strptime(date_value, "%Y-%m-%d").date()
+    except ValueError:
+        return RedirectResponse(_with_toast("/admin/events", "Ungültiges Datum.", "error"), status_code=302)
+    title = title.strip()
+    if not title:
+        return RedirectResponse(_with_toast("/admin/events", "Bitte einen Titel angeben.", "error"), status_code=302)
+    db.add(models.EventDay(date=day, title=title, source="manual"))
+    log_audit(db, actor, "CREATE", "Event-Tage", f"Event-Tag „{title}“ am {day.strftime('%d.%m.%Y')} eingetragen.")
+    db.commit()
+    return RedirectResponse(_with_toast("/admin/events", "Event-Tag eingetragen"), status_code=302)
+
+
+@app.post("/admin/events/{event_id}/toggle")
+def admin_events_toggle(event_id: int, request: Request, db: Session = Depends(get_db)):
+    """Blendet einen Event-Tag aus bzw. wieder ein; von Hand eingetragene Tage
+    werden stattdessen geloescht (kein Abgleich legt sie neu an)."""
+    actor = require_admin_or_shift_lead(request, db)
+    event = db.query(models.EventDay).filter(models.EventDay.id == event_id).first()
+    if event:
+        label = f"„{event.title}“ am {event.date.strftime('%d.%m.%Y')}"
+        if event.source == "manual":
+            db.delete(event)
+            log_audit(db, actor, "DELETE", "Event-Tage", f"Event-Tag {label} gelöscht.")
+        else:
+            event.hidden = not event.hidden
+            state = "ausgeblendet" if event.hidden else "wieder eingeblendet"
+            log_audit(db, actor, "UPDATE", "Event-Tage", f"Event-Tag {label} {state}.")
+        db.commit()
+    return RedirectResponse("/admin/events", status_code=302)
 
 
 @app.post("/admin/tasks")

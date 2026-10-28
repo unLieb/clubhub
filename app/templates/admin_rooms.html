@@ -27,6 +27,10 @@
         {% endfor %}
       </div>
       {% endif %}
+      <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+        <input type="checkbox" name="event_day_only" value="true" class="accent-go">
+        Nach-Bedarf-Aufgaben nur an Event-Tagen zeigen (z.&thinsp;B. Backstage)
+      </label>
       <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Bereich anlegen</button>
     </form>
   </div>
@@ -37,7 +41,7 @@
     {% for r in rooms %}
     <li data-ajax-row class="text-slate-300 border-b border-line/50 last:border-0 py-1">
       <div class="flex justify-between items-center gap-2">
-        <span>{{ r.name }}</span>
+        <span>{{ r.name }}{% if r.event_day_only %} <span class="text-xs text-slate-500">· nur an Event-Tagen</span>{% endif %}</span>
         <span class="flex items-center gap-2 shrink-0">
           <span class="flex items-center gap-1 flex-wrap justify-end">{{ gm.group_badges(r.groups) }}{% if not r.groups %}<span class="text-slate-500 text-xs">keine Gruppen</span>{% endif %}</span>
           <div class="relative room-kebab-wrap">
@@ -76,6 +80,10 @@
           {% else %}
           <p class="text-slate-500 text-xs italic">Noch keine Gruppen angelegt.</p>
           {% endif %}
+          <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" name="event_day_only" value="true" class="accent-go" {% if r.event_day_only %}checked{% endif %}>
+            Nach-Bedarf-Aufgaben nur an Event-Tagen zeigen (z.&thinsp;B. Backstage)
+          </label>
           <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
         </form>
       </div>

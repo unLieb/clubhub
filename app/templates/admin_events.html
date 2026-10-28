@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Event-Tage – Verwaltung{% endblock %}
+{% block content %}
+
+<a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
+<h1 class="font-display text-2xl font-semibold mt-2 mb-2">Event-Tage</h1>
+<p class="text-sm text-slate-400 mb-6 max-w-2xl">
+  An Event-Tagen erscheinen die Aufgaben <em>nach Bedarf</em> in Bereichen, bei denen
+  „nur an Event-Tagen zeigen“ eingeschaltet ist (unter
+  <a href="/admin/rooms" class="underline hover:text-slate-200">Bereiche</a>
+  {% if event_rooms %}– aktuell: {{ event_rooms | map(attribute="name") | join(", ") }}{% else %}– aktuell bei keinem Bereich{% endif %}).
+  Ein Event-Tag gilt bis 06:00 Uhr am Folgemorgen, damit auch das Aufräumen nach dem Konzert noch dazugehört.
+</p>
+
+<section class="rounded-xl border border-line bg-panel p-4 mb-6">
+  <h2 class="font-display font-medium mb-1">Abgleich mit der Webseite</h2>
+  <p class="text-xs text-slate-500 mb-3">
+    Liest das Veranstaltungsprogramm von der angegebenen Seite (mehrmals täglich und auf Knopfdruck).
+    Ohne Adresse wird nichts abgeglichen – Tage lassen sich dann nur von Hand eintragen.
+  </p>
+  <form method="post" action="/admin/events/settings" class="space-y-2 max-w-2xl">
+    <label class="block text-xs text-slate-400">Adresse der Programmseite
+      <input name="event_import_url" type="url" value="{{ settings.event_import_url or '' }}" placeholder="https://frannz.eu"
+             class="mt-1 w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-100">
+    </label>
+    <label class="block text-xs text-slate-400">Kategorien, die zählen (kommagetrennt, leer = Standard)
+      <input name="event_import_categories" value="{{ settings.event_import_categories or '' }}"
+             placeholder="{{ default_categories }}"
+             class="mt-1 w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-100">
+    </label>
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+  </form>
+
+  <div class="mt-4 flex flex-wrap items-center gap-3 text-sm">
+    <form method="post" action="/admin/events/import">
+      <button class="px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-slate-200 disabled:opacity-50" {% if not settings.event_import_url %}disabled{% endif %}>Jetzt abgleichen</button>
+    </form>
+    {% if last_at %}
+    <span class="text-xs {{ 'text-late' if settings.event_import_last_error else 'text-slate-500' }}">
+      Letzter Abgleich {{ last_at.astimezone(app_tz).strftime('%d.%m.%Y %H:%M') }}:
+      {{ settings.event_import_last_error or settings.event_import_last_summary }}
+    </span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="rounded-xl border border-line bg-panel p-4 mb-6">
+  <h2 class="font-display font-medium mb-3">Von Hand eintragen</h2>
+  <form method="post" action="/admin/events/add" class="flex flex-wrap gap-2 max-w-2xl">
+    <input type="date" name="date" required value="{{ today.isoformat() }}" class="rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-100">
+    <input name="title" required placeholder="Titel, z. B. Private Feier" class="flex-1 min-w-[12rem] rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm text-slate-100">
+    <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Eintragen</button>
+  </form>
+</section>
+
+<section class="rounded-xl border border-line bg-panel p-4">
+  <h2 class="font-display font-medium mb-3">Anstehende Event-Tage ({{ upcoming | length }})</h2>
+  {% if upcoming %}
+  <ul class="text-sm divide-y divide-line/50">
+    {% for e in upcoming %}
+    <li class="flex items-center justify-between gap-3 py-2 {{ 'opacity-50' if e.hidden }}">
+      <div class="min-w-0">
+        <span class="text-slate-400 tabular-nums">{{ ['Mo','Di','Mi','Do','Fr','Sa','So'][e.date.weekday()] }}, {{ e.date.strftime('%d.%m.%Y') }}</span>
+        <span class="ml-2 text-slate-100 {{ 'line-through' if e.hidden }}">{{ e.title }}</span>
+        {% if e.date == today %}<span class="ml-1 text-xs text-go">heute</span>{% endif %}
+        <span class="ml-1 text-xs text-slate-500">{{ e.category or '' }}{{ ' · von Hand' if e.source == 'manual' else '' }}{{ ' · ausgeblendet' if e.hidden else '' }}</span>
+      </div>
+      <form method="post" action="/admin/events/{{ e.id }}/toggle" class="shrink-0">
+        <button class="text-xs px-2.5 py-1 rounded-md border border-line hover:bg-panel2 text-slate-300">
+          {% if e.source == 'manual' %}Löschen{% elif e.hidden %}Einblenden{% else %}Ausblenden{% endif %}
+        </button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm text-slate-500 italic">Keine anstehenden Event-Tage.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

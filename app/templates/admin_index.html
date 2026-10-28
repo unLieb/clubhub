@@ -135,6 +135,22 @@
     </span>
   </a>
 
+  {% if user.is_admin or user.is_shift_lead %}
+  <a href="/admin/events" class="flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
+    <div class="w-12 h-12 rounded-full bg-go/15 text-go flex items-center justify-center shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-medium">Event-Tage</div>
+      <div class="text-xs text-slate-500 mt-0.5">Konzerte und Partys, an denen Aufgaben nach Bedarf (z.&thinsp;B. Backstage) erscheinen.</div>
+    </div>
+    <span class="hidden sm:flex items-center gap-1 text-go text-sm font-medium shrink-0">
+      Verwalten
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </span>
+  </a>
+  {% endif %}
+
   <a href="/admin/system" class="flex items-center gap-4 rounded-xl border border-line bg-panel p-5 hover:bg-panel2">
     <div class="w-12 h-12 rounded-full bg-panel2 text-slate-400 flex items-center justify-center shrink-0">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>

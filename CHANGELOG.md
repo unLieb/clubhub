@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.58.0] - 2026-10-28
+- Event-Tage: „Nach Bedarf"-Aufgaben können jetzt nur an Veranstaltungstagen erscheinen (z. B. im Backstage). Dafür gibt es unter Verwaltung → Bereiche je Bereich den Schalter „Nach-Bedarf-Aufgaben nur an Event-Tagen zeigen". Ist er an und heute findet keine Veranstaltung statt, sind diese Aufgaben in der Bereichsansicht (und in der Offline-Ansicht der App) ausgeblendet und auch über „Alle erledigt" nicht abhakbar; stattdessen steht oben „Heute kein Event" samt nächstem Termin. Aufgaben mit festem Turnus bleiben unberührt, bestehende Bereiche verhalten sich wie bisher. Ein Event-Tag gilt bis 06:00 Uhr am Folgemorgen, damit das Aufräumen nach dem Konzert noch dazugehört.
+- Neue Seite Verwaltung → Event-Tage (Admin und Schichtleiter): liest das Veranstaltungsprogramm einer Webseite ein (Adresse einstellbar, mehrmals täglich um 04:05, 10:05, 16:05 und 22:05 Uhr sowie per Knopf „Jetzt abgleichen"), übernimmt Datum, Titel und Kategorie und lässt abgesagte Veranstaltungen weg. Das Jahr wird aus dem Wochentag bestimmt, da die Seite nur Tag und Monat nennt. Welche Kategorien zählen, ist einstellbar (Standard: Konzert, Party, Ballroom Party, Show). Einzelne Tage lassen sich ausblenden (bleibt auch nach dem nächsten Abgleich erhalten) und eigene Tage von Hand eintragen oder löschen. Findet der Abgleich keine Veranstaltung mehr (Seite umgebaut oder nicht erreichbar), meldet er einen Fehler und ändert nichts. Ohne hinterlegte Adresse passiert kein Abgleich.
+- Technisch: neue Tabelle `event_days`, neue Spalte `rooms.event_day_only` sowie `app_settings.event_import_*` (automatisch migriert); Änderungen an Bereichen und Event-Tagen stehen im Audit-Log.
+
 ## [1.57.1] - 2026-10-28
 - Android-App wird jetzt zuverlässig erkannt: zusätzlich zum User-Agent „ClubHUBApp/…" (der bei Seitenanfragen durch den Service-Worker verloren ging) gilt das Cookie `clubhub_app`, das die App setzt. Betrifft die Quelle im Fehlerprotokoll (App/Browser) für Meldungen und Browser-Einträge sowie die Hilfe (Download-Knopf entfällt in der App).
 - Mitgelieferte Android-App: Version 1.7.1 (Fix für Fotos an Meldungen, siehe `android/CHANGELOG.md`).

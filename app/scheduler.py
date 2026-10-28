@@ -7,12 +7,13 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
-from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group, RoomGroupThrottle, Notice
+from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group, RoomGroupThrottle, Notice, AppSettings
 from .status import task_status, compute_inventory_status
 from .notifications import notify_group, notify_groups, notify_user
 from . import ntptime
 from . import backup
 from . import nextcloud
+from . import event_days
 from . import notification_batching
 from .error_log import prune_error_log
 
@@ -380,6 +381,22 @@ def check_notice_expiry_job():
         db.close()
 
 
+def sync_event_days_job():
+    """Gleicht die Event-Tage mit der Programmseite ab (siehe event_days.py);
+    ohne hinterlegte Adresse passiert nichts. Fehler stehen als Status in der
+    Verwaltung, der Job selbst wirft nie."""
+    db = SessionLocal()
+    try:
+        settings = db.query(AppSettings).first()
+        if settings and settings.event_import_url:
+            event_days.run_import(db, APP_TIMEZONE)
+    except Exception:
+        logger.exception("Fehler beim Abgleich der Event-Tage")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def scheduled_backup_job():
     try:
         backup_path = backup.create_scheduled_backup(BACKUP_RETENTION_DAYS)
@@ -426,6 +443,12 @@ def start_scheduler():
         scheduled_backup_job,
         CronTrigger(hour=BACKUP_SCHEDULE_HOURS, minute=0, timezone=APP_TIMEZONE),
         id="scheduled_backup",
+    )
+    # Event-Tage (Konzerte/Partys) mehrmals taeglich mit der Webseite abgleichen
+    scheduler.add_job(
+        sync_event_days_job,
+        CronTrigger(hour="4,10,16,22", minute=5, timezone=APP_TIMEZONE),
+        id="sync_event_days",
     )
     # Fehlerprotokoll taeglich aufraeumen (siehe error_log.KEEP_DAYS/MAX_ROWS)
     scheduler.add_job(

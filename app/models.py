@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, ForeignKey, DateTime, Table, Boolean, Float
+    Column, Integer, String, ForeignKey, DateTime, Table, Boolean, Float, Date
 )
 from sqlalchemy.orm import relationship
 
@@ -223,9 +223,30 @@ class Room(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    # True = "Nach Bedarf"-Aufgaben dieses Bereichs (z.B. Backstage) erscheinen
+    # nur an Event-Tagen (siehe EventDay/event_days.py), sonst sind sie
+    # ausgeblendet. Aufgaben mit festem Turnus bleiben davon unberuehrt.
+    event_day_only = Column(Boolean, nullable=False, default=False)
 
     groups = relationship("Group", secondary=room_group, back_populates="rooms")
     tasks = relationship("Task", back_populates="room", cascade="all, delete-orphan")
+
+
+class EventDay(Base):
+    """Ein Veranstaltungstag (Konzert, Party ...), siehe event_days.py.
+    source "import" = vom Programm der Webseite uebernommen (source_key = deren
+    Beitrags-ID, wird beim Abgleich aktualisiert), "manual" = von Hand
+    eingetragen. hidden blendet einen (importierten) Tag aus, ohne ihn zu
+    loeschen - sonst wuerde ihn der naechste Abgleich wieder anlegen."""
+    __tablename__ = "event_days"
+
+    id = Column(Integer, primary_key=True)
+    date = Column(Date, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    category = Column(String, nullable=True)
+    source = Column(String, nullable=False, default="manual")
+    source_key = Column(String, nullable=True, index=True)
+    hidden = Column(Boolean, nullable=False, default=False)
 
 
 class EventSetup(Base):
@@ -802,6 +823,14 @@ class AppSettings(Base):
     nextcloud_images_summary = Column(String, nullable=True)
     nextcloud_images_error = Column(String, nullable=True)
     nextcloud_images_error_at = Column(DateTime(timezone=True), nullable=True)
+    # Abgleich der Event-Tage mit der Programmseite der Webseite (siehe
+    # event_days.py). Ohne Adresse (NULL) findet kein Abgleich statt.
+    # Kategorien kommagetrennt wie auf der Seite ("Konzert, Party"), NULL = event_days.DEFAULT_CATEGORIES.
+    event_import_url = Column(String, nullable=True)
+    event_import_categories = Column(String, nullable=True)
+    event_import_last_at = Column(DateTime(timezone=True), nullable=True)
+    event_import_last_summary = Column(String, nullable=True)
+    event_import_last_error = Column(String, nullable=True)
 
 
 class PushSubscription(Base):

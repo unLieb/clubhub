@@ -28,7 +28,19 @@
   </button>
   {% endif %}
 </div>
-<p class="text-slate-400 text-sm mb-6">{{ visible_room_groups | map(attribute="name") | join(", ") }}</p>
+<p class="text-slate-400 text-sm mb-{% if event_mode %}3{% else %}6{% endif %}">{{ visible_room_groups | map(attribute="name") | join(", ") }}</p>
+{% if event_mode %}
+{# Bereich mit event_day_only: Nach-Bedarf-Aufgaben nur an Event-Tagen (siehe event_days.py) #}
+<div class="mb-6 rounded-lg border border-line bg-panel px-3 py-2 text-sm">
+  {% if event_mode.today %}
+  <span class="font-medium text-go">Heute Event:</span>
+  <span class="text-slate-300">{{ event_mode.today | map(attribute="title") | join(" · ") }}</span>
+  {% else %}
+  <span class="text-slate-300">Heute kein Event – Aufgaben nach Bedarf sind ausgeblendet.</span>
+  {% if event_mode.next_label %}<span class="text-slate-500">Nächster Termin: {{ event_mode.next_label }}</span>{% endif %}
+  {% endif %}
+</div>
+{% endif %}
 
 {# show_turnus: Turnus-Chip an der Karte - nur in der eingeklappten Liste
    "Bereits erledigt" noetig, dort gibt es keine Turnus-Ueberschriften. In der
