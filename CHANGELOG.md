@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.58.2] - 2026-10-28
+- Verwaltung → Event-Tage: die Liste zeigt nur noch die nächsten 8 Event-Tage, die übrigen (das Programm reicht rund ein Jahr voraus) sind hinter „Weitere … anzeigen" eingeklappt.
+
 ## [1.58.1] - 2026-10-28
 - Fix: 1.58.0 startete auf bestehenden Installationen nicht (Container im Neustart-Dauerlauf, „no such column: app_settings.event_import_url"). Die Migration für die Event-Tage läuft jetzt als allererste beim Start, bevor andere Migrationen die Einstellungen abfragen. Frische Datenbanken waren nicht betroffen. 1.58.0 nicht einsetzen.
 
