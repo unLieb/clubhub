@@ -3879,7 +3879,7 @@ async def feedback_create(
     background_tasks.add_task(
         notify_developers,
         f"Neues Feedback: {kind}" + (" (Priorität hoch)" if priority == "high" else ""),
-        "\n".join(lines), "/admin/feedback", user.id,
+        "\n".join(lines), f"/admin/feedback/{feedback.id}", user.id,
     )
 
     target = next if next.startswith("/") else "/"
@@ -3925,6 +3925,22 @@ def admin_feedback_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@app.get("/admin/feedback/{feedback_id}")
+def admin_feedback_detail(feedback_id: int, request: Request, db: Session = Depends(get_db)):
+    admin = require_admin_or_shift_lead(request, db)
+    item = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+    if not item:
+        return RedirectResponse(
+            _with_toast("/admin/feedback", "Dieses Feedback gibt es nicht (mehr).", "error"), status_code=302,
+        )
+    return templates.TemplateResponse("admin_feedback_detail.html", {
+        "request": request,
+        "user": admin,
+        "f": item,
+        "prompt": _feedback_prompt(item),
+    })
+
+
 def _feedback_status_push(item, status: str):
     """Titel/Text der Push-Nachricht an den Melder, wenn sein Feedback in
     Bearbeitung genommen bzw. erledigt wurde - None bei "open" (Zurueck-
@@ -3954,7 +3970,7 @@ def _my_feedback(db: Session, user, limit: int = 10):
 @app.post("/admin/feedback/{feedback_id}/status")
 def admin_feedback_set_status(
     feedback_id: int, request: Request, background_tasks: BackgroundTasks,
-    status: str = Form(...), db: Session = Depends(get_db),
+    status: str = Form(...), back: str = Form(""), db: Session = Depends(get_db),
 ):
     """Status eines Feedback-Tickets aendern. Wechselt es auf "In Bearbeitung"
     oder "Erledigt", bekommt der Melder eine Push-Nachricht (siehe
@@ -3982,7 +3998,7 @@ def admin_feedback_set_status(
                 background_tasks.add_task(
                     notify_user, reporter, push_text[0], push_text[1], "/profile#mein-feedback",
                 )
-    return RedirectResponse("/admin/feedback", status_code=302)
+    return RedirectResponse(f"/admin/feedback/{feedback_id}" if back == "detail" else "/admin/feedback", status_code=302)
 
 
 @app.get("/reports")

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ f.title }} – Feedback{% endblock %}
+{% block content %}
+
+<a href="/admin/feedback" class="text-sm text-slate-400 hover:text-slate-100">&larr; Feedback</a>
+
+<div class="rounded-xl border border-line bg-panel p-4 sm:p-5 mt-3">
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+    {% if f.type == 'bug' %}
+    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium">🐛 Bug</span>
+    {% else %}
+    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent font-medium">💡 Wunsch</span>
+    {% endif %}
+    {% if f.priority == 'high' %}<span class="text-orange text-xs font-medium">Priorität: Hoch</span>
+    {% elif f.priority == 'low' %}<span class="text-slate-400 text-xs">Priorität: Niedrig</span>
+    {% else %}<span class="text-warn text-xs font-medium">Priorität: Mittel</span>
+    {% endif %}
+  </div>
+
+  <h1 class="font-display text-xl font-semibold mt-3 break-words">{{ f.title }}</h1>
+  <div class="text-xs text-slate-400 mt-1">
+    {{ f.user.name if f.user else "–" }} · {{ (f.created_at|localtime).strftime('%d.%m.%Y %H:%M') if f.created_at else "–" }}
+  </div>
+
+  {% if f.description %}
+  <div class="text-sm text-slate-200 mt-4 whitespace-pre-line break-words">{{ f.description }}</div>
+  {% endif %}
+  {% if f.url %}
+  <div class="text-xs text-slate-500 mt-3 break-all">Seite: {{ f.url }}</div>
+  {% endif %}
+
+  {% if f.photos %}
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
+    {% for p in f.photos %}
+    <a href="/uploads/feedback/{{ p.filename }}" target="_blank" rel="noopener" class="rounded-lg border border-line overflow-hidden hover:border-go/50">
+      <img src="/uploads/feedback/{{ p.filename }}" alt="Screenshot" class="w-full h-auto object-cover">
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-line/50">
+    <form method="post" action="/admin/feedback/{{ f.id }}/status">
+      <input type="hidden" name="back" value="detail">
+      <select name="status" onchange="this.form.submit()" class="rounded-md bg-ink border border-line px-2 py-1.5 text-sm">
+        <option value="open" {% if f.status == 'open' %}selected{% endif %}>Offen</option>
+        <option value="in_progress" {% if f.status == 'in_progress' %}selected{% endif %}>In Bearbeitung</option>
+        <option value="done" {% if f.status == 'done' %}selected{% endif %}>Erledigt</option>
+      </select>
+    </form>
+    <button type="button" id="feedback-copy-btn" data-prompt="{{ prompt }}"
+      class="text-sm px-3 py-1.5 rounded-md border border-line hover:bg-panel2 text-slate-400 hover:text-slate-100">
+      Als Claude-Prompt kopieren
+    </button>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var btn = document.getElementById('feedback-copy-btn');
+    btn.addEventListener('click', function () {
+      var original = btn.textContent;
+      navigator.clipboard.writeText(btn.dataset.prompt).then(function () {
+        btn.textContent = 'Kopiert ✓';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      }).catch(function () {
+        btn.textContent = 'Kopieren fehlgeschlagen';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      });
+    });
+  })();
+</script>
+
+{% endblock %}

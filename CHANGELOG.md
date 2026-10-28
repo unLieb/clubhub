@@ -7,7 +7,7 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
 ## [1.56.1] - 2026-10-28
-- Verwaltung → Feedback: die Liste ist jetzt eine Kartenliste statt einer breiten Tabelle und lässt sich auf dem Handy lesen (Titel und Beschreibung umbrechen vollständig, alle Screenshots sichtbar, Status und „Als Claude-Prompt kopieren" unter jedem Eintrag). Keine Änderung an der Serverlogik.
+- Verwaltung → Feedback überarbeitet: die breite Tabelle (auf dem Handy unlesbar) ist jetzt eine Liste klickbarer Karten (Typ, Titel, Kurztext, Melder, Datum, Status). Jedes Feedback hat eine eigene Detailseite `/admin/feedback/<id>` mit vollem Text, allen Screenshots, Statuswechsel und „Als Claude-Prompt kopieren" – wie bei den Meldungen. Die Push-Nachricht „Neues Feedback" öffnet direkt dieses Feedback.
 
 ## [1.56.0] - 2026-10-27
 - Neuer Endpunkt `GET /api/app/snapshot` für die Offline-Ansicht der Android-App (Anmeldung über das Session-Cookie, sonst 401): liefert schreibgeschützt, was der angemeldete Nutzer auf Dashboard und Bereiche sieht – heute anstehende Aufgaben (gelb/rot), Termine heute, offene Meldungen (höchstens 40, nur bei aktivem Modul Meldungen) und alle sichtbaren Bereiche mit Aufgaben, Zustand und letzter Erledigung. Keine Datenbankänderung, nichts wird geschrieben. Mitgelieferte App-Datei: Version 1.6.0 (`android/CHANGELOG.md`).
