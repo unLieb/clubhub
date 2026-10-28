@@ -961,6 +961,9 @@ def _startup():
         # Abfrage auf NotificationChannel selektiert per SQLAlchemy-Standard
         # alle gemappten Spalten (inkl. is_active) - ohne vorherige ALTER
         # TABLE schlaegt das mit "no such column" fehl.
+        # Ganz zuerst: spaetere Migrationen fragen AppSettings/Room per ORM ab
+        # und brauchen dafuer schon die neuen Spalten.
+        _migrate_event_days(db)
         _migrate_notification_channel_active(db)
         _migrate_task_warn_hours(db)
         _migrate_group_work_hours(db)
@@ -1015,7 +1018,6 @@ def _startup():
         _migrate_app_settings_task_dedupe(db)
         _migrate_app_settings_instance_name(db)
         _migrate_merge_duplicate_tasks(db)
-        _migrate_event_days(db)
     finally:
         db.close()
 
