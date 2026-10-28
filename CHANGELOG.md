@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.58.3] - 2026-10-28
+- Bug (Verwaltung → Inventar): bei einer Tabelle mit nur einem oder sehr wenigen Artikeln fehlte im Drei-Punkte-Menü der Eintrag „Bearbeiten", es war nur „Löschen" sichtbar (aufgefallen auf einem Server mit einem einzigen Artikel, während es bei vielen Artikeln einwandfrei ging - daher scheinbar „gleicher Stand, anderes Verhalten"). Ursache: das Menü wurde absolut im Tabellen-Container platziert, der mit `overflow-x-auto` auch vertikal abschneidet. Bei einer Zeile ist der Container nur rund 60-90 px hoch, das Menü passte weder nach unten noch nach oben hinein, und „Bearbeiten" (oberster Eintrag) wurde beim Aufklappen nach oben weggeschnitten. Das Menü wird jetzt per `position: fixed` relativ zum Fenster platziert (nach unten, bei zu wenig Platz nach oben, immer innerhalb des Fensters) und schließt beim Scrollen oder Verkleinern des Fensters. Andere Seiten hatten diese Flip-Logik nicht.
+
 ## [1.58.2] - 2026-10-28
 - Verwaltung → Event-Tage: die Liste zeigt nur noch die nächsten 8 Event-Tage, die übrigen (das Programm reicht rund ein Jahr voraus) sind hinter „Weitere … anzeigen" eingeklappt.
 

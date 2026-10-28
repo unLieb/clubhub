@@ -310,8 +310,7 @@
     function closeAllKebabMenus() {
       document.querySelectorAll('.inv-kebab-menu').forEach(function (menu) {
         menu.classList.add('hidden');
-        menu.classList.remove('bottom-full', 'mb-1');
-        menu.classList.add('top-full', 'mt-1');
+        menu.style.cssText = '';
       });
       document.querySelectorAll('.inv-kebab-btn').forEach(function (btn) { btn.setAttribute('aria-expanded', 'false'); });
     }
@@ -348,9 +347,13 @@
 
       // Kebab-Menü je Artikel-Zeile (Bearbeiten/Löschen) statt direktem
       // Stift-Icon - einheitliches Muster mit den anderen Verwaltungsseiten.
-      // Klappt dynamisch nach oben (bottom-full) statt nach unten auf, wenn
-      // am Tabellenende (im horizontal scrollbaren Wrapper) nicht mehr genug
-      // Platz nach unten ist - sonst wird das Menue dort abgeschnitten.
+      // Das Menue wird per position:fixed relativ zum FENSTER platziert (nicht
+      // absolut im Tabellen-Wrapper): der Wrapper hat overflow-x-auto und
+      // schneidet damit auch vertikal ab. Frueher klappte das Menue nur anhand
+      // der Wrapper-Unterkante nach oben/unten - bei einer Tabelle mit einer
+      // einzigen Zeile (Wrapper nur ~60px hoch) passte es in keine Richtung,
+      // und "Bearbeiten" (oberster Eintrag) wurde weggeschnitten. Jetzt zaehlt
+      // nur der Platz im Fenster: nach unten, sonst nach oben.
       contentEl.querySelectorAll('.inv-kebab-wrap').forEach(function (wrap) {
         var btn = wrap.querySelector('.inv-kebab-btn');
         var menu = wrap.querySelector('.inv-kebab-menu');
@@ -360,17 +363,29 @@
           closeAllKebabMenus();
           if (wasOpen) return;
           menu.classList.remove('hidden');
-          var container = wrap.closest('.overflow-x-auto') || document.documentElement;
-          var boundaryBottom = Math.min(container.getBoundingClientRect().bottom, window.innerHeight);
           var btnRect = btn.getBoundingClientRect();
-          var flip = (btnRect.bottom + menu.offsetHeight + 8) > boundaryBottom;
-          menu.classList.toggle('top-full', !flip);
-          menu.classList.toggle('mt-1', !flip);
-          menu.classList.toggle('bottom-full', flip);
-          menu.classList.toggle('mb-1', flip);
+          var menuH = menu.offsetHeight, menuW = menu.offsetWidth;
+          var spaceBelow = window.innerHeight - btnRect.bottom;
+          var openUp = spaceBelow < menuH + 8 && btnRect.top > spaceBelow;
+          var top = openUp ? btnRect.top - menuH - 4 : btnRect.bottom + 4;
+          top = Math.max(4, Math.min(top, window.innerHeight - menuH - 4));
+          var left = Math.max(4, Math.min(btnRect.right - menuW, window.innerWidth - menuW - 4));
+          menu.style.position = 'fixed';
+          menu.style.top = top + 'px';
+          menu.style.left = left + 'px';
+          menu.style.right = 'auto';
+          menu.style.bottom = 'auto';
+          menu.style.margin = '0';
           btn.setAttribute('aria-expanded', 'true');
         });
       });
+      // Ein fixiertes Menue bewegt sich nicht mit - beim Scrollen/Verkleinern
+      // einfach schliessen, statt an der falschen Stelle zu haengen.
+      if (!window.__invKebabCloseBound) {
+        window.__invKebabCloseBound = true;
+        window.addEventListener('scroll', function () { closeAllKebabMenus(); }, true);
+        window.addEventListener('resize', function () { closeAllKebabMenus(); });
+      }
 
       contentEl.querySelectorAll('.inv-edit-btn').forEach(function (btn) {
         btn.addEventListener('click', function () { closeAllKebabMenus(); openEdit(btn); });
