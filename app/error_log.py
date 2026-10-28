@@ -184,6 +184,11 @@ class ErrorLogMiddleware:
             if expected:
                 details += f" ({expected / 1e6:.1f} MB gesendet)"
 
+        # Long-Polling der Android-App (/api/app/inbox) dauert absichtlich bis zu 25 s und wird beim Beenden der App
+        # normal getrennt - weder "langsam" noch "abgebrochen" ist hier ein Fehler (sonst ueberflutet es das Protokoll).
+        if kind in ("langsam", "abgebrochen") and scope.get("path") == "/api/app/inbox":
+            return
+
         if not kind:
             return
         record_error(
