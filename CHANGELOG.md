@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.58.4] - 2026-10-28
+- Fehlerprotokoll: die Seite wurde ewig lang. Jetzt seitenweise (25 Einträge pro Seite, Seitenzahlen mit „Älter/Neuer", Suche und Filter bleiben beim Blättern erhalten) statt bis zu 500 Einträge auf einmal; lange Details/Stacktraces sind auf 3 Zeilen gekürzt und per Klick aufklappbar, der Browser-Name pro Zeile auf eine Zeile.
+- Kürzere Aufbewahrung: Einträge werden nach 7 statt 30 Tagen gelöscht, maximal 1000 statt 5000 werden vorgehalten (`KEEP_DAYS`/`MAX_ROWS` in `error_log.py`).
+- Einmalige Bereinigung beim Start (danach täglich 03:30): bereits gespeicherte „langsam"/„abgebrochen"-Einträge der Android-App-Abfrage `/api/app/inbox` werden entfernt. Diese Abfrage bleibt absichtlich bis ~25 s offen (Long-Polling) und füllte das Protokoll zu über 98 % (auf einem Server 2570 von 2597 Einträgen in zwei Tagen); neue entstehen seit 1.56.2 nicht mehr, hier verschwinden die aus der Zeit davor. Echte Fehler (z. B. ein 500er auf diesem Pfad) bleiben erhalten.
+
 ## [1.58.3] - 2026-10-28
 - Bug (Verwaltung → Inventar): bei einer Tabelle mit nur einem oder sehr wenigen Artikeln fehlte im Drei-Punkte-Menü der Eintrag „Bearbeiten", es war nur „Löschen" sichtbar (aufgefallen auf einem Server mit einem einzigen Artikel, während es bei vielen Artikeln einwandfrei ging - daher scheinbar „gleicher Stand, anderes Verhalten"). Ursache: das Menü wurde absolut im Tabellen-Container platziert, der mit `overflow-x-auto` auch vertikal abschneidet. Bei einer Zeile ist der Container nur rund 60-90 px hoch, das Menü passte weder nach unten noch nach oben hinein, und „Bearbeiten" (oberster Eintrag) wurde beim Aufklappen nach oben weggeschnitten. Das Menü wird jetzt per `position: fixed` relativ zum Fenster platziert (nach unten, bei zu wenig Platz nach oben, immer innerhalb des Fensters) und schließt beim Scrollen oder Verkleinern des Fensters. Andere Seiten hatten diese Flip-Logik nicht.
 

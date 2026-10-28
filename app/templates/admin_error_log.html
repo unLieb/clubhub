@@ -1,6 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Fehlerprotokoll – Verwaltung{% endblock %}
 {% block content %}
+{% macro pager() %}
+{% if pages > 1 %}
+<nav class="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 text-xs text-slate-400" aria-label="Seiten">
+  <span>{{ total }} Einträge · Seite {{ page }} von {{ pages }}</span>
+  <div class="flex items-center gap-1">
+    {% set qs = (base_qs ~ "&") if base_qs else "" %}
+    {% if page > 1 %}
+    <a href="?{{ qs }}page={{ page - 1 }}" class="px-2.5 py-1 rounded-md border border-line text-slate-300 hover:bg-panel2">&larr; Neuer</a>
+    {% endif %}
+    {% for n in range(1, pages + 1) if n == 1 or n == pages or (n - page)|abs <= 2 %}
+    {% if loop.previtem is defined and n - loop.previtem > 1 %}<span class="px-1 text-slate-600">…</span>{% endif %}
+    <a href="?{{ qs }}page={{ n }}" class="min-w-[1.9rem] text-center px-2 py-1 rounded-md border {% if n == page %}border-go/60 bg-go/15 text-go font-medium{% else %}border-line text-slate-300 hover:bg-panel2{% endif %}" {% if n == page %}aria-current="page"{% endif %}>{{ n }}</a>
+    {% endfor %}
+    {% if page < pages %}
+    <a href="?{{ qs }}page={{ page + 1 }}" class="px-2.5 py-1 rounded-md border border-line text-slate-300 hover:bg-panel2">Älter &rarr;</a>
+    {% endif %}
+  </div>
+</nav>
+{% elif total %}
+<p class="px-4 py-2.5 text-xs text-slate-500">{{ total }} {{ "Eintrag" if total == 1 else "Einträge" }}</p>
+{% endif %}
+{% endmacro %}
 
 <a href="/admin" class="text-sm text-slate-400 hover:text-slate-100">&larr; Verwaltung</a>
 <h1 class="font-display text-2xl font-semibold mt-2 mb-1">Fehlerprotokoll</h1>
@@ -35,6 +57,7 @@
 
 <div class="rounded-xl border border-line bg-panel overflow-hidden">
   {% if entries %}
+  <div class="border-b border-line">{{ pager() }}</div>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
@@ -67,19 +90,16 @@
             </div>
           </td>
           <td class="px-4 py-2.5 text-slate-300 align-top">
-            {{ e.details or "–" }}
-            {% if e.user_agent %}<div class="text-[11px] text-slate-500 mt-1 break-all">{{ e.user_agent }}</div>{% endif %}
+            {# Lange Details/Stacktraces auf 3 Zeilen gekuerzt, per Klick aufklappbar. #}
+            <div class="line-clamp-3 break-words cursor-pointer" title="Klicken zum Auf-/Zuklappen" onclick="this.classList.toggle('line-clamp-3')">{{ e.details or "–" }}</div>
+            {% if e.user_agent %}<div class="text-[11px] text-slate-500 mt-1 truncate max-w-md" title="{{ e.user_agent }}">{{ e.user_agent }}</div>{% endif %}
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% if entries_truncated %}
-  <p class="text-[11px] text-slate-500 px-4 py-2.5 border-t border-line">
-    Zeigt die neuesten 500 Einträge - über Suche/Filter weiter eingrenzen, um ältere zu finden.
-  </p>
-  {% endif %}
+  <div class="border-t border-line">{{ pager() }}</div>
   {% else %}
   <p class="text-slate-500 text-sm italic p-8 text-center">
     {% if q or selected_source or selected_kind %}Keine Einträge für diese Filter gefunden.{% else %}Keine Fehler protokolliert - gut so.{% endif %}

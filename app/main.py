@@ -40,7 +40,7 @@ from . import pdf_export
 from . import webauthn_auth
 from . import notification_batching
 from .audit import log_audit
-from .error_log import ErrorLogMiddleware, record_error, KEEP_DAYS
+from .error_log import ErrorLogMiddleware, record_error, prune_error_log, KEEP_DAYS
 from .auth import (
     hash_password, verify_password, find_user_by_identifier, get_current_user, require_login,
     require_admin, require_admin_or_shift_lead,
@@ -772,6 +772,13 @@ def _migrate_app_settings_enable_notices(db: Session):
     _ensure_column(db, "app_settings", "enable_notices", "INTEGER DEFAULT 1")
 
 
+def _migrate_error_log_prune(db: Session):
+    """Einmal pro Start aufraeumen (zusaetzlich zum taeglichen Job): kuerzere
+    Aufbewahrung (KEEP_DAYS/MAX_ROWS) und alter Long-Polling-Muell greifen
+    sofort nach dem Update statt erst nach der naechsten Nacht."""
+    prune_error_log()
+
+
 def _migrate_app_settings_instance_name(db: Session):
     """Instanzname (siehe AppSettings.instance_name) - NULL = "ClubHUB"."""
     _ensure_column(db, "app_settings", "instance_name", "TEXT")
@@ -1017,6 +1024,7 @@ def _startup():
         _migrate_app_settings_enable_cooling(db)
         _migrate_app_settings_task_dedupe(db)
         _migrate_app_settings_instance_name(db)
+        _migrate_error_log_prune(db)
         _migrate_merge_duplicate_tasks(db)
     finally:
         db.close()
@@ -5804,6 +5812,7 @@ def admin_audit_log_page(
 
 
 _ERROR_LOG_SOURCES = {"server": "Server", "browser": "Browser", "app": "Android-App"}
+ERROR_LOG_PAGE_SIZE = 25
 def _request_from_app(request) -> bool:
     """Kommt die Anfrage aus der Android-App? Kennzeichen: User-Agent "ClubHUBApp/<Version>" ODER das Cookie
     "clubhub_app" (die App setzt es zusaetzlich, weil der Service-Worker der Seite Anfragen mit dem Standard-
@@ -5876,6 +5885,7 @@ def admin_error_log_page(
     q: str = "",
     source: str = "",
     kind: str = "",
+    page: str = "1",
     db: Session = Depends(get_db),
 ):
     """Fehlerprotokoll (siehe ErrorLog in models.py) - wie das Audit-Log nur
@@ -5895,7 +5905,12 @@ def admin_error_log_page(
         query = query.filter(models.ErrorLog.source == source)
     if kind.strip():
         query = query.filter(models.ErrorLog.kind == kind)
-    entries = query.limit(500).all()
+    # Seitenweise statt bis zu 500 Eintraege auf einmal (Seite wurde ewig lang).
+    total = query.count()
+    pages = max(1, -(-total // ERROR_LOG_PAGE_SIZE))
+    page = min(max(int(page) if page.strip().isdigit() else 1, 1), pages)
+    entries = query.offset((page - 1) * ERROR_LOG_PAGE_SIZE).limit(ERROR_LOG_PAGE_SIZE).all()
+    base_qs = urlencode({k: v for k, v in (("q", q), ("source", source), ("kind", kind)) if v})
     all_kinds = [
         row[0] for row in db.query(models.ErrorLog.kind).distinct().order_by(models.ErrorLog.kind).all()
     ]
@@ -5903,8 +5918,12 @@ def admin_error_log_page(
         "request": request,
         "user": admin,
         "entries": entries,
-        "entries_truncated": len(entries) == 500,
         "all_kinds": all_kinds,
+        "total": total,
+        "page": page,
+        "pages": pages,
+        "page_size": ERROR_LOG_PAGE_SIZE,
+        "base_qs": base_qs,
         "sources": _ERROR_LOG_SOURCES,
         "q": q,
         "selected_source": source,

@@ -23,8 +23,14 @@ from . import ntptime
 logger = logging.getLogger("reinigungsplan.error_log")
 
 SLOW_SECONDS = 10
-KEEP_DAYS = 30
-MAX_ROWS = 5000
+KEEP_DAYS = 7
+MAX_ROWS = 1000
+# Dauerhaft offene Abfragen (Long-Polling der Android-App, dauert absichtlich
+# bis ~25 s und wird beim Beenden der App normal getrennt): "langsam"/
+# "abgebrochen" ist dort kein Fehler. Neue Eintraege dieser Art unterdrueckt
+# die Middleware seit 1.56.2; hier die Pfade, um bereits gespeicherte (aus der
+# Zeit davor) mit aufzuraeumen.
+LONG_POLL_PATHS = ("/api/app/inbox",)
 # Schutz vor Log-Fluten (z.B. eine Endlosschleife von Fehlern): hoechstens
 # so viele Eintraege pro Minute insgesamt.
 MAX_PER_MINUTE = 60
@@ -84,12 +90,18 @@ def record_error(source, kind, *, user_id=None, method=None, path=None, status=N
 
 
 def prune_error_log() -> None:
-    """Loescht Eintraege aelter als KEEP_DAYS und kappt auf MAX_ROWS."""
+    """Loescht Eintraege aelter als KEEP_DAYS, kappt auf MAX_ROWS und entfernt
+    alte "langsam"/"abgebrochen"-Eintraege der Long-Polling-Pfade (siehe
+    LONG_POLL_PATHS). Laeuft taeglich (scheduler.py) und einmal beim Start."""
     from .database import SessionLocal
     from . import models
     db = SessionLocal()
     try:
         cutoff = ntptime.now_utc() - timedelta(days=KEEP_DAYS)
+        db.query(models.ErrorLog).filter(
+            models.ErrorLog.kind.in_(("langsam", "abgebrochen")),
+            models.ErrorLog.path.in_(LONG_POLL_PATHS),
+        ).delete(synchronize_session=False)
         db.query(models.ErrorLog).filter(models.ErrorLog.timestamp < cutoff).delete()
         count = db.query(models.ErrorLog).count()
         if count > MAX_ROWS:
