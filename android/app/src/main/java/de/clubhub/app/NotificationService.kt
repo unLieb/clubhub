@@ -122,7 +122,7 @@ class NotificationService : Service() {
                 conn.connectTimeout = 15_000
                 conn.readTimeout = 40_000
                 conn.setRequestProperty("Cookie", cookie)
-                conn.setRequestProperty("User-Agent", "ClubHUBApp")
+                conn.setRequestProperty("User-Agent", AppInfo.userAgent())
                 val code = conn.responseCode
                 if (code == 401) { // Sitzung abgelaufen / abgemeldet
                     conn.disconnect()
@@ -147,6 +147,7 @@ class NotificationService : Service() {
                     }
                     handleBatch(server, list)
                 }
+                AppInfo.markPoll(this)
                 json.optJSONArray("work_hours")?.let { ServerStore.setWorkHours(this, server.id, it.toString()) }
                 Snapshot.refresh(this, server) // haelt die Offline-Ansicht auch ohne geoeffnete App frisch (max. alle 15 Min.)
                 after = json.getInt("last_id")

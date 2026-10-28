@@ -1117,6 +1117,9 @@ def device_label(user_agent: str | None) -> str:
     if not user_agent:
         return "Unbekanntes Gerät"
     if user_agent.startswith("ClubHUBApp"):
+        m = re.match(r"ClubHUBApp/([\w.]+)(?: \(([^)]*)\))?", user_agent)
+        if m:
+            return "ClubHUB-App " + m.group(1) + (f" ({m.group(2)})" if m.group(2) else "") + " (Android)"
         return "ClubHUB-App (Android)"
     ua = user_agent
     if "Android" in ua:
@@ -4109,6 +4112,21 @@ async def reports_create(
     if blocked:
         return blocked
 
+    # Diagnose: woher kam die Meldung (App/Browser) und was kam an Fotos wirklich an - Grundlage, wenn jemand
+    # berichtet, Fotos "seien nicht hochgeladen worden" (Fehlerprotokoll, Art "meldung").
+    try:
+        _ua = request.headers.get("user-agent") or ""
+        _parts = [
+            f"{(f.filename or '-')[:40]} {f.content_type or '?'} {getattr(f, 'size', None)} B" for f in photos
+        ]
+        record_error(
+            "app" if "ClubHUBApp/" in _ua else "browser", "meldung", user_id=user.id, method="POST", path="/reports",
+            user_agent=_ua,
+            details=f"Meldung wird gespeichert: {len(photos)} Foto-Teil(e)" + (": " + "; ".join(_parts) if _parts else ""),
+        )
+    except Exception:
+        pass
+
     # War bislang Form(...) (striktes Pflichtfeld direkt auf FastAPI-Ebene) -
     # ein iPhone-Nutzer bekam dabei beim Absenden ohne Beschreibung die rohe
     # {"detail":[...]}-Validierungsantwort von FastAPI zu sehen statt einer
@@ -5175,6 +5193,9 @@ async def app_inbox(request: Request, device: str = Query(..., min_length=8, max
         sub = db.query(models.PushSubscription).filter(models.PushSubscription.endpoint == endpoint).first()
         if sub:
             sub.user_id = user.id
+            _ua_now = request.headers.get("user-agent", "")[:255]
+            if _ua_now and sub.user_agent != _ua_now:
+                sub.user_agent = _ua_now  # Version/Modell der App zeigen sich so unter "Meine Geraete"
         else:
             db.add(models.PushSubscription(
                 user_id=user.id, endpoint=endpoint, p256dh="-", auth="-",
@@ -5744,7 +5765,7 @@ def admin_audit_log_page(
 
 
 _ERROR_LOG_SOURCES = {"server": "Server", "browser": "Browser", "app": "Android-App"}
-_CLIENT_LOG_KINDS = {"senden_fehlgeschlagen", "js_fehler", "verbindung"}
+_CLIENT_LOG_KINDS = {"senden_fehlgeschlagen", "js_fehler", "verbindung", "datei_auswahl", "diagnose"}
 _client_log_hits: dict = {}
 
 

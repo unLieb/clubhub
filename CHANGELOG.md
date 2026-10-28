@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.57.0] - 2026-10-28
+- Diagnose für Foto-Probleme: Jede neue Meldung schreibt ins Fehlerprotokoll (Art „meldung"), woher sie kam (App oder Browser) und wie viele Fotos tatsächlich ankamen (Dateiname, Typ, Größe). Die Foto-Auswahl im Browser/in der App meldet, was die Auswahl geliefert hat („datei_auswahl"), ebenso leere/verworfene Dateien. Neue Protokoll-Arten für die Android-App: „datei_auswahl" und „diagnose" (Bericht über Gerät, Speicher, Akku-Einstellungen, Berechtigungen).
+- „Meine Geräte" (Profil) zeigt die App jetzt mit Version und Gerät („ClubHUB-App 1.7.0 (Android 16; Xiaomi …)"); der Eintrag wird bei jedem Abruf der App aktualisiert.
+- Mitgelieferte Android-App: Version 1.7.0 (`android/CHANGELOG.md`).
+
 ## [1.56.2] - 2026-10-28
 - Fehlerprotokoll: Die Abrufe der Android-App für Mitteilungen (`/api/app/inbox`) dauern absichtlich bis zu 25 Sekunden (Long-Polling) und wurden deshalb als „langsame Anfrage" bzw. beim Beenden der App als „abgebrochen" protokolliert. Das ergab Tausende Einträge, die echte Fehler überdeckten (auf dem Test-Server 2570 von 2573 Einträgen). Diese beiden Fälle werden für den Endpunkt nicht mehr protokolliert; echte Serverfehler (5xx) dort weiterhin.
 

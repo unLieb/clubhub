@@ -9,6 +9,13 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.7.0] - 2026-10-28
+- Diagnose für die Fehlersuche (Anlass: Fotos ließen sich in der App nicht an eine Meldung anhängen, ohne dass etwas im Protokoll erschien):
+  - Foto-/Dateiauswahl wird ins Fehlerprotokoll geschrieben (Art „datei_auswahl", Quelle App): Auswahl geöffnet, Ergebnis der Galerie (Anzahl, Dateityp, liefernde App), freier Arbeitsspeicher – und ein deutlicher Vermerk, wenn die App zwischenzeitlich neu gestartet wurde und die Auswahl der Seite dadurch verloren ging.
+  - „Mehr → Diagnose" sendet auf Knopfdruck einen Bericht an den Server (Art „diagnose"): App-/Android-/WebView-Version, Gerät, Arbeitsspeicher, Akku-Optimierung und Hintergrundbeschränkung, Standby-Bucket, Berechtigungen (Mitteilungen, Kamera, Standort), Netz, letzter Abruf des Dienstes, Server mit Stand der Offline-Daten, Orte, letzte Orte-Entscheidung.
+  - Anfragen des Hintergrunddienstes tragen jetzt Version und Gerät im User-Agent („ClubHUBApp/1.7.0 (Android 16; Xiaomi …)"), sodass unter „Meine Geräte" des Servers erkennbar ist, welche App-Version wo läuft.
+  - Benötigt Server 1.57.0.
+
 ## [1.6.0] - 2026-10-27
 - Offline-Ansicht (nur lesen): Die App legt je Server einen Schnappschuss ab – heute anstehende Aufgaben (rot/gelb), offene Meldungen und alle Bereiche mit ihren Aufgaben, so wie der angemeldete Nutzer sie sieht. Ist ein Server nicht erreichbar, bietet die Fehleransicht den Knopf „Offline-Ansicht (Stand 17:02)" mit den Reitern Aufgaben, Meldungen und Bereiche (Bereiche aufklappbar mit allen Aufgaben, Zustand und letzter Erledigung). Jeder Server hat seinen eigenen Schnappschuss; Inventar ist bewusst nicht enthalten.
 - Der Schnappschuss wird nach jedem erfolgreichen Laden und zusätzlich vom Hintergrunddienst höchstens alle 15 Minuten aktualisiert, ist also auch ohne geöffnete App frisch. Ist der Stand älter als 6 Stunden, weist die Ansicht darauf hin. Abhaken ist offline nicht möglich (verhindert doppelte Erledigungen). Benötigt Server 1.56.0.

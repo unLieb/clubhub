@@ -71,8 +71,22 @@
       });
     }
 
+    // Diagnose ins Fehlerprotokoll (client_log.js): was die Dateiauswahl tatsaechlich geliefert hat
+    function logPick(text) {
+      try {
+        if (window.clubhubLog) window.clubhubLog('datei_auswahl', { path: location.pathname, details: text });
+      } catch (e) { /* egal */ }
+    }
+    function describe(files) {
+      return files.length + ' Datei(en)' + (files.length
+        ? ' [' + files.map(function (f) { return (f.name || '-') + ' ' + (f.type || '?') + ' ' + f.size + ' B'; }).join('; ') + ']'
+        : '');
+    }
+
     function setFiles(fileList) {
-      var incoming = Array.from(fileList || []).filter(function (f) { return f && f.size > 0; });
+      var all = Array.from(fileList || []);
+      var incoming = all.filter(function (f) { return f && f.size > 0; });
+      if (incoming.length !== all.length) logPick('Ablegen/Einfuegen: ' + (all.length - incoming.length) + ' leere Datei(en) verworfen');
       if (!incoming.length) return;
       var dt = new DataTransfer();
       if (multiple) {
@@ -111,6 +125,7 @@
     }
 
     area.addEventListener('click', function () {
+      logPick('Dateiauswahl angetippt');
       input.click();
     });
     area.addEventListener('keydown', function (e) {
@@ -138,6 +153,7 @@
       // Auswahl, waehrend fileList/pasted eine echte, davon getrennte neue
       // Liste ist - da ist das Zusammenfuehren in setFiles() korrekt und
       // sorgt fuer das gewuenschte Aufsummieren ueber mehrere Interaktionen.
+      logPick('Auswahl: ' + describe(Array.from(input.files || [])));
       renderPreviews();
     });
 

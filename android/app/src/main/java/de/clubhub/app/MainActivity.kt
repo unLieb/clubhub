@@ -228,11 +228,13 @@ class MainActivity : Activity() {
             ): Boolean {
                 fileCallback?.onReceiveValue(null)
                 fileCallback = callback
+                reportFile("Dateiauswahl ge\u00f6ffnet (Seite ${view.url?.let { Uri.parse(it).path }}): mode=${params.mode}, accept=${params.acceptTypes?.joinToString()}, capture=${params.isCaptureEnabled}")
                 return try {
                     startActivityForResult(params.createIntent(), REQ_FILE)
                     true
                 } catch (e: Exception) {
                     fileCallback = null
+                    reportFile("Dateiauswahl konnte nicht gestartet werden: $e")
                     false
                 }
             }
@@ -410,6 +412,21 @@ class MainActivity : Activity() {
     }
 
     /** App-eigene Fehleransicht (nicht Teil der Webseite): Erklaerung, "Erneut versuchen" und Wechsel zu den anderen Servern. */
+    /** Foto-/Dateiauswahl ins Fehlerprotokoll des aktuellen Servers (Art "datei_auswahl", Quelle App). */
+    private fun reportFile(text: String) {
+        val server = ServerStore.current(this) ?: return
+        val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        val mi = android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+        ErrorReporter.report(this, server, "datei_auswahl", "/", null, null, "$text | frei ${mi.availMem / 1048576} MB, knapp: ${mi.lowMemory}")
+    }
+
+    /** Sendet den Diagnosebericht (AppInfo.diagnostics) an den aktuellen Server. */
+    fun sendDiagnostics() {
+        val server = ServerStore.current(this) ?: return
+        ErrorReporter.report(this, server, "diagnose", "/", null, null, AppInfo.diagnostics(this))
+        Toast.makeText(this, "Diagnose an ${server.name} gesendet", Toast.LENGTH_SHORT).show()
+    }
+
     private fun showLoadProblem(title: String, detail: String) {
         fun dp(v: Int) = Ui.dp(this, v)
         errorView.removeAllViews()
@@ -541,6 +558,11 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun reinject() {
             runOnUiThread { injectHeading(web) }
+        }
+
+        @JavascriptInterface
+        fun sendDiagnostics() {
+            runOnUiThread { this@MainActivity.sendDiagnostics() }
         }
 
         @JavascriptInterface
@@ -700,6 +722,7 @@ class MainActivity : Activity() {
             setTimeout(function () { try { ClubHubApp.setThemeMode(localStorage.getItem('theme') || 'auto'); } catch (e) {} }, 300);
           });
           cell('button', ico('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'), 'Update', function () { ClubHubApp.checkUpdate(); });
+          cell('button', ico('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>'), 'Diagnose', function () { ClubHubApp.sendDiagnostics(); });
           cell('a', ico('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>'), 'Abmelden', null, '/logout');
           var v = hdr && hdr.querySelector('a[href="/changelog"]');
           if (v) {
@@ -714,6 +737,12 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQ_FILE) {
+            val uris = if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
+            val kinds = uris?.joinToString { u -> (contentResolver.getType(u) ?: "?") + " " + (u.authority ?: "") }
+            reportFile(
+                "Dateiauswahl Ergebnis: code=$resultCode, ${uris?.size ?: 0} Datei(en)" + (if (kinds != null) " [$kinds]" else "") +
+                    (if (fileCallback == null) " \u2013 ACHTUNG: Auswahl der Seite war nicht mehr vorhanden (App wurde zwischenzeitlich neu gestartet)" else "")
+            )
             fileCallback?.onReceiveValue(
                 if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
             )

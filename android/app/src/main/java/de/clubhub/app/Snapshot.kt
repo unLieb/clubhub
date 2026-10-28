@@ -40,7 +40,7 @@ object Snapshot {
             conn.connectTimeout = 10_000
             conn.readTimeout = 20_000
             conn.setRequestProperty("Cookie", cookie)
-            conn.setRequestProperty("User-Agent", "ClubHUBApp")
+            conn.setRequestProperty("User-Agent", AppInfo.userAgent())
             try {
                 if (conn.responseCode != 200) return // z.B. 401 (abgemeldet) oder aelterer Server ohne Endpunkt
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
