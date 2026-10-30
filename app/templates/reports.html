@@ -69,10 +69,17 @@
         {% set visible_groups = visible_room_groups_for_user(user, r.room) %}
         {% if visible_groups %}{{ gm.group_badges(visible_groups) }}{% endif %}
         {% endif %}
-        {% if r.comments %}
-        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent" title="{{ r.comments|length }} Kommentar{{ 'e' if r.comments|length != 1 else '' }}">
+        {% set comment_list = visible_report_comments(r) %}
+        {% set new_count = (unread_comment_ids.get(r.id) or [])|length %}
+        {% if new_count %}
+        <span class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-accent text-oncolor" title="{{ new_count }} neue{{ 'r' if new_count == 1 else '' }} Kommentar{{ 'e' if new_count != 1 else '' }}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          {{ new_count }} neu
+        </span>
+        {% elif comment_list %}
+        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent" title="{{ comment_list|length }} Kommentar{{ 'e' if comment_list|length != 1 else '' }}">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          {{ r.comments|length }}
+          {{ comment_list|length }}
         </span>
         {% endif %}
       </div>

@@ -488,6 +488,20 @@ def _migrate_report_comment_photos(db: Session):
     _ensure_column(db, "report_photos", "comment_id", "INTEGER")
 
 
+def _migrate_report_reads_backfill(db: Session):
+    """Einmalig beim Einfuehren der Ungelesen-Markierung (Tabelle report_reads
+    legt create_all() an): alle bestehenden Kommentare gelten fuer alle
+    bestehenden Nutzer als gelesen, sonst waere beim ersten Start alles "neu".
+    Nur bei leerer Tabelle - danach entstehen die Zeilen beim Oeffnen."""
+    if db.execute(text("SELECT 1 FROM report_reads LIMIT 1")).fetchone():
+        return
+    db.execute(text(
+        "INSERT INTO report_reads (user_id, report_id, last_seen_at) "
+        "SELECT u.id, r.id, :now FROM users u CROSS JOIN reports r"
+    ), {"now": ntptime.now_utc()})
+    db.commit()
+
+
 def _migrate_inventory_groups_backfill(db: Session):
     """Uebertraegt die alte Einzel-Gruppe (inventory_items.group_id) in die
     neue inventory_item_group-Verknuepfungstabelle (Mehrfachauswahl, siehe
@@ -989,6 +1003,7 @@ def _startup():
         _migrate_report_title(db)
         _migrate_report_comment_photos(db)
         _migrate_report_resolved_note(db)
+        _migrate_report_reads_backfill(db)
         _migrate_app_settings_feedback_channel(db)
         _migrate_inventory_groups_backfill(db)
         _migrate_appointment_company_wide(db)
@@ -1465,6 +1480,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         1 for r in all_reports
         if r.status == "done" and r.resolved_at and r.resolved_at.astimezone(timezone.utc).date() == today
     )
+    unread_comment_ids = _unread_comment_ids(db, user, all_reports)
+    # Meldungen mit neuen Kommentaren, die zuletzt kommentierten zuerst.
+    unread_reports = sorted(
+        (r for r in all_reports if r.id in unread_comment_ids),
+        key=lambda r: _aware(r.comments[-1].created_at), reverse=True,
+    )
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -1489,6 +1510,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "needs_attention": open_count + in_progress_count,
         },
         "recent_reports": open_reports[:5],
+        "unread_comment_ids": unread_comment_ids,
+        "unread_comment_count": sum(len(ids) for ids in unread_comment_ids.values()),
+        "unread_reports": unread_reports,
         "recent_notices": recent_notices,
         "unseen_notice_ids": unseen_notice_ids,
         "upcoming_appointments": upcoming_appointments,
@@ -3856,6 +3880,61 @@ def _aware(ts):
     return ts
 
 
+def is_done_note_comment(r, c) -> bool:
+    """Alt-Kommentar, der nur die Erledigt-Notiz doppelt: bis 1.59 legte das
+    Erledigen die Notiz zusaetzlich als Kommentar an. Die Notiz steht jetzt
+    nur noch im gruenen Erledigt-Kasten der Meldung."""
+    return bool(
+        r.status == "done" and r.resolved_note and c.user_id == r.resolved_by_id and c.text == r.resolved_note
+    )
+
+
+def visible_report_comments(r) -> list:
+    """Kommentare der Meldung ohne die doppelte Erledigt-Notiz (siehe
+    is_done_note_comment); hat so ein Alt-Kommentar Fotos, bleibt er stehen
+    (ohne Text, siehe report_detail.html)."""
+    return [c for c in r.comments if not (is_done_note_comment(r, c) and not c.photos)]
+
+
+templates.env.globals["visible_report_comments"] = visible_report_comments
+templates.env.globals["is_done_note_comment"] = is_done_note_comment
+
+
+def _unread_comment_ids(db: Session, user, reports) -> dict:
+    """{report_id: [ID der Kommentare anderer, die der Nutzer noch nicht
+    gesehen hat]} - nur Meldungen mit mindestens einem ungelesenen Kommentar.
+    Massgeblich ist der Zeitpunkt, an dem der Nutzer die Meldung zuletzt
+    geoeffnet hat (ReportRead); ohne Eintrag (Meldung neu seit seinem letzten
+    Besuch) zaehlen alle Kommentare anderer. Die Kommentare der Meldungen
+    muessen vorab geladen sein, sonst gibt es pro Meldung eine Abfrage."""
+    if not user:
+        return {}
+    seen = {
+        row.report_id: _aware(row.last_seen_at)
+        for row in db.query(models.ReportRead).filter(models.ReportRead.user_id == user.id).all()
+    }
+    result = {}
+    for r in reports:
+        since = seen.get(r.id)
+        ids = [
+            c.id for c in visible_report_comments(r)
+            if c.user_id != user.id and (since is None or _aware(c.created_at) > since)
+        ]
+        if ids:
+            result[r.id] = ids
+    return result
+
+
+def _mark_report_read(db: Session, user, report_id: int):
+    row = db.get(models.ReportRead, (user.id, report_id))
+    now = ntptime.now_utc()
+    if row:
+        row.last_seen_at = now
+    else:
+        db.add(models.ReportRead(user_id=user.id, report_id=report_id, last_seen_at=now))
+    db.commit()
+
+
 def compute_report_meta(r, now) -> dict:
     """Relative Zeitangaben ('vor X') sowie den Zeitpunkt der letzten Änderung
     (neuestes von Erstellung/Erledigung/letztem Kommentar) für die Meldungs-
@@ -4080,6 +4159,7 @@ def reports_list(request: Request, db: Session = Depends(get_db)):
         "open_reports": open_reports,
         "done_reports": done_reports,
         "report_meta": report_meta,
+        "unread_comment_ids": _unread_comment_ids(db, user, reports),
         "rooms": visible_rooms,
         "groups": db.query(models.Group).all(),
     })
@@ -4138,9 +4218,14 @@ def report_detail(report_id: int, request: Request, db: Session = Depends(get_db
     report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if not report or not user_can_see_report(user, report):
         return RedirectResponse(_with_toast("/reports", "Diese Meldung gibt es nicht (mehr).", "error"), status_code=302)
+    # Ungelesene VOR dem Aktualisieren bestimmen (fuer die "Neu"-Markierung an
+    # den Kommentaren), dann die Meldung als gelesen merken.
+    new_comment_ids = set(_unread_comment_ids(db, user, [report]).get(report.id, []))
+    _mark_report_read(db, user, report.id)
     return templates.TemplateResponse("report_detail.html", {
         "request": request,
         "user": user,
+        "new_comment_ids": new_comment_ids,
         "r": report,
         "meta": compute_report_meta(report, ntptime.now_utc()),
         "groups": db.query(models.Group).all(),
@@ -4424,8 +4509,8 @@ async def reports_set_status(
     Betrieb: Hausmeister-Meldungen wurden ohne jede Angabe auf erledigt
     gestellt): mindestens REPORT_DONE_NOTE_MIN_LENGTH Zeichen in
     completion_note, optional mit Foto(s) (z.B. ein "Beweisbild"). Die Notiz
-    landet als normaler Kommentar im Thread UND in Report.resolved_note fuer
-    die Anzeige direkt auf der erledigten Karte. Wird serverseitig
+    landet in Report.resolved_note fuer die Anzeige im Erledigt-Kasten (nicht
+    mehr zusaetzlich als Kommentar); nur Fotos werden als Kommentar abgelegt. Wird serverseitig
     durchgesetzt, nicht nur im Dialog (reports.html) - gilt fuer alle, auch
     Admins. Andere Statuswechsel brauchen keine Angabe."""
     user = require_login(request, db)
@@ -4470,10 +4555,14 @@ async def reports_set_status(
             report.resolved_at = ntptime.now_utc()
             report.resolved_by_id = user.id
             report.resolved_note = completion_note
-            done_comment = models.ReportComment(report_id=report.id, user_id=user.id, text=completion_note)
+            # Die Notiz steht nur im Erledigt-Kasten der Meldung, nicht noch
+            # einmal als Kommentar. Beweisfotos haengen aber an einem
+            # Kommentar - der entfaellt, wenn keine gueltigen Bilder kamen.
+            done_comment = models.ReportComment(report_id=report.id, user_id=user.id, text="")
             db.add(done_comment)
             db.flush()  # done_comment.id fuer die Fotos
-            await _attach_report_photos(db, report.id, done_comment.id, photos)
+            if not await _attach_report_photos(db, report.id, done_comment.id, photos):
+                db.delete(done_comment)
         elif report.status == "done":
             # Wieder geöffnet (offen/in Bearbeitung) - Erledigt-Angaben sind
             # dann nicht mehr gültig, sonst zeigt die Meldung fälschlich noch

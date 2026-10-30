@@ -554,8 +554,8 @@ class Report(Base):
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     # Kurzbeschreibung, was zur Erledigung getan wurde - Pflichtangabe beim
     # Wechsel auf "Erledigt" (Kommentarzwang, siehe reports_set_status). Steht
-    # zusaetzlich als normaler Kommentar im Thread, hier aber separat, damit
-    # sie direkt auf der erledigten Karte angezeigt werden kann. Wird - wie
+    # nur hier, nicht zusaetzlich als Kommentar (bis 1.59 doppelt, siehe
+    # is_done_note_comment in main.py). Wird - wie
     # resolved_at/resolved_by_id - beim Wiederoeffnen geleert; NULL bei
     # Meldungen, die vor dieser Regel erledigt wurden.
     resolved_note = Column(String, nullable=True)
@@ -626,6 +626,18 @@ class ReportComment(Base):
     # Konflikt werten. Fotos werden hier nur direkt per FK verknuepft (siehe
     # reports_add_comment), nie ueber comment.photos.append().
     photos = relationship("ReportPhoto", back_populates="comment", order_by="ReportPhoto.id")
+
+
+class ReportRead(Base):
+    """Wann ein Nutzer eine Meldung zuletzt in der Detailansicht geoeffnet hat.
+    Kommentare anderer, die danach entstanden sind, gelten fuer ihn als
+    ungelesen (Zaehler im Dashboard, Markierung in der Meldungsliste und
+    "Neu" an den Kommentaren). Eine Zeile pro Nutzer und Meldung."""
+    __tablename__ = "report_reads"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), primary_key=True)
+    last_seen_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
 class Notice(Base):

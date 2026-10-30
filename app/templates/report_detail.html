@@ -150,14 +150,16 @@
 
   <!-- Kommentare als Chat: eigene Beiträge rechts, die der anderen links. -->
   <div class="rounded-xl border border-line bg-panel p-4 sm:p-5">
-    <h2 class="font-display font-medium mb-3">Kommentare{% if r.comments %} <span class="text-slate-500 font-normal">({{ r.comments|length }})</span>{% endif %}</h2>
+    {% set comments = visible_report_comments(r) %}
+    <h2 class="font-display font-medium mb-3">Kommentare{% if comments %} <span class="text-slate-500 font-normal">({{ comments|length }})</span>{% endif %}{% if new_comment_ids %} <span class="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent align-middle">{{ new_comment_ids|length }} neu</span>{% endif %}</h2>
     <ul class="space-y-3 mb-4">
-      {% for c in r.comments %}
+      {% for c in comments %}
       {% set own = c.user_id == user.id %}
+      {% set is_new = c.id in new_comment_ids %}
       <li class="flex {% if own %}justify-end{% endif %}">
-        <div class="max-w-[88%] rounded-2xl px-3.5 py-2.5 {% if own %}bg-go/15 rounded-br-md{% else %}bg-panel2 rounded-bl-md{% endif %}">
-          <div class="text-xs text-slate-400 mb-0.5"><span class="font-medium text-slate-200">{{ c.user.name }}</span> &middot; {{ (c.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}</div>
-          {% if c.text %}
+        <div class="max-w-[88%] rounded-2xl px-3.5 py-2.5 {% if own %}bg-go/15 rounded-br-md{% else %}bg-panel2 rounded-bl-md{% endif %}{% if is_new %} ring-2 ring-accent/50{% endif %}">
+          <div class="text-xs text-slate-400 mb-0.5"><span class="font-medium text-slate-200">{{ c.user.name }}</span> &middot; {{ (c.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if is_new %} <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">Neu</span>{% endif %}</div>
+          {% if c.text and not is_done_note_comment(r, c) %}
           <p class="text-base text-slate-100 whitespace-pre-line break-words">{{ c.text }}</p>
           {% endif %}
           {% if c.photos %}

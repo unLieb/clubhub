@@ -6,6 +6,14 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.60.0] - 2026-10-30
+- Meldungen: neue Kommentare fallen jetzt auf. Bisher kam ein Kommentar nur als Push an (und nur, wenn Push aktiv war); wer nicht benachrichtigt wurde, hat ihn schlicht nicht bemerkt. Jetzt merkt sich die App pro Nutzer, wann er eine Meldung zuletzt geöffnet hat, und zeigt Kommentare anderer seitdem als ungelesen an:
+  - Dashboard: im Meldungen-Block ein Kasten „N neue Kommentare" mit den betroffenen Meldungen (je mit „N neu", Klick öffnet die Meldung), am Handy zusätzlich als Hinweis oberhalb der Meldungen.
+  - Meldungsliste: Meldungen mit ungelesenen Kommentaren zeigen eine auffällige „N neu"-Markierung statt der grauen Kommentarzahl.
+  - Detailansicht: die neuen Kommentare sind hervorgehoben („Neu"), die Überschrift nennt die Anzahl. Beim Öffnen gilt die Meldung als gelesen. Eigene Kommentare zählen nie.
+- Erledigt-Notiz nicht mehr doppelt: der Text, mit dem eine Meldung als erledigt markiert wird, steht nur noch im grünen Erledigt-Kasten und wird nicht zusätzlich als Kommentar angelegt (Beweisfotos bleiben als Foto-Kommentar erhalten). Bei bereits erledigten Meldungen wird der doppelte Alt-Kommentar ausgeblendet.
+- Technisch: neue Tabelle `report_reads` (automatisch angelegt); beim ersten Start gelten alle bestehenden Kommentare für alle bestehenden Nutzer als gelesen.
+
 ## [1.58.4] - 2026-10-28
 - Fehlerprotokoll: die Seite wurde ewig lang. Jetzt seitenweise (25 Einträge pro Seite, Seitenzahlen mit „Älter/Neuer", Suche und Filter bleiben beim Blättern erhalten) statt bis zu 500 Einträge auf einmal; lange Details/Stacktraces sind auf 3 Zeilen gekürzt und per Klick aufklappbar, der Browser-Name pro Zeile auf eine Zeile.
 - Kürzere Aufbewahrung: Einträge werden nach 7 statt 30 Tagen gelöscht, maximal 1000 statt 5000 werden vorgehalten (`KEEP_DAYS`/`MAX_ROWS` in `error_log.py`).

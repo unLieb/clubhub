@@ -412,6 +412,16 @@
 </div>
 {% endif %}
 
+{% if modules.reports and unread_comment_count %}
+<a href="{{ '/reports/' ~ unread_reports[0].id if unread_reports|length == 1 else '/reports' }}" class="lg:hidden flex items-center justify-between gap-2 rounded-xl border border-accent/40 bg-accent/10 p-3 mb-3">
+  <span class="flex items-center gap-1.5 text-accent text-sm font-medium">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    {{ unread_comment_count }} {{ "neuer Kommentar" if unread_comment_count == 1 else "neue Kommentare" }}
+  </span>
+  <span class="text-accent text-xs font-medium whitespace-nowrap">Ansehen &rarr;</span>
+</a>
+{% endif %}
+
 {% if modules.reports and report_stats.needs_attention %}
 <a href="/reports" data-dashboard-widget="reports" class="lg:hidden flex items-center justify-between gap-2 rounded-xl border border-late/40 bg-late/10 p-3 mb-6">
   <span class="flex items-center gap-1.5 text-late text-sm font-medium">
@@ -464,6 +474,30 @@
       </h2>
       <a href="/reports" class="text-xs text-slate-400 hover:text-slate-100 whitespace-nowrap">Alle anzeigen &rarr;</a>
     </div>
+    {% if unread_reports %}
+    <!-- Neue Kommentare anderer seit dem letzten Oeffnen der jeweiligen Meldung
+         (siehe _unread_comment_ids in main.py). Jeder Eintrag fuehrt direkt zur
+         Detailseite, wo die neuen Kommentare markiert sind. -->
+    <div class="mb-3 rounded-lg border border-accent/40 bg-accent/5 p-3">
+      <div class="flex items-center gap-2 text-sm font-medium text-accent">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        {{ unread_comment_count }} {{ "neuer Kommentar" if unread_comment_count == 1 else "neue Kommentare" }}
+      </div>
+      <ul class="mt-2 divide-y divide-accent/20 text-sm">
+        {% for r in unread_reports[:4] %}
+        <li>
+          <a href="/reports/{{ r.id }}" class="flex items-center justify-between gap-2 py-1.5 hover:text-slate-100">
+            <span class="truncate text-slate-300 flex-1 min-w-0">{{ report_title_parts(r)[0] }}</span>
+            <span class="shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded-full bg-accent text-oncolor">{{ unread_comment_ids[r.id]|length }} neu</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% if unread_reports|length > 4 %}
+      <a href="/reports" class="block mt-1.5 text-xs text-slate-400 hover:text-slate-100">+ {{ unread_reports|length - 4 }} weitere Meldungen &rarr;</a>
+      {% endif %}
+    </div>
+    {% endif %}
     <ul class="divide-y divide-line text-sm">
       <li>
         <a href="/reports" class="flex items-center justify-between py-2.5 hover:text-slate-100">
