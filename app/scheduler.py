@@ -7,7 +7,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
-from .models import Task, TaskGroupNotice, InventoryItem, Appointment, Group, RoomGroupThrottle, Notice, AppSettings
+from .models import (
+    Task, TaskGroupNotice, InventoryItem, Appointment, Group, RoomGroupThrottle, Notice, AppSettings, Room,
+)
 from .status import task_status, compute_inventory_status
 from .notifications import notify_group, notify_groups, notify_user
 from . import ntptime
@@ -381,6 +383,66 @@ def check_notice_expiry_job():
         db.close()
 
 
+def check_event_days_job():
+    """Aktive Meldung am Event-Tag (Konzert/Party): sobald der Tag beginnt
+    (ab event_days.ROLLOVER_HOUR) geht an die Gruppen jedes Bereichs mit
+    event_day_only, der noch offene Nach-Bedarf-Aufgaben hat, einmal eine Push
+    ("Heute Event: ..."). Die Aufgaben selbst zeigen sich dank
+    status.task_status gelb in Bereichsuebersicht und Dashboard. Respektiert
+    die Arbeitszeit der Gruppen (wer noch nicht im Dienst ist, wird beim
+    naechsten Tick nachgeholt) und merkt sich je Bereich+Gruppe in
+    EventDay.notified_keys, wer schon informiert wurde."""
+    db = SessionLocal()
+    try:
+        now = ntptime.now_utc()
+        now_local = now.astimezone(APP_TIMEZONE)
+        ctx = event_days.event_context(db, now, APP_TIMEZONE)
+        if not ctx["active"]:
+            return
+        sent = set()
+        for e in ctx["today"]:
+            sent.update(k for k in (e.notified_keys or "").split(",") if k)
+        titles = " · ".join(e.title for e in ctx["today"])
+        new_keys = set()
+        for room in db.query(Room).filter(Room.event_day_only.is_(True)).all():
+            open_tasks = []
+            for t in room.tasks:
+                if t.interval_hours != 0:
+                    continue
+                last = _aware(t.completions[0].timestamp) if t.completions else None
+                if last is None or last < ctx["day_start"]:
+                    open_tasks.append(t)
+            if not open_tasks:
+                continue
+            groups = {}
+            for t in open_tasks:
+                for g in (t.groups or room.groups):
+                    groups[g.id] = g
+            due = [
+                g for g in groups.values()
+                if f"{room.id}:{g.id}" not in sent and _within_working_hours(g, now_local)
+            ]
+            if not due:
+                continue
+            count = len(open_tasks)
+            notify_groups(
+                due, f"Heute Event: {titles}",
+                f"{room.name}: {count} {'Aufgabe' if count == 1 else 'Aufgaben'} nach Bedarf.",
+                url=f"/room/{room.id}",
+            )
+            new_keys.update(f"{room.id}:{g.id}" for g in due)
+        if new_keys:
+            merged = ",".join(sorted(sent | new_keys))
+            for e in ctx["today"]:
+                e.notified_keys = merged
+            db.commit()
+    except Exception:
+        logger.exception("Fehler bei der Event-Tag-Benachrichtigung")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def sync_event_days_job():
     """Gleicht die Event-Tage mit der Programmseite ab (siehe event_days.py);
     ohne hinterlegte Adresse passiert nichts. Fehler stehen als Status in der
@@ -435,6 +497,7 @@ def start_scheduler():
     scheduler.add_job(check_completion_batches_job, "interval", seconds=15, id="check_completion_batches")
     scheduler.add_job(check_inventory_job, "interval", minutes=15, id="check_inventory")
     scheduler.add_job(check_appointments_job, "interval", minutes=15, id="check_appointments")
+    scheduler.add_job(check_event_days_job, "interval", minutes=15, id="check_event_days")
     scheduler.add_job(check_notice_expiry_job, "interval", minutes=15, id="check_notice_expiry")
     # NTP-Offset regelmäßig auffrischen (Erstsync passiert synchron beim App-Start)
     scheduler.add_job(ntptime.sync, "interval", minutes=30, id="ntp_sync")

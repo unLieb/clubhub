@@ -900,6 +900,7 @@ def _migrate_event_days(db: Session):
     create_all() an. Bestehende Bereiche bleiben unveraendert (0 = Nach-
     Bedarf-Aufgaben wie bisher immer sichtbar)."""
     _ensure_column(db, "rooms", "event_day_only", "INTEGER DEFAULT 0")
+    _ensure_column(db, "event_days", "notified_keys", "TEXT")
     _ensure_column(db, "app_settings", "event_import_url", "TEXT")
     _ensure_column(db, "app_settings", "event_import_categories", "TEXT")
     _ensure_column(db, "app_settings", "event_import_last_at", "DATETIME")
@@ -1285,7 +1286,13 @@ def visible_room_groups_for_user(user, room):
 templates.env.globals["visible_room_groups_for_user"] = visible_room_groups_for_user
 
 
-def compute_room_statuses(rooms, now):
+def _event_ctx(db: Session, now) -> dict:
+    """Event-Lage fuer task_status()/compute_room_statuses (siehe
+    event_days.event_context) - einmal je Anfrage berechnen und durchreichen."""
+    return event_days.event_context(db, now, APP_TIMEZONE)
+
+
+def compute_room_statuses(rooms, now, event_ctx=None):
     """Berechnet Ampel-Status pro Bereich sowie global überfällige/bald fällige
     Aufgaben. Von Dashboard und Bereiche-Übersicht gemeinsam genutzt."""
     room_status = {}
@@ -1305,7 +1312,7 @@ def compute_room_statuses(rooms, now):
         last_completed = None
         last_user = None
         for task in room.tasks:
-            s = task_status(task, now)
+            s = task_status(task, now, event_ctx)
             if worst is None or STATUS_RANK[s["status"]] > STATUS_RANK[worst["status"]]:
                 worst = s
             if task.interval_hours == 24 and s["status"] in ("yellow", "red"):
@@ -1340,6 +1347,8 @@ def compute_room_statuses(rooms, now):
             duration_text = "noch nie erledigt"
         elif worst["status"] == "red":
             duration_text = f"seit {format_duration_de(now - worst['due_at'])}"
+        elif worst["status"] == "yellow" and worst.get("event_day"):
+            duration_text = "heute Event"
         elif worst["status"] == "yellow":
             duration_text = f"fällig in {format_duration_de(worst['due_at'] - now)}"
         else:
@@ -1401,7 +1410,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         ]
 
     room_status, overdue_tasks, due_soon_count, overdue_count, daily_due_room_ids, daily_overdue_count = (
-        compute_room_statuses(rooms, now)
+        compute_room_statuses(rooms, now, _event_ctx(db, now))
     )
     attention_rooms = [r for r in rooms if room_status[r.id]["status"] != "green"]
 
@@ -1506,7 +1515,7 @@ def rooms_overview(request: Request, sort: str = "status", db: Session = Depends
         return redirect
     rooms = filter_rooms_for_user(db.query(models.Room).all(), user)
     now = ntptime.now_utc()
-    room_status, _, _, _, daily_due_room_ids, _ = compute_room_statuses(rooms, now)
+    room_status, _, _, _, daily_due_room_ids, _ = compute_room_statuses(rooms, now, _event_ctx(db, now))
     if sort == "name":
         rooms.sort(key=lambda r: r.name.lower())
     else:
@@ -1558,15 +1567,17 @@ def rooms_set_hidden_groups(
 
 # ---------- Raum / Scan ----------
 
-def _task_display_status(task: models.Task, now) -> dict:
+def _task_display_status(task: models.Task, now, event_ctx=None) -> dict:
     """task_status() plus die abgeleiteten Anzeige-Felder (duration_text,
     is_snoozed/snoozed_until) fuer room.html/_task_snooze_area.html - ein
     Ort statt Duplikation zwischen room_view und snooze_task/
     cancel_snooze_task (letztere brauchen dieselbe Berechnung, um nach dem
     Setzen/Aufheben einer Pause das Snooze-Fragment fuer die Fetch-Antwort
     neu zu rendern, siehe dort)."""
-    s = task_status(task, now)
-    if s["status"] == "red" and s["last_completed"] is None:
+    s = task_status(task, now, event_ctx)
+    if s.get("event_day"):
+        s["duration_text"] = "Heute Event: " + " · ".join(e.title for e in event_ctx["today"])
+    elif s["status"] == "red" and s["last_completed"] is None:
         s["duration_text"] = "Noch nie erledigt"
     elif s["status"] == "red":
         s["duration_text"] = f"Überfällig seit {format_duration_de(now - s['due_at'])}"
@@ -1637,14 +1648,13 @@ def group_tasks_by_turnus(tasks: list) -> list[dict]:
     return sections
 
 
-def _room_event_mode(db: Session, room: models.Room, now) -> dict | None:
+def _room_event_mode(room: models.Room, event_ctx: dict) -> dict | None:
     """None bei normalen Bereichen. Bei Bereichen mit event_day_only (z.B.
-    Backstage) die Event-Lage: {"today": [EventDay], "next_label": str | None}
-    - ohne Veranstaltung heute bleiben die Nach-Bedarf-Aufgaben ausgeblendet
-    (siehe event_days.py)."""
-    if not room.event_day_only:
-        return None
-    return event_days.event_status(db, now, APP_TIMEZONE)
+    Backstage) die Event-Lage {"today": [EventDay], "next_label": str | None,
+    ...} - ohne Veranstaltung heute bleiben die Nach-Bedarf-Aufgaben
+    ausgeblendet, mit Veranstaltung sind sie faellig (siehe event_days.py und
+    status.task_status)."""
+    return event_ctx if room.event_day_only else None
 
 
 @app.get("/room/{room_id}")
@@ -1656,9 +1666,10 @@ def room_view(room_id: int, request: Request, done: str = "", db: Session = Depe
     if not room or not user_can_see_room(user, room):
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
-    event_mode = _room_event_mode(db, room, now)
+    event_ctx = _event_ctx(db, now)
+    event_mode = _room_event_mode(room, event_ctx)
     hide_on_demand = bool(event_mode) and not event_mode["today"]
-    statuses = {t.id: _task_display_status(t, now) for t in room.tasks}
+    statuses = {t.id: _task_display_status(t, now, event_ctx) for t in room.tasks}
     # Erledigte (grüne) Aufgaben aus der Hauptliste ausblenden, damit man beim
     # Abarbeiten nicht an bereits Erledigtem vorbeischeitzen muss - sie tauchen
     # erst beim nächsten Turnus-Alarm (gelb/rot) wieder auf. "Nach Bedarf"-
@@ -1821,7 +1832,7 @@ def complete_on_demand_tasks(room_id: int, request: Request, db: Session = Depen
             raise HTTPException(status_code=404, detail="Bereich nicht gefunden")
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
-    event_mode = _room_event_mode(db, room, now)
+    event_mode = _room_event_mode(room, _event_ctx(db, now))
     # Ohne Event heute sind die Nach-Bedarf-Aufgaben ausgeblendet (siehe
     # room_view) und duerfen auch nicht ueber diesen Knopf abgehakt werden.
     open_tasks = [] if event_mode and not event_mode["today"] else [
@@ -5153,11 +5164,14 @@ def app_snapshot(request: Request, db: Session = Depends(get_db)):
         return Response('{"ok": false}', status_code=401, media_type="application/json")
     now = ntptime.now_utc()
     rooms = filter_rooms_for_user(db.query(models.Room).all(), user)
-    room_status, _, _, _, _, _ = compute_room_statuses(rooms, now)
+    event_ctx = _event_ctx(db, now)
+    room_status, _, _, _, _, _ = compute_room_statuses(rooms, now, event_ctx)
 
     def _task_row(task):
-        st = task_status(task, now)
-        if st.get("on_demand"):
+        st = task_status(task, now, event_ctx)
+        if st.get("event_day"):
+            text = "Heute Event"
+        elif st.get("on_demand"):
             text = "Nach Bedarf"
         elif st["status"] == "red":
             text = "Noch nie erledigt" if st["last_completed"] is None else f"Überfällig seit {format_duration_de(now - st['due_at'])}"
@@ -5173,7 +5187,7 @@ def app_snapshot(request: Request, db: Session = Depends(get_db)):
 
     room_rows, todo = [], []
     for r in sorted(rooms, key=lambda r: (-STATUS_RANK[room_status[r.id]["status"]], r.name.lower())):
-        event_mode = _room_event_mode(db, r, now)
+        event_mode = _room_event_mode(r, event_ctx)
         hide_on_demand = bool(event_mode) and not event_mode["today"]
         tasks = [_task_row(t) for t in r.tasks if not (hide_on_demand and t.interval_hours == 0)]
         tasks.sort(key=lambda t: (-STATUS_RANK[t["status"]], t["name"].lower()))

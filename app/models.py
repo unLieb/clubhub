@@ -247,6 +247,10 @@ class EventDay(Base):
     source = Column(String, nullable=False, default="manual")
     source_key = Column(String, nullable=True, index=True)
     hidden = Column(Boolean, nullable=False, default=False)
+    # Bereits benachrichtigte Kombinationen "<Bereich-ID>:<Gruppen-ID>" (CSV),
+    # damit die Push am Event-Tag je Bereich und Gruppe nur einmal rausgeht
+    # (siehe check_event_days_job in scheduler.py).
+    notified_keys = Column(String, nullable=True)
 
 
 class EventSetup(Base):

@@ -13,7 +13,7 @@ einzelne importierte Tage ausblenden (EventDay.hidden)."""
 import html
 import logging
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -179,6 +179,17 @@ def event_status(db: Session, now_utc: datetime, app_timezone: ZoneInfo) -> dict
     todays = visible.filter(EventDay.date == day).order_by(EventDay.title).all()
     upcoming = visible.filter(EventDay.date > day).order_by(EventDay.date, EventDay.title).first()
     return {"today": todays, "next": upcoming, "next_label": format_event(upcoming) if upcoming else None}
+
+
+def event_context(db: Session, now_utc: datetime, app_timezone: ZoneInfo) -> dict:
+    """event_status() plus "active" (heute ist ein Event-Tag) und "day_start"
+    (UTC-Beginn des Event-Tages, siehe ROLLOVER_HOUR) - was task_status() und
+    die Event-Benachrichtigung brauchen."""
+    status = event_status(db, now_utc, app_timezone)
+    day = effective_day(now_utc, app_timezone)
+    status["active"] = bool(status["today"])
+    status["day_start"] = datetime.combine(day, time(ROLLOVER_HOUR), tzinfo=app_timezone).astimezone(timezone.utc)
+    return status
 
 
 def format_event(event: EventDay) -> str:

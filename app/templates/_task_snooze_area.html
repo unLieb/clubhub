@@ -23,7 +23,7 @@
   </form>
   {% endif %}
 </div>
-{% elif user and not s.on_demand and s.status in ('yellow', 'red') %}
+{% elif user and not s.on_demand and not s.event_day and s.status in ('yellow', 'red') %}
 <!-- Noch keine aktive Pause: Aufgabe ist gerade gelb/rot, jeder
      eingeloggte Nutzer kann die naechste Erinnerung dafuer gezielt
      verschieben (z.B. bei einer seit laengerem bekannten, bewusst

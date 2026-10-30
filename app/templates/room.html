@@ -56,6 +56,8 @@
       <span class="font-medium">{{ task.name }}</span>
       {% if s.on_demand %}
       <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-panel2 text-slate-400 font-medium">Nach Bedarf</span>
+      {% elif s.event_day %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-warn/15 text-warn font-medium">Nach Bedarf · Event</span>
       {% elif show_turnus %}
       <span class="text-[11px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap" style="background-color: {{ tinfo.color }}26; color: {{ tinfo.color }};">{{ tinfo.label }}</span>
       {% endif %}

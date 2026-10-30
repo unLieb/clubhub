@@ -38,7 +38,7 @@ def _advance_due_at(last, interval_hours, active_weekdays):
     return due_local.astimezone(timezone.utc)
 
 
-def task_status(task, now=None):
+def task_status(task, now=None, event_ctx=None):
     """
     Berechnet Status ('green' | 'yellow' | 'red') sowie die relevanten
     Zeitpunkte für eine Aufgabe, basierend auf rollierendem Intervall.
@@ -46,6 +46,13 @@ def task_status(task, now=None):
     Schema-Wechsel nötig, da 0 als echtes Intervall ohnehin sinnlos wäre):
     solche Aufgaben werden nie automatisch gelb/rot und lösen dadurch auch
     keine Erinnerung aus (check_tasks_job benachrichtigt nur bei gelb/rot).
+
+    Ausnahme: in Bereichen mit event_day_only (z.B. Backstage) werden diese
+    Aufgaben an Event-Tagen (event_ctx, siehe event_days.event_context) gelb
+    ("event_day": True, ohne Faelligkeitszeit), bis sie an diesem Event-Tag
+    erledigt wurden - so erscheinen sie in Bereichsuebersicht und Dashboard
+    wie jede andere faellige Aufgabe. Die Benachrichtigung dazu laeuft
+    getrennt ueber check_event_days_job, nicht ueber check_tasks_job.
     """
     now = now or ntptime.now_utc()
 
@@ -61,6 +68,21 @@ def task_status(task, now=None):
         # normal verwendbar. Lokaler Kalendertag statt rollierender 24h,
         # konsistent mit dem Rest der App (z.B. done_today im Dashboard).
         done_today = last is not None and last.astimezone(_APP_TZ).date() == now.astimezone(_APP_TZ).date()
+        if event_ctx and event_ctx["active"] and task.room.event_day_only:
+            # Ein Event-Tag reicht bis in den fruehen Morgen (siehe
+            # event_days.ROLLOVER_HOUR) - "erledigt" heisst daher: seit
+            # Beginn dieses Event-Tages, nicht seit Mitternacht.
+            done_today = last is not None and last >= event_ctx["day_start"]
+            if not done_today:
+                return {
+                    "status": "yellow",
+                    "last_completed": last,
+                    "due_at": None,
+                    "warn_at": None,
+                    "on_demand": False,
+                    "on_demand_done_today": False,
+                    "event_day": True,
+                }
         return {
             "status": "green",
             "last_completed": last,
