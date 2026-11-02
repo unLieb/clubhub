@@ -9,6 +9,10 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.7.2] - 2026-11-02
+- **Fehler behoben: Server-Symbol, „Orte", „Update", „Diagnose" und die übrigen App-Einträge verschwanden zeitweise** (Überschrift zeigte nur „Dashboard", „Mehr"-Menü ohne App-Einträge). Ursachen: (1) Die Wiederherstellung nach der Live-Aktualisierung der Seite verwarf Änderungen, die innerhalb von 1,5 Sekunden nach einer vorigen Runde kamen, und holte sie nie nach; sie prüft jetzt nach jeder Änderung (kurz verzögert) und zusätzlich alle 3 Sekunden, ob etwas fehlt, und baut es dann wieder ein. (2) Die App erkannte ihre Seiten nur am aktuell gewählten Server; sie ordnet die Seite jetzt dem Server anhand der Adresse zu (auch bei Weiterleitungen/Links), und die Überschrift nennt den Server der angezeigten Seite.
+- „Mehr → Diagnose" enthält ein Einbau-Protokoll (die letzten Vorgänge mit Uhrzeit), damit sich solche Fälle künftig nachvollziehen lassen.
+
 ## [1.7.1] - 2026-10-28
 - **Fehler behoben: Fotos ließen sich an Meldungen nicht anhängen.** Die Galerie-App des Handys meldete bei der Foto-Auswahl „OK", lieferte aber keine Datei zurück (im Fehlerprotokoll: `code=-1, 0 Datei(en)`); die Meldung ging dann ohne Fotos raus, ohne jede Rückmeldung. Die App liest das Ergebnis jetzt auch aus ungewöhnlichen Formen (Zusatzdaten, mehrere Uri-Felder). Liefert die Galerie trotzdem nichts, startet sie einmal automatisch den System-Dokumentenwähler und weist per Hinweis darauf hin („Die Foto-Auswahl hat nichts geliefert – zweiter Versuch"); bleibt auch das leer, erscheint „Es wurde keine Datei übernommen – bitte erneut auswählen" statt Schweigen.
 - Die Protokollzeile der Foto-Auswahl vermerkt, wenn die Standard-Auswertung leer war und die Dateien aus Zusatzdaten gelesen wurden, samt Inhalt des Ergebnisses.

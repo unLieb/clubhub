@@ -35,6 +35,24 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var errorView: LinearLayout
     private var lastChooserParams: WebChromeClient.FileChooserParams? = null
+    /** Server, zu dem die gerade angezeigte Seite gehoert (nicht zwingend der aktuell gewaehlte, z.B. nach Redirect/Link). */
+    @Volatile private var pageServer: Server? = null
+
+    private fun serverForUrl(url: String): Server? {
+        val u = Uri.parse(url)
+        return ServerStore.load(this).firstOrNull {
+            val b = Uri.parse(it.url)
+            b.host != null && b.host.equals(u.host, ignoreCase = true) && (b.port == u.port || u.port == -1 || b.port == -1)
+        }
+    }
+
+    /** Kleines Protokoll der Einbau-Vorgaenge (letzte 8), erscheint im Diagnosebericht. */
+    private fun injectLog(text: String) {
+        val p = getSharedPreferences("clubhub", MODE_PRIVATE)
+        val t = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.GERMANY).format(java.util.Date())
+        val lines = (p.getString("inject_log", "") ?: "").split("\n").filter { it.isNotBlank() }.takeLast(7) + "$t $text"
+        p.edit().putString("inject_log", lines.joinToString("\n")).apply()
+    }
     private var pickerRetried = false
     private var pickViaFallback = false
     private val uiHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -161,20 +179,20 @@ class MainActivity : Activity() {
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 loadFailed = false
+                serverForUrl(url)?.let { pageServer = it }
                 startLoadGuard()
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 uiHandler.removeCallbacks(loadTimeout)
                 if (!loadFailed) errorView.visibility = View.GONE
-                val cur = ServerStore.current(this@MainActivity)?.let { Uri.parse(it.url) }
-                val u = Uri.parse(url)
-                if (cur != null && u.host == cur.host && u.port == cur.port) {
+                val sv = serverForUrl(url)
+                injectLog("Seite fertig: ${Uri.parse(url).host} -> ${sv?.name ?: "kein bekannter Server"}")
+                if (sv != null) {
+                    pageServer = sv
                     injectHeading(view)
                     ErrorReporter.flush(this@MainActivity) // Seite lief -> Server erreichbar, Warteschlange senden
-                    ServerStore.current(this@MainActivity)?.let { sv ->
-                        Thread { Snapshot.refresh(this@MainActivity, sv) }.start() // Stand fuer die Offline-Ansicht
-                    }
+                    Thread { Snapshot.refresh(this@MainActivity, sv) }.start() // Stand fuer die Offline-Ansicht
                 }
             }
 
@@ -614,7 +632,10 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun reinject() {
-            runOnUiThread { injectHeading(web) }
+            runOnUiThread {
+                injectLog("Neu eingebaut (Seite hatte App-Elemente verloren)")
+                injectHeading(web)
+            }
         }
 
         @JavascriptInterface
@@ -631,7 +652,7 @@ class MainActivity : Activity() {
         fun appVersion(): String = BuildConfig.VERSION_NAME
 
         @JavascriptInterface
-        fun serverName(): String = ServerStore.current(this@MainActivity)?.name ?: ""
+        fun serverName(): String = (pageServer ?: ServerStore.current(this@MainActivity))?.name ?: ""
 
         @JavascriptInterface
         fun openPlaces() {
@@ -660,7 +681,7 @@ class MainActivity : Activity() {
     /** Ersetzt auf dem Dashboard die Ueberschrift durch den Servernamen (nur bei mehreren Servern). */
     private fun injectHeading(view: WebView) {
         val servers = ServerStore.load(this)
-        val cur = ServerStore.current(this) ?: return
+        val cur = pageServer ?: ServerStore.current(this) ?: return
         val name = org.json.JSONObject.quote(cur.name)
         val multi = servers.size > 1
         val js = """
@@ -706,16 +727,24 @@ class MainActivity : Activity() {
         (function () {
           if (window.__chObs) return;
           window.__chObs = true;
-          var t = null, last = 0;
+          function needs() {
+            var g = document.querySelector('#mobile-more-sheet .grid');
+            if (g && !g.dataset.chApp) return true;
+            var a = document.querySelector('aside > div');
+            if (a && !a.dataset.chSrv) return true;
+            var h = document.querySelector('h1');
+            if (h && !h.dataset.chApp && h.textContent.trim() === 'Dashboard') return true;
+            return false;
+          }
+          function check() { try { if (needs()) ClubHubApp.reinject(); } catch (e) {} }
+          var t = null;
+          // Nach jeder Aenderung der Seite (Live-Aktualisierung) kurz warten und dann pruefen - nichts wird verworfen
           new MutationObserver(function () {
-            if (t) return;
-            t = setTimeout(function () {
-              t = null;
-              if (Date.now() - last < 1500) return;
-              last = Date.now();
-              try { ClubHubApp.reinject(); } catch (e) {}
-            }, 500);
+            if (t) clearTimeout(t);
+            t = setTimeout(function () { t = null; check(); }, 400);
           }).observe(document.body, { childList: true, subtree: true });
+          // Sicherheitsnetz: fehlt trotzdem etwas, wird es spaetestens nach wenigen Sekunden nachgeholt
+          setInterval(check, 3000);
         })();
     """.trimIndent()
 

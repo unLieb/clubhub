@@ -72,6 +72,7 @@ object AppInfo {
             line("Orte", "Zuhause ${yn(Places.get(ctx, Places.HOME) != null)}, Arbeit ${yn(Places.get(ctx, Places.WORK) != null)}")
             Places.lastDecision(ctx)?.let { line("Letzte Orte-Entscheidung", it) }
             line("Design", ThemeMode.mode(ctx))
+            prefs.getString("inject_log", null)?.takeIf { it.isNotBlank() }?.let { line("Einbau-Protokoll", "\n" + it) }
         } catch (e: Exception) {
             line("Fehler beim Sammeln", e.toString())
         }

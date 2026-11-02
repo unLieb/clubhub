@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.60.1] - 2026-11-02
+- Mitgelieferte Android-App auf Version 1.7.2 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderungen (verschwindende Server-/App-Einträge) stehen in `android/CHANGELOG.md`.
+
 ## [1.60.0] - 2026-10-30
 - Meldungen: neue Kommentare fallen jetzt auf. Bisher kam ein Kommentar nur als Push an (und nur, wenn Push aktiv war); wer nicht benachrichtigt wurde, hat ihn schlicht nicht bemerkt. Jetzt merkt sich die App pro Nutzer, wann er eine Meldung zuletzt geöffnet hat, und zeigt Kommentare anderer seitdem als ungelesen an:
   - Dashboard: im Meldungen-Block ein Kasten „N neue Kommentare" mit den betroffenen Meldungen (je mit „N neu", Klick öffnet die Meldung), am Handy zusätzlich als Hinweis oberhalb der Meldungen.
