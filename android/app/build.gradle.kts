@@ -22,8 +22,8 @@ android {
         applicationId = "de.clubhub.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.7.2"
+        versionCode = 17
+        versionName = "1.7.3"
     }
 
     signingConfigs {

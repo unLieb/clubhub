@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.60.2] - 2026-11-02
+- Mitgelieferte Android-App auf Version 1.7.3 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderungen (strengere Orte-Regel mit Entscheidungsprotokoll) stehen in `android/CHANGELOG.md`.
+
 ## [1.60.1] - 2026-11-02
 - Mitgelieferte Android-App auf Version 1.7.2 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderungen (verschwindende Server-/App-Einträge) stehen in `android/CHANGELOG.md`.
 

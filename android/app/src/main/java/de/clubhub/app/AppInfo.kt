@@ -70,7 +70,7 @@ object AppInfo {
                 s.name + (if (snap > 0) " (Stand ${SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY).format(Date(snap))})" else "")
             })
             line("Orte", "Zuhause ${yn(Places.get(ctx, Places.HOME) != null)}, Arbeit ${yn(Places.get(ctx, Places.WORK) != null)}")
-            Places.lastDecision(ctx)?.let { line("Letzte Orte-Entscheidung", it) }
+            Places.decisionLog(ctx).takeLast(8).takeIf { it.isNotEmpty() }?.let { line("Orte-Verlauf", "\n" + it.joinToString("\n")) }
             line("Design", ThemeMode.mode(ctx))
             prefs.getString("inject_log", null)?.takeIf { it.isNotBlank() }?.let { line("Einbau-Protokoll", "\n" + it) }
         } catch (e: Exception) {

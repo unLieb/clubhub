@@ -66,9 +66,9 @@ class PlacesActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(14), dp(16), dp(14))
         }
-        diag.addView(text("Letzte Entscheidung", 15f, Ui.color(this, Ui.onSurface), true))
+        diag.addView(text("Letzte Entscheidungen", 15f, Ui.color(this, Ui.onSurface), true))
         diag.addView(
-            text(Places.lastDecision(this) ?: "Noch keine Mitteilung gepr\u00fcft.", 13f, Ui.color(this, Ui.onSurfaceVariant)),
+            text(Places.decisionLog(this).takeLast(6).reversed().joinToString("\n").ifEmpty { "Noch keine Mitteilung gepr\u00fcft." }, 12f, Ui.color(this, Ui.onSurfaceVariant)),
             Ui.margins(diag, t = 4)
         )
         diag.addView(Ui.tonalButton(this, "Jetzt pr\u00fcfen") {

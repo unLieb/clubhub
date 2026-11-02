@@ -248,10 +248,19 @@ class NotificationService : Service() {
             if (!alive(gen)) return
             try {
                 if (Held.count(this) > 0 && Places.get(this, Places.WORK) != null && Places.inWindow(this)) {
-                    val loc = Places.currentLocation(this)
-                    if (loc != null && Places.atWork(this, loc)) flushHeld()
-                    // Notausgang: laesst sich gar kein Standort bestimmen, nach 30 Min. trotzdem gesammelt zeigen
-                    else if (loc == null && System.currentTimeMillis() - (Held.all(this).minOfOrNull { it.time } ?: Long.MAX_VALUE) >= 30 * 60_000L) flushHeld()
+                    val located = Places.locate(this)
+                    if (located != null) {
+                        if (Places.whereIs(this, located.first) == Places.Where.WORK) {
+                            Places.note(this, "Ankunft auf Arbeit erkannt (${located.second}) \u2013 Zur\u00fcckgehaltenes wird gezeigt")
+                            flushHeld()
+                        }
+                    } else if ((!Places.hasForegroundPermission(this) || !Places.hasBackgroundPermission(this)) &&
+                        System.currentTimeMillis() - (Held.all(this).minOfOrNull { it.time } ?: Long.MAX_VALUE) >= 30 * 60_000L
+                    ) {
+                        // Nur bei fehlender Standort-Berechtigung (Fehleinrichtung): Mitteilungen nicht endlos zurueckhalten
+                        Places.note(this, "Standort-Berechtigung fehlt \u2013 Zur\u00fcckgehaltenes wird nach 30 Min. gezeigt")
+                        flushHeld()
+                    }
                 }
             } catch (e: Exception) {
                 // naechster Durchlauf

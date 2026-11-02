@@ -9,6 +9,14 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.7.3] - 2026-11-02
+- **Orte-Regel strenger und nachvollziehbar** (Anlass: Mitteilungen kamen trotz „Zu Hause" weiter an):
+  - Ungenaue Standorte (schlechter als 500 m, z. B. grobe Funkzellen-Position im Ruhezustand) gelten als „unbekannt". Bisher wurde die halbe Ungenauigkeit großzügig vom Abstand abgezogen, sodass ein grober Standort zu Hause als „auf Arbeit" zählen konnte.
+  - Beide Orte werden geprüft; „Zu Hause" hat ein Veto (liegt der Standort an beiden Orten, gewinnt der nähere).
+  - Ist „Arbeit" gesetzt und kein genauer Standort bekannt, wird zurückgehalten. Der 30-Minuten-Notausgang (Zurückgehaltenes trotzdem zeigen) gilt nur noch bei fehlender Standort-Berechtigung.
+  - Standortbestimmung: nur genaue Messungen zählen; Rückfall auf die letzte bekannte genaue Position (bis 60 Min.) bzw. die zuletzt gespeicherte (bis 2 Std.).
+  - Neu: Protokoll der letzten Entscheidungen mit Abständen zu Arbeit/Zuhause, Genauigkeit und Quelle („auf Arbeit (Arbeit 120 m, Zuhause 4100 m, ±25 m, aktuell) – angezeigt"); sichtbar unter Mehr → Orte und im Diagnosebericht. Auch die Ankunft auf Arbeit wird vermerkt.
+
 ## [1.7.2] - 2026-11-02
 - **Fehler behoben: Server-Symbol, „Orte", „Update", „Diagnose" und die übrigen App-Einträge verschwanden zeitweise** (Überschrift zeigte nur „Dashboard", „Mehr"-Menü ohne App-Einträge). Ursachen: (1) Die Wiederherstellung nach der Live-Aktualisierung der Seite verwarf Änderungen, die innerhalb von 1,5 Sekunden nach einer vorigen Runde kamen, und holte sie nie nach; sie prüft jetzt nach jeder Änderung (kurz verzögert) und zusätzlich alle 3 Sekunden, ob etwas fehlt, und baut es dann wieder ein. (2) Die App erkannte ihre Seiten nur am aktuell gewählten Server; sie ordnet die Seite jetzt dem Server anhand der Adresse zu (auch bei Weiterleitungen/Links), und die Überschrift nennt den Server der angezeigten Seite.
 - „Mehr → Diagnose" enthält ein Einbau-Protokoll (die letzten Vorgänge mit Uhrzeit), damit sich solche Fälle künftig nachvollziehen lassen.
