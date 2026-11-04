@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.61.1] - 2026-11-04
+- Event-Tage: Auf der Bereichs-Card (Bereichsübersicht und Dashboard) erscheint an Veranstaltungstagen der Sammel-Button zum Erledigen der Nach-Bedarf-Aufgaben des Bereichs („Event-Aufgaben erledigen", bzw. „Tägliche + Event erledigen", wenn auch tägliche Aufgaben offen sind; am Handy der Haken rechts in der Zeile). Er hakt alle heute wegen des Events fälligen Aufgaben auf einmal ab und verschwindet danach.
+
 ## [1.61.0] - 2026-11-04
 - Neu: **Wartung** (Seitenleiste bzw. „Mehr“ am Handy). Wartungspläne für Anlagen wie den Aufzug, damit ersichtlich ist, wann ein Dienstleister (z. B. Lutz) zuletzt da war und wann er laut Vertrag wieder dran ist - und ob er zu früh kommt.
   - Beliebig viele Pläne, Turnus frei wählbar (Zahl + Tage/Wochen/Monate/Jahre), optional Dienstleister, Vertragsnummer, erster Termin, Vorlauf für „bald fällig“, Toleranz für „zu früh“ und zuständige Gruppen (z. B. Hausmeister). Anlegen/Bearbeiten: Admin und Schichtleiter, Löschen von Plänen nur Admin.

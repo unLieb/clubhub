@@ -1327,14 +1327,21 @@ def compute_room_statuses(rooms, now, event_ctx=None):
         worst = None
         last_completed = None
         last_user = None
+        has_daily = has_event = False
         for task in room.tasks:
             s = task_status(task, now, event_ctx)
             if worst is None or STATUS_RANK[s["status"]] > STATUS_RANK[worst["status"]]:
                 worst = s
             if task.interval_hours == 24 and s["status"] in ("yellow", "red"):
                 daily_due_room_ids.add(room.id)
+                has_daily = True
                 if s["status"] == "red":
                     daily_overdue_count += 1
+            if s.get("event_day"):
+                # Event-Tag: die Nach-Bedarf-Aufgaben des Bereichs haben ebenfalls
+                # den Sammel-Button auf der Bereichs-Card (siehe complete_due_tasks).
+                daily_due_room_ids.add(room.id)
+                has_event = True
             if s["status"] == "yellow":
                 due_soon_count += 1
             elif s["status"] == "red":
@@ -1376,6 +1383,12 @@ def compute_room_statuses(rooms, now, event_ctx=None):
             "last_completed": last_completed,
             "last_user": last_user,
             "icon": guess_room_icon(room.name),
+            # Beschriftung des Sammel-Buttons auf der Bereichs-Card
+            "quick_label": (
+                "Tägliche + Event erledigen" if has_daily and has_event
+                else "Event-Aufgaben erledigen" if has_event
+                else "Tägliche erledigen"
+            ),
         }
 
     return room_status, overdue_tasks, due_soon_count, overdue_count, daily_due_room_ids, daily_overdue_count
@@ -1997,13 +2010,17 @@ def complete_due_tasks(room_id: int, request: Request, next: str = Form("/"), db
             raise HTTPException(status_code=404)
         return RedirectResponse("/", status_code=302)
     now = ntptime.now_utc()
+    event_ctx = _event_ctx(db, now)
+    # Zusaetzlich zu den taeglichen die Nach-Bedarf-Aufgaben, die heute wegen
+    # eines Events faellig sind (siehe status.task_status, "event_day").
     due_tasks = [
         t for t in room.tasks
-        if t.interval_hours == 24 and task_status(t, now)["status"] in ("yellow", "red")
+        if (t.interval_hours == 24 and task_status(t, now)["status"] in ("yellow", "red"))
+        or task_status(t, now, event_ctx).get("event_day")
     ]
     _complete_tasks(db, due_tasks, user.id)
     count = len(due_tasks)
-    msg = f"{count} tägliche {'Aufgabe' if count == 1 else 'Aufgaben'} für {room.name} als erledigt markiert"
+    msg = f"{count} {'Aufgabe' if count == 1 else 'Aufgaben'} für {room.name} als erledigt markiert"
 
     if is_fetch:
         # Nur die betroffene Kachel (mobile Zeile + Desktop-Karte) als
@@ -2011,7 +2028,7 @@ def complete_due_tasks(room_id: int, request: Request, next: str = Form("/"), db
         # _room_grid_card_desktop.html) statt eines Redirects - so bleibt die
         # Scroll-Position auf dem Dashboard/der Bereichsuebersicht beim
         # Abhaken erhalten und nur diese eine Kachel wird ersetzt.
-        room_status, _, _, _, daily_due_room_ids, _ = compute_room_statuses([room], now)
+        room_status, _, _, _, daily_due_room_ids, _ = compute_room_statuses([room], now, event_ctx)
         context = {
             "request": request,
             "user": user,
