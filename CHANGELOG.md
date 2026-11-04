@@ -6,6 +6,14 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.61.0] - 2026-11-04
+- Neu: **Wartung** (Seitenleiste bzw. „Mehr“ am Handy). Wartungspläne für Anlagen wie den Aufzug, damit ersichtlich ist, wann ein Dienstleister (z. B. Lutz) zuletzt da war und wann er laut Vertrag wieder dran ist - und ob er zu früh kommt.
+  - Beliebig viele Pläne, Turnus frei wählbar (Zahl + Tage/Wochen/Monate/Jahre), optional Dienstleister, Vertragsnummer, erster Termin, Vorlauf für „bald fällig“, Toleranz für „zu früh“ und zuständige Gruppen (z. B. Hausmeister). Anlegen/Bearbeiten: Admin und Schichtleiter, Löschen von Plänen nur Admin.
+  - Besuchsprotokoll je Plan (alle sichtbaren Nutzer): Datum, Art (Regelwartung zählt in den Turnus, Störung/Reparatur nicht), Techniker, Notiz, Rechnungsnummer, Betrag. Besuche löschen: Admin/Schichtleiter.
+  - Ampel je Plan (grün/gelb/rot, nächste Fälligkeit aus letzter Regelwartung + Turnus). Regelwartungen vor Ablauf des Turnus (minus Toleranz) werden rot als „zu früh“ markiert und lösen sofort eine Push an die zuständigen Gruppen aus. Erinnerung „bald fällig/überfällig“ einmal je Fälligkeit (respektiert Arbeitszeit der Gruppe).
+  - Kosten pro Jahr und CSV-Export je Plan (Abgleich mit Rechnungen); Änderungen stehen im Audit-Log.
+- Technisch: neue Tabellen `maintenance_plans`, `maintenance_visits`, `maintenance_plan_group` (automatisch angelegt); Logik in `app/maintenance.py`, Job `check_maintenance_job` alle 15 Minuten.
+
 ## [1.60.2] - 2026-11-02
 - Mitgelieferte Android-App auf Version 1.7.3 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderungen (strengere Orte-Regel mit Entscheidungsprotokoll) stehen in `android/CHANGELOG.md`.
 

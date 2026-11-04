@@ -48,6 +48,13 @@ appointment_group = Table(
     Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
 )
 
+maintenance_plan_group = Table(
+    "maintenance_plan_group",
+    Base.metadata,
+    Column("plan_id", Integer, ForeignKey("maintenance_plans.id"), primary_key=True),
+    Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
+)
+
 report_group = Table(
     "report_group",
     Base.metadata,
@@ -1052,3 +1059,52 @@ class ErrorLog(Base):
     size_bytes = Column(Integer, nullable=True)      # Upload-Groesse (Anfrage)
     user_agent = Column(String, nullable=True)
     details = Column(String, nullable=True)
+
+
+class MaintenancePlan(Base):
+    """Wartungsplan fuer eine Anlage (z.B. Aufzug) mit frei waehlbarem Turnus.
+    Die naechste Faelligkeit wird NICHT gespeichert, sondern aus dem letzten
+    Regelwartungs-Besuch (MaintenanceVisit.kind == "regular") plus Turnus
+    berechnet (siehe maintenance.py) - so bleibt sie nach nachtraeglich
+    erfassten oder korrigierten Besuchen automatisch stimmig. Zweck: Ueberblick,
+    ob ein Dienstleister laut Vertragsturnus ueberhaupt dran war."""
+    __tablename__ = "maintenance_plans"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)               # z.B. "Aufzug Haupteingang"
+    provider = Column(String, nullable=True)            # z.B. "Lutz"
+    contract_note = Column(String, nullable=True)       # Vertragsnummer o.ae.
+    interval_value = Column(Integer, nullable=False, default=6)
+    interval_unit = Column(String, nullable=False, default="weeks")   # days|weeks|months|years
+    start_date = Column(Date, nullable=True)            # erster erwarteter Termin, solange es noch keinen Besuch gibt
+    tolerance_days = Column(Integer, default=3)         # so viele Tage zu frueh gelten noch als ok
+    notify_days_before = Column(Float, default=7.0)     # Vorlauf fuer Gelb + Erinnerung
+    active = Column(Boolean, default=True)
+    notified_for = Column(String, nullable=True)        # Faelligkeitsdatum (ISO), fuer das schon erinnert wurde
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    groups = relationship("Group", secondary=maintenance_plan_group)
+    visits = relationship(
+        "MaintenanceVisit", cascade="all, delete-orphan",
+        order_by="MaintenanceVisit.visit_date", back_populates="plan",
+    )
+
+
+class MaintenanceVisit(Base):
+    """Ein tatsaechlicher Besuch des Dienstleisters. kind "regular" zaehlt
+    in den Turnus, "fault" (Stoerung/Reparatur) nicht."""
+    __tablename__ = "maintenance_visits"
+
+    id = Column(Integer, primary_key=True)
+    plan_id = Column(Integer, ForeignKey("maintenance_plans.id"), nullable=False)
+    visit_date = Column(Date, nullable=False)
+    kind = Column(String, nullable=False, default="regular")
+    technician = Column(String, nullable=True)
+    note = Column(String, nullable=True)
+    invoice_no = Column(String, nullable=True)
+    amount = Column(Float, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    plan = relationship("MaintenancePlan", back_populates="visits")
+    user = relationship("User")

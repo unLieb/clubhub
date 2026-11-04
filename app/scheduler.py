@@ -8,7 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .database import SessionLocal
 from .models import (
-    Task, TaskGroupNotice, InventoryItem, Appointment, Group, RoomGroupThrottle, Notice, AppSettings, Room,
+    Task, TaskGroupNotice, InventoryItem, Appointment, MaintenancePlan, Group, RoomGroupThrottle, Notice, AppSettings, Room,
 )
 from .status import task_status, compute_inventory_status
 from .notifications import notify_group, notify_groups, notify_user
@@ -16,6 +16,7 @@ from . import ntptime
 from . import backup
 from . import nextcloud
 from . import event_days
+from . import maintenance
 from . import notification_batching
 from .error_log import prune_error_log
 
@@ -362,6 +363,41 @@ def check_appointments_job():
         db.close()
 
 
+def check_maintenance_job():
+    """Erinnert die zustaendigen Gruppen einmal je Faelligkeitsdatum, sobald
+    eine Wartung bald (Vorlauf des Plans) oder ueberfaellig ist. Plaene ohne
+    Gruppe bleiben still (nur auf der Seite sichtbar)."""
+    db = SessionLocal()
+    try:
+        now_local = ntptime.now_utc().astimezone(APP_TIMEZONE)
+        today = now_local.date()
+        for plan in db.query(MaintenancePlan).filter(MaintenancePlan.active.is_(True)).all():
+            state = maintenance.plan_state(plan, today)
+            if state["status"] not in ("yellow", "red") or not plan.groups:
+                continue
+            key = state["next_due"].isoformat()
+            if plan.notified_for == key:
+                continue
+            groups = [g for g in plan.groups if _within_working_hours(g, now_local)]
+            if not groups:
+                continue  # beim naechsten Tick nachholen
+            days = state["days_left"]
+            if days < 0:
+                when = f"seit {-days} Tagen überfällig"
+            elif days == 0:
+                when = "heute fällig"
+            else:
+                when = f"in {days} Tagen fällig"
+            notify_groups(groups, f"Wartung: {plan.name}", f"{when} ({state['next_due'].strftime('%d.%m.%Y')})", url="/maintenance")
+            plan.notified_for = key
+        db.commit()
+    except Exception:
+        logger.exception("Fehler beim Prüfen der Wartungspläne")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def check_notice_expiry_job():
     """Löscht Hinweise, deren optionales Verfallsdatum erreicht ist (siehe
     Notice.expires_at, gesetzt beim Anlegen über die Presets in
@@ -497,6 +533,7 @@ def start_scheduler():
     scheduler.add_job(check_completion_batches_job, "interval", seconds=15, id="check_completion_batches")
     scheduler.add_job(check_inventory_job, "interval", minutes=15, id="check_inventory")
     scheduler.add_job(check_appointments_job, "interval", minutes=15, id="check_appointments")
+    scheduler.add_job(check_maintenance_job, "interval", minutes=15, id="check_maintenance")
     scheduler.add_job(check_event_days_job, "interval", minutes=15, id="check_event_days")
     scheduler.add_job(check_notice_expiry_job, "interval", minutes=15, id="check_notice_expiry")
     # NTP-Offset regelmäßig auffrischen (Erstsync passiert synchron beim App-Start)

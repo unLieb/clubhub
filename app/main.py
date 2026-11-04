@@ -34,6 +34,7 @@ from . import backup
 from . import nextcloud
 from . import data_export
 from . import event_days
+from . import maintenance
 from . import version
 from . import push
 from . import pdf_export
@@ -5084,6 +5085,231 @@ def appointments_delete(appointment_id: int, request: Request, db: Session = Dep
     if is_fetch:
         return {"ok": True}
     return RedirectResponse("/appointments", status_code=302)
+
+
+# ---------- Wartungsplan ----------
+
+MAINTENANCE_KINDS = {"regular": "Regelwartung", "fault": "Störung / Reparatur"}
+
+
+def user_can_see_maintenance_plan(user, plan) -> bool:
+    """Admin und Schichtleiter sehen alle Pläne. Ein Plan ohne Gruppe ist für
+    jeden eingeloggten Nutzer sichtbar, mit Gruppen nur für deren Mitglieder
+    (z.B. Hausmeister)."""
+    if not user:
+        return False
+    if user.is_admin or user.is_shift_lead or not plan.groups:
+        return True
+    plan_group_ids = {g.id for g in plan.groups}
+    return any(g.id in plan_group_ids for g in user.groups)
+
+
+def _parse_iso_date(value: str):
+    try:
+        return datetime.strptime((value or "").strip(), "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _maintenance_plan_fields(
+    db, plan, name, provider, contract_note, interval_value, interval_unit,
+    start_date, tolerance_days, notify_days_before, group_ids,
+):
+    plan.name = name.strip()
+    plan.provider = provider.strip() or None
+    plan.contract_note = contract_note.strip() or None
+    plan.interval_value = max(interval_value, 1)
+    plan.interval_unit = interval_unit if interval_unit in ("days", "weeks", "months", "years") else "weeks"
+    plan.start_date = _parse_iso_date(start_date)
+    plan.tolerance_days = max(tolerance_days, 0)
+    plan.notify_days_before = max(notify_days_before, 0)
+    ids = [int(v) for v in group_ids if v.isdigit()]
+    plan.groups = db.query(models.Group).filter(models.Group.id.in_(ids)).all() if ids else []
+    # Nach jeder Aenderung neu erinnern lassen
+    plan.notified_for = None
+
+
+@app.get("/maintenance")
+def maintenance_page(request: Request, db: Session = Depends(get_db)):
+    user, redirect = require_login_page(request, db)
+    if redirect:
+        return redirect
+    today = ntptime.now_utc().astimezone(APP_TIMEZONE).date()
+    entries = []
+    for plan in db.query(models.MaintenancePlan).order_by(models.MaintenancePlan.name).all():
+        if not user_can_see_maintenance_plan(user, plan):
+            continue
+        state = maintenance.plan_state(plan, today)
+        entries.append({
+            "plan": plan, "state": state, "interval": maintenance.interval_label(plan),
+            "visits": list(reversed(plan.visits)),
+            "year_cost": sum(
+                v.amount or 0 for v in plan.visits if v.visit_date.year == today.year
+            ),
+        })
+    order = {"red": 0, "yellow": 1, "green": 2, "grey": 3}
+    entries.sort(key=lambda e: (not e["plan"].active, order[e["state"]["status"]]))
+    return templates.TemplateResponse("maintenance.html", {
+        "request": request, "user": user, "entries": entries, "today": today,
+        "groups": db.query(models.Group).order_by(models.Group.name).all(),
+        "kinds": MAINTENANCE_KINDS,
+        "can_manage": bool(user.is_admin or user.is_shift_lead),
+    })
+
+
+@app.post("/maintenance")
+def maintenance_create(
+    request: Request,
+    name: str = Form(...),
+    provider: str = Form(""),
+    contract_note: str = Form(""),
+    interval_value: int = Form(6),
+    interval_unit: str = Form("weeks"),
+    start_date: str = Form(""),
+    tolerance_days: int = Form(3),
+    notify_days_before: float = Form(7.0),
+    group_ids: list[str] = Form([]),
+    db: Session = Depends(get_db),
+):
+    user = require_admin_or_shift_lead(request, db)
+    plan = models.MaintenancePlan(name=name)
+    _maintenance_plan_fields(
+        db, plan, name, provider, contract_note, interval_value, interval_unit,
+        start_date, tolerance_days, notify_days_before, group_ids,
+    )
+    db.add(plan)
+    log_audit(db, user, "create", "maintenance_plan", f"Wartungsplan „{plan.name}“ angelegt ({maintenance.interval_label(plan)})")
+    db.commit()
+    return RedirectResponse("/maintenance", status_code=302)
+
+
+@app.post("/maintenance/{plan_id}/edit")
+def maintenance_edit(
+    plan_id: int,
+    request: Request,
+    name: str = Form(...),
+    provider: str = Form(""),
+    contract_note: str = Form(""),
+    interval_value: int = Form(6),
+    interval_unit: str = Form("weeks"),
+    start_date: str = Form(""),
+    tolerance_days: int = Form(3),
+    notify_days_before: float = Form(7.0),
+    group_ids: list[str] = Form([]),
+    active: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = require_admin_or_shift_lead(request, db)
+    plan = db.query(models.MaintenancePlan).filter(models.MaintenancePlan.id == plan_id).first()
+    if plan:
+        _maintenance_plan_fields(
+            db, plan, name, provider, contract_note, interval_value, interval_unit,
+            start_date, tolerance_days, notify_days_before, group_ids,
+        )
+        plan.active = bool(active)
+        log_audit(db, user, "update", "maintenance_plan", f"Wartungsplan „{plan.name}“ geändert ({maintenance.interval_label(plan)})")
+        db.commit()
+    return RedirectResponse("/maintenance", status_code=302)
+
+
+@app.post("/maintenance/{plan_id}/delete")
+def maintenance_delete(plan_id: int, request: Request, db: Session = Depends(get_db)):
+    user = require_admin(request, db)
+    plan = db.query(models.MaintenancePlan).filter(models.MaintenancePlan.id == plan_id).first()
+    if plan:
+        log_audit(db, user, "delete", "maintenance_plan", f"Wartungsplan „{plan.name}“ mit {len(plan.visits)} Besuchen gelöscht")
+        db.delete(plan)
+        db.commit()
+    return RedirectResponse("/maintenance", status_code=302)
+
+
+@app.post("/maintenance/{plan_id}/visits")
+def maintenance_visit_add(
+    plan_id: int,
+    request: Request,
+    visit_date: str = Form(...),
+    kind: str = Form("regular"),
+    technician: str = Form(""),
+    note: str = Form(""),
+    invoice_no: str = Form(""),
+    amount: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = require_login(request, db)
+    plan = db.query(models.MaintenancePlan).filter(models.MaintenancePlan.id == plan_id).first()
+    if not plan or not user_can_see_maintenance_plan(user, plan):
+        raise HTTPException(status_code=404)
+    parsed = _parse_iso_date(visit_date)
+    if not parsed:
+        return RedirectResponse("/maintenance", status_code=302)
+    try:
+        amount_value = float(amount.replace(",", ".")) if amount.strip() else None
+    except ValueError:
+        amount_value = None
+    today = ntptime.now_utc().astimezone(APP_TIMEZONE).date()
+    visit = models.MaintenanceVisit(
+        plan_id=plan.id, visit_date=parsed, kind=kind if kind in MAINTENANCE_KINDS else "regular",
+        technician=technician.strip() or None, note=note.strip() or None,
+        invoice_no=invoice_no.strip() or None, amount=amount_value, user_id=user.id,
+    )
+    db.add(visit)
+    db.flush()
+    db.refresh(plan)
+    after = maintenance.plan_state(plan, today)
+    plan.notified_for = None
+    log_audit(db, user, "create", "maintenance_visit",
+              f"Besuch bei „{plan.name}“ am {parsed.strftime('%d.%m.%Y')} ({MAINTENANCE_KINDS[visit.kind]}) erfasst")
+    db.commit()
+    # Regelwartung ausserhalb des Turnus: sofort die zustaendigen Gruppen
+    # warnen - genau der Fall, den der Plan aufdecken soll.
+    if visit.id in after["early"]:
+        e = after["early"][visit.id]
+        title = f"Wartung zu früh: {plan.name}"
+        msg = (f"Besuch am {parsed.strftime('%d.%m.%Y')} nur {e['since_last']} Tage nach der letzten "
+               f"Regelwartung ({maintenance.interval_label(plan)}).")
+        if plan.groups:
+            notify_groups(plan.groups, title, msg, url="/maintenance")
+    return RedirectResponse("/maintenance", status_code=302)
+
+
+@app.post("/maintenance/visits/{visit_id}/delete")
+def maintenance_visit_delete(visit_id: int, request: Request, db: Session = Depends(get_db)):
+    user = require_admin_or_shift_lead(request, db)
+    visit = db.query(models.MaintenanceVisit).filter(models.MaintenanceVisit.id == visit_id).first()
+    if visit:
+        log_audit(db, user, "delete", "maintenance_visit",
+                  f"Besuch bei „{visit.plan.name}“ am {visit.visit_date.strftime('%d.%m.%Y')} gelöscht")
+        visit.plan.notified_for = None
+        db.delete(visit)
+        db.commit()
+    return RedirectResponse("/maintenance", status_code=302)
+
+
+@app.get("/maintenance/{plan_id}/export.csv")
+def maintenance_export_csv(plan_id: int, request: Request, db: Session = Depends(get_db)):
+    user = require_login(request, db)
+    plan = db.query(models.MaintenancePlan).filter(models.MaintenancePlan.id == plan_id).first()
+    if not plan or not user_can_see_maintenance_plan(user, plan):
+        raise HTTPException(status_code=404)
+    state = maintenance.plan_state(plan, ntptime.now_utc().astimezone(APP_TIMEZONE).date())
+
+    def esc(value) -> str:
+        return str(value or "").replace(";", ",").replace("\n", " ")
+
+    lines = ["Datum;Art;Techniker;Notiz;Rechnungsnr.;Betrag (EUR);Zu früh;Erfasst von"]
+    for v in plan.visits:
+        e = state["early"].get(v.id)
+        lines.append(";".join([
+            v.visit_date.strftime("%d.%m.%Y"), MAINTENANCE_KINDS.get(v.kind, v.kind), esc(v.technician), esc(v.note),
+            esc(v.invoice_no), f"{v.amount:.2f}".replace(".", ",") if v.amount is not None else "",
+            f"{e['days_early']} Tage" if e else "", esc(v.user.name if v.user else ""),
+        ]))
+    filename = f"wartung-{_ascii_slug(plan.name, 'plan')}.csv"
+    return Response(
+        content=("\n".join(lines) + "\n").encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ---------- Urlaub ----------

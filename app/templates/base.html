@@ -323,6 +323,11 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Termine
       </a>
+      <a href="/maintenance" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/maintenance' %}active{% endif %}">
+        <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        Wartung
+      </a>
       {% if modules.vacation %}
       <a href="/vacations" class="nav-link relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sidebar-text hover:bg-white/10 hover:text-sidebar-text-strong {% if request.url.path == '/vacations' %}active{% endif %}">
         <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
@@ -407,7 +412,7 @@
      schmalen Displays noch bequem antippbar bleibt. Alle weiteren Module
      stecken hinter "Mehr" im Bottom-Sheet (siehe unten), statt die Leiste mit
      jedem neuen Modul weiter zu stauchen. -->
-{% set more_paths = ['/notices', '/appointments', '/vacations', '/timeclock', '/kuehlungen', '/history', '/admin', '/help'] %}
+{% set more_paths = ['/notices', '/appointments', '/maintenance', '/vacations', '/timeclock', '/kuehlungen', '/history', '/admin', '/help'] %}
 {% set on_more_page = user and request.url.path in more_paths %}
 {% set more_badge_count = (badges.cooling or 0) + (badges.notices or 0) %}
 <nav class="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-ink border-t border-line flex safe-bottom">
@@ -475,6 +480,10 @@
     <a href="/appointments" class="tab-link {% if request.url.path == '/appointments' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Termine
+    </a>
+    <a href="/maintenance" class="tab-link {% if request.url.path == '/maintenance' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      Wartung
     </a>
     {% if modules.vacation %}
     <a href="/vacations" class="tab-link {% if request.url.path == '/vacations' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">

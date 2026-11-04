@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% import "_group_macros.html" as gm %}
+{% block title %}Wartung – ClubHUB{% endblock %}
+{% block content %}
+
+{% macro plan_fields(p=None) %}
+<div class="flex flex-col sm:flex-row gap-2">
+  <input name="name" value="{{ p.name if p else '' }}" placeholder="z.B. Aufzug Haupteingang" required class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+  <input name="provider" value="{{ (p.provider or '') if p else '' }}" placeholder="Dienstleister, z.B. Lutz" class="sm:w-56 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+</div>
+<div class="flex flex-col sm:flex-row gap-2">
+  <div class="flex-1">
+    <label class="block text-[11px] text-slate-400 mb-1">Turnus (frei wählbar)</label>
+    <div class="flex gap-2">
+      <input name="interval_value" type="number" min="1" value="{{ p.interval_value if p else 6 }}" required class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+      <select name="interval_unit" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        {% for key, label in [('days','Tage'),('weeks','Wochen'),('months','Monate'),('years','Jahre')] %}
+        <option value="{{ key }}" {% if (p.interval_unit if p else 'weeks') == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="flex-1">
+    <label class="block text-[11px] text-slate-400 mb-1">Erster Termin (solange noch kein Besuch erfasst ist)</label>
+    <input name="start_date" type="date" value="{{ p.start_date.strftime('%Y-%m-%d') if p and p.start_date else '' }}" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+  </div>
+</div>
+<div class="flex flex-col sm:flex-row gap-2">
+  <div class="flex-1">
+    <label class="block text-[11px] text-slate-400 mb-1">Vorlauf für „bald fällig“ (Tage)</label>
+    <input name="notify_days_before" type="number" step="1" min="0" value="{{ '%g' % p.notify_days_before if p else 7 }}" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+  </div>
+  <div class="flex-1">
+    <label class="block text-[11px] text-slate-400 mb-1">Toleranz „zu früh“ (Tage)</label>
+    <input name="tolerance_days" type="number" step="1" min="0" value="{{ p.tolerance_days if p else 3 }}" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+  </div>
+  <div class="flex-1">
+    <label class="block text-[11px] text-slate-400 mb-1">Vertragsnummer / Notiz</label>
+    <input name="contract_note" value="{{ (p.contract_note or '') if p else '' }}" class="w-full rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+  </div>
+</div>
+<div>
+  <label class="block text-[11px] text-slate-400 mb-1">Zuständige Gruppen (keine Auswahl = für alle Nutzer sichtbar, keine Erinnerung per Push)</label>
+  <div class="flex flex-wrap gap-1.5">
+    {% for g in groups %}
+    <label class="cursor-pointer rounded-md border border-line px-2.5 py-1 text-sm has-checked:bg-violet/15 has-checked:border-violet has-checked:text-violet">
+      <input type="checkbox" name="group_ids" value="{{ g.id }}" class="sr-only" {% if p and g in p.groups %}checked{% endif %}>{{ g.name }}
+    </label>
+    {% endfor %}
+  </div>
+</div>
+{% endmacro %}
+
+<a href="/" class="text-sm text-slate-400 hover:text-slate-100">&larr; Dashboard</a>
+<div class="mb-6 mt-2">
+  <h1 class="font-display text-2xl font-semibold">Wartung</h1>
+  <p class="text-slate-400 text-sm mt-1">Wartungspläne für Anlagen wie den Aufzug: Wann war der Dienstleister zuletzt da, wann ist er laut Vertrag wieder dran – und kam er zu früh?</p>
+</div>
+
+{% if can_manage %}
+<details class="rounded-xl border border-line bg-panel mb-6 group">
+  <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-panel2">
+    <span class="font-display font-medium flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-go"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Neuer Wartungsplan
+    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="px-4 pb-4 pt-1 border-t border-line">
+    <form method="post" action="/maintenance" class="space-y-2 mt-3 max-w-2xl">
+      {{ plan_fields() }}
+      <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Plan anlegen</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
+<div class="space-y-4">
+  {% for e in entries %}
+  {% set p = e.plan %}
+  {% set st = e.state %}
+  <div class="rounded-xl border border-line border-l-4 {% if not p.active %}border-l-line opacity-60{% elif st.status == 'red' %}border-l-late{% elif st.status == 'yellow' %}border-l-warn{% elif st.status == 'green' %}border-l-go{% else %}border-l-line{% endif %} bg-panel p-4">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="min-w-0">
+        <div class="font-display font-medium text-lg">{{ p.name }}</div>
+        <div class="flex items-center gap-1.5 flex-wrap mt-1.5 text-xs">
+          {% if p.provider %}<span class="inline-flex px-2 py-0.5 rounded-full bg-panel2 text-slate-300">{{ p.provider }}</span>{% endif %}
+          <span class="inline-flex px-2 py-0.5 rounded-full bg-accent/15 text-accent">{{ e.interval }}</span>
+          {% if p.contract_note %}<span class="inline-flex px-2 py-0.5 rounded-full bg-panel2 text-slate-400">{{ p.contract_note }}</span>{% endif %}
+          {% if p.groups %}{{ gm.group_badges(p.groups) }}{% endif %}
+          {% if not p.active %}<span class="inline-flex px-2 py-0.5 rounded-full bg-panel2 text-slate-400">inaktiv</span>{% endif %}
+        </div>
+      </div>
+      <div class="text-right text-sm">
+        {% if st.status == 'grey' %}
+        <div class="text-slate-400">Noch kein Termin bekannt</div>
+        {% else %}
+        <div class="font-medium {% if st.status == 'red' %}text-late{% elif st.status == 'yellow' %}text-warn{% else %}text-go{% endif %}">
+          {% if st.status == 'red' %}überfällig seit {{ -st.days_left }} Tagen
+          {% elif st.days_left == 0 %}heute fällig
+          {% else %}in {{ st.days_left }} Tagen fällig{% endif %}
+        </div>
+        <div class="text-xs text-slate-400 mt-0.5">Nächste Wartung: {{ st.next_due.strftime('%d.%m.%Y') }}</div>
+        {% endif %}
+        <div class="text-xs text-slate-500 mt-0.5">
+          {% if st.last_regular %}Letzte Regelwartung: {{ st.last_regular.strftime('%d.%m.%Y') }} (vor {{ (today - st.last_regular).days }} Tagen){% else %}Noch keine Regelwartung erfasst{% endif %}
+        </div>
+        {% if st.earliest_ok and st.status != 'red' and st.days_left is not none and st.days_left > 0 %}
+        <div class="text-xs text-slate-500 mt-0.5">Frühestens ok ab {{ st.earliest_ok.strftime('%d.%m.%Y') }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <details class="mt-3 rounded-lg border border-line bg-ink/40">
+      <summary class="cursor-pointer list-none px-3 py-2 text-sm font-medium text-go hover:bg-panel2 rounded-lg">+ Besuch erfassen</summary>
+      <form method="post" action="/maintenance/{{ p.id }}/visits" class="space-y-2 p-3 border-t border-line max-w-2xl">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input name="visit_date" type="date" value="{{ today.strftime('%Y-%m-%d') }}" required class="sm:w-44 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <select name="kind" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+            {% for key, label in kinds.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+          </select>
+          <input name="technician" placeholder="Techniker" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input name="note" placeholder="Notiz (was wurde gemacht?)" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <input name="invoice_no" placeholder="Rechnungsnr." class="sm:w-36 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+          <input name="amount" inputmode="decimal" placeholder="Betrag €" class="sm:w-28 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
+        </div>
+        <p class="text-[11px] text-slate-500">Rechnungsnummer und Betrag lassen sich auch später nicht mehr ändern – bei Fehlern den Besuch löschen und neu erfassen (Schichtleiter/Admin).</p>
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Besuch speichern</button>
+      </form>
+    </details>
+
+    <div class="mt-3">
+      <div class="flex items-center justify-between mb-1.5">
+        <div class="text-xs uppercase tracking-wide text-slate-500">Besuche ({{ e.visits|length }}){% if e.year_cost %} · Kosten {{ today.year }}: {{ ('%.2f' % e.year_cost).replace('.', ',') }} €{% endif %}</div>
+        {% if e.visits %}<a href="/maintenance/{{ p.id }}/export.csv" class="text-xs text-slate-400 hover:text-slate-100">CSV-Export</a>{% endif %}
+      </div>
+      {% for v in e.visits %}
+      {% set ea = st.early.get(v.id) %}
+      <div class="flex items-start justify-between gap-3 py-2 border-t border-line text-sm">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-medium">{{ v.visit_date.strftime('%d.%m.%Y') }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full {% if v.kind == 'regular' %}bg-go/15 text-go{% else %}bg-warn/15 text-warn{% endif %}">{{ kinds.get(v.kind, v.kind) }}</span>
+            {% if ea %}<span class="text-xs px-2 py-0.5 rounded-full bg-late/15 text-late">zu früh: {{ ea.days_early }} Tage vor Turnus (nur {{ ea.since_last }} Tage nach letzter)</span>{% endif %}
+          </div>
+          <div class="text-xs text-slate-400 mt-0.5">
+            {% if v.technician %}{{ v.technician }} · {% endif %}{{ v.note or '' }}
+            {% if v.invoice_no %}Rechnung {{ v.invoice_no }}{% endif %}{% if v.amount is not none %} · {{ ('%.2f' % v.amount).replace('.', ',') }} €{% endif %}
+            {% if v.user %}<span class="text-slate-500"> · erfasst von {{ v.user.name }}</span>{% endif %}
+          </div>
+        </div>
+        {% if can_manage %}
+        <form method="post" action="/maintenance/visits/{{ v.id }}/delete" onsubmit="return confirm('Besuch wirklich löschen?')">
+          <button class="text-xs text-late hover:underline">Löschen</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="text-slate-500 text-sm italic">Noch kein Besuch erfasst.</p>
+      {% endfor %}
+    </div>
+
+    {% if can_manage %}
+    <details class="mt-3">
+      <summary class="cursor-pointer text-xs text-slate-400 hover:text-slate-100">Plan bearbeiten</summary>
+      <form method="post" action="/maintenance/{{ p.id }}/edit" class="space-y-2 mt-2 max-w-2xl">
+        {{ plan_fields(p) }}
+        <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="active" value="1" {% if p.active %}checked{% endif %}> Plan aktiv (inaktive Pläne erinnern nicht)</label>
+        <div class="flex gap-2">
+          <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-xs font-medium">Speichern</button>
+          {% if user.is_admin %}
+          <button formaction="/maintenance/{{ p.id }}/delete" onclick="return confirm('Plan samt allen Besuchen wirklich löschen?')" class="px-3 py-1.5 rounded-md border border-late text-late text-xs font-medium">Löschen</button>
+          {% endif %}
+        </div>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="text-slate-500 text-sm italic">{% if can_manage %}Noch kein Wartungsplan angelegt.{% else %}Für dich sind keine Wartungspläne hinterlegt.{% endif %}</p>
+  {% endfor %}
+</div>
+
+{% endblock %}
