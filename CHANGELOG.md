@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.61.2] - 2026-11-10
+- Mitgelieferte Android-App auf Version 1.7.4 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderung (Pinch-Zoom bei Bildern) steht in `android/CHANGELOG.md`.
+
 ## [1.61.1] - 2026-11-04
 - Event-Tage: Auf der Bereichs-Card (Bereichsübersicht und Dashboard) erscheint an Veranstaltungstagen der Sammel-Button zum Erledigen der Nach-Bedarf-Aufgaben des Bereichs („Event-Aufgaben erledigen", bzw. „Tägliche + Event erledigen", wenn auch tägliche Aufgaben offen sind; am Handy der Haken rechts in der Zeile). Er hakt alle heute wegen des Events fälligen Aufgaben auf einmal ab und verschwindet danach.
 

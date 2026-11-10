@@ -145,6 +145,12 @@ class MainActivity : Activity() {
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
             allowContentAccess = false
+            // Zoomen mit zwei Fingern (v.a. fuer "Originalgroesse" von Meldungsfotos); Bilder erst auf Bildschirmbreite einpassen
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
+            useWideViewPort = true
+            loadWithOverviewMode = true
             userAgentString = userAgentString + " ClubHUBApp/" + BuildConfig.VERSION_NAME
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }

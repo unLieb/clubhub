@@ -9,6 +9,9 @@ vollständigen Diff). Die Uhrzeiten sind Zeitpunkte der Commits und geben den Ar
 wieder – sie sind keine gemessene Arbeitszeit (Abstimmung, Tests am Handy und Wartezeiten
 sind darin nicht abgebildet).
 
+## [1.7.4] - 2026-11-10
+- **Zoomen mit zwei Fingern (Pinch-Zoom) funktioniert jetzt** – vor allem bei „Originalgröße" von Meldungsfotos: Das Bild erschien bisher in voller Pixelgröße und ließ sich weder verkleinern noch vergrößern, weil der Zoom im WebView der App ausgeschaltet war. Jetzt wird das Bild zuerst auf Bildschirmbreite eingepasst und lässt sich mit zwei Fingern vergrößern und wieder verkleinern (auch auf den übrigen Seiten); „Zurück" führt zur Meldung.
+
 ## [1.7.3] - 2026-11-02
 - **Orte-Regel strenger und nachvollziehbar** (Anlass: Mitteilungen kamen trotz „Zu Hause" weiter an):
   - Ungenaue Standorte (schlechter als 500 m, z. B. grobe Funkzellen-Position im Ruhezustand) gelten als „unbekannt". Bisher wurde die halbe Ungenauigkeit großzügig vom Abstand abgezogen, sodass ein grober Standort zu Hause als „auf Arbeit" zählen konnte.
