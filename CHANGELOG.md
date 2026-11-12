@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.61.4] - 2026-11-12
+- Meldung mit Foto am iPad/iPhone/Mac (installierte App): Es kam teils eine leere Anfrage ohne Titel und Foto beim Server an („Bitte einen Titel eingeben“, obwohl einer eingetragen war). Die Fotos werden jetzt vor dem Senden komplett in den Speicher gelesen; scheitert das, erscheint eine klare Meldung und nichts wird leer abgeschickt. Das Fehlerprotokoll nennt bei Meldungen zusätzlich Titel-/Beschreibungslänge und Content-Length; abgelehnte Meldungen (Titel leer) erscheinen als „meldung_ohne_titel“.
+
 ## [1.61.3] - 2026-11-12
 - Bilder laden deutlich schneller: Vorschaubilder (Meldungen, Aufbau-Fotos, Inventar, Feedback, Avatare) werden jetzt serverseitig verkleinert (`/thumbs/...`, neue Abhaengigkeit Pillow, Cache im Datenverzeichnis `thumbcache/`) statt als mehrere MB grosse Originale geladen; Uploads werden im Browser langfristig gecacht, Listenbilder laden verzoegert (`lazy`). Das Lightbox-Vollbild nutzt weiter das Original.
 

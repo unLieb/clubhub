@@ -4333,7 +4333,8 @@ async def reports_create(
         record_error(
             "app" if _request_from_app(request) else "browser", "meldung", user_id=user.id, method="POST", path="/reports",
             user_agent=_ua,
-            details=f"Meldung wird gespeichert: {len(photos)} Foto-Teil(e)" + (": " + "; ".join(_parts) if _parts else ""),
+            details=f"Meldung wird gespeichert: {len(photos)} Foto-Teil(e)" + (": " + "; ".join(_parts) if _parts else "")
+            + f" | Titel {len(title.strip())} Z., Beschreibung {len(comment.strip())} Z., Content-Length {request.headers.get('content-length')}",
         )
     except Exception:
         pass
@@ -4362,6 +4363,14 @@ async def reports_create(
             # Text war komplett kurz genug -> Titel = Text, keine Doppelung.
             comment = "\n".join(comment.splitlines()[1:]).strip() if "\n" in comment else ""
     if not title:
+        try:
+            record_error(
+                "app" if _request_from_app(request) else "browser", "meldung_ohne_titel", user_id=user.id, method="POST",
+                path="/reports", user_agent=request.headers.get("user-agent") or "",
+                details=f"Abgelehnt: Titel und Beschreibung leer angekommen | {len(photos)} Foto-Teil(e), Content-Length {request.headers.get('content-length')}",
+            )
+        except Exception:
+            pass
         return RedirectResponse(
             _with_toast("/reports", "Bitte einen Titel eingeben.", "error"), status_code=302,
         )

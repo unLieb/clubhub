@@ -373,9 +373,13 @@
         var btn = document.getElementById('report-create-submit');
         var errBox = document.getElementById('report-create-error');
         var label = btn.textContent;
-        var fd = new FormData(createForm);
+        var raw = new FormData(createForm);
+        var fd = new FormData();
+        var pending = [];
         var bytes = 0;
-        fd.forEach(function (v) { if (v instanceof File) bytes += v.size; });
+        raw.forEach(function (v, k) {
+          if (v instanceof File) { if (v.size > 0) pending.push([k, v]); } else { fd.append(k, v); }
+        });
         var started = Date.now();
         var controller = new AbortController();
         var timer = setTimeout(function () { controller.abort(); }, 180000);
@@ -397,14 +401,35 @@
           }
         }
 
-        fetch(createForm.action, { method: 'POST', body: fd, credentials: 'same-origin', signal: controller.signal })
+        // Fotos vor dem Senden komplett in den Speicher lesen (iOS/Safari:
+        // Dateien aus der Fotomediathek werden sonst erst beim Senden
+        // nachgeladen - schlaegt das fehl, kam die Anfrage OHNE Felder und
+        // Fotos an, Server meldete dann "Bitte einen Titel eingeben", obwohl
+        // einer eingetragen war). Scheitert das Lesen, brechen wir hier mit
+        // klarer Meldung ab, statt eine leere Anfrage zu schicken.
+        Promise.all(pending.map(function (pair) {
+          var f = pair[1];
+          return f.arrayBuffer().then(function (buf) {
+            if (!buf || !buf.byteLength) throw new Error('foto_leer');
+            return [pair[0], new File([buf], f.name || 'foto.jpg', { type: f.type || 'image/jpeg' })];
+          });
+        })).then(function (copies) {
+          copies.forEach(function (c) { fd.append(c[0], c[1]); bytes += c[1].size; });
+          if (!String(fd.get('title') || '').trim() && !String(fd.get('comment') || '').trim()) {
+            throw new Error('titel_fehlt');
+          }
+          return fetch(createForm.action, { method: 'POST', body: fd, credentials: 'same-origin', signal: controller.signal });
+        })
           .then(function (resp) {
             if (!resp.ok) { fail('Serverantwort ' + resp.status, resp.status); return; }
             clearTimeout(timer);
             window.location.href = resp.url || '/reports';
           })
           .catch(function (err) {
-            fail(err && err.name === 'AbortError' ? 'Zeitüberschreitung nach 3 Minuten' : 'keine Verbindung zum Server');
+            var m = err && err.message;
+            if (m === 'foto_leer') { fail('Foto konnte nicht gelesen werden - bitte das Foto neu auswählen'); return; }
+            if (m === 'titel_fehlt') { fail('Titel wurde nicht übernommen - bitte Seite neu laden'); return; }
+            fail(err && err.name === 'AbortError' ? 'Zeitüberschreitung nach 3 Minuten' : (err && err.name === 'NotReadableError' ? 'Foto konnte nicht gelesen werden - bitte das Foto neu auswählen' : 'keine Verbindung zum Server'));
           });
       });
     }
