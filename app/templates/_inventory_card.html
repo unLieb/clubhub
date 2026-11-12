@@ -21,7 +21,7 @@
     <details class="relative shrink-0">
       <summary class="list-none cursor-pointer w-14 h-14 rounded-lg bg-panel2 overflow-hidden flex items-center justify-center text-slate-500 hover:text-slate-300">
         {% if item.image_url %}
-        <img src="{{ item.image_url }}" alt="" class="w-full h-full object-cover">
+        <img src="{{ item.image_url|replace('/uploads/','/thumbs/') }}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
         {% else %}
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
         {% endif %}
@@ -44,7 +44,7 @@
     {% else %}
     <div class="w-14 h-14 rounded-lg bg-panel2 overflow-hidden flex items-center justify-center shrink-0 text-slate-500">
       {% if item.image_url %}
-      <img src="{{ item.image_url }}" alt="" class="w-full h-full object-cover">
+      <img src="{{ item.image_url|replace('/uploads/','/thumbs/') }}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
       {% else %}
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
       {% endif %}

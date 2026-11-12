@@ -289,7 +289,7 @@
     {% for n in recent_notices %}
     <li id="notice-{{ n.id }}" data-ajax-row class="flex items-start gap-3 rounded-lg border {% if n.id in unseen_notice_ids %}border-accent/40 bg-accent/5{% else %}border-line{% endif %} p-3">
       <div class="w-8 h-8 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-xs shrink-0">
-        {% if n.user.avatar_url %}<img src="{{ n.user.avatar_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ n.user.name[0]|upper }}{% endif %}
+        {% if n.user.avatar_url %}<img src="{{ n.user.avatar_url|replace('/uploads/','/thumbs/') }}?w=128" alt="" class="w-full h-full object-cover">{% else %}{{ n.user.name[0]|upper }}{% endif %}
       </div>
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5 flex-wrap mb-0.5">

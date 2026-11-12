@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.61.3] - 2026-11-12
+- Bilder laden deutlich schneller: Vorschaubilder (Meldungen, Aufbau-Fotos, Inventar, Feedback, Avatare) werden jetzt serverseitig verkleinert (`/thumbs/...`, neue Abhaengigkeit Pillow, Cache im Datenverzeichnis `thumbcache/`) statt als mehrere MB grosse Originale geladen; Uploads werden im Browser langfristig gecacht, Listenbilder laden verzoegert (`lazy`). Das Lightbox-Vollbild nutzt weiter das Original.
+
 ## [1.61.2] - 2026-11-10
 - Mitgelieferte Android-App auf Version 1.7.4 aktualisiert (`app/static/app/`); keine Änderung an der Serverlogik. Die App-Änderung (Pinch-Zoom bei Bildern) steht in `android/CHANGELOG.md`.
 

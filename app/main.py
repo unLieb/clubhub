@@ -90,7 +90,59 @@ SETUP_PHOTOS_DIR = os.path.join(UPLOADS_DIR, "setups")
 os.makedirs(SETUP_PHOTOS_DIR, exist_ok=True)
 FEEDBACK_PHOTOS_DIR = os.path.join(UPLOADS_DIR, "feedback")
 os.makedirs(FEEDBACK_PHOTOS_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+
+
+class _CachedUploads(StaticFiles):
+    """Uploads haben UUID-Dateinamen und aendern sich nie -> lange im Browser
+    cachen, damit Bilder beim naechsten Seitenaufruf sofort da sind."""
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        if resp.status_code == 200:
+            resp.headers["Cache-Control"] = "public, max-age=2592000, immutable"
+        return resp
+
+
+app.mount("/uploads", _CachedUploads(directory=UPLOADS_DIR), name="uploads")
+
+# Verkleinerte Vorschaubilder (Listen/Kacheln) - Originale sind ungeskalte
+# Handyfotos mit mehreren MB. Cache liegt neben der DB, nicht in uploads/.
+THUMB_CACHE_DIR = os.path.join(os.path.dirname(DB_PATH), "thumbcache")
+os.makedirs(THUMB_CACHE_DIR, exist_ok=True)
+_THUMB_KINDS = {
+    "reports": REPORT_PHOTOS_DIR, "setups": SETUP_PHOTOS_DIR, "feedback": FEEDBACK_PHOTOS_DIR,
+    "inventory": INVENTORY_IMAGES_DIR, "avatars": AVATAR_IMAGES_DIR,
+}
+
+
+@app.get("/thumbs/{kind}/{filename}")
+def photo_thumb(kind: str, filename: str, w: int = 320):
+    src_dir = _THUMB_KINDS.get(kind)
+    if not src_dir or filename != os.path.basename(filename) or filename.startswith("."):
+        raise HTTPException(status_code=404)
+    src = os.path.join(src_dir, filename)
+    if not os.path.isfile(src):
+        raise HTTPException(status_code=404)
+    w = max(64, min(w, 1024))
+    cached = os.path.join(THUMB_CACHE_DIR, f"{kind}_{w}_{filename}.jpg")
+    headers = {"Cache-Control": "public, max-age=2592000, immutable"}
+    if not os.path.isfile(cached):
+        try:
+            from PIL import Image, ImageOps
+            with Image.open(src) as im:
+                im = ImageOps.exif_transpose(im)
+                im.thumbnail((w, w))
+                if im.mode != "RGB":
+                    bg = Image.new("RGB", im.size, (255, 255, 255))
+                    rgba = im.convert("RGBA")
+                    bg.paste(rgba, mask=rgba.split()[3])
+                    im = bg
+                tmp = cached + f".{uuid.uuid4().hex}.tmp"
+                im.save(tmp, "JPEG", quality=80, optimize=True)
+                os.replace(tmp, cached)
+        except Exception:
+            return FileResponse(src, headers=headers)
+    return FileResponse(cached, media_type="image/jpeg", headers=headers)
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 # Öffentlicher VAPID-Schlüssel fürs Web-Push-Abo (base.html), siehe push.py.

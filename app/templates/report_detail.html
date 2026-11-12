@@ -84,7 +84,7 @@
     <div class="mt-4 flex flex-wrap gap-2">
       {% for p in header_photos %}
       <button type="button" class="report-photo-trigger relative w-24 h-24 rounded-lg border border-line overflow-hidden shrink-0" data-idx="{{ loop.index0 }}" aria-label="Bild {{ loop.index }} von {{ header_photos|length }} anzeigen">
-        <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-full h-full object-cover">
+        <img src="/thumbs/reports/{{ p.filename }}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
         <script type="application/json">{{ header_urls | tojson }}</script>
       </button>
       {% endfor %}
@@ -167,7 +167,7 @@
           <div class="flex flex-wrap gap-1.5 mt-2">
             {% for p in c.photos %}
             <button type="button" class="report-photo-trigger relative w-20 h-20 rounded-lg border border-line overflow-hidden shrink-0" data-idx="{{ loop.index0 }}" aria-label="Bild anzeigen{% if c.photos|length > 1 %} ({{ c.photos|length }} Bilder){% endif %}">
-              <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-full h-full object-cover">
+              <img src="/thumbs/reports/{{ p.filename }}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
               <script type="application/json">{{ comment_photo_urls | tojson }}</script>
             </button>
             {% endfor %}

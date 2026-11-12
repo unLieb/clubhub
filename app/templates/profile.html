@@ -20,7 +20,7 @@
       <div class="flex items-center gap-4">
         <div class="w-16 h-16 rounded-full bg-accent/20 text-accent overflow-hidden flex items-center justify-center font-display font-semibold text-xl shrink-0">
           {% if user.avatar_url %}
-          <img src="{{ user.avatar_url }}" alt="" width="64" height="64" class="w-full h-full object-cover">
+          <img src="{{ user.avatar_url|replace('/uploads/','/thumbs/') }}?w=128" alt="" width="64" height="64" class="w-full h-full object-cover">
           {% else %}
           {{ user.name[0]|upper }}
           {% endif %}
