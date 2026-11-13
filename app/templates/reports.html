@@ -401,17 +401,32 @@
           }
         }
 
-        // Fotos vor dem Senden komplett in den Speicher lesen (iOS/Safari:
-        // Dateien aus der Fotomediathek werden sonst erst beim Senden
-        // nachgeladen - schlaegt das fehl, kam die Anfrage OHNE Felder und
-        // Fotos an, Server meldete dann "Bitte einen Titel eingeben", obwohl
-        // einer eingetragen war). Scheitert das Lesen, brechen wir hier mit
-        // klarer Meldung ab, statt eine leere Anfrage zu schicken.
+        // Fotos vor dem Senden in den Speicher lesen (iOS/Safari: Dateien aus
+        // der Fotomediathek werden sonst erst beim Senden nachgeladen -
+        // schlaegt das fehl, kam die Anfrage OHNE Felder und Fotos an).
+        // Funktioniert das Lesen nicht (z.B. Android-App-WebView mit
+        // content://-Dateien, dort ging es vorher problemlos), wird die
+        // Originaldatei unveraendert angehaengt, statt das Senden zu blockieren.
+        function readFile(f) {
+          return f.arrayBuffer().catch(function () {
+            return new Promise(function (resolve, reject) {
+              var fr = new FileReader();
+              fr.onload = function () { resolve(fr.result); };
+              fr.onerror = function () { reject(fr.error || new Error('lesen')); };
+              fr.readAsArrayBuffer(f);
+            });
+          });
+        }
         Promise.all(pending.map(function (pair) {
           var f = pair[1];
-          return f.arrayBuffer().then(function (buf) {
+          return readFile(f).then(function (buf) {
             if (!buf || !buf.byteLength) throw new Error('foto_leer');
             return [pair[0], new File([buf], f.name || 'foto.jpg', { type: f.type || 'image/jpeg' })];
+          }).catch(function (e) {
+            if (window.clubhubLog) {
+              window.clubhubLog('foto_lesen', { path: '/reports', details: 'Vorab-Lesen fehlgeschlagen (' + ((e && (e.name || e.message)) || '?') + '), sende Originaldatei: ' + (f.name || '-') + ' ' + f.size + ' B' });
+            }
+            return pair;
           });
         })).then(function (copies) {
           copies.forEach(function (c) { fd.append(c[0], c[1]); bytes += c[1].size; });
