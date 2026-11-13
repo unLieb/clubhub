@@ -49,6 +49,7 @@
       {% endfor %}
     </select>
     <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Filtern</button>
+    <a href="/admin/error-log/export{% if base_qs %}?{{ base_qs }}{% endif %}" class="px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium whitespace-nowrap text-center" title="Alle Treffer des aktuellen Filters als CSV-Datei">Exportieren (CSV)</a>
     {% if q or selected_source or selected_kind %}
     <a href="/admin/error-log" class="px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium whitespace-nowrap text-center">Zurücksetzen</a>
     {% endif %}

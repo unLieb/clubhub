@@ -6286,6 +6286,44 @@ async def client_log_create(request: Request, db: Session = Depends(get_db)):
     return Response(status_code=204)
 
 
+@app.get("/admin/error-log/export")
+def admin_error_log_export(
+    request: Request, q: str = "", source: str = "", kind: str = "", db: Session = Depends(get_db),
+):
+    """Fehlerprotokoll als CSV (alle Treffer des aktuellen Filters, nicht nur
+    die sichtbare Seite) - zum Weitergeben statt Screenshots."""
+    import csv
+    import io
+    require_admin_or_shift_lead(request, db)
+    query = db.query(models.ErrorLog).order_by(models.ErrorLog.timestamp.desc())
+    q = q.strip()
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            models.ErrorLog.details.ilike(like) | models.ErrorLog.user_name.ilike(like)
+            | models.ErrorLog.path.ilike(like) | models.ErrorLog.user_agent.ilike(like)
+        )
+    if source in _ERROR_LOG_SOURCES:
+        query = query.filter(models.ErrorLog.source == source)
+    if kind.strip():
+        query = query.filter(models.ErrorLog.kind == kind)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["zeit", "quelle", "art", "nutzer", "methode", "pfad", "status", "dauer_ms", "groesse_bytes", "user_agent", "details"])
+    for e in query.all():
+        ts = _to_local(e.timestamp)
+        w.writerow([
+            ts.strftime("%Y-%m-%d %H:%M:%S") if ts else "", e.source, e.kind, e.user_name or "", e.method or "",
+            e.path or "", e.status if e.status is not None else "", e.duration_ms if e.duration_ms is not None else "",
+            e.size_bytes if e.size_bytes is not None else "", e.user_agent or "", e.details or "",
+        ])
+    stamp = ntptime.now_utc().strftime("%Y%m%d-%H%M")
+    return Response(
+        content="﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="fehlerprotokoll-{stamp}.csv"'},
+    )
+
+
 @app.get("/admin/error-log")
 def admin_error_log_page(
     request: Request,

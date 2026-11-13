@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.61.6] - 2026-11-13
+- Fehlerprotokoll: Neuer Button „Exportieren (CSV)“ (Verwaltung → Fehlerprotokoll). Lädt alle Treffer des aktuellen Filters (nicht nur die sichtbare Seite) als Datei herunter, Zeiten in Ortszeit – zum Weitergeben statt Screenshots.
+
 ## [1.61.5] - 2026-11-13
 - Korrektur zu 1.61.4: In der Android-App scheiterte das Vorab-Lesen der Fotos (Dateien aus der Android-Dateiauswahl), dadurch ließ sich eine Meldung mit Foto gar nicht mehr senden („Foto konnte nicht gelesen werden“). Jetzt wird zuerst `arrayBuffer()`, dann `FileReader` versucht und bei Misserfolg die Originaldatei wie vor 1.61.4 gesendet; der Grund landet als „foto_lesen“ im Fehlerprotokoll.
 
