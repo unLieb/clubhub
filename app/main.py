@@ -5167,7 +5167,7 @@ def appointments_delete(appointment_id: int, request: Request, db: Session = Dep
 
 # ---------- Wartungsplan ----------
 
-MAINTENANCE_KINDS = {"regular": "Regelwartung", "fault": "Störung / Reparatur"}
+MAINTENANCE_KINDS = {"regular": "Regelwartung", "fault": "Störung / Reparatur", "other": "Sonstiger Einsatz"}
 
 
 def user_can_see_maintenance_plan(user, plan) -> bool:
@@ -5197,7 +5197,7 @@ def _maintenance_plan_fields(
     plan.provider = provider.strip() or None
     plan.contract_note = contract_note.strip() or None
     plan.interval_value = max(interval_value, 1)
-    plan.interval_unit = interval_unit if interval_unit in ("days", "weeks", "months", "years") else "weeks"
+    plan.interval_unit = interval_unit if interval_unit in ("days", "weeks", "months", "years", "none") else "weeks"
     plan.start_date = _parse_iso_date(start_date)
     plan.tolerance_days = max(tolerance_days, 0)
     plan.notify_days_before = max(notify_days_before, 0)
@@ -5338,6 +5338,16 @@ def maintenance_visit_add(
     log_audit(db, user, "create", "maintenance_visit",
               f"Besuch bei „{plan.name}“ am {parsed.strftime('%d.%m.%Y')} ({MAINTENANCE_KINDS[visit.kind]}) erfasst")
     db.commit()
+    # Besuch in der Zukunft = Ankuendigung: zustaendige Gruppen vorab informieren,
+    # damit alle vorbereitet sind (Zugang, Aufzug-Sperrung, Ansprechpartner).
+    if parsed > today and plan.groups:
+        notify_groups(
+            plan.groups, f"Besuch angekündigt: {plan.name}",
+            f"{parsed.strftime('%d.%m.%Y')}"
+            + (f" – {plan.provider}" if plan.provider else "")
+            + (f" ({visit.technician})" if visit.technician else ""),
+            url="/maintenance",
+        )
     # Regelwartung ausserhalb des Turnus: sofort die zustaendigen Gruppen
     # warnen - genau der Fall, den der Plan aufdecken soll.
     if visit.id in after["early"]:

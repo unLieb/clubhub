@@ -10,11 +10,11 @@
 </div>
 <div class="flex flex-col sm:flex-row gap-2">
   <div class="flex-1">
-    <label class="block text-[11px] text-slate-400 mb-1">Turnus (frei wählbar)</label>
+    <label class="block text-[11px] text-slate-400 mb-1">Turnus (frei wählbar; „kein fester Turnus“, wenn er unbekannt ist – dann werden Besuche nur protokolliert und der tatsächliche Abstand ausgewertet)</label>
     <div class="flex gap-2">
       <input name="interval_value" type="number" min="1" value="{{ p.interval_value if p else 6 }}" required class="w-20 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
       <select name="interval_unit" class="flex-1 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
-        {% for key, label in [('days','Tage'),('weeks','Wochen'),('months','Monate'),('years','Jahre')] %}
+        {% for key, label in [('days','Tage'),('weeks','Wochen'),('months','Monate'),('years','Jahre'),('none','– kein fester Turnus –')] %}
         <option value="{{ key }}" {% if (p.interval_unit if p else 'weeks') == key %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
@@ -92,7 +92,9 @@
         </div>
       </div>
       <div class="text-right text-sm">
-        {% if st.status == 'grey' %}
+        {% if not st.has_interval %}
+        <div class="text-slate-300 font-medium">Kein fester Turnus</div>
+        {% elif st.status == 'grey' %}
         <div class="text-slate-400">Noch kein Termin bekannt</div>
         {% else %}
         <div class="font-medium {% if st.status == 'red' %}text-late{% elif st.status == 'yellow' %}text-warn{% else %}text-go{% endif %}">
@@ -103,16 +105,30 @@
         <div class="text-xs text-slate-400 mt-0.5">Nächste Wartung: {{ st.next_due.strftime('%d.%m.%Y') }}</div>
         {% endif %}
         <div class="text-xs text-slate-500 mt-0.5">
-          {% if st.last_regular %}Letzte Regelwartung: {{ st.last_regular.strftime('%d.%m.%Y') }} (vor {{ (today - st.last_regular).days }} Tagen){% else %}Noch keine Regelwartung erfasst{% endif %}
+          {% if st.has_interval %}
+            {% if st.last_regular %}Letzte Regelwartung: {{ st.last_regular.strftime('%d.%m.%Y') }} (vor {{ (today - st.last_regular).days }} Tagen){% else %}Noch keine Regelwartung erfasst{% endif %}
+          {% else %}
+            {% if st.last_any %}Letzter Besuch: {{ st.last_any.strftime('%d.%m.%Y') }} (vor {{ (today - st.last_any).days }} Tagen){% else %}Noch kein Besuch erfasst{% endif %}
+          {% endif %}
         </div>
+        {% if st.avg_gap %}
+        <div class="text-xs text-slate-500 mt-0.5">Tatsächlich im Schnitt alle {{ st.avg_gap }} Tage{% if st.has_interval %} (Vertrag: {{ e.interval }}){% endif %}</div>
+        {% endif %}
         {% if st.earliest_ok and st.status != 'red' and st.days_left is not none and st.days_left > 0 %}
         <div class="text-xs text-slate-500 mt-0.5">Frühestens ok ab {{ st.earliest_ok.strftime('%d.%m.%Y') }}</div>
         {% endif %}
       </div>
     </div>
 
+    {% for u in st.upcoming %}
+    <div class="mt-3 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
+      <span class="font-medium text-accent">Angekündigt: {{ u.visit_date.strftime('%d.%m.%Y') }}</span>
+      <span class="text-slate-300">· {{ kinds.get(u.kind, u.kind) }}{% if u.technician %} · {{ u.technician }}{% endif %}{% if u.note %} · {{ u.note }}{% endif %}</span>
+    </div>
+    {% endfor %}
+
     <details class="mt-3 rounded-lg border border-line bg-ink/40">
-      <summary class="cursor-pointer list-none px-3 py-2 text-sm font-medium text-go hover:bg-panel2 rounded-lg">+ Besuch erfassen</summary>
+      <summary class="cursor-pointer list-none px-3 py-2 text-sm font-medium text-go hover:bg-panel2 rounded-lg">+ Besuch erfassen oder ankündigen</summary>
       <form method="post" action="/maintenance/{{ p.id }}/visits" class="space-y-2 p-3 border-t border-line max-w-2xl">
         <div class="flex flex-col sm:flex-row gap-2">
           <input name="visit_date" type="date" value="{{ today.strftime('%Y-%m-%d') }}" required class="sm:w-44 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
@@ -126,7 +142,7 @@
           <input name="invoice_no" placeholder="Rechnungsnr." class="sm:w-36 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
           <input name="amount" inputmode="decimal" placeholder="Betrag €" class="sm:w-28 rounded-md bg-ink border border-line px-2.5 py-1.5 text-sm">
         </div>
-        <p class="text-[11px] text-slate-500">Rechnungsnummer und Betrag lassen sich auch später nicht mehr ändern – bei Fehlern den Besuch löschen und neu erfassen (Schichtleiter/Admin).</p>
+        <p class="text-[11px] text-slate-500">Datum in der Zukunft = Besuch ankündigen (die zuständigen Gruppen bekommen eine Push). „Sonstiger Einsatz“ für Handwerker ohne Wartung zählt nie in den Turnus. Rechnungsnummer und Betrag lassen sich auch später nicht mehr ändern – bei Fehlern den Besuch löschen und neu erfassen (Schichtleiter/Admin).</p>
         <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Besuch speichern</button>
       </form>
     </details>
@@ -143,6 +159,7 @@
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-medium">{{ v.visit_date.strftime('%d.%m.%Y') }}</span>
             <span class="text-xs px-2 py-0.5 rounded-full {% if v.kind == 'regular' %}bg-go/15 text-go{% else %}bg-warn/15 text-warn{% endif %}">{{ kinds.get(v.kind, v.kind) }}</span>
+            {% if v.visit_date > today %}<span class="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent">angekündigt</span>{% endif %}
             {% if ea %}<span class="text-xs px-2 py-0.5 rounded-full bg-late/15 text-late">zu früh: {{ ea.days_early }} Tage vor Turnus (nur {{ ea.since_last }} Tage nach letzter)</span>{% endif %}
           </div>
           <div class="text-xs text-slate-400 mt-0.5">
