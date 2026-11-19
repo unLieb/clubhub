@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.65.1] - 2026-11-19
+- Meldungen: in Liste und Detailansicht sind die Namen von Melder, Bearbeiter („in Bearbeitung von") und Erledigendem („erledigt vor … von") jetzt fett und in kräftigerer Textfarbe hervorgehoben; der übrige Text der Zeile bleibt gedämpft.
+
 ## [1.65.0] - 2026-11-19
 - Nur für Entwickler: neu gemeldete Bugs (Feedback der Art „Bug", Status „Offen") erscheinen als rote Zahl am Eintrag „Verwaltung" (Seitenleiste, Profilmenü, am Handy an „Verwaltung" bzw. gezählt am „Mehr"-Reiter) und auf der Verwaltungsseite an der Karte „Feedback" („2 neue Bugs"). Sobald ein Bug auf „In Bearbeitung" oder „Erledigt" steht, zählt er nicht mehr; Funktionswünsche zählen nicht. Andere Nutzer sehen nichts davon.
 

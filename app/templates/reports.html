@@ -87,9 +87,9 @@
         {% endif %}
       </div>
       <p class="text-xs text-slate-500 mt-1">
-        vor {{ meta.created_rel }} &middot; gemeldet von {{ r.user.name }}
-        {% if r.in_progress_by %} &middot; in Bearbeitung von {{ r.in_progress_by.name }}{% endif %}
-        {% if r.status == "done" and meta.resolved_rel %} &middot; erledigt vor {{ meta.resolved_rel }}{% if r.resolved_by %} von {{ r.resolved_by.name }}{% endif %}{% endif %}
+        vor {{ meta.created_rel }} &middot; gemeldet von <span class="font-medium text-slate-200">{{ r.user.name }}</span>
+        {% if r.in_progress_by %} &middot; in Bearbeitung von <span class="font-medium text-slate-200">{{ r.in_progress_by.name }}</span>{% endif %}
+        {% if r.status == "done" and meta.resolved_rel %} &middot; erledigt vor {{ meta.resolved_rel }}{% if r.resolved_by %} von <span class="font-medium text-slate-200">{{ r.resolved_by.name }}</span>{% endif %}{% endif %}
       </p>
     </div>
     <div class="shrink-0 flex items-center gap-2 w-full sm:w-auto justify-end">
