@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.63.1] - 2026-11-19
+- Meldungsliste: der eingeklappte Abschnitt „Erledigte Meldungen" war zu unscheinbar und wirkte, als seien die erledigten Meldungen verschwunden. Er ist jetzt eine umrandete Zeile mit Zähler und deutlichem „Anzeigen"/„Ausblenden". Es gingen keine Daten verloren (auf dem Staging-System sind alle 29 erledigten Meldungen unverändert vorhanden).
+
 ## [1.63.0] - 2026-11-19
 - Meldungen, Detailansicht: die Abschlussnotiz steht nicht mehr im grünen Kasten im Kopf der Meldung, sondern als eigener Eintrag „✓ Als erledigt markiert · Datum, Uhrzeit · Name" mit Text (und ggf. Beweisfotos) im Kommentarverlauf, chronologisch hinter den bis dahin vorhandenen Kommentaren. Sie ist als grüner Abschlusseintrag statt als Sprechblase gestaltet und zählt nicht in „Kommentare (n)". Die Zeile im Kopf („erledigt vor … von …") und der Verlauf bleiben. Wird eine Meldung wieder geöffnet und später erneut erledigt, bleiben beide Abschlussnotizen im Verlauf erhalten. Ältere Meldungen: die damals zusätzlich angelegte Notiz wird ebenfalls als Abschlusseintrag dargestellt, es werden keine bestehenden Daten verändert.
 - Meldungsliste: „Erledigte Meldungen" ist standardmäßig eingeklappt (Zähler bleibt sichtbar, Anzeigen/Ausblenden samt Pfeil, per Maus, Touch und Tastatur bedienbar). Der Zustand bleibt beim Live-Update erhalten.

@@ -296,12 +296,12 @@
      offenen nicht nach unten druecken. Natives <details>: per Maus, Touch und
      Tastatur (Enter/Leertaste) bedienbar; Pfeil und Text zeigen den Zustand. -->
 <details id="done-reports-section" class="group">
-  <summary class="cursor-pointer list-none flex items-center gap-2 mb-3 rounded-lg px-2 py-2 -mx-2 hover:bg-panel2 focus-visible:outline-2 focus-visible:outline-go [&::-webkit-details-marker]:hidden">
+  <summary class="cursor-pointer list-none flex items-center gap-2 mb-3 rounded-xl border border-line bg-panel px-4 py-3 hover:bg-panel2 focus-visible:outline-2 focus-visible:outline-go [&::-webkit-details-marker]:hidden">
     <h2 class="font-display font-medium">Erledigte Meldungen</h2>
     <span id="done-reports-count" class="text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium {% if not done_reports %}hidden{% endif %}">{{ done_reports|length }}</span>
-    <span class="ml-auto flex items-center gap-1.5 text-xs text-slate-400">
+    <span class="ml-auto flex items-center gap-1.5 text-sm font-medium text-accent">
       <span class="group-open:hidden">Anzeigen</span><span class="hidden group-open:inline">Ausblenden</span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-180" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </span>
   </summary>
   <div id="done-reports-list" class="space-y-3">
