@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.65.0] - 2026-11-19
+- Nur für Entwickler: neu gemeldete Bugs (Feedback der Art „Bug", Status „Offen") erscheinen als rote Zahl am Eintrag „Verwaltung" (Seitenleiste, Profilmenü, am Handy an „Verwaltung" bzw. gezählt am „Mehr"-Reiter) und auf der Verwaltungsseite an der Karte „Feedback" („2 neue Bugs"). Sobald ein Bug auf „In Bearbeitung" oder „Erledigt" steht, zählt er nicht mehr; Funktionswünsche zählen nicht. Andere Nutzer sehen nichts davon.
+
 ## [1.64.1] - 2026-11-19
 - Fix: Bildupload bei „Neue Meldung" in der Android-App (Fehlerprotokoll 16.11., Foto aus der Galerie, 3,8 MB: dreimal „Senden fehlgeschlagen (keine Verbindung zum Server)", Abbruch nach ~110 ms, die Anfrage erreichte den Server nie; am 13.11. ähnlich mit 5,9 MB). Ursache: Das Formular schickt per `fetch()` und liest die Fotos vorher in den Speicher; bei Galerie-Dateien der App-WebView (Content-URI) scheitert das Lesen bzw. das Senden der Originaldatei sofort, obwohl derselbe Foto-Anhang an einem Kommentar (normales Formular) funktioniert. Jetzt fällt das Formular in diesen Fällen automatisch auf das normale Formular-Absenden zurück (Foto nicht vorab lesbar, oder `fetch()` scheitert mit Foto binnen 3 Sekunden bei bestehender Verbindung). Bei echtem Verbindungsverlust bleibt es bei der Fehlermeldung mit erhaltenen Eingaben.
 - Das Fehlerprotokoll nimmt die Art „foto_lesen" jetzt an; sie wurde bisher vom Server stillschweigend verworfen, weshalb die Foto-Lesefehler vom 13. und 16.11. nicht im Protokoll standen.

@@ -3082,7 +3082,7 @@ def nav_badges(request: Request) -> dict:
     try:
         user = get_current_user(request, db)
         if not user:
-            return {"reports": 0, "inventory": 0, "cooling": 0, "notices": 0}
+            return {"reports": 0, "inventory": 0, "cooling": 0, "notices": 0, "bugs": 0}
         settings = get_app_settings(db)
         # Nur die Meldungen zaehlen, die der Nutzer auch sehen darf (dieselbe
         # Pruefung wie Meldungsliste und Dashboard) - sonst zeigt die Navigation
@@ -3109,6 +3109,11 @@ def nav_badges(request: Request) -> dict:
         return {
             "reports": reports_open, "inventory": inventory_critical, "cooling": cooling_alerts,
             "notices": _unseen_notices_count(db, user) if settings.enable_notices else 0,
+            # Nur fuer Entwickler: neu gemeldete (noch nicht angefasste) Bugs.
+            "bugs": (
+                db.query(models.Feedback).filter(models.Feedback.type == "bug", models.Feedback.status == "open").count()
+                if user.is_developer else 0
+            ),
         }
     finally:
         db.close()
@@ -6364,6 +6369,7 @@ def admin_home(request: Request, db: Session = Depends(get_db)):
         "nfc_tags_unscanned_count": db.query(models.NfcTag).filter(models.NfcTag.uid.is_(None)).count(),
         "feedback_count": db.query(models.Feedback).count(),
         "feedback_open_count": db.query(models.Feedback).filter(models.Feedback.status != "done").count(),
+        "feedback_new_bugs": db.query(models.Feedback).filter(models.Feedback.type == "bug", models.Feedback.status == "open").count(),
         "audit_log_count": db.query(models.AuditLog).count(),
         "error_log_week_count": db.query(models.ErrorLog)
             .filter(models.ErrorLog.timestamp >= ntptime.now_utc() - timedelta(days=7)).count(),

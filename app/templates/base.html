@@ -264,6 +264,7 @@
         <a href="/admin" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 2.5"/></svg>
           Verwaltung
+          {% if badges.bugs %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none" title="Neu gemeldete Bugs">{{ badges.bugs }}</span>{% endif %}
         </a>
         {% endif %}
         <a href="/logout" class="flex items-center gap-2 px-3 py-2 text-slate-200 hover:bg-panel2">
@@ -371,6 +372,7 @@
         <span class="nav-bar absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-go rounded-full opacity-0"></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 2.5"/></svg>
         Verwaltung
+        {% if badges.bugs %}<span class="ml-auto text-[10px] font-semibold bg-late text-white rounded-full px-1.5 py-0.5 leading-none" title="Neu gemeldete Bugs">{{ badges.bugs }}</span>{% endif %}
       </a>
       {% endif %}
       {% if user %}
@@ -414,7 +416,7 @@
      jedem neuen Modul weiter zu stauchen. -->
 {% set more_paths = ['/notices', '/appointments', '/maintenance', '/vacations', '/timeclock', '/kuehlungen', '/history', '/admin', '/help'] %}
 {% set on_more_page = user and request.url.path in more_paths %}
-{% set more_badge_count = (badges.cooling or 0) + (badges.notices or 0) %}
+{% set more_badge_count = (badges.cooling or 0) + (badges.notices or 0) + (badges.bugs or 0) %}
 <nav class="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-ink border-t border-line flex safe-bottom">
   <a href="/" class="tab-link {% if request.url.path == '/' %}active{% endif %} flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] text-slate-400">
     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -511,9 +513,10 @@
       Historie
     </a>
     {% if user.is_admin or user.is_shift_lead %}
-    <a href="/admin" class="tab-link {% if request.url.path == '/admin' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
+    <a href="/admin" class="tab-link relative {% if request.url.path == '/admin' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l2.5 2.5"/></svg>
       Verwaltung
+      {% if badges.bugs %}<span class="absolute top-1 right-3 min-w-4 h-4 px-1 rounded-full bg-late text-white text-[9px] font-semibold flex items-center justify-center leading-none" title="Neu gemeldete Bugs">{{ badges.bugs }}</span>{% endif %}
     </a>
     {% endif %}
     <a href="/help" class="tab-link {% if request.url.path == '/help' %}active{% endif %} flex flex-col items-center gap-1 py-3 rounded-lg text-slate-300 hover:bg-panel2 text-xs">
