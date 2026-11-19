@@ -541,6 +541,13 @@ def _migrate_report_comment_photos(db: Session):
     _ensure_column(db, "report_photos", "comment_id", "INTEGER")
 
 
+def _migrate_report_comment_kind(db: Session):
+    """Neue Spalte report_comments.kind (NULL = gewoehnlicher Kommentar,
+    "done" = Abschlussnotiz). Kein Backfill - bestehende Daten bleiben
+    unveraendert, Alt-Abschlussnotizen erkennt is_done_comment zur Laufzeit."""
+    _ensure_column(db, "report_comments", "kind", "VARCHAR")
+
+
 def _migrate_report_reads_backfill(db: Session):
     """Einmalig beim Einfuehren der Ungelesen-Markierung (Tabelle report_reads
     legt create_all() an): alle bestehenden Kommentare gelten fuer alle
@@ -1056,6 +1063,7 @@ def _startup():
         _migrate_report_title(db)
         _migrate_report_comment_photos(db)
         _migrate_report_resolved_note(db)
+        _migrate_report_comment_kind(db)
         _migrate_report_reads_backfill(db)
         _migrate_app_settings_feedback_channel(db)
         _migrate_inventory_groups_backfill(db)
@@ -3950,24 +3958,37 @@ def _aware(ts):
     return ts
 
 
-def is_done_note_comment(r, c) -> bool:
-    """Alt-Kommentar, der nur die Erledigt-Notiz doppelt: bis 1.59 legte das
-    Erledigen die Notiz zusaetzlich als Kommentar an. Die Notiz steht jetzt
-    nur noch im gruenen Erledigt-Kasten der Meldung."""
+def is_done_comment(r, c) -> bool:
+    """Abschlussnotiz beim Erledigen (siehe reports_set_status): kind="done"
+    oder - bei Notizen aus der Zeit vor dieser Spalte - der Kommentar des
+    Erledigers, dessen Text der aktuellen Erledigt-Notiz entspricht."""
+    if c.kind == "done":
+        return True
     return bool(
         r.status == "done" and r.resolved_note and c.user_id == r.resolved_by_id and c.text == r.resolved_note
     )
 
 
 def visible_report_comments(r) -> list:
-    """Kommentare der Meldung ohne die doppelte Erledigt-Notiz (siehe
-    is_done_note_comment); hat so ein Alt-Kommentar Fotos, bleibt er stehen
-    (ohne Text, siehe report_detail.html)."""
-    return [c for c in r.comments if not (is_done_note_comment(r, c) and not c.photos)]
+    """Gewoehnliche Kommentare ohne Abschlussnotizen (fuer Zaehler/Titel)."""
+    return [c for c in r.comments if not is_done_comment(r, c)]
+
+
+def report_group_ids(r) -> set:
+    """IDs der zustaendigen Gruppen fuer den Gruppenfilter der Meldungsliste:
+    explizit zugewiesene, sonst die Bereichsgruppen (wie bei der
+    Benachrichtigung, siehe reports_add_comment). Betriebsweite Meldungen
+    liefern eine leere Menge - sie gehen an alle Gruppen (data-all)."""
+    if r.is_company_wide:
+        return set()
+    if r.groups:
+        return {g.id for g in r.groups}
+    return {g.id for g in r.room.groups} if r.room else set()
 
 
 templates.env.globals["visible_report_comments"] = visible_report_comments
-templates.env.globals["is_done_note_comment"] = is_done_note_comment
+templates.env.globals["is_done_comment"] = is_done_comment
+templates.env.globals["report_group_ids"] = report_group_ids
 
 
 def _unread_comment_ids(db: Session, user, reports) -> dict:
@@ -3987,7 +4008,7 @@ def _unread_comment_ids(db: Session, user, reports) -> dict:
     for r in reports:
         since = seen.get(r.id)
         ids = [
-            c.id for c in visible_report_comments(r)
+            c.id for c in r.comments
             if c.user_id != user.id and (since is None or _aware(c.created_at) > since)
         ]
         if ids:
@@ -4588,8 +4609,8 @@ async def reports_set_status(
     Betrieb: Hausmeister-Meldungen wurden ohne jede Angabe auf erledigt
     gestellt): mindestens REPORT_DONE_NOTE_MIN_LENGTH Zeichen in
     completion_note, optional mit Foto(s) (z.B. ein "Beweisbild"). Die Notiz
-    landet in Report.resolved_note fuer die Anzeige im Erledigt-Kasten (nicht
-    mehr zusaetzlich als Kommentar); nur Fotos werden als Kommentar abgelegt. Wird serverseitig
+    landet als Abschlussnotiz (ReportComment.kind="done", samt Fotos) im
+    Kommentarverlauf und in Report.resolved_note (aktueller Stand). Wird serverseitig
     durchgesetzt, nicht nur im Dialog (reports.html) - gilt fuer alle, auch
     Admins. Andere Statuswechsel brauchen keine Angabe."""
     user = require_login(request, db)
@@ -4634,14 +4655,16 @@ async def reports_set_status(
             report.resolved_at = ntptime.now_utc()
             report.resolved_by_id = user.id
             report.resolved_note = completion_note
-            # Die Notiz steht nur im Erledigt-Kasten der Meldung, nicht noch
-            # einmal als Kommentar. Beweisfotos haengen aber an einem
-            # Kommentar - der entfaellt, wenn keine gueltigen Bilder kamen.
-            done_comment = models.ReportComment(report_id=report.id, user_id=user.id, text="")
+            # Abschlussnotiz (kind="done") samt Beweisfotos im Verlauf; der
+            # Zeitstempel ist der Erledigt-Zeitpunkt, damit sie chronologisch
+            # hinter den bis dahin vorhandenen Kommentaren steht.
+            done_comment = models.ReportComment(
+                report_id=report.id, user_id=user.id, text=completion_note, kind="done",
+                created_at=report.resolved_at,
+            )
             db.add(done_comment)
             db.flush()  # done_comment.id fuer die Fotos
-            if not await _attach_report_photos(db, report.id, done_comment.id, photos):
-                db.delete(done_comment)
+            await _attach_report_photos(db, report.id, done_comment.id, photos)
         elif report.status == "done":
             # Wieder geöffnet (offen/in Bearbeitung) - Erledigt-Angaben sind
             # dann nicht mehr gültig, sonst zeigt die Meldung fälschlich noch

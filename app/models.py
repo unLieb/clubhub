@@ -561,8 +561,8 @@ class Report(Base):
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     # Kurzbeschreibung, was zur Erledigung getan wurde - Pflichtangabe beim
     # Wechsel auf "Erledigt" (Kommentarzwang, siehe reports_set_status). Steht
-    # nur hier, nicht zusaetzlich als Kommentar (bis 1.59 doppelt, siehe
-    # is_done_note_comment in main.py). Wird - wie
+    # zusaetzlich als Kommentar mit kind="done" im Verlauf (dort angezeigt);
+    # hier bleibt der aktuelle Stand. Wird - wie
     # resolved_at/resolved_by_id - beim Wiederoeffnen geleert; NULL bei
     # Meldungen, die vor dieser Regel erledigt wurden.
     resolved_note = Column(String, nullable=True)
@@ -623,6 +623,12 @@ class ReportComment(Base):
     # oder mindestens ein Foto vorhanden ist, nie beides leer.
     text = Column(String, nullable=False, default="")
     created_at = Column(DateTime(timezone=True), default=utcnow)
+    # NULL = gewoehnlicher Kommentar, "done" = Abschlussnotiz beim Erledigen
+    # (siehe reports_set_status): wird im Verlauf als "Als erledigt markiert"
+    # dargestellt und bleibt auch nach einem Wiederoeffnen erhalten. Aeltere
+    # Abschlussnotizen (vor dieser Spalte) haben NULL und werden ueber
+    # is_done_comment in main.py erkannt.
+    kind = Column(String, nullable=True)
 
     report = relationship("Report", back_populates="comments")
     user = relationship("User")

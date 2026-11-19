@@ -6,8 +6,8 @@
 {% block live_refresh %}1{% endblock %}
 {% block content %}
 
-{% macro report_card(r, meta) %}
-{% set r_title = report_title_parts(r)[0] %}
+{% macro report_card(r, meta, idx) %}
+{% set r_title, r_body = report_title_parts(r) %}
 <!-- Erledigte Karten wie vergangene Termine (appointments.html): grauer linker
      Rand statt Prioritaetsfarbe + opacity-60. Die Prioritaetsklasse steht in
      data-priority-border, damit der Statuswechsel per JS sie beim Wiederoeffnen
@@ -18,7 +18,10 @@
      bleiben einzeln bedienbar. Titel bewusst ohne Kuerzung (auf dem Handy war
      er sonst nicht komplett lesbar) - Beschreibung, Erledigt-Notiz, Kommentare
      und Verlauf stehen bewusst nur auf der Detailseite, die Karte bleibt kurz. -->
-<div id="report-{{ r.id }}" data-ajax-row data-report-status="{{ r.status }}" data-report-title="{{ r_title }}" data-priority-border="{{ rb.priority_border(r.priority)|trim }}" class="relative rounded-xl border border-line border-l-4 {% if r.status == 'done' %}border-l-line opacity-60{% else %}{{ rb.priority_border(r.priority)|trim }}{% endif %} bg-panel p-4 hover:bg-panel2/40 transition-colors">
+<div id="report-{{ r.id }}" data-ajax-row data-report-status="{{ r.status }}"
+     data-search="{{ (r_title ~ ' ' ~ r_body ~ ' ' ~ (r.room.name if r.room else '') ~ ' ' ~ r.user.name)|lower }}"
+     data-priority="{{ r.priority or 'none' }}" data-groups="{{ report_group_ids(r)|sort|join(',') }}" data-all="{{ '1' if r.is_company_wide else '0' }}"
+     data-order="{{ idx }}" data-created="{{ r.created_at.timestamp()|int }}" data-resolved="{{ (r.resolved_at or r.created_at).timestamp()|int }}" data-modified="{{ meta.last_modified.timestamp()|int }}" data-report-title="{{ r_title }}" data-priority-border="{{ rb.priority_border(r.priority)|trim }}" class="relative rounded-xl border border-line border-l-4 {% if r.status == 'done' %}border-l-line opacity-60{% else %}{{ rb.priority_border(r.priority)|trim }}{% endif %} bg-panel p-4 hover:bg-panel2/40 transition-colors">
 
   <div class="flex items-start gap-4 flex-wrap">
     {% if r.photos %}
@@ -223,31 +226,93 @@
 </div>
 {% endif %}
 
+<!-- Suche, Filter, Sortierung: rein clientseitig (siehe Skript unten) ueber die
+     data-Attribute der Karten - arbeitet damit auch mit Statuswechseln und
+     Live-Updates zusammen, ohne die Liste neu vom Server zu holen. -->
+<form id="report-filter" role="search" onsubmit="return false" class="rounded-xl border border-line bg-panel p-3 mb-6 space-y-2">
+  <div class="relative">
+    <label for="rf-q" class="sr-only">Meldungen durchsuchen</label>
+    <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="rf-q" type="search" autocomplete="off" placeholder="Suchen in Titel und Beschreibung…" class="w-full rounded-md bg-ink border border-line pl-9 pr-3 py-2 text-base sm:text-sm">
+  </div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+    <div>
+      <label for="rf-status" class="block text-[11px] text-slate-400 mb-1">Status</label>
+      <select id="rf-status" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+        <option value="all">Alle</option>
+        <option value="open">Offen</option>
+        <option value="in_progress">In Bearbeitung</option>
+        <option value="done">Erledigt</option>
+      </select>
+    </div>
+    <div>
+      <label for="rf-group" class="block text-[11px] text-slate-400 mb-1">Zuständigkeit</label>
+      <select id="rf-group" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+        <option value="all">Alle Gruppen</option>
+        {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="rf-priority" class="block text-[11px] text-slate-400 mb-1">Priorität</label>
+      <select id="rf-priority" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+        <option value="all">Alle</option>
+        <option value="critical">Kritisch</option>
+        <option value="high">Hoch</option>
+        <option value="normal">Normal</option>
+        <option value="low">Niedrig</option>
+        <option value="none">Keine Priorität</option>
+      </select>
+    </div>
+    <div>
+      <label for="rf-sort" class="block text-[11px] text-slate-400 mb-1">Sortierung</label>
+      <select id="rf-sort" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+        <option value="default">Standard (Priorität, neueste)</option>
+        <option value="oldest">Älteste zuerst</option>
+        <option value="newest">Neueste zuerst</option>
+        <option value="modified">Zuletzt geändert</option>
+      </select>
+    </div>
+  </div>
+  <div class="flex items-center justify-between gap-2 min-h-7">
+    <p id="rf-summary" class="text-xs text-slate-400" aria-live="polite"></p>
+    <button type="button" id="rf-reset" class="hidden text-xs px-2.5 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2">Zurücksetzen</button>
+  </div>
+</form>
+
 <div class="flex items-center gap-2 mb-3">
   <h2 class="font-display font-medium">Offene Meldungen</h2>
   <span id="open-reports-count" class="text-xs px-2 py-0.5 rounded-full bg-late/15 text-late font-medium {% if not open_reports %}hidden{% endif %}">{{ open_reports|length }}</span>
 </div>
 <div id="open-reports-list" class="space-y-3 mb-8">
   {% for r in open_reports %}
-  {{ report_card(r, report_meta[r.id]) }}
+  {{ report_card(r, report_meta[r.id], loop.index) }}
   {% endfor %}
 </div>
 <div id="open-reports-empty" class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm mb-8 {% if open_reports %}hidden{% endif %}">
-  Keine offenen Meldungen 🎉
+  <span id="open-reports-empty-text" data-default="Keine offenen Meldungen 🎉" data-filtered="Keine offenen Meldungen passen zu Suche und Filtern.">Keine offenen Meldungen 🎉</span>
 </div>
 
-<div class="flex items-center gap-2 mb-3">
-  <h2 class="font-display font-medium">Erledigte Meldungen</h2>
-  <span id="done-reports-count" class="text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium {% if not done_reports %}hidden{% endif %}">{{ done_reports|length }}</span>
-</div>
-<div id="done-reports-list" class="space-y-3">
-  {% for r in done_reports %}
-  {{ report_card(r, report_meta[r.id]) }}
-  {% endfor %}
-</div>
-<div id="done-reports-empty" class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm {% if done_reports %}hidden{% endif %}">
-  Noch keine erledigten Meldungen.
-</div>
+<!-- Erledigte Meldungen: standardmaessig eingeklappt, damit alte Eintraege die
+     offenen nicht nach unten druecken. Natives <details>: per Maus, Touch und
+     Tastatur (Enter/Leertaste) bedienbar; Pfeil und Text zeigen den Zustand. -->
+<details id="done-reports-section" class="group">
+  <summary class="cursor-pointer list-none flex items-center gap-2 mb-3 rounded-lg px-2 py-2 -mx-2 hover:bg-panel2 focus-visible:outline-2 focus-visible:outline-go [&::-webkit-details-marker]:hidden">
+    <h2 class="font-display font-medium">Erledigte Meldungen</h2>
+    <span id="done-reports-count" class="text-xs px-2 py-0.5 rounded-full bg-go/15 text-go font-medium {% if not done_reports %}hidden{% endif %}">{{ done_reports|length }}</span>
+    <span class="ml-auto flex items-center gap-1.5 text-xs text-slate-400">
+      <span class="group-open:hidden">Anzeigen</span><span class="hidden group-open:inline">Ausblenden</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </span>
+  </summary>
+  <div id="done-reports-list" class="space-y-3">
+    {% for r in done_reports %}
+    {{ report_card(r, report_meta[r.id], loop.index) }}
+    {% endfor %}
+  </div>
+  <div id="done-reports-empty" class="rounded-lg border border-dashed border-line p-8 text-center text-slate-500 text-sm {% if done_reports %}hidden{% endif %}">
+    <span id="done-reports-empty-text" data-default="Noch keine erledigten Meldungen." data-filtered="Keine erledigten Meldungen passen zu Suche und Filtern.">Noch keine erledigten Meldungen.</span>
+  </div>
+</details>
 
 {% include "_report_done_modal.html" %}
 
@@ -506,6 +571,116 @@
     });
   })();
 
+  // Suche, Filter und Sortierung der Meldungslisten. Der Zustand liegt in
+  // window.__reportsFilter, weil das Live-Update (live_refresh.js) den Inhalt
+  // samt Eingabefeldern austauscht und dieses Skript danach erneut laeuft.
+  (function () {
+    var st = window.__reportsFilter || (window.__reportsFilter = {
+      q: '', status: 'all', group: 'all', priority: 'all', sort: 'default', doneOpen: false
+    });
+    var form = document.getElementById('report-filter');
+    if (!form) { window.__reportsApplyFilters = function () {}; return; }
+    var qEl = document.getElementById('rf-q');
+    var fields = {
+      status: document.getElementById('rf-status'),
+      group: document.getElementById('rf-group'),
+      priority: document.getElementById('rf-priority'),
+      sort: document.getElementById('rf-sort')
+    };
+    var doneSection = document.getElementById('done-reports-section');
+
+    qEl.value = st.q;
+    Object.keys(fields).forEach(function (k) { fields[k].value = st[k]; });
+    if (doneSection) doneSection.open = st.doneOpen;
+
+    function isFiltered() {
+      return !!st.q.trim() || st.status !== 'all' || st.group !== 'all' || st.priority !== 'all';
+    }
+
+    function matches(card) {
+      var q = st.q.trim().toLowerCase();
+      if (q) {
+        var hay = card.dataset.search || '';
+        if (!q.split(/\s+/).every(function (t) { return hay.indexOf(t) !== -1; })) return false;
+      }
+      if (st.status !== 'all' && card.dataset.reportStatus !== st.status) return false;
+      if (st.priority !== 'all' && card.dataset.priority !== st.priority) return false;
+      if (st.group !== 'all' && card.dataset.all !== '1' &&
+          (card.dataset.groups || '').split(',').indexOf(st.group) === -1) return false;
+      return true;
+    }
+
+    function sortKey(card, isDone) {
+      var n = function (k) { return parseInt(card.dataset[k], 10) || 0; };
+      if (st.sort === 'oldest') return isDone ? n('resolved') : n('created');
+      if (st.sort === 'newest') return -(isDone ? n('resolved') : n('created'));
+      if (st.sort === 'modified') return -n('modified');
+      return n('order');
+    }
+
+    function process(listId, emptyId, countId, isDone) {
+      var list = document.getElementById(listId);
+      if (!list) return { total: 0, visible: 0 };
+      var cards = Array.prototype.slice.call(list.querySelectorAll(':scope > [data-ajax-row]'));
+      var keyed = cards.map(function (c, i) { return { c: c, k: sortKey(c, isDone), i: i }; });
+      keyed.sort(function (a, b) { return a.k - b.k || a.i - b.i; });
+      keyed.forEach(function (x) { list.appendChild(x.c); });
+      var visible = 0;
+      cards.forEach(function (c) {
+        var ok = matches(c);
+        c.classList.toggle('hidden', !ok);
+        if (ok) visible++;
+      });
+      var total = cards.length;
+      var counter = document.getElementById(countId);
+      if (counter) {
+        counter.textContent = isFiltered() ? visible + ' von ' + total : String(total);
+        counter.classList.toggle('hidden', total === 0);
+      }
+      var empty = document.getElementById(emptyId);
+      if (empty) {
+        empty.classList.toggle('hidden', visible > 0);
+        var text = document.getElementById(emptyId + '-text');
+        if (text) text.textContent = total > 0 ? text.dataset.filtered : text.dataset['default'];
+      }
+      return { total: total, visible: visible };
+    }
+
+    function apply(userInitiated) {
+      var open = process('open-reports-list', 'open-reports-empty', 'open-reports-count', false);
+      var done = process('done-reports-list', 'done-reports-empty', 'done-reports-count', true);
+      // Treffer unter "Erledigt" nicht hinter dem eingeklappten Abschnitt verstecken.
+      if (userInitiated && doneSection && !doneSection.open && done.visible > 0 &&
+          (st.status === 'done' || st.q.trim())) {
+        doneSection.open = true;
+      }
+      var summary = document.getElementById('rf-summary');
+      if (summary) {
+        var hits = open.visible + done.visible;
+        summary.textContent = isFiltered() ? hits + ' Treffer' : '';
+      }
+      var reset = document.getElementById('rf-reset');
+      if (reset) reset.classList.toggle('hidden', !(isFiltered() || st.sort !== 'default'));
+    }
+
+    qEl.addEventListener('input', function () { st.q = qEl.value; apply(true); });
+    Object.keys(fields).forEach(function (k) {
+      fields[k].addEventListener('change', function () { st[k] = fields[k].value; apply(true); });
+    });
+    document.getElementById('rf-reset').addEventListener('click', function () {
+      st.q = ''; st.status = 'all'; st.group = 'all'; st.priority = 'all'; st.sort = 'default';
+      qEl.value = '';
+      Object.keys(fields).forEach(function (k) { fields[k].value = st[k]; });
+      apply(false);
+      qEl.focus();
+    });
+    if (doneSection) {
+      doneSection.addEventListener('toggle', function () { st.doneOpen = doneSection.open; });
+    }
+    window.__reportsApplyFilters = apply;
+    apply(false);
+  })();
+
   // Die folgenden Handler haengen an document und duerfen nur EINMAL pro
   // Seitenaufruf registriert werden: das Live-Update (live_refresh.js)
   // fuehrt dieses Skript nach jedem Austausch des Inhalts erneut aus - ohne
@@ -565,16 +740,8 @@
     // status != "done" (siehe nav_badges() in main.py), also 1:1 wie
     // "open-reports-count" hier.
     function bumpOpenCount(delta) {
-      bumpCount('open-reports-count', delta);
       bumpCount('nav-badge-reports', delta);
       bumpCount('nav-badge-reports-mobile', delta);
-    }
-
-    function refreshEmptyState(listId, emptyId) {
-      var list = document.getElementById(listId);
-      var empty = document.getElementById(emptyId);
-      if (!list || !empty) return;
-      empty.classList.toggle('hidden', list.children.length > 0);
     }
 
     document.addEventListener('ajax-form-success', function (e) {
@@ -613,25 +780,23 @@
       if (wasDone !== isDone) {
         var targetList = document.getElementById(isDone ? 'done-reports-list' : 'open-reports-list');
         if (targetList) targetList.prepend(card);
-        if (isDone) {
-          bumpOpenCount(-1);
-          bumpCount('done-reports-count', 1);
-        } else {
-          bumpOpenCount(1);
-          bumpCount('done-reports-count', -1);
-        }
-        refreshEmptyState('open-reports-list', 'open-reports-empty');
-        refreshEmptyState('done-reports-list', 'done-reports-empty');
+        // Neu einsortieren: oben in der Standardsortierung, Zeitstempel fuer
+        // die uebrigen Sortierungen aktualisieren.
+        var nowSec = String(Math.floor(Date.now() / 1000));
+        card.dataset.order = String(-Date.now());
+        card.dataset.modified = nowSec;
+        if (isDone) card.dataset.resolved = nowSec;
+        bumpOpenCount(isDone ? -1 : 1);
       }
+      // Zaehler, Leermeldungen und Filter neu berechnen (ein Statusfilter kann
+      // die Karte nach der Aenderung ausblenden).
+      if (window.__reportsApplyFilters) window.__reportsApplyFilters(false);
     });
 
     // Nach einer Löschung (siehe ajax_actions.js) ggf. den "Liste leer"-
     // Platzhalter der jeweils betroffenen Liste einblenden.
     document.addEventListener('ajax-row-removed', function (e) {
-      var parent = e.detail && e.detail.parent;
-      if (!parent) return;
-      if (parent.id === 'open-reports-list') refreshEmptyState('open-reports-list', 'open-reports-empty');
-      if (parent.id === 'done-reports-list') refreshEmptyState('done-reports-list', 'done-reports-empty');
+      if (window.__reportsApplyFilters) window.__reportsApplyFilters(false);
     });
   })();
   }

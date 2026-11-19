@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.63.0] - 2026-11-19
+- Meldungen, Detailansicht: die Abschlussnotiz steht nicht mehr im grünen Kasten im Kopf der Meldung, sondern als eigener Eintrag „✓ Als erledigt markiert · Datum, Uhrzeit · Name" mit Text (und ggf. Beweisfotos) im Kommentarverlauf, chronologisch hinter den bis dahin vorhandenen Kommentaren. Sie ist als grüner Abschlusseintrag statt als Sprechblase gestaltet und zählt nicht in „Kommentare (n)". Die Zeile im Kopf („erledigt vor … von …") und der Verlauf bleiben. Wird eine Meldung wieder geöffnet und später erneut erledigt, bleiben beide Abschlussnotizen im Verlauf erhalten. Ältere Meldungen: die damals zusätzlich angelegte Notiz wird ebenfalls als Abschlusseintrag dargestellt, es werden keine bestehenden Daten verändert.
+- Meldungsliste: „Erledigte Meldungen" ist standardmäßig eingeklappt (Zähler bleibt sichtbar, Anzeigen/Ausblenden samt Pfeil, per Maus, Touch und Tastatur bedienbar). Der Zustand bleibt beim Live-Update erhalten.
+- Meldungsliste: neue Suche (Titel, Beschreibung, Bereich, Melder) mit Filtern für Status, Zuständigkeit (Gruppe; betriebsweite Meldungen zählen für jede Gruppe) und Priorität sowie Sortierung (Standard, Älteste zuerst, Neueste zuerst, Zuletzt geändert). Alles lässt sich kombinieren; die Zähler zeigen „x von y", leere Treffer haben eine eigene Meldung, „Zurücksetzen" stellt alles zurück. Treffer bei erledigten Meldungen klappen den Abschnitt automatisch auf. Am Handy stehen die Filter in zwei Spalten.
+- Technisch: neue Spalte `report_comments.kind` (automatisch migriert, bestehende Zeilen bleiben unverändert).
+
 ## [1.62.0] - 2026-11-16
 - Wartung: Pläne ohne bekannten Turnus. Beim Turnus gibt es jetzt „kein fester Turnus“ (z. B. für Handwerker/Dienstleister, deren Rhythmus man als Mieter nicht kennt): der Plan führt dann nur das Besuchsprotokoll, ohne Fälligkeit/Ampel, und zeigt stattdessen den letzten Besuch und den tatsächlichen Abstand der Regelwartungen („im Schnitt alle N Tage“, bei Plänen mit Turnus zusätzlich im Vergleich zum Vertrag).
 - Wartung: Besuche lassen sich jetzt auch ankündigen. Ein Datum in der Zukunft erscheint als „Angekündigt“ im Plan und schickt den zuständigen Gruppen eine Push („Besuch angekündigt“), damit alle vorbereitet sind. Angekündigte Besuche zählen erst ab ihrem Datum in Turnus und Durchschnitt.
