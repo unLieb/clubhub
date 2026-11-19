@@ -146,27 +146,28 @@
     {% set regular_comments = visible_report_comments(r) %}
     <h2 class="font-display font-medium mb-3">Kommentare{% if regular_comments %} <span class="text-slate-500 font-normal">({{ regular_comments|length }})</span>{% endif %}{% if new_comment_ids %} <span class="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent align-middle">{{ new_comment_ids|length }} neu</span>{% endif %}</h2>
     <ul class="space-y-3 mb-4">
-      {% for c in r.comments %}
-      {% set own = c.user_id == user.id %}
-      {% set is_new = c.id in new_comment_ids %}
-      {% if is_done_comment(r, c) %}
+      {% for e in report_timeline(r) %}
+      {% set c = e.comment %}
+      {% set own = e.user and e.user.id == user.id %}
+      {% set is_new = c and c.id in new_comment_ids %}
+      {% if e.kind == "done" %}
       <!-- Abschlussnotiz: bewusst kein Chat-Bubble, sondern ein durchgehender
            gruener Eintrag mit Haken, damit sie als Abschlussmeldung erkennbar ist. -->
       <li class="rounded-lg border border-go/30 bg-go/10 px-3.5 py-2.5{% if is_new %} ring-2 ring-accent/50{% endif %}">
         <div class="flex items-center gap-1.5 text-sm font-medium text-go">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
           <span>Als erledigt markiert</span>
-          <span class="text-xs font-normal text-slate-400">&middot; {{ (c.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }} &middot; {{ c.user.name }}</span>
+          <span class="text-xs font-normal text-slate-400">&middot; {{ (e.at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if e.user %} &middot; {{ e.user.name }}{% endif %}</span>
           {% if is_new %}<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">Neu</span>{% endif %}
         </div>
-        {% if c.text %}
-        <p class="mt-1 text-base text-slate-100 whitespace-pre-line break-words">{{ c.text }}</p>
+        {% if e.text %}
+        <p class="mt-1 text-base text-slate-100 whitespace-pre-line break-words">{{ e.text }}</p>
         {% endif %}
-        {% if c.photos %}
-        {% set comment_photo_urls = report_photo_urls(c.photos) %}
+        {% if e.photos %}
+        {% set comment_photo_urls = report_photo_urls(e.photos) %}
         <div class="flex flex-wrap gap-1.5 mt-2">
-          {% for p in c.photos %}
-          <button type="button" class="report-photo-trigger relative w-20 h-20 rounded-lg border border-line overflow-hidden shrink-0" data-idx="{{ loop.index0 }}" aria-label="Bild anzeigen{% if c.photos|length > 1 %} ({{ c.photos|length }} Bilder){% endif %}">
+          {% for p in e.photos %}
+          <button type="button" class="report-photo-trigger relative w-20 h-20 rounded-lg border border-line overflow-hidden shrink-0" data-idx="{{ loop.index0 }}" aria-label="Bild anzeigen{% if e.photos|length > 1 %} ({{ e.photos|length }} Bilder){% endif %}">
             <img src="/uploads/reports/{{ p.filename }}" alt="" class="w-full h-full object-cover">
             <script type="application/json">{{ comment_photo_urls | tojson }}</script>
           </button>
@@ -177,7 +178,7 @@
       {% else %}
       <li class="flex {% if own %}justify-end{% endif %}">
         <div class="max-w-[88%] rounded-2xl px-3.5 py-2.5 {% if own %}bg-go/15 rounded-br-md{% else %}bg-panel2 rounded-bl-md{% endif %}{% if is_new %} ring-2 ring-accent/50{% endif %}">
-          <div class="text-xs text-slate-400 mb-0.5"><span class="font-medium text-slate-200">{{ c.user.name }}</span> &middot; {{ (c.created_at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if is_new %} <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">Neu</span>{% endif %}</div>
+          <div class="text-xs text-slate-400 mb-0.5"><span class="font-medium text-slate-200">{{ e.user.name }}</span> &middot; {{ (e.at|localtime).strftime("%d.%m.%Y, %H:%M") }}{% if is_new %} <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">Neu</span>{% endif %}</div>
           {% if c.text %}
           <p class="text-base text-slate-100 whitespace-pre-line break-words">{{ c.text }}</p>
           {% endif %}

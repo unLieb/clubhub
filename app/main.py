@@ -3961,12 +3961,41 @@ def _aware(ts):
 def is_done_comment(r, c) -> bool:
     """Abschlussnotiz beim Erledigen (siehe reports_set_status): kind="done"
     oder - bei Notizen aus der Zeit vor dieser Spalte - der Kommentar des
-    Erledigers, dessen Text der aktuellen Erledigt-Notiz entspricht."""
+    Erledigers, dessen Text der aktuellen Erledigt-Notiz entspricht, bzw.
+    (1.60-1.62: die Notiz stand nur in resolved_note) ein textloser
+    Foto-Kommentar des Erledigers direkt beim Erledigt-Zeitpunkt."""
     if c.kind == "done":
         return True
+    if r.status != "done" or not r.resolved_note or c.user_id != r.resolved_by_id:
+        return False
+    if c.text == r.resolved_note:
+        return True
+    resolved_at, created_at = _aware(r.resolved_at), _aware(c.created_at)
     return bool(
-        r.status == "done" and r.resolved_note and c.user_id == r.resolved_by_id and c.text == r.resolved_note
+        not c.text and c.photos and resolved_at and created_at and abs((created_at - resolved_at).total_seconds()) <= 60
     )
+
+
+def report_timeline(r) -> list:
+    """Eintraege des Kommentarverlaufs in zeitlicher Reihenfolge:
+    {"kind": "comment"|"done", "comment": ReportComment|None, "text", "user",
+    "at", "photos"}. Abschlussnotizen erscheinen immer: hat die Notiz keinen
+    eigenen Kommentar (Meldungen aus 1.60-1.62, Notiz nur in resolved_note),
+    wird ein Eintrag zum Erledigt-Zeitpunkt ergaenzt bzw. dem textlosen
+    Foto-Kommentar der Text zugeordnet."""
+    entries = []
+    done_with_text = False
+    for c in r.comments:
+        if is_done_comment(r, c):
+            text = c.text or (r.resolved_note if r.status == "done" else "") or ""
+            done_with_text = done_with_text or bool(text)
+            entries.append({"kind": "done", "comment": c, "text": text, "user": c.user, "at": c.created_at, "photos": c.photos})
+        else:
+            entries.append({"kind": "comment", "comment": c, "text": c.text, "user": c.user, "at": c.created_at, "photos": c.photos})
+    if r.status == "done" and r.resolved_note and not done_with_text and r.resolved_at:
+        entries.append({"kind": "done", "comment": None, "text": r.resolved_note, "user": r.resolved_by, "at": r.resolved_at, "photos": []})
+    entries.sort(key=lambda e: _aware(e["at"]))
+    return entries
 
 
 def visible_report_comments(r) -> list:
@@ -3988,6 +4017,7 @@ def report_group_ids(r) -> set:
 
 templates.env.globals["visible_report_comments"] = visible_report_comments
 templates.env.globals["is_done_comment"] = is_done_comment
+templates.env.globals["report_timeline"] = report_timeline
 templates.env.globals["report_group_ids"] = report_group_ids
 
 
