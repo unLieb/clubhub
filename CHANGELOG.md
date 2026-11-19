@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.64.0] - 2026-11-19
+- Meldungen nachträglich bearbeiten: auf der Detailseite gibt es oben rechts „Bearbeiten“ (für den Melder sowie Admin und Schichtleiter; automatische Kühlungs-Meldungen ausgenommen). Änderbar sind Titel, Beschreibung, Kategorie, Bereich (inkl. „Sonstiges“), Priorität und bei Anschaffungen der Produkt-Link. Es gelten dieselben Regeln wie beim Anlegen (Anschaffung ohne Bereich/Priorität, „Sonstiges“ und Anschaffung brauchen eine zuständige Gruppe). Jede Änderung steht mit altem und neuem Wert im Audit-Log; es gibt keine Benachrichtigung.
+- Zuständigkeit: ein neuer Knopf „Zuständigkeit“ neben „Bearbeiten“ klappt direkt „Infos → Zuständigkeit ändern“ auf (vorher unscheinbar hinter dem eingeklappten Bereich „Infos“).
+- Zuständigkeit ändern benachrichtigt jetzt die neu zuständigen Gruppen per Push („Meldung neu zugewiesen“, ohne den Auslöser). Bisher erfuhr die richtige Gruppe nach einer Korrektur nie von der Meldung. Gruppen, die schon vorher zuständig waren, und Meldungen, die schon betriebsweit waren, bekommen nichts erneut.
+
 ## [1.63.2] - 2026-11-19
 - Fix: bei Meldungen, die mit den Versionen 1.60 bis 1.62 erledigt wurden, fehlte seit 1.63.0 der Text der Abschlussnotiz (nur das Foto war noch zu sehen). Damals stand die Notiz nur im Meldungsdatensatz, nicht als Kommentar, und der grüne Kasten, der sie zeigte, war in 1.63.0 entfallen. Jetzt erscheint die Notiz in jedem Fall als Eintrag „Als erledigt markiert" im Verlauf: ein textloser Foto-Kommentar des Erledigers zum Erledigt-Zeitpunkt bekommt den Text zugeordnet, fehlt ein Kommentar ganz, wird der Eintrag zum Erledigt-Zeitpunkt ergänzt. Die Daten waren nie verloren; es wurde nichts verändert.
 

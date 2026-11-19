@@ -18,7 +18,72 @@
 <div id="report-{{ r.id }}" data-ajax-row data-report-status="{{ r.status }}" data-report-title="{{ r_title }}" class="mt-3 space-y-4">
 
   <div class="rounded-xl border border-line border-l-4 {% if r.status == 'done' %}border-l-line{% else %}{{ rb.priority_border(r.priority)|trim }}{% endif %} bg-panel p-4 sm:p-5">
-    <div class="flex items-center gap-2 flex-wrap mb-2">{% if r.priority %}{{ rb.priority_badge(r.priority) }}{% endif %}{{ rb.category_badge(r.category) }}</div>
+    <div class="flex items-start justify-between gap-2 mb-2">
+      <div class="flex items-center gap-2 flex-wrap">{% if r.priority %}{{ rb.priority_badge(r.priority) }}{% endif %}{{ rb.category_badge(r.category) }}</div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        {% if user %}
+        <button type="button" id="report-assign-shortcut" class="text-xs px-2.5 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2">Zuständigkeit</button>
+        {% endif %}
+        {% if can_edit %}
+        <button type="button" id="report-edit-toggle" aria-expanded="false" aria-controls="report-edit-form" class="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Bearbeiten
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    {% if can_edit %}
+    {# Bearbeiten-Formular: Titel, Beschreibung, Kategorie, Bereich, Prioritaet, Link. Zustaendigkeit hat ihr eigenes Formular unter "Infos". #}
+    {% set cur_room = r.room_id|string if r.room_id else "other" %}
+    <form id="report-edit-form" method="post" action="/reports/{{ r.id }}/edit" class="hidden mb-4 rounded-lg border border-line bg-ink/40 p-3 space-y-2">
+      <div>
+        <label for="re-title" class="block text-[11px] text-slate-400 mb-1">Titel</label>
+        <input id="re-title" name="title" required maxlength="80" autocomplete="off" value="{{ r_title }}" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+      </div>
+      <div>
+        <label for="re-comment" class="block text-[11px] text-slate-400 mb-1">Beschreibung <span class="text-slate-500 font-normal">– optional</span></label>
+        <textarea id="re-comment" name="comment" rows="3" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">{{ r_body }}</textarea>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div>
+          <label for="re-category" class="block text-[11px] text-slate-400 mb-1">Kategorie</label>
+          <select id="re-category" name="category" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+            <option value="defekt" {% if r.category == "defekt" %}selected{% endif %}>Reparatur / Wartung</option>
+            <option value="material" {% if r.category == "material" %}selected{% endif %}>Material fehlt</option>
+            <option value="reinigung" {% if r.category == "reinigung" %}selected{% endif %}>Reinigung</option>
+            <option value="anschaffung" {% if r.category == "anschaffung" %}selected{% endif %}>Materialwunsch / Anschaffung</option>
+            <option value="sonstiges" {% if r.category == "sonstiges" %}selected{% endif %}>Sonstiges</option>
+          </select>
+        </div>
+        <div id="re-room-field">
+          <label for="re-room" class="block text-[11px] text-slate-400 mb-1">Bereich</label>
+          <select id="re-room" name="room_id" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+            <option value="other" {% if cur_room == "other" %}selected{% endif %}>Sonstiges (kein Bereich)</option>
+            {% for room in edit_rooms %}<option value="{{ room.id }}" {% if cur_room == room.id|string %}selected{% endif %}>{{ room.name }}</option>{% endfor %}
+            {% if r.room and r.room not in edit_rooms %}<option value="{{ r.room.id }}" selected>{{ r.room.name }}</option>{% endif %}
+          </select>
+        </div>
+        <div id="re-priority-field">
+          <label for="re-priority" class="block text-[11px] text-slate-400 mb-1">Priorität</label>
+          <select id="re-priority" name="priority" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+            <option value="critical" {% if r.priority == "critical" %}selected{% endif %}>Kritisch</option>
+            <option value="high" {% if r.priority == "high" %}selected{% endif %}>Hoch</option>
+            <option value="normal" {% if r.priority not in ("critical", "high", "low") %}selected{% endif %}>Normal</option>
+            <option value="low" {% if r.priority == "low" %}selected{% endif %}>Niedrig</option>
+          </select>
+        </div>
+      </div>
+      <div id="re-link-field">
+        <label for="re-link" class="block text-[11px] text-slate-400 mb-1">Produkt-Link <span class="text-slate-500 font-normal">– optional</span></label>
+        <input id="re-link" type="url" name="product_url" value="{{ r.product_url or '' }}" placeholder="https://…" class="w-full rounded-md bg-ink border border-line px-2.5 py-2 text-base sm:text-sm">
+      </div>
+      <p class="text-xs text-slate-500">Die Zuständigkeit änderst du über „Zuständigkeit“.</p>
+      <div class="flex items-center gap-2">
+        <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium">Speichern</button>
+        <button type="button" id="report-edit-cancel" class="px-3 py-1.5 rounded-md border border-line text-sm text-slate-300 hover:bg-panel2">Abbrechen</button>
+      </div>
+    </form>
+    {% endif %}
     <h1 class="font-display text-xl sm:text-2xl font-semibold break-words">{{ r_title }}</h1>
 
     <div class="flex items-center gap-1.5 flex-wrap mt-2.5">
@@ -89,7 +154,7 @@
        Meldungen schneller bei den Kommentaren ist (Nutzer-Wunsch). Die Gruppen
        stehen ohnehin als Chips im Kopf der Meldung. Innen: Zuständigkeits-Auswahl
        direkt sichtbar (gleiche Chips wie im "Neue Meldung"-Formular). -->
-  <details class="group rounded-xl border border-line bg-panel">
+  <details id="report-infos" class="group rounded-xl border border-line bg-panel">
     <summary class="cursor-pointer list-none flex items-center justify-between gap-2 px-4 sm:px-5 py-3.5 rounded-xl hover:bg-panel2">
       <h2 class="font-display font-medium">Infos</h2>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 transition-transform group-open:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
@@ -264,6 +329,47 @@
 {% include "_report_done_modal.html" %}
 
 <script>
+  // Bearbeiten-Formular und "Zustaendigkeit"-Kurzbefehl. Offen/zu-Zustand liegt
+  // in window, weil das Live-Update den Inhalt samt Formular austauscht und
+  // dieses Skript danach erneut laeuft.
+  (function () {
+    var form = document.getElementById('report-edit-form');
+    var toggle = document.getElementById('report-edit-toggle');
+    if (form && toggle) {
+      var category = document.getElementById('re-category');
+      var roomField = document.getElementById('re-room-field');
+      var priorityField = document.getElementById('re-priority-field');
+      var linkField = document.getElementById('re-link-field');
+      function applyCategory() {
+        var anschaffung = category.value === 'anschaffung';
+        roomField.classList.toggle('hidden', anschaffung);
+        priorityField.classList.toggle('hidden', anschaffung);
+        linkField.classList.toggle('hidden', !anschaffung);
+      }
+      function setOpen(open) {
+        window.__reportEditOpen = open;
+        form.classList.toggle('hidden', !open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) document.getElementById('re-title').focus();
+      }
+      category.addEventListener('change', applyCategory);
+      applyCategory();
+      toggle.addEventListener('click', function () { setOpen(form.classList.contains('hidden')); });
+      document.getElementById('report-edit-cancel').addEventListener('click', function () { form.reset(); applyCategory(); setOpen(false); });
+      if (window.__reportEditOpen) { form.classList.remove('hidden'); toggle.setAttribute('aria-expanded', 'true'); }
+    }
+    var shortcut = document.getElementById('report-assign-shortcut');
+    if (shortcut) {
+      shortcut.addEventListener('click', function () {
+        var infos = document.getElementById('report-infos');
+        if (!infos) return;
+        infos.open = true;
+        var target = infos.querySelector('.report-assign-form') || infos;
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+  })();
+
   // Document-Handler nur einmal pro Seitenaufruf registrieren: das Live-Update
   // (live_refresh.js) fuehrt dieses Skript nach jedem Austausch erneut aus.
   if (!window.__reportDetailHandlers) {

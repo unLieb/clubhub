@@ -4347,6 +4347,8 @@ def report_detail(report_id: int, request: Request, db: Session = Depends(get_db
         "request": request,
         "user": user,
         "new_comment_ids": new_comment_ids,
+        "can_edit": _user_can_edit_report(user, report),
+        "edit_rooms": filter_rooms_for_user(db.query(models.Room).order_by(models.Room.name).all(), user),
         "r": report,
         "meta": compute_report_meta(report, ntptime.now_utc()),
         "groups": db.query(models.Group).all(),
@@ -4898,9 +4900,108 @@ async def reports_add_comment(
     return RedirectResponse(back_url, status_code=302)
 
 
+def _user_can_edit_report(user, report) -> bool:
+    """Inhalt (Titel, Beschreibung, Kategorie, Bereich, Prioritaet, Link) darf
+    der Melder sowie Admin/Schichtleiter nachtraeglich aendern - nicht jeder
+    eingeloggte Nutzer wie bei Status/Kommentar/Zustaendigkeit, damit niemand
+    fremde Meldungen umschreibt. Automatisch erzeugte Kuehlungs-Meldungen
+    sind davon ausgenommen."""
+    if not user or report.category == "kuehlung":
+        return False
+    return bool(user.id == report.user_id or user.is_admin or user.is_shift_lead)
+
+
+@app.post("/reports/{report_id}/edit")
+def reports_edit(
+    report_id: int, request: Request,
+    title: str = Form(""), comment: str = Form(""), category: str = Form(""), priority: str = Form(""),
+    room_id: str = Form(""), product_url: str = Form(""), db: Session = Depends(get_db),
+):
+    """Meldung nachtraeglich bearbeiten (Nutzer-Wunsch). Gleiche Regeln wie
+    beim Anlegen (siehe reports_create): Anschaffung ohne Bereich/Prioritaet,
+    "Sonstiges" ohne Bereich, sonst Bereich Pflicht. Zustaendigkeit bleibt
+    unveraendert (eigene Funktion, siehe reports_assign) - faellt durch einen
+    Wechsel auf "kein Bereich" die Bereichsableitung weg, ohne dass Gruppen
+    gesetzt sind, wird abgelehnt. Keine Benachrichtigung, aber Audit-Eintrag."""
+    user = require_login(request, db)
+    blocked = _module_gate(get_app_settings(db).enable_reports, "Meldungen")
+    if blocked:
+        return blocked
+    report = db.query(models.Report).filter(models.Report.id == report_id).first()
+    if not report or not user_can_see_report(user, report):
+        return RedirectResponse(_with_toast("/reports", "Diese Meldung gibt es nicht (mehr).", "error"), status_code=302)
+    back_url = f"/reports/{report.id}"
+    if not _user_can_edit_report(user, report):
+        return RedirectResponse(_with_toast(back_url, "Du darfst diese Meldung nicht bearbeiten.", "error"), status_code=302)
+
+    def fail(message: str):
+        return RedirectResponse(_with_toast(back_url, message, "error"), status_code=302)
+
+    title = " ".join(title.split())
+    comment = comment.strip()
+    if not title:
+        return fail("Bitte einen Titel eingeben.")
+    title = title[:REPORT_TITLE_MAX].rstrip()
+    if category not in REPORT_CATEGORIES or category == "kuehlung":
+        category = report.category
+    roomless = category in REPORT_ROOMLESS_CATEGORIES
+    has_groups = bool(report.groups) or bool(report.is_company_wide)
+    room_id_int = None
+    if roomless:
+        priority = None
+        if not has_groups:
+            return fail("Für „Anschaffung“ bitte zuerst eine zuständige Gruppe wählen.")
+    elif room_id.strip() == REPORT_OTHER_AREA:
+        if priority not in REPORT_PRIORITIES:
+            priority = "normal"
+        if not has_groups:
+            return fail("Für „Sonstiges“ bitte zuerst eine zuständige Gruppe wählen.")
+    else:
+        if priority not in REPORT_PRIORITIES:
+            priority = report.priority if report.priority in REPORT_PRIORITIES else "normal"
+        room_id_int = int(room_id) if room_id.strip().isdigit() else None
+        if not room_id_int:
+            return fail("Bitte einen Bereich auswählen.")
+        room = db.query(models.Room).filter(models.Room.id == room_id_int).first()
+        # Der bisherige Bereich bleibt immer waehlbar (auch wenn er fuer den
+        # Bearbeitenden nicht sichtbar ist), neue nur bei Sichtrecht.
+        if not room or (room_id_int != report.room_id and not user_can_see_room(user, room)):
+            return fail("Bereich nicht gefunden oder keine Berechtigung.")
+    product_url = product_url.strip()
+    if product_url and not re.match(r"^https?://", product_url, re.IGNORECASE):
+        product_url = ""
+
+    old_title, _ = split_report_text(report)
+    changes = []
+    def change(label, old, new):
+        if (old or "") != (new or ""):
+            changes.append(f"{label}: „{old or '-'}“ → „{new or '-'}“")
+    change("Titel", report.title or old_title, title)
+    if (report.comment or "").strip() != comment:
+        changes.append("Beschreibung geändert")
+    change("Kategorie", report.category, category)
+    change("Priorität", report.priority, priority)
+    old_place = report_place_label(report) if report.room or report_is_other_area(report) else "kein Bereich"
+    report.title = title
+    report.comment = comment
+    report.category = category
+    report.priority = priority
+    report.room_id = room_id_int
+    report.product_url = product_url or None
+    db.flush()
+    db.refresh(report)
+    new_place = report_place_label(report) if report.room or report_is_other_area(report) else "kein Bereich"
+    change("Bereich", old_place, new_place)
+    if changes:
+        log_audit(db, user, "UPDATE", "Meldung", f'Meldung „{title}“ bearbeitet – ' + "; ".join(changes) + ".")
+    db.commit()
+    _bump_live_version()
+    return RedirectResponse(_with_toast(back_url, "Meldung gespeichert."), status_code=302)
+
+
 @app.post("/reports/{report_id}/assign")
 def reports_assign(
-    report_id: int, request: Request, group_mode: str = Form("auto"),
+    report_id: int, request: Request, background_tasks: BackgroundTasks, group_mode: str = Form("auto"),
     assigned_group_ids: list[str] = Form([]), return_to: str = Form(""), db: Session = Depends(get_db)
 ):
     """Zustaendigkeit nachtraeglich aendern (Details-Tab, Checkbox-Chips
@@ -4923,6 +5024,8 @@ def reports_assign(
             return "Automatisch (Bereich)"
 
         old_label = _assignment_label(report.is_company_wide, report.groups)
+        old_group_ids = {g.id for g in report.groups}
+        old_was_company_wide = bool(report.is_company_wide)
 
         new_group_ids = sorted({int(g) for g in assigned_group_ids if g.strip().isdigit()})
         is_company_wide = group_mode == "all" and not new_group_ids
@@ -4948,6 +5051,29 @@ def reports_assign(
             )
         db.commit()
         _bump_live_version()
+
+        # Neu zustaendige Gruppen informieren - sonst erfaehrt die richtige
+        # Gruppe nach einer Korrektur der Zustaendigkeit nie von der Meldung.
+        # Nicht neu informiert wird, wer schon vorher zustaendig war.
+        if old_label != new_label and not old_was_company_wide:
+            group_loaders = (
+                joinedload(models.Group.channels),
+                joinedload(models.Group.users).joinedload(models.User.push_subscriptions),
+            )
+            query = db.query(models.Group).options(*group_loaders)
+            if is_company_wide:
+                notify_targets = query.filter(~models.Group.id.in_(old_group_ids)).all() if old_group_ids else query.all()
+            else:
+                added_ids = {g.id for g in new_groups} - old_group_ids
+                notify_targets = query.filter(models.Group.id.in_(added_ids)).all() if added_ids else []
+            if notify_targets:
+                report_title, report_body = split_report_text(report)
+                msg = f"{report_title} – {report_body}" if report_body else report_title
+                msg = msg if len(msg) <= 200 else msg[:197] + "…"
+                background_tasks.add_task(
+                    notify_groups, notify_targets, f"Meldung neu zugewiesen: {report_place_label(report)}", msg,
+                    "default", f"/reports/{report.id}", user.id,
+                )
     return RedirectResponse(back_url, status_code=302)
 
 
