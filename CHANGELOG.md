@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.62.0] - 2026-11-16
+- Wartung: Pläne ohne bekannten Turnus. Beim Turnus gibt es jetzt „kein fester Turnus“ (z. B. für Handwerker/Dienstleister, deren Rhythmus man als Mieter nicht kennt): der Plan führt dann nur das Besuchsprotokoll, ohne Fälligkeit/Ampel, und zeigt stattdessen den letzten Besuch und den tatsächlichen Abstand der Regelwartungen („im Schnitt alle N Tage“, bei Plänen mit Turnus zusätzlich im Vergleich zum Vertrag).
+- Wartung: Besuche lassen sich jetzt auch ankündigen. Ein Datum in der Zukunft erscheint als „Angekündigt“ im Plan und schickt den zuständigen Gruppen eine Push („Besuch angekündigt“), damit alle vorbereitet sind. Angekündigte Besuche zählen erst ab ihrem Datum in Turnus und Durchschnitt.
+- Wartung: neue Besuchsart „Sonstiger Einsatz“ für Handwerker ohne Wartung; sie zählt nie in den Turnus.
+
 ## [1.61.6] - 2026-11-13
 - Fehlerprotokoll: Neuer Button „Exportieren (CSV)“ (Verwaltung → Fehlerprotokoll). Lädt alle Treffer des aktuellen Filters (nicht nur die sichtbare Seite) als Datei herunter, Zeiten in Ortszeit – zum Weitergeben statt Screenshots.
 
@@ -23,11 +28,6 @@ Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 
 ## [1.61.1] - 2026-11-04
 - Event-Tage: Auf der Bereichs-Card (Bereichsübersicht und Dashboard) erscheint an Veranstaltungstagen der Sammel-Button zum Erledigen der Nach-Bedarf-Aufgaben des Bereichs („Event-Aufgaben erledigen", bzw. „Tägliche + Event erledigen", wenn auch tägliche Aufgaben offen sind; am Handy der Haken rechts in der Zeile). Er hakt alle heute wegen des Events fälligen Aufgaben auf einmal ab und verschwindet danach.
-
-## [1.62.0] - 2026-11-16
-- Wartung: Pläne ohne bekannten Turnus. Beim Turnus gibt es jetzt „kein fester Turnus“ (z. B. für Handwerker/Dienstleister, deren Rhythmus man als Mieter nicht kennt): der Plan führt dann nur das Besuchsprotokoll, ohne Fälligkeit/Ampel, und zeigt stattdessen den letzten Besuch und den tatsächlichen Abstand der Regelwartungen („im Schnitt alle N Tage“, bei Plänen mit Turnus zusätzlich im Vergleich zum Vertrag).
-- Wartung: Besuche lassen sich jetzt auch ankündigen. Ein Datum in der Zukunft erscheint als „Angekündigt“ im Plan und schickt den zuständigen Gruppen eine Push („Besuch angekündigt“), damit alle vorbereitet sind. Angekündigte Besuche zählen erst ab ihrem Datum in Turnus und Durchschnitt.
-- Wartung: neue Besuchsart „Sonstiger Einsatz“ für Handwerker ohne Wartung; sie zählt nie in den Turnus.
 
 ## [1.61.0] - 2026-11-04
 - Neu: **Wartung** (Seitenleiste bzw. „Mehr“ am Handy). Wartungspläne für Anlagen wie den Aufzug, damit ersichtlich ist, wann ein Dienstleister (z. B. Lutz) zuletzt da war und wann er laut Vertrag wieder dran ist - und ob er zu früh kommt.
