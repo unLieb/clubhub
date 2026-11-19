@@ -6,6 +6,10 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.66.0] - 2026-11-19
+- Dashboard: Ist eine Karte eines Paares ausgeblendet („Letzte Reinigungen"/„Überfällige Aufgaben" bzw. „Bereiche"/„Meldungen"), nimmt die verbleibende Karte ab Desktop/Tablet die volle Breite ein statt eine Lücke zu lassen. Die Anordnung ergibt sich aus den tatsächlich sichtbaren Karten (bestehendes „Dashboard anpassen", Auswahl weiter in localStorage); am Handy bleiben die Karten untereinander.
+- „Letzte Reinigungen": ist die Karte breit (ab ca. 620 px Kartenbreite), zeigt jeder Eintrag zusätzlich die erledigte Aufgabe (Bereich, Aufgabe, erledigt von, Zeitpunkt). Schmal bleibt die kompakte Darstellung. Weiter die 8 neuesten Einträge mit Link „Alle anzeigen"; die Historie selbst ist unverändert.
+
 ## [1.65.1] - 2026-11-19
 - Meldungen: in Liste und Detailansicht sind die Namen von Melder, Bearbeiter („in Bearbeitung von") und Erledigendem („erledigt vor … von") jetzt fett und in kräftigerer Textfarbe hervorgehoben; der übrige Text der Zeile bleibt gedämpft.
 

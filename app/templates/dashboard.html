@@ -38,6 +38,16 @@
       var css = hidden.filter(function (k) { return DEFAULT_ORDER.indexOf(k) !== -1; })
         .map(function (k) { return '[data-dashboard-widget="' + k + '"]{display:none}'; })
         .join('');
+      // Raster-Paare: ist die Partnerkarte ausgeblendet, nimmt die verbleibende
+      // Karte (ab lg, wo die Raster aktiv sind) die volle Rasterbreite ein.
+      // Dynamisch aus den tatsaechlich sichtbaren Karten statt fester Position.
+      var PAIRS = [['history', 'overdue'], ['rooms', 'reports']];
+      var span = PAIRS.map(function (p) {
+        var h0 = hidden.indexOf(p[0]) !== -1, h1 = hidden.indexOf(p[1]) !== -1;
+        if (h0 === h1) return '';
+        return '[data-dashboard-widget="' + (h0 ? p[1] : p[0]) + '"]{grid-column:1/-1}';
+      }).join('');
+      if (span) css += '@media (min-width:1024px){' + span + '}';
       css += '@media (max-width:1023.98px){' + full.map(function (k, i) {
         return '[data-dashboard-widget="' + k + '"]{order:' + ((i + 1) * 10) + '}';
       }).join('') + '}';
@@ -560,20 +570,48 @@
       </h2>
       <a href="/history" class="text-xs text-slate-400 hover:text-slate-100">Alle anzeigen</a>
     </div>
-    <ul class="divide-y divide-line">
-      {% for c in recent_completions %}
-      <li class="flex items-center gap-3 py-2.5 text-sm">
-        <div class="flex items-center gap-2 w-[130px] shrink-0">
-          <span class="w-1.5 h-1.5 rounded-full bg-go shrink-0"></span>
-          <span class="truncate min-w-0">{{ c.task.room.name }}</span>
-        </div>
-        <span class="text-slate-500 truncate flex-1 min-w-0">{{ c.user.name }}</span>
-        <span class="text-slate-500 text-xs whitespace-nowrap shrink-0">{{ (c.timestamp|localtime)|reldate }}</span>
-      </li>
-      {% else %}
-      <li class="py-4 text-center text-slate-500 text-sm italic">Noch keine Einträge</li>
-      {% endfor %}
-    </ul>
+    <!-- Zwei Darstellungen derselben Eintraege: kompakt (schmal) und mit
+         Aufgabenname (breit). Umschaltung per Container-Query auf die Breite
+         der Karte selbst (siehe <style> unten), nicht per Viewport. -->
+    <div class="dash-hist">
+      <ul class="dash-hist-compact divide-y divide-line">
+        {% for c in recent_completions %}
+        <li class="flex items-center gap-3 py-2.5 text-sm">
+          <div class="flex items-center gap-2 w-[130px] shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-go shrink-0"></span>
+            <span class="truncate min-w-0">{{ c.task.room.name }}</span>
+          </div>
+          <span class="text-slate-500 truncate flex-1 min-w-0">{{ c.user.name }}</span>
+          <span class="text-slate-500 text-xs whitespace-nowrap shrink-0">{{ (c.timestamp|localtime)|reldate }}</span>
+        </li>
+        {% else %}
+        <li class="py-4 text-center text-slate-500 text-sm italic">Noch keine Einträge</li>
+        {% endfor %}
+      </ul>
+      <ul class="dash-hist-wide divide-y divide-line">
+        {% for c in recent_completions %}
+        <li class="flex items-center gap-4 py-2.5 text-sm">
+          <div class="flex items-center gap-2 w-[180px] shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-go shrink-0"></span>
+            <span class="truncate min-w-0">{{ c.task.room.name }}</span>
+          </div>
+          <span class="text-slate-300 truncate flex-1 min-w-0" title="{{ c.task.name }}">{{ c.task.name }}</span>
+          <span class="text-slate-500 truncate w-[140px] shrink-0">{{ c.user.name }}</span>
+          <span class="text-slate-500 text-xs whitespace-nowrap shrink-0 w-[110px] text-right">{{ (c.timestamp|localtime)|reldate }}</span>
+        </li>
+        {% else %}
+        <li class="py-4 text-center text-slate-500 text-sm italic">Noch keine Einträge</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <style>
+      [data-dashboard-widget="history"] { container-type: inline-size; container-name: dashhist; }
+      .dash-hist-wide { display: none; }
+      @container dashhist (min-width: 620px) {
+        .dash-hist-compact { display: none; }
+        .dash-hist-wide { display: block; }
+      }
+    </style>
   </div>
 
   <div data-dashboard-widget="overdue" class="hidden lg:block rounded-xl border border-line bg-panel p-4 min-w-0">
