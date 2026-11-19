@@ -4507,6 +4507,7 @@ async def reports_create(
     )
     db.commit()
 
+    dropped_photos = 0
     for photo in photos:
         if not photo or not photo.filename:
             continue
@@ -4517,6 +4518,8 @@ async def reports_create(
             with open(os.path.join(REPORT_PHOTOS_DIR, filename), "wb") as f:
                 f.write(data)
             db.add(models.ReportPhoto(report_id=report.id, filename=filename))
+        else:
+            dropped_photos += 1
 
     # Bereits per "Produkt-Link"-Assistenten heruntergeladenes Vorschaubild
     # (siehe reports_link_preview) - Formularfeld ist clientseitig
@@ -4586,6 +4589,20 @@ async def reports_create(
                 for group in room.groups:
                     background_tasks.add_task(notify_group, group, notify_title, msg, "default", focus_url, user.id)
 
+    if dropped_photos:
+        # Leere/ungueltige Dateiteile (z.B. Browser konnte das Foto beim Senden
+        # nicht lesen, Fehlerprotokoll 12.11.: 0 B) nicht stillschweigend
+        # verschlucken - die Meldung ist gespeichert, das Foto laesst sich als
+        # Kommentar nachreichen.
+        note = "Das Foto" if dropped_photos == 1 else f"{dropped_photos} Fotos"
+        return RedirectResponse(
+            _with_toast(
+                "/reports",
+                f"Meldung gespeichert, aber {note} konnte nicht übernommen werden – bitte als Kommentar anhängen.",
+                "error",
+            ),
+            status_code=302,
+        )
     return RedirectResponse("/reports", status_code=302)
 
 
@@ -6419,7 +6436,7 @@ def _request_from_app(request) -> bool:
         return False
 
 
-_CLIENT_LOG_KINDS = {"senden_fehlgeschlagen", "js_fehler", "verbindung", "datei_auswahl", "diagnose"}
+_CLIENT_LOG_KINDS = {"senden_fehlgeschlagen", "js_fehler", "verbindung", "datei_auswahl", "diagnose", "foto_lesen"}
 _client_log_hits: dict = {}
 
 

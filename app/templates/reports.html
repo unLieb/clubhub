@@ -452,6 +452,24 @@
         btn.textContent = 'Wird gesendet…';
         errBox.classList.add('hidden');
 
+        // Rueckfall auf das normale Formular-Absenden (so laeuft auch der
+        // Foto-Anhang an Kommentaren, der in der Android-App funktioniert):
+        // dort liest der Browser die Datei selbst. Greift, wenn sich ein Foto
+        // nicht vorab lesen laesst oder fetch() mit dem Foto sofort scheitert
+        // (Fehlerprotokoll 16.11.: Android-App, Foto aus der Galerie, Abbruch
+        // nach ~110 ms, die Anfrage erreichte den Server nie).
+        var readFailed = false;
+        function submitNative(reason) {
+          clearTimeout(timer);
+          if (window.clubhubLog) {
+            window.clubhubLog('foto_lesen', {
+              path: '/reports', method: 'POST', duration_ms: Date.now() - started, size_bytes: bytes,
+              details: reason + ' - sende per Formular'
+            });
+          }
+          createForm.submit();
+        }
+
         function fail(reason, status) {
           clearTimeout(timer);
           btn.disabled = false;
@@ -488,12 +506,17 @@
             if (!buf || !buf.byteLength) throw new Error('foto_leer');
             return [pair[0], new File([buf], f.name || 'foto.jpg', { type: f.type || 'image/jpeg' })];
           }).catch(function (e) {
+            readFailed = true;
             if (window.clubhubLog) {
-              window.clubhubLog('foto_lesen', { path: '/reports', details: 'Vorab-Lesen fehlgeschlagen (' + ((e && (e.name || e.message)) || '?') + '), sende Originaldatei: ' + (f.name || '-') + ' ' + f.size + ' B' });
+              window.clubhubLog('foto_lesen', { path: '/reports', details: 'Vorab-Lesen fehlgeschlagen (' + ((e && (e.name || e.message)) || '?') + '): ' + (f.name || '-') + ' ' + f.size + ' B' });
             }
             return pair;
           });
         })).then(function (copies) {
+          if (readFailed) {
+            submitNative('Foto nicht vorab lesbar');
+            throw new Error('native');
+          }
           copies.forEach(function (c) { fd.append(c[0], c[1]); bytes += c[1].size; });
           if (!String(fd.get('title') || '').trim() && !String(fd.get('comment') || '').trim()) {
             throw new Error('titel_fehlt');
@@ -507,6 +530,14 @@
           })
           .catch(function (err) {
             var m = err && err.message;
+            if (m === 'native') return;  // Formular wurde normal abgeschickt
+            // fetch() mit Foto scheitert sofort (< 3 s, online): lokales Problem
+            // beim Lesen der Datei, kein Netzausfall - normal absenden.
+            if (pending.length && !(err && err.name === 'AbortError') && navigator.onLine !== false &&
+                Date.now() - started < 3000 && m !== 'titel_fehlt') {
+              submitNative('fetch sofort gescheitert (' + ((err && (err.name || err.message)) || '?') + ')');
+              return;
+            }
             if (m === 'foto_leer') { fail('Foto konnte nicht gelesen werden - bitte das Foto neu auswählen'); return; }
             if (m === 'titel_fehlt') { fail('Titel wurde nicht übernommen - bitte Seite neu laden'); return; }
             fail(err && err.name === 'AbortError' ? 'Zeitüberschreitung nach 3 Minuten' : (err && err.name === 'NotReadableError' ? 'Foto konnte nicht gelesen werden - bitte das Foto neu auswählen' : 'keine Verbindung zum Server'));

@@ -6,6 +6,11 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.64.1] - 2026-11-19
+- Fix: Bildupload bei „Neue Meldung" in der Android-App (Fehlerprotokoll 16.11., Foto aus der Galerie, 3,8 MB: dreimal „Senden fehlgeschlagen (keine Verbindung zum Server)", Abbruch nach ~110 ms, die Anfrage erreichte den Server nie; am 13.11. ähnlich mit 5,9 MB). Ursache: Das Formular schickt per `fetch()` und liest die Fotos vorher in den Speicher; bei Galerie-Dateien der App-WebView (Content-URI) scheitert das Lesen bzw. das Senden der Originaldatei sofort, obwohl derselbe Foto-Anhang an einem Kommentar (normales Formular) funktioniert. Jetzt fällt das Formular in diesen Fällen automatisch auf das normale Formular-Absenden zurück (Foto nicht vorab lesbar, oder `fetch()` scheitert mit Foto binnen 3 Sekunden bei bestehender Verbindung). Bei echtem Verbindungsverlust bleibt es bei der Fehlermeldung mit erhaltenen Eingaben.
+- Das Fehlerprotokoll nimmt die Art „foto_lesen" jetzt an; sie wurde bisher vom Server stillschweigend verworfen, weshalb die Foto-Lesefehler vom 13. und 16.11. nicht im Protokoll standen.
+- Meldung anlegen: kommt ein Foto leer oder ungültig an (Fehlerprotokoll 12.11., Samsung Internet: `application/octet-stream`, 0 B), wurde es bisher kommentarlos weggelassen. Jetzt erscheint nach dem Speichern der Hinweis „Meldung gespeichert, aber das Foto konnte nicht übernommen werden – bitte als Kommentar anhängen."
+
 ## [1.64.0] - 2026-11-19
 - Meldungen nachträglich bearbeiten: auf der Detailseite gibt es oben rechts „Bearbeiten“ (für den Melder sowie Admin und Schichtleiter; automatische Kühlungs-Meldungen ausgenommen). Änderbar sind Titel, Beschreibung, Kategorie, Bereich (inkl. „Sonstiges“), Priorität und bei Anschaffungen der Produkt-Link. Es gelten dieselben Regeln wie beim Anlegen (Anschaffung ohne Bereich/Priorität, „Sonstiges“ und Anschaffung brauchen eine zuständige Gruppe). Jede Änderung steht mit altem und neuem Wert im Audit-Log; es gibt keine Benachrichtigung.
 - Zuständigkeit: ein neuer Knopf „Zuständigkeit“ neben „Bearbeiten“ klappt direkt „Infos → Zuständigkeit ändern“ auf (vorher unscheinbar hinter dem eingeklappten Bereich „Infos“).
