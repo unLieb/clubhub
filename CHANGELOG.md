@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.66.2] - 2026-11-20
+- Dashboard anpassen: Der Handy-Hinweis „X neue Kommentare" blieb sichtbar, auch wenn die Karte „Meldungen" ausgeblendet war. Er gehört jetzt zur Karte „Meldungen" und verschwindet mit ihr.
+
 ## [1.66.1] - 2026-11-20
 - Fix: Historie-Seitenleiste zeigte alle Seitenzahlen nebeneinander und lief ab ca. Seite 32 aus dem Bild (Pfeil „weiter" nicht mehr erreichbar). Jetzt erscheinen nur erste und letzte Seite sowie die aktuelle Seite ±2, Lücken als „…" (z. B. 1 … 30 31 32 33 34 … 100).
 
