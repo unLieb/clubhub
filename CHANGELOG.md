@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.66.1] - 2026-11-20
+- Fix: Historie-Seitenleiste zeigte alle Seitenzahlen nebeneinander und lief ab ca. Seite 32 aus dem Bild (Pfeil „weiter" nicht mehr erreichbar). Jetzt erscheinen nur erste und letzte Seite sowie die aktuelle Seite ±2, Lücken als „…" (z. B. 1 … 30 31 32 33 34 … 100).
+
 ## [1.66.0] - 2026-11-19
 - Dashboard: Ist eine Karte eines Paares ausgeblendet („Letzte Reinigungen"/„Überfällige Aufgaben" bzw. „Bereiche"/„Meldungen"), nimmt die verbleibende Karte ab Desktop/Tablet die volle Breite ein statt eine Lücke zu lassen. Die Anordnung ergibt sich aus den tatsächlich sichtbaren Karten (bestehendes „Dashboard anpassen", Auswahl weiter in localStorage); am Handy bleiben die Karten untereinander.
 - „Letzte Reinigungen": ist die Karte breit (ab ca. 620 px Kartenbreite), zeigt jeder Eintrag zusätzlich die erledigte Aufgabe (Bereich, Aufgabe, erledigt von, Zeitpunkt). Schmal bleibt die kompakte Darstellung. Weiter die 8 neuesten Einträge mit Link „Alle anzeigen"; die Historie selbst ist unverändert.

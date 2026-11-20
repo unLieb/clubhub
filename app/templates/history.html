@@ -111,9 +111,15 @@
         <button type="submit" form="hist-filter-form" name="page" value="{{ page - 1 }}" {% if page <= 1 %}disabled{% endif %}
                 class="px-2 py-1 rounded-md text-xs text-slate-400 hover:bg-panel2 hover:text-slate-100 disabled:opacity-30 disabled:pointer-events-none" aria-label="Vorherige Seite">&lsaquo;</button>
         <div class="flex items-center gap-1">
+          {# Fenster: erste/letzte Seite + aktuelle Seite ±2, Luecken als "…" #}
+          {% set ns = namespace(last=0) %}
           {% for p in range(1, page_count + 1) %}
+          {% if p == 1 or p == page_count or (p >= page - 2 and p <= page + 2) %}
+          {% if p - ns.last > 1 %}<span class="px-1 text-xs text-slate-500 select-none">…</span>{% endif %}
           <button type="submit" form="hist-filter-form" name="page" value="{{ p }}"
                   class="px-2.5 py-1 rounded-md text-xs {% if p == page %}bg-go/90 text-oncolor font-medium{% else %}text-slate-400 hover:bg-panel2 hover:text-slate-100{% endif %}">{{ p }}</button>
+          {% set ns.last = p %}
+          {% endif %}
           {% endfor %}
         </div>
         <button type="submit" form="hist-filter-form" name="page" value="{{ page + 1 }}" {% if page >= page_count %}disabled{% endif %}
