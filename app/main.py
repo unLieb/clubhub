@@ -350,7 +350,7 @@ DASHBOARD_WIDGETS = [
     ("reports", "Meldungen"),
     ("rooms", "Bereiche"),
     ("history", "Letzte Reinigungen"),
-    ("overdue", "Überfällige Aufgaben"),
+    ("overdue", "Überfällige Aufgaben (am Handy in „Heute anstehend“)"),
 ]
 templates.env.globals["dashboard_widgets"] = DASHBOARD_WIDGETS
 

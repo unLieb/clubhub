@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.66.3] - 2026-11-20
+- Dashboard anpassen: „Überfällige Aufgaben" wirkt jetzt auch am Handy. Dort stehen die überfälligen Aufgaben im Block „Heute anstehend"; die Liste folgt nun dem Schalter, und der Block verschwindet ganz, wenn er sonst nichts enthält (keine Termine heute). Die Beschriftung im Anpassen-Fenster weist darauf hin.
+
 ## [1.66.2] - 2026-11-20
 - Dashboard anpassen: Der Handy-Hinweis „X neue Kommentare" blieb sichtbar, auch wenn die Karte „Meldungen" ausgeblendet war. Er gehört jetzt zur Karte „Meldungen" und verschwindet mit ihr.
 

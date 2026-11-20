@@ -47,7 +47,11 @@
         if (h0 === h1) return '';
         return '[data-dashboard-widget="' + (h0 ? p[1] : p[0]) + '"]{grid-column:1/-1}';
       }).join('');
-      if (span) css += '@media (min-width:1024px){' + span + '}';
+      // Am Handy stehen die ueberfaelligen Aufgaben im Block "Heute anstehend"
+      // (Schluessel "overdue" gilt dort fuer die Liste). Enthaelt der Block
+      // sonst nichts (keine Termine heute), verschwindet er komplett mit.
+      if (hidden.indexOf('overdue') !== -1) css += '[data-only-overdue]{display:none}';
+      if (span) css +='@media (min-width:1024px){' + span + '}';
       css += '@media (max-width:1023.98px){' + full.map(function (k, i) {
         return '[data-dashboard-widget="' + k + '"]{order:' + ((i + 1) * 10) + '}';
       }).join('') + '}';
@@ -95,7 +99,7 @@
      handlungsrelevant, alles andere folgt weiter unten (siehe Reihenfolge
      der übrigen lg:hidden-/hidden lg:block-Bloecke in dieser Datei). -->
 {% if todays_appointments or overdue_tasks %}
-<div data-dashboard-widget="today" class="lg:hidden rounded-xl border border-line bg-panel p-3 mb-6 space-y-3">
+<div data-dashboard-widget="today" {% if not todays_appointments %}data-only-overdue{% endif %} class="lg:hidden rounded-xl border border-line bg-panel p-3 mb-6 space-y-3">
   <div class="text-xs font-medium text-slate-400 uppercase tracking-wide">Heute anstehend</div>
 
   {% if todays_appointments %}
@@ -111,7 +115,7 @@
   {% endif %}
 
   {% if overdue_tasks %}
-  <div class="space-y-1.5" id="dash-mobile-overdue-list">
+  <div class="space-y-1.5" id="dash-mobile-overdue-list" data-dashboard-widget="overdue">
     {% for entry in overdue_tasks %}
     {% set t = entry.task %}
     <div class="dash-overdue-mobile-row flex items-center justify-between bg-late/10 border border-late/30 rounded-lg px-3 py-2" id="dash-overdue-mobile-{{ t.id }}">
@@ -129,7 +133,7 @@
     </div>
     {% endfor %}
   </div>
-  <p id="dash-mobile-overdue-empty" class="hidden text-sm text-slate-500 italic px-1">Alles erledigt 🎉</p>
+  <p id="dash-mobile-overdue-empty" data-dashboard-widget="overdue" class="hidden text-sm text-slate-500 italic px-1">Alles erledigt 🎉</p>
   {% endif %}
 </div>
 {% endif %}
