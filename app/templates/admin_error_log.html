@@ -32,6 +32,36 @@
   <strong class="text-slate-300">Browser</strong> = vom Gerät nachgemeldet, z.B. wenn das Absenden an der Verbindung gescheitert ist (der Zeitpunkt ist der des Fehlers, nicht der der Meldung).
 </p>
 
+{# Zusammenfassung der letzten 7 Tage: auf einen Blick, ob es echte Fehler gab #}
+<div class="rounded-xl border p-4 mb-4 {% if error_total %}border-late/40 bg-late/10{% elif warn_total %}border-warn/40 bg-warn/10{% else %}border-go/40 bg-go/10{% endif %}">
+  {% if error_total %}
+  <div class="font-display font-medium text-late">{{ error_total }} Fehler in den letzten 7 Tagen</div>
+  <div class="text-sm text-slate-300 mt-1">
+    {% for k, n in error_counts.items() %}{{ n }}× {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}
+    {% if last_error %}&middot; zuletzt am {{ (last_error.timestamp|localtime).strftime("%d.%m.%Y, %H:%M") }} Uhr{% endif %}
+  </div>
+  {% elif warn_total %}
+  <div class="font-display font-medium text-warn">Keine Fehler, aber {{ warn_total }} {{ "Hinweis" if warn_total == 1 else "Hinweise" }} in den letzten 7 Tagen</div>
+  {% else %}
+  <div class="font-display font-medium text-go">Keine Fehler in den letzten 7 Tagen &#10003;</div>
+  {% endif %}
+  {% if warn_total and error_total %}
+  <div class="text-sm text-slate-400 mt-1">Dazu {{ warn_total }} {{ "Hinweis" if warn_total == 1 else "Hinweise" }}: {% for k, n in warn_counts.items() %}{{ n }}× {{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+  {% elif warn_total %}
+  <div class="text-sm text-slate-300 mt-1">{% for k, n in warn_counts.items() %}{{ n }}× {{ k }}{% if not loop.last %}, {% endif %}{% endfor %} &ndash; meist harmlos (z.&thinsp;B. Funkloch).</div>
+  {% endif %}
+  <div class="text-xs text-slate-400 mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+    <span><span class="inline-block w-2 h-2 rounded-full bg-late"></span> Fehler (rot): {{ error_kinds|join(", ") }}</span>
+    <span><span class="inline-block w-2 h-2 rounded-full bg-warn"></span> Hinweis (gelb): {{ warn_kinds|join(", ") }}</span>
+    <span>Grau = reine Mitschrift, kein Problem.</span>
+    {% if only_problems %}
+    <a href="/admin/error-log" class="text-slate-200 underline underline-offset-2">Alles anzeigen</a>
+    {% else %}
+    <a href="/admin/error-log?problems=1" class="text-slate-200 underline underline-offset-2">Nur Fehler und Hinweise anzeigen</a>
+    {% endif %}
+  </div>
+</div>
+
 <div class="rounded-xl border border-line bg-panel p-4 mb-4">
   <form method="get" action="/admin/error-log" class="flex flex-col sm:flex-row gap-2">
     <input type="text" name="q" value="{{ q }}" placeholder="Suche (Details, Nutzer, Adresse, Browser)…"
@@ -50,7 +80,7 @@
     </select>
     <button class="px-3 py-1.5 rounded-md bg-go/90 hover:bg-go text-oncolor text-sm font-medium whitespace-nowrap">Filtern</button>
     <a href="/admin/error-log/export{% if base_qs %}?{{ base_qs }}{% endif %}" class="px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium whitespace-nowrap text-center" title="Alle Treffer des aktuellen Filters als CSV-Datei">Exportieren (CSV)</a>
-    {% if q or selected_source or selected_kind %}
+    {% if q or selected_source or selected_kind or only_problems %}
     <a href="/admin/error-log" class="px-3 py-1.5 rounded-md border border-line text-slate-300 hover:bg-panel2 text-sm font-medium whitespace-nowrap text-center">Zurücksetzen</a>
     {% endif %}
   </form>
@@ -72,12 +102,13 @@
       </thead>
       <tbody>
         {% for e in entries %}
-        <tr class="border-b border-line/50 last:border-0 hover:bg-panel2/50">
+        {% set lvl = 'error' if e.kind in error_kinds else ('warn' if e.kind in warn_kinds else 'info') %}
+        <tr class="border-b border-line/50 last:border-0 hover:bg-panel2/50 {% if lvl == 'error' %}bg-late/10 border-l-4 border-l-late{% elif lvl == 'warn' %}bg-warn/10 border-l-4 border-l-warn{% else %}border-l-4 border-l-transparent{% endif %}">
           <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap align-top">{{ (e.timestamp|localtime).strftime("%d.%m.%Y, %H:%M:%S") }}</td>
           <td class="px-4 py-2.5 align-top whitespace-nowrap">
             <span class="inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium
-              {% if e.kind == 'serverfehler' or e.kind == 'js_fehler' %}bg-late/15 text-late
-              {% elif e.kind == 'abgebrochen' or e.kind == 'senden_fehlgeschlagen' %}bg-warn/15 text-warn
+              {% if lvl == 'error' %}bg-late/15 text-late
+              {% elif lvl == 'warn' %}bg-warn/15 text-warn
               {% else %}bg-panel2 text-slate-300{% endif %}">{{ e.kind }}</span>
             <div class="text-[11px] text-slate-500 mt-0.5">{{ sources.get(e.source, e.source) }}</div>
           </td>
@@ -103,7 +134,7 @@
   <div class="border-t border-line">{{ pager() }}</div>
   {% else %}
   <p class="text-slate-500 text-sm italic p-8 text-center">
-    {% if q or selected_source or selected_kind %}Keine Einträge für diese Filter gefunden.{% else %}Keine Fehler protokolliert - gut so.{% endif %}
+    {% if q or selected_source or selected_kind or only_problems %}Keine Einträge für diese Filter gefunden.{% else %}Keine Fehler protokolliert - gut so.{% endif %}
   </p>
   {% endif %}
 </div>

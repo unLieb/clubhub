@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
-from sqlalchemy import text, or_
+from sqlalchemy import text, or_, func
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, joinedload
 
@@ -6432,6 +6432,11 @@ def admin_audit_log_page(
 
 _ERROR_LOG_SOURCES = {"server": "Server", "browser": "Browser", "app": "Android-App"}
 ERROR_LOG_PAGE_SIZE = 25
+# Einstufung der Protokoll-Arten: "error" = echter Fehler (rot), "warn" =
+# Hinweis auf ein Problem, meist harmlos wie ein Funkloch (gelb); alles andere
+# (datei_auswahl, meldung, diagnose ...) ist reine Mitschrift (grau).
+_ERROR_LOG_ERROR_KINDS = ("serverfehler", "js_fehler", "senden_fehlgeschlagen", "foto_lesen")
+_ERROR_LOG_WARN_KINDS = ("verbindung", "abgebrochen", "langsam")
 def _request_from_app(request) -> bool:
     """Kommt die Anfrage aus der Android-App? Kennzeichen: User-Agent "ClubHUBApp/<Version>" ODER das Cookie
     "clubhub_app" (die App setzt es zusaetzlich, weil der Service-Worker der Seite Anfragen mit dem Standard-
@@ -6543,6 +6548,7 @@ def admin_error_log_page(
     source: str = "",
     kind: str = "",
     page: str = "1",
+    problems: str = "",
     db: Session = Depends(get_db),
 ):
     """Fehlerprotokoll (siehe ErrorLog in models.py) - wie das Audit-Log nur
@@ -6562,12 +6568,27 @@ def admin_error_log_page(
         query = query.filter(models.ErrorLog.source == source)
     if kind.strip():
         query = query.filter(models.ErrorLog.kind == kind)
+    only_problems = problems == "1"
+    if only_problems:
+        query = query.filter(models.ErrorLog.kind.in_(_ERROR_LOG_ERROR_KINDS + _ERROR_LOG_WARN_KINDS))
+    # Zusammenfassung der letzten 7 Tage (unabhaengig von den Filtern)
+    since = ntptime.now_utc() - timedelta(days=7)
+    week = db.query(models.ErrorLog).filter(models.ErrorLog.timestamp >= since)
+    kind_counts = {}
+    for k, n in week.with_entities(models.ErrorLog.kind, func.count()).group_by(models.ErrorLog.kind).all():
+        kind_counts[k] = n
+    error_counts = {k: n for k, n in kind_counts.items() if k in _ERROR_LOG_ERROR_KINDS}
+    warn_counts = {k: n for k, n in kind_counts.items() if k in _ERROR_LOG_WARN_KINDS}
+    last_error = (
+        week.filter(models.ErrorLog.kind.in_(_ERROR_LOG_ERROR_KINDS))
+        .order_by(models.ErrorLog.timestamp.desc()).first()
+    )
     # Seitenweise statt bis zu 500 Eintraege auf einmal (Seite wurde ewig lang).
     total = query.count()
     pages = max(1, -(-total // ERROR_LOG_PAGE_SIZE))
     page = min(max(int(page) if page.strip().isdigit() else 1, 1), pages)
     entries = query.offset((page - 1) * ERROR_LOG_PAGE_SIZE).limit(ERROR_LOG_PAGE_SIZE).all()
-    base_qs = urlencode({k: v for k, v in (("q", q), ("source", source), ("kind", kind)) if v})
+    base_qs = urlencode({k: v for k, v in (("q", q), ("source", source), ("kind", kind), ("problems", "1" if only_problems else "")) if v})
     all_kinds = [
         row[0] for row in db.query(models.ErrorLog.kind).distinct().order_by(models.ErrorLog.kind).all()
     ]
@@ -6586,6 +6607,14 @@ def admin_error_log_page(
         "selected_source": source,
         "selected_kind": kind,
         "keep_days": KEEP_DAYS,
+        "only_problems": only_problems,
+        "error_kinds": _ERROR_LOG_ERROR_KINDS,
+        "warn_kinds": _ERROR_LOG_WARN_KINDS,
+        "error_counts": error_counts,
+        "warn_counts": warn_counts,
+        "error_total": sum(error_counts.values()),
+        "warn_total": sum(warn_counts.values()),
+        "last_error": last_error,
     })
 
 

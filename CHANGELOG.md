@@ -6,6 +6,9 @@ Alle nennenswerten Änderungen an ClubHUB, neueste zuerst. Format angelehnt an
 Versions-Bump in `VERSION` und einem eigenen Commit in der Git-Historie
 (`git log` für den vollen Diff).
 
+## [1.67.0] - 2026-11-20
+- Fehlerprotokoll: Oben steht jetzt eine Zusammenfassung der letzten 7 Tage („Keine Fehler in den letzten 7 Tagen ✓" bzw. Anzahl und Arten der Fehler samt Zeitpunkt des letzten). Einträge sind farbig eingestuft: **rot** = echte Fehler (serverfehler, js_fehler, senden_fehlgeschlagen, foto_lesen), **gelb** = unkritische Hinweise (verbindung, abgebrochen, langsam – meist Funkloch), **grau** = reine Mitschrift (datei_auswahl, meldung …). Mit „Nur Fehler und Hinweise anzeigen" blendet man die Mitschrift aus.
+
 ## [1.66.3] - 2026-11-20
 - Dashboard anpassen: „Überfällige Aufgaben" wirkt jetzt auch am Handy. Dort stehen die überfälligen Aufgaben im Block „Heute anstehend"; die Liste folgt nun dem Schalter, und der Block verschwindet ganz, wenn er sonst nichts enthält (keine Termine heute). Die Beschriftung im Anpassen-Fenster weist darauf hin.
 
